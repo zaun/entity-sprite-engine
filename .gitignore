@@ -1,0 +1,48 @@
+# Build directory
+build/
+
+# Object files
+*.o
+*.obj
+
+# Compiled libraries
+*.a
+*.lib
+
+# Compiled executables
+*.exe
+*.out
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+
+# Metal shader intermediate files
+*.air
+*.metallib
+
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,22 @@
+{
+  "tile_width": 128,
+  "tile_height": 128,
+  "width": 10,
+  "height": 10,
+  "layers": [
+    {
+      "cells": [
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-t-1", "g-t-t-2", "g-t-t-3", "g-t-tr","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
+        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ]
+      ]
+    }
+  ]
+}

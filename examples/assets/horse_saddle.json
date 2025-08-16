@@ -1,0 +1,3559 @@
+{
+    "image": "horse_saddle",
+    "sprites": [
+        {
+            "name": "horse walking north",
+            "speed": 100,
+            "frames": [
+                "horse walking n0000",
+                "horse walking n0001",
+                "horse walking n0002",
+                "horse walking n0003",
+                "horse walking n0004",
+                "horse walking n0005",
+                "horse walking n0006",
+                "horse walking n0007",
+                "horse walking n0008",
+                "horse walking n0009",
+                "horse walking n0010",
+                "horse walking n0011"
+            ]
+        },
+        {
+            "name": "horse walking south",
+            "speed": 100,
+            "frames": [
+                "horse walking s0000",
+                "horse walking s0001",
+                "horse walking s0002",
+                "horse walking s0003",
+                "horse walking s0004",
+                "horse walking s0005",
+                "horse walking s0006",
+                "horse walking s0007",
+                "horse walking s0008",
+                "horse walking s0009",
+                "horse walking s0010",
+                "horse walking s0011"
+            ]
+        },
+        {
+            "name": "horse walking east",
+            "speed": 100,
+            "frames": [
+                "horse walking e0000",
+                "horse walking e0001",
+                "horse walking e0002",
+                "horse walking e0003",
+                "horse walking e0004",
+                "horse walking e0005",
+                "horse walking e0006",
+                "horse walking e0007",
+                "horse walking e0008",
+                "horse walking e0009",
+                "horse walking e0010",
+                "horse walking e0011"
+            ]
+        },
+        {
+            "name": "horse walking west",
+            "speed": 100,
+            "frames": [
+                "horse walking w0000",
+                "horse walking w0001",
+                "horse walking w0002",
+                "horse walking w0003",
+                "horse walking w0004",
+                "horse walking w0005",
+                "horse walking w0006",
+                "horse walking w0007",
+                "horse walking w0008",
+                "horse walking w0009",
+                "horse walking w0010",
+                "horse walking w0011"
+            ]
+        },
+        {
+            "name": "horse walking north east",
+            "speed": 100,
+            "frames": [
+                "horse walking ne0000",
+                "horse walking ne0001",
+                "horse walking ne0002",
+                "horse walking ne0003",
+                "horse walking ne0004",
+                "horse walking ne0005",
+                "horse walking ne0006",
+                "horse walking ne0007",
+                "horse walking ne0008",
+                "horse walking ne0009",
+                "horse walking ne0010",
+                "horse walking ne0011"
+            ]
+        },
+        {
+            "name": "horse walking north west",
+            "speed": 100,
+            "frames": [
+                "horse walking nw0000",
+                "horse walking nw0001",
+                "horse walking nw0002",
+                "horse walking nw0003",
+                "horse walking nw0004",
+                "horse walking nw0005",
+                "horse walking nw0006",
+                "horse walking nw0007",
+                "horse walking nw0008",
+                "horse walking nw0009",
+                "horse walking nw0010",
+                "horse walking nw0011"
+            ]
+        },
+        {
+            "name": "horse walking south east",
+            "speed": 100,
+            "frames": [
+                "horse walking se0000",
+                "horse walking se0001",
+                "horse walking se0002",
+                "horse walking se0003",
+                "horse walking se0004",
+                "horse walking se0005",
+                "horse walking se0006",
+                "horse walking se0007",
+                "horse walking se0008",
+                "horse walking se0009",
+                "horse walking se0010",
+                "horse walking se0011"
+            ]
+        },
+        {
+            "name": "horse walking south west",
+            "speed": 100,
+            "frames": [
+                "horse walking sw0000",
+                "horse walking sw0001",
+                "horse walking sw0002",
+                "horse walking sw0003",
+                "horse walking sw0004",
+                "horse walking sw0005",
+                "horse walking sw0006",
+                "horse walking sw0007",
+                "horse walking sw0008",
+                "horse walking sw0009",
+                "horse walking sw0010",
+                "horse walking sw0011"
+            ]
+        },
+        {
+            "name": "horse running north",
+            "speed": 75,
+            "frames": [
+                "horse running n0000",
+                "horse running n0001",
+                "horse running n0002",
+                "horse running n0003",
+                "horse running n0004",
+                "horse running n0005",
+                "horse running n0006",
+                "horse running n0007",
+                "horse running n0008",
+                "horse running n0009",
+                "horse running n0010",
+                "horse running n0011"
+            ]
+        },
+        {
+            "name": "horse running south",
+            "speed": 75,
+            "frames": [
+                "horse running s0000",
+                "horse running s0001",
+                "horse running s0002",
+                "horse running s0003",
+                "horse running s0004",
+                "horse running s0005",
+                "horse running s0006",
+                "horse running s0007",
+                "horse running s0008",
+                "horse running s0009",
+                "horse running s0010",
+                "horse running s0011"
+            ]
+        },
+        {
+            "name": "horse running east",
+            "speed": 75,
+            "frames": [
+                "horse running e0000",
+                "horse running e0001",
+                "horse running e0002",
+                "horse running e0003",
+                "horse running e0004",
+                "horse running e0005",
+                "horse running e0006",
+                "horse running e0007",
+                "horse running e0008",
+                "horse running e0009",
+                "horse running e0010",
+                "horse running e0011"
+            ]
+        },
+        {
+            "name": "horse running west",
+            "speed": 75,
+            "frames": [
+                "horse running w0000",
+                "horse running w0001",
+                "horse running w0002",
+                "horse running w0003",
+                "horse running w0004",
+                "horse running w0005",
+                "horse running w0006",
+                "horse running w0007",
+                "horse running w0008",
+                "horse running w0009",
+                "horse running w0010",
+                "horse running w0011"
+            ]
+        },
+        {
+            "name": "horse running north east",
+            "speed": 75,
+            "frames": [
+                "horse running ne0000",
+                "horse running ne0001",
+                "horse running ne0002",
+                "horse running ne0003",
+                "horse running ne0004",
+                "horse running ne0005",
+                "horse running ne0006",
+                "horse running ne0007",
+                "horse running ne0008",
+                "horse running ne0009",
+                "horse running ne0010",
+                "horse running ne0011"
+            ]
+        },
+        {
+            "name": "horse running north west",
+            "speed": 75,
+            "frames": [
+                "horse running nw0000",
+                "horse running nw0001",
+                "horse running nw0002",
+                "horse running nw0003",
+                "horse running nw0004",
+                "horse running nw0005",
+                "horse running nw0006",
+                "horse running nw0007",
+                "horse running nw0008",
+                "horse running nw0009",
+                "horse running nw0010",
+                "horse running nw0011"
+            ]
+        },
+        {
+            "name": "horse running south east",
+            "speed": 75,
+            "frames": [
+                "horse running se0000",
+                "horse running se0001",
+                "horse running se0002",
+                "horse running se0003",
+                "horse running se0004",
+                "horse running se0005",
+                "horse running se0006",
+                "horse running se0007",
+                "horse running se0008",
+                "horse running se0009",
+                "horse running se0010",
+                "horse running se0011"
+            ]
+        },
+        {
+            "name": "horse running south west",
+            "speed": 75,
+            "frames": [
+                "horse running sw0000",
+                "horse running sw0001",
+                "horse running sw0002",
+                "horse running sw0003",
+                "horse running sw0004",
+                "horse running sw0005",
+                "horse running sw0006",
+                "horse running sw0007",
+                "horse running sw0008",
+                "horse running sw0009",
+                "horse running sw0010",
+                "horse running sw0011"
+            ]
+        }
+    ],
+    "frames": [
+        {
+            "name": "horse eating e0000",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0001",
+            "x": 144,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0002",
+            "x": 288,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0003",
+            "x": 432,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0004",
+            "x": 576,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0005",
+            "x": 720,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0006",
+            "x": 864,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0007",
+            "x": 1008,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0008",
+            "x": 1152,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0009",
+            "x": 1296,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0010",
+            "x": 1440,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0011",
+            "x": 1584,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0012",
+            "x": 1728,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating e0013",
+            "x": 1872,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0000",
+            "x": 2016,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0001",
+            "x": 2160,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0002",
+            "x": 2304,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0003",
+            "x": 2448,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0004",
+            "x": 2592,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0005",
+            "x": 2736,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0006",
+            "x": 2880,
+            "y": 0,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0007",
+            "x": 0,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0008",
+            "x": 144,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0009",
+            "x": 288,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0010",
+            "x": 432,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0011",
+            "x": 576,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0012",
+            "x": 720,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating n0013",
+            "x": 864,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0000",
+            "x": 1008,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0001",
+            "x": 1152,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0002",
+            "x": 1296,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0003",
+            "x": 1440,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0004",
+            "x": 1584,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0005",
+            "x": 1728,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0006",
+            "x": 1872,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0007",
+            "x": 2016,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0008",
+            "x": 2160,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0009",
+            "x": 2304,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0010",
+            "x": 2448,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0011",
+            "x": 2592,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0012",
+            "x": 2736,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating ne0013",
+            "x": 2880,
+            "y": 144,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0000",
+            "x": 0,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0001",
+            "x": 144,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0002",
+            "x": 288,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0003",
+            "x": 432,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0004",
+            "x": 576,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0005",
+            "x": 720,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0006",
+            "x": 864,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0007",
+            "x": 1008,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0008",
+            "x": 1152,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0009",
+            "x": 1296,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0010",
+            "x": 1440,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0011",
+            "x": 1584,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0012",
+            "x": 1728,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating nw0013",
+            "x": 1872,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0000",
+            "x": 2016,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0001",
+            "x": 2160,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0002",
+            "x": 2304,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0003",
+            "x": 2448,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0004",
+            "x": 2592,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0005",
+            "x": 2736,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0006",
+            "x": 2880,
+            "y": 288,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0007",
+            "x": 0,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0008",
+            "x": 144,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0009",
+            "x": 288,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0010",
+            "x": 432,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0011",
+            "x": 576,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0012",
+            "x": 720,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating s0013",
+            "x": 864,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0000",
+            "x": 1008,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0001",
+            "x": 1152,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0002",
+            "x": 1296,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0003",
+            "x": 1440,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0004",
+            "x": 1584,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0005",
+            "x": 1728,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0006",
+            "x": 1872,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0007",
+            "x": 2016,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0008",
+            "x": 2160,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0009",
+            "x": 2304,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0010",
+            "x": 2448,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0011",
+            "x": 2592,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0012",
+            "x": 2736,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating se0013",
+            "x": 2880,
+            "y": 432,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0000",
+            "x": 0,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0001",
+            "x": 144,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0002",
+            "x": 288,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0003",
+            "x": 432,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0004",
+            "x": 576,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0005",
+            "x": 720,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0006",
+            "x": 864,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0007",
+            "x": 1008,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0008",
+            "x": 1152,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0009",
+            "x": 1296,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0010",
+            "x": 1440,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0011",
+            "x": 1584,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0012",
+            "x": 1728,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating sw0013",
+            "x": 1872,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0000",
+            "x": 2016,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0001",
+            "x": 2160,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0002",
+            "x": 2304,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0003",
+            "x": 2448,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0004",
+            "x": 2592,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0005",
+            "x": 2736,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0006",
+            "x": 2880,
+            "y": 576,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0007",
+            "x": 0,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0008",
+            "x": 144,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0009",
+            "x": 288,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0010",
+            "x": 432,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0011",
+            "x": 576,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0012",
+            "x": 720,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse eating w0013",
+            "x": 864,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0000",
+            "x": 1008,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0001",
+            "x": 1152,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0002",
+            "x": 1296,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0003",
+            "x": 1440,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0004",
+            "x": 1584,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0005",
+            "x": 1728,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0006",
+            "x": 1872,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0007",
+            "x": 2016,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0008",
+            "x": 2160,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0009",
+            "x": 2304,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0010",
+            "x": 2448,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking e0011",
+            "x": 2592,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0000",
+            "x": 2736,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0001",
+            "x": 2880,
+            "y": 720,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0002",
+            "x": 0,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0003",
+            "x": 144,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0004",
+            "x": 288,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0005",
+            "x": 432,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0006",
+            "x": 576,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0007",
+            "x": 720,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0008",
+            "x": 864,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0009",
+            "x": 1008,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0010",
+            "x": 1152,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking n0011",
+            "x": 1296,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0000",
+            "x": 1440,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0001",
+            "x": 1584,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0002",
+            "x": 1728,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0003",
+            "x": 1872,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0004",
+            "x": 2016,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0005",
+            "x": 2160,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0006",
+            "x": 2304,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0007",
+            "x": 2448,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0008",
+            "x": 2592,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0009",
+            "x": 2736,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0010",
+            "x": 2880,
+            "y": 864,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking ne0011",
+            "x": 0,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0000",
+            "x": 144,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0001",
+            "x": 288,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0002",
+            "x": 432,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0003",
+            "x": 576,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0004",
+            "x": 720,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0005",
+            "x": 864,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0006",
+            "x": 1008,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0007",
+            "x": 1152,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0008",
+            "x": 1296,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0009",
+            "x": 1440,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0010",
+            "x": 1584,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking nw0011",
+            "x": 1728,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0000",
+            "x": 1872,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0001",
+            "x": 2016,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0002",
+            "x": 2160,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0003",
+            "x": 2304,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0004",
+            "x": 2448,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0005",
+            "x": 2592,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0006",
+            "x": 2736,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0007",
+            "x": 2880,
+            "y": 1008,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0008",
+            "x": 0,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0009",
+            "x": 144,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0010",
+            "x": 288,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking s0011",
+            "x": 432,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0000",
+            "x": 576,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0001",
+            "x": 720,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0002",
+            "x": 864,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0003",
+            "x": 1008,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0004",
+            "x": 1152,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0005",
+            "x": 1296,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0006",
+            "x": 1440,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0007",
+            "x": 1584,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0008",
+            "x": 1728,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0009",
+            "x": 1872,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0010",
+            "x": 2016,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking se0011",
+            "x": 2160,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0000",
+            "x": 2304,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0001",
+            "x": 2448,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0002",
+            "x": 2592,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0003",
+            "x": 2736,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0004",
+            "x": 2880,
+            "y": 1152,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0005",
+            "x": 0,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0006",
+            "x": 144,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0007",
+            "x": 288,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0008",
+            "x": 432,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0009",
+            "x": 576,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0010",
+            "x": 720,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking sw0011",
+            "x": 864,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0000",
+            "x": 1008,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0001",
+            "x": 1152,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0002",
+            "x": 1296,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0003",
+            "x": 1440,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0004",
+            "x": 1584,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0005",
+            "x": 1728,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0006",
+            "x": 1872,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0007",
+            "x": 2016,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0008",
+            "x": 2160,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0009",
+            "x": 2304,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0010",
+            "x": 2448,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse headshaking w0011",
+            "x": 2592,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0000",
+            "x": 2736,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0001",
+            "x": 2880,
+            "y": 1296,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0002",
+            "x": 0,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0003",
+            "x": 144,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0004",
+            "x": 288,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0005",
+            "x": 432,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0006",
+            "x": 576,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0007",
+            "x": 720,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0008",
+            "x": 864,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0009",
+            "x": 1008,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0010",
+            "x": 1152,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running e0011",
+            "x": 1296,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0000",
+            "x": 1440,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0001",
+            "x": 1584,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0002",
+            "x": 1728,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0003",
+            "x": 1872,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0004",
+            "x": 2016,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0005",
+            "x": 2160,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0006",
+            "x": 2304,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0007",
+            "x": 2448,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0008",
+            "x": 2592,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0009",
+            "x": 2736,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0010",
+            "x": 2880,
+            "y": 1440,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running n0011",
+            "x": 0,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0000",
+            "x": 144,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0001",
+            "x": 288,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0002",
+            "x": 432,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0003",
+            "x": 576,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0004",
+            "x": 720,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0005",
+            "x": 864,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0006",
+            "x": 1008,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0007",
+            "x": 1152,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0008",
+            "x": 1296,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0009",
+            "x": 1440,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0010",
+            "x": 1584,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running ne0011",
+            "x": 1728,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0000",
+            "x": 1872,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0001",
+            "x": 2016,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0002",
+            "x": 2160,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0003",
+            "x": 2304,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0004",
+            "x": 2448,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0005",
+            "x": 2592,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0006",
+            "x": 2736,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0007",
+            "x": 2880,
+            "y": 1584,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0008",
+            "x": 0,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0009",
+            "x": 144,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0010",
+            "x": 288,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running nw0011",
+            "x": 432,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0000",
+            "x": 576,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0001",
+            "x": 720,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0002",
+            "x": 864,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0003",
+            "x": 1008,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0004",
+            "x": 1152,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0005",
+            "x": 1296,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0006",
+            "x": 1440,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0007",
+            "x": 1584,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0008",
+            "x": 1728,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0009",
+            "x": 1872,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0010",
+            "x": 2016,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running s0011",
+            "x": 2160,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0000",
+            "x": 2304,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0001",
+            "x": 2448,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0002",
+            "x": 2592,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0003",
+            "x": 2736,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0004",
+            "x": 2880,
+            "y": 1728,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0005",
+            "x": 0,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0006",
+            "x": 144,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0007",
+            "x": 288,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0008",
+            "x": 432,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0009",
+            "x": 576,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0010",
+            "x": 720,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running se0011",
+            "x": 864,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0000",
+            "x": 1008,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0001",
+            "x": 1152,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0002",
+            "x": 1296,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0003",
+            "x": 1440,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0004",
+            "x": 1584,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0005",
+            "x": 1728,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0006",
+            "x": 1872,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0007",
+            "x": 2016,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0008",
+            "x": 2160,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0009",
+            "x": 2304,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0010",
+            "x": 2448,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running sw0011",
+            "x": 2592,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0000",
+            "x": 2736,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0001",
+            "x": 2880,
+            "y": 1872,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0002",
+            "x": 0,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0003",
+            "x": 144,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0004",
+            "x": 288,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0005",
+            "x": 432,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0006",
+            "x": 576,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0007",
+            "x": 720,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0008",
+            "x": 864,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0009",
+            "x": 1008,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0010",
+            "x": 1152,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse running w0011",
+            "x": 1296,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0000",
+            "x": 1440,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0001",
+            "x": 1584,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0002",
+            "x": 1728,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0003",
+            "x": 1872,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0004",
+            "x": 2016,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0005",
+            "x": 2160,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0006",
+            "x": 2304,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse stopped0007",
+            "x": 2448,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0000",
+            "x": 2592,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0001",
+            "x": 2736,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0002",
+            "x": 2880,
+            "y": 2016,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0003",
+            "x": 0,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0004",
+            "x": 144,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0005",
+            "x": 288,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0006",
+            "x": 432,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0007",
+            "x": 576,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0008",
+            "x": 720,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0009",
+            "x": 864,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0010",
+            "x": 1008,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking e0011",
+            "x": 1152,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0000",
+            "x": 1296,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0001",
+            "x": 1440,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0002",
+            "x": 1584,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0003",
+            "x": 1728,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0004",
+            "x": 1872,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0005",
+            "x": 2016,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0006",
+            "x": 2160,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0007",
+            "x": 2304,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0008",
+            "x": 2448,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0009",
+            "x": 2592,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0010",
+            "x": 2736,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking n0011",
+            "x": 2880,
+            "y": 2160,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0000",
+            "x": 0,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0001",
+            "x": 144,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0002",
+            "x": 288,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0003",
+            "x": 432,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0004",
+            "x": 576,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0005",
+            "x": 720,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0006",
+            "x": 864,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0007",
+            "x": 1008,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0008",
+            "x": 1152,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0009",
+            "x": 1296,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0010",
+            "x": 1440,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking ne0011",
+            "x": 1584,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0000",
+            "x": 1728,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0001",
+            "x": 1872,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0002",
+            "x": 2016,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0003",
+            "x": 2160,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0004",
+            "x": 2304,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0005",
+            "x": 2448,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0006",
+            "x": 2592,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0007",
+            "x": 2736,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0008",
+            "x": 2880,
+            "y": 2304,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0009",
+            "x": 0,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0010",
+            "x": 144,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking nw0011",
+            "x": 288,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0000",
+            "x": 432,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0001",
+            "x": 576,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0002",
+            "x": 720,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0003",
+            "x": 864,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0004",
+            "x": 1008,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0005",
+            "x": 1152,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0006",
+            "x": 1296,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0007",
+            "x": 1440,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0008",
+            "x": 1584,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0009",
+            "x": 1728,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0010",
+            "x": 1872,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking s0011",
+            "x": 2016,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0000",
+            "x": 2160,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0001",
+            "x": 2304,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0002",
+            "x": 2448,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0003",
+            "x": 2592,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0004",
+            "x": 2736,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0005",
+            "x": 2880,
+            "y": 2448,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0006",
+            "x": 0,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0007",
+            "x": 144,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0008",
+            "x": 288,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0009",
+            "x": 432,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0010",
+            "x": 576,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking se0011",
+            "x": 720,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0000",
+            "x": 864,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0001",
+            "x": 1008,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0002",
+            "x": 1152,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0003",
+            "x": 1296,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0004",
+            "x": 1440,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0005",
+            "x": 1584,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0006",
+            "x": 1728,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0007",
+            "x": 1872,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0008",
+            "x": 2016,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0009",
+            "x": 2160,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0010",
+            "x": 2304,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking sw0011",
+            "x": 2448,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0000",
+            "x": 2592,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0001",
+            "x": 2736,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0002",
+            "x": 2880,
+            "y": 2592,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0003",
+            "x": 0,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0004",
+            "x": 144,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0005",
+            "x": 288,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0006",
+            "x": 432,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0007",
+            "x": 576,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0008",
+            "x": 720,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0009",
+            "x": 864,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0010",
+            "x": 1008,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        },
+        {
+            "name": "horse walking w0011",
+            "x": 1152,
+            "y": 2736,
+            "rotation": 0,
+            "width": 144,
+            "height": 144
+        }
+    ]
+}
