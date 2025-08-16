@@ -3,6 +3,7 @@
 #import <MetalKit/MetalKit.h>
 #import "platform/window.h"
 #import "platform/renderer.h"
+#import "platform/mac/app_delegate.h"
 #import "platform/mac/renderer_private.h"
 #import "platform/renderer_private.h"
 #import "core/memory_manager.h"
@@ -91,6 +92,29 @@ static EseInputKey _mapMacOSKeycodeToInputKey(unsigned short keyCode) {
 }
 
 EseWindow* window_create(int width, int height, const char* title) {
+    if (NSApp == nil) {
+        [NSApplication sharedApplication];
+    }
+
+    // Setup menu bar with Quit
+    NSMenu *menubar = [[NSMenu alloc] init];
+    [NSApp setMainMenu:menubar];
+
+    NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
+    [menubar addItem:appMenuItem];
+
+    NSMenu *appMenu = [[NSMenu alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+
+    NSString *appName = [[NSProcessInfo processInfo] processName];
+    NSString *quitTitle = [NSString stringWithFormat:@"Quit %@", appName];
+    NSMenuItem *quitItem = [[NSMenuItem alloc]
+        initWithTitle:quitTitle
+               action:@selector(terminate:)
+        keyEquivalent:@"q"];
+    [appMenu addItem:quitItem];
+
+    // Create window + engine structs
     EseWindow* window = (EseWindow*)memory_manager.malloc(sizeof(EseWindow), MMTAG_RENDER);
     EseMetalWindow* metalWindow = (EseMetalWindow*)memory_manager.malloc(sizeof(EseMetalWindow), MMTAG_RENDER);
     metalWindow->inputState = input_state_create(nil);
@@ -109,6 +133,11 @@ EseWindow* window_create(int width, int height, const char* title) {
     [NSApp activateIgnoringOtherApps:YES];
     [metalWindow->window makeKeyAndOrderFront:nil];
     [metalWindow->window setAcceptsMouseMovedEvents:YES];
+
+    // Hook delegate
+    EseAppDelegate *delegate = [[EseAppDelegate alloc] init];
+    delegate.eseWindow = window;
+    [NSApp setDelegate:delegate];
 
     window->platform_window = metalWindow;
     window->width = width;
@@ -133,9 +162,9 @@ void window_set_renderer(EseWindow* window, EseRenderer* renderer) {
     EseMetalWindow* metalWindow = (EseMetalWindow*)window->platform_window;
 
     EseMetalRenderer *internal = (EseMetalRenderer *)renderer->internal;
-    window->render = render;
+    window->renderer = renderer;
 
-    // Set the render view
+    // Set the renderer view
     metalWindow->view = internal->view;
     [metalWindow->window.contentView addSubview:metalWindow->view];
     metalWindow->view.frame = metalWindow->window.contentView.bounds;
@@ -161,6 +190,10 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
 
     EseMetalWindow* metalWindow = (EseMetalWindow*)window->platform_window;
     if (!metalWindow) return;
+
+    if (window->should_close) {
+        [metalWindow->window close];
+    }
 
     NSEvent *event;
     while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny

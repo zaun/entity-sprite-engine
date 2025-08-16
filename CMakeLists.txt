@@ -32,6 +32,7 @@ if(PLATFORM STREQUAL "MAC")
     find_library(METAL_LIB Metal REQUIRED)
     file(GLOB PLATFORM_SOURCES 
         "src/platform/mac/window.m"
+        "src/platform/mac/app_delegate.m"
         "src/platform/mac/filesystem.m"
         "src/platform/mac/renderer.m"
         "src/platform/mac/renderer_delegate.m"

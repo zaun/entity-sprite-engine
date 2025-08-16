@@ -393,7 +393,7 @@ bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_
 
 bool renderer_shader_compile(EseRenderer* renderer, const char *library_name, const char *filename) {
     log_assert("METAL_RENDERER", renderer, "renderer_shader_compile called with NULL renderer");
-    log_assert("METAL_RENDERER", library, "renderer_shader_compile called with NULL library");
+    log_assert("METAL_RENDERER", library_name, "renderer_shader_compile called with NULL library_name");
     log_assert("METAL_RENDERER", filename, "renderer_shader_compile called with NULL filename");
 
     char *path = filesystem_get_resource(filename);
@@ -621,12 +621,12 @@ void renderer_draw(EseRenderer *renderer) {
 
 bool renderer_load_texture(EseRenderer* renderer, const char* texture_id, const char* filename, int *out_width, int *out_height) {
     log_assert("METAL_RENDERER", renderer, "renderer_load_texture called with NULL renderer");
-    log_assert("METAL_RENDERER", id, "renderer_load_texture called with NULL id");
+    log_assert("METAL_RENDERER", texture_id, "renderer_load_texture called with NULL texture_id");
     log_assert("METAL_RENDERER", filename, "renderer_load_texture called with NULL filename");
 
     // The hashmap now stores a pointer to a GLTexture struct
-    if (hashmap_get(renderer->textures, id)) {
-        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", id, filename);
+    if (hashmap_get(renderer->textures, texture_id)) {
+        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", texture_id, filename);
         return true;
     }
 
@@ -680,12 +680,12 @@ bool renderer_load_texture(EseRenderer* renderer, const char* texture_id, const 
 
 bool renderer_load_texture_indexed(EseRenderer* renderer, const char* texture_id, const char* filename, int *out_width, int *out_height) {
     log_assert("METAL_RENDERER", renderer, "renderer_load_texture_indexed called with NULL renderer");
-    log_assert("METAL_RENDERER", id, "renderer_load_texture_indexed called with NULL id");
+    log_assert("METAL_RENDERER", texture_id, "renderer_load_texture_indexed called with NULL texture_id");
     log_assert("METAL_RENDERER", filename, "renderer_load_texture_indexed called with NULL filename");
 
     // The hashmap now stores a pointer to a GLTexture struct
-    if (hashmap_get(renderer->textures, id)) {
-        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", id, filename);
+    if (hashmap_get(renderer->textures, texture_id)) {
+        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", texture_id, filename);
         return true;
     }
 
