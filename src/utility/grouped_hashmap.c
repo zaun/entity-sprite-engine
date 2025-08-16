@@ -51,9 +51,9 @@ static EseHashNode* _create_node(const char* group, const char* id, void* value)
         log_error("HASHMAP", "Error: _create_node received null group, id, or value");
         return NULL;
     }
-    EseHashNode* node = memory_manager.malloc(sizeof(EseHashNode), MMTAG_GENERAL);
-    node->key.group = memory_manager.strdup(group, MMTAG_GENERAL);
-    node->key.id = memory_manager.strdup(id, MMTAG_GENERAL);
+    EseHashNode* node = memory_manager.malloc(sizeof(EseHashNode), MMTAG_GROUP_HASHMAP);
+    node->key.group = memory_manager.strdup(group, MMTAG_GROUP_HASHMAP);
+    node->key.id = memory_manager.strdup(id, MMTAG_GROUP_HASHMAP);
     node->value = value;
     node->next = NULL;
     return node;
@@ -73,7 +73,7 @@ static void hashmap_resize(EseGroupedHashMap* map) {
         return;
     }
     size_t new_capacity = map->capacity * 2;
-    EseHashNode** new_buckets = memory_manager.calloc(new_capacity, sizeof(EseHashNode*), MMTAG_GENERAL);
+    EseHashNode** new_buckets = memory_manager.calloc(new_capacity, sizeof(EseHashNode*), MMTAG_GROUP_HASHMAP);
     if (!new_buckets) {
         log_error("HASHMAP", "Error: memory_manager.calloc failed during resize to %zu", new_capacity);
         return;
@@ -94,10 +94,10 @@ static void hashmap_resize(EseGroupedHashMap* map) {
 }
 
 EseGroupedHashMap* grouped_hashmap_create(EseGroupedHashMapFreeFn free_fn) {
-    EseGroupedHashMap* map = memory_manager.malloc(sizeof(EseGroupedHashMap), MMTAG_GENERAL);
+    EseGroupedHashMap* map = memory_manager.malloc(sizeof(EseGroupedHashMap), MMTAG_GROUP_HASHMAP);
     map->capacity = INITIAL_CAPACITY;
     map->size = 0;
-    map->buckets = memory_manager.calloc(map->capacity, sizeof(EseHashNode*), MMTAG_GENERAL);
+    map->buckets = memory_manager.calloc(map->capacity, sizeof(EseHashNode*), MMTAG_GROUP_HASHMAP);
     if (!map->buckets) {
         log_error("HASHMAP", "Error: memory_manager.calloc failed for buckets");
         memory_manager.free(map);
@@ -229,7 +229,7 @@ EseGroupedHashMapIter* grouped_hashmap_iter_create(EseGroupedHashMap* map) {
         return NULL;
     }
 
-    EseGroupedHashMapIter* iter = memory_manager.malloc(sizeof(EseGroupedHashMapIter), MMTAG_GENERAL);
+    EseGroupedHashMapIter* iter = memory_manager.malloc(sizeof(EseGroupedHashMapIter), MMTAG_GROUP_HASHMAP);
     iter->map = map;
     iter->bucket = 0;
     iter->node = NULL;

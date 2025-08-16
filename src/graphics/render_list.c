@@ -25,10 +25,10 @@ typedef struct EseRenderList {
 
 // Helper to create a new batch
 static EseRenderBatch* _render_batch_create(void) {
-    EseRenderBatch *batch = memory_manager.malloc(sizeof(EseRenderBatch), MMTAG_USER1);
+    EseRenderBatch *batch = memory_manager.malloc(sizeof(EseRenderBatch), MMTAG_RENDERLIST);
 
     memset(batch, 0, sizeof(EseRenderBatch));
-    batch->vertex_buffer = memory_manager.malloc(sizeof(EseVertex) * BATCH_INITIAL_CAPACITY * 4, MMTAG_USER1);
+    batch->vertex_buffer = memory_manager.malloc(sizeof(EseVertex) * BATCH_INITIAL_CAPACITY * 4, MMTAG_RENDERLIST);
     batch->vertex_capacity = BATCH_INITIAL_CAPACITY * 4;
 
     return batch;
@@ -50,7 +50,7 @@ static void _render_list_add_batch(EseRenderList *render_list, EseRenderBatch *b
     if (render_list->batch_count >= render_list->batch_capacity) {
         // Grow draw list
         size_t new_capacity = render_list->batch_capacity * 2;
-        EseRenderBatch **new_batches = memory_manager.realloc(render_list->batches, sizeof(EseRenderBatch*) * new_capacity, MMTAG_USER1);
+        EseRenderBatch **new_batches = memory_manager.realloc(render_list->batches, sizeof(EseRenderBatch*) * new_capacity, MMTAG_RENDERLIST);
         if (new_batches) {
             render_list->batches = new_batches;
             render_list->batch_capacity = new_capacity;
@@ -98,7 +98,7 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
     if (batch->vertex_count + 6 > batch->vertex_capacity) { // Each quad has 6 vertices
         // Grow vertex buffer
         size_t new_capacity = batch->vertex_capacity * 2;
-        EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_USER1);
+        EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
         if (new_buffer) {
             batch->vertex_buffer = new_buffer;
             batch->vertex_capacity = new_capacity;
@@ -225,7 +225,7 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
                 if (batch->vertex_count - 6 + 24 > batch->vertex_capacity) {
                     size_t new_capacity = batch->vertex_capacity * 2;
                     while (batch->vertex_count - 6 + 24 > new_capacity) new_capacity *= 2;
-                    EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_USER1);
+                    EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
                     if (new_buffer) {
                         batch->vertex_buffer = new_buffer;
                         batch->vertex_capacity = new_capacity;
@@ -276,9 +276,9 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
 }
 
 EseRenderList* render_list_create(void) {
-    EseRenderList *render_list = memory_manager.malloc(sizeof(EseRenderList), MMTAG_USER1);
+    EseRenderList *render_list = memory_manager.malloc(sizeof(EseRenderList), MMTAG_RENDERLIST);
 
-    render_list->batches = memory_manager.malloc(sizeof(EseRenderBatch*) * RENDER_LIST_INITIAL_CAPACITY, MMTAG_USER1);
+    render_list->batches = memory_manager.malloc(sizeof(EseRenderBatch*) * RENDER_LIST_INITIAL_CAPACITY, MMTAG_RENDERLIST);
     render_list->batch_capacity = RENDER_LIST_INITIAL_CAPACITY;
     render_list->batch_count = 0;
 

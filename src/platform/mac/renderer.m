@@ -29,8 +29,8 @@ void _split_library_func(const char* input, char** group, char** name) {
 
     if (colon == NULL) {
         // No colon: full string is the name, group is "default"
-        *group = memory_manager.strdup("default", MMTAG_GENERAL);
-        *name = memory_manager.strdup(input, MMTAG_GENERAL);
+        *group = memory_manager.strdup("default", MMTAG_RENDERER);
+        *name = memory_manager.strdup(input, MMTAG_RENDERER);
     } else {
         // Calculate lengths of potential group and name parts
         size_t groupLength = colon - input;
@@ -43,17 +43,17 @@ void _split_library_func(const char* input, char** group, char** name) {
 
         // Case: ":test" (no group, name exists)
         if (groupLength == 0) {
-            *group = memory_manager.strdup("default", MMTAG_GENERAL);
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
+            *group = memory_manager.strdup("default", MMTAG_RENDERER);
+            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
         }
         // Case: "group:test" (both group and name exist)
         else {
-            *group = (char*)memory_manager.malloc(groupLength + 1, MMTAG_GENERAL);
+            *group = (char*)memory_manager.malloc(groupLength + 1, MMTAG_RENDERER);
             if (*group) {
                 strncpy(*group, input, groupLength);
                 (*group)[groupLength] = '\0';
             }
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
+            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
         }
     }
 }
@@ -68,11 +68,11 @@ EseRenderer* renderer_create(bool hiDPI) {
     log_debug("METAL_RENDERER", "Initializing Metal Renderer...");
 
     // Allocate main renderer
-    EseRenderer *renderer = memory_manager.malloc(sizeof(EseRenderer), MMTAG_RENDER);
+    EseRenderer *renderer = memory_manager.malloc(sizeof(EseRenderer), MMTAG_RENDERER);
     memset(renderer, 0, sizeof(EseRenderer));
 
     // Allocate internal Metal renderer
-    EseMetalRenderer *internal = memory_manager.malloc(sizeof(EseMetalRenderer), MMTAG_RENDER);
+    EseMetalRenderer *internal = memory_manager.malloc(sizeof(EseMetalRenderer), MMTAG_RENDERER);
     memset(internal, 0, sizeof(EseMetalRenderer));
     renderer->internal = (void *)internal;
 
@@ -81,6 +81,8 @@ EseRenderer* renderer_create(bool hiDPI) {
     // Create Metal device
     internal->device = MTLCreateSystemDefaultDevice();
     if (!internal->device) {
+        memory_manager.free(internal);
+        memory_manager.free(renderer);
         log_error("RENDERER", "Metal is not supported on this device.");
         return NULL;
     }
@@ -214,116 +216,6 @@ void renderer_destroy(EseRenderer* renderer) {
      memory_manager.free(renderer);
 }
 
-// A helper to safely reallocate the combined source buffer.
-static void _realloc_combined_source(char** dest, size_t* current_size, size_t* current_capacity, size_t new_content_size) {
-    if (*current_size + new_content_size + 1 > *current_capacity) {
-        *current_capacity = (*current_size + new_content_size + 1) * 2;
-        *dest = (char*)memory_manager.realloc(*dest, *current_capacity, MMTAG_RENDER);
-    }
-}
-
-// Appends a line if it is not already in the destination buffer.
-static void _renderer_compile_add_line(char** dest, size_t* current_size, size_t* current_capacity, const char* source_start, const char* line_prefix) {
-    const char* current = source_start;
-    while ((current = strstr(current, line_prefix))) {
-        const char* line_end = strchr(current, '\n');
-        if (line_end) {
-            size_t line_len = line_end - current;
-            char temp_line[256];
-            memcpy(temp_line, current, line_len);
-            temp_line[line_len] = '\0';
-            
-            // Correctly check for duplicates in the destination
-            if (*dest == NULL || strstr(*dest, temp_line) == NULL) {
-                _realloc_combined_source(dest, current_size, current_capacity, line_len + 1);
-                memcpy(*dest + *current_size, temp_line, line_len);
-                *current_size += line_len;
-                memcpy(*dest + *current_size, "\n", 1);
-                *current_size += 1;
-                (*dest)[*current_size] = '\0';
-            }
-            current = line_end + 1;
-        } else {
-            break;
-        }
-    }
-}
-
-// Appends a complete code block (struct or function) if it's not already in the destination.
-static void _renderer_compile_add_block(char** dest, size_t* current_size, size_t* current_capacity, const char* source, const char* block_prefix) {
-    const char* current = source;
-    
-    while ((current = strstr(current, block_prefix))) {
-        // Find the start of the block signature
-        const char* block_sig_start = current;
-        
-        // Find the start of the block body
-        const char* block_body_start = strchr(current, '{');
-        if (!block_body_start) {
-            current += strlen(block_prefix);
-            continue;
-        }
-
-        // Extract the signature to check for duplicates
-        size_t sig_len = block_body_start - block_sig_start;
-        char temp_sig[512];
-        memcpy(temp_sig, block_sig_start, sig_len);
-        temp_sig[sig_len] = '\0';
-
-        // Check if the block signature already exists in the destination
-        if (*dest && strstr(*dest, temp_sig) != NULL) {
-            // Move to the end of the current block to find the next one
-            int brace_count = 0;
-            while (*block_body_start != '\0') {
-                if (*block_body_start == '{') {
-                    brace_count++;
-                } else if (*block_body_start == '}') {
-                    brace_count--;
-                }
-                block_body_start++;
-                if (brace_count == 0) {
-                    if (*block_body_start == ';') { // include the semicolon
-                        block_body_start++;
-                    }
-                    break;
-                }
-            }
-            current = block_body_start;
-            continue;
-        }
-        
-        // Find the end of the block by counting braces
-        const char* block_end = block_body_start;
-        int brace_count = 0;
-        
-        while (*block_end != '\0') {
-            if (*block_end == '{') {
-                brace_count++;
-            } else if (*block_end == '}') {
-                brace_count--;
-            }
-            block_end++;
-            if (brace_count == 0) {
-                if (*block_end == ';') {
-                    block_end++;
-                }
-                break;
-            }
-        }
-        
-        size_t block_len = block_end - current;
-
-        _realloc_combined_source(dest, current_size, current_capacity, block_len + 1);
-        memcpy(*dest + *current_size, current, block_len);
-        *current_size += block_len;
-        memcpy(*dest + *current_size, "\n", 1);
-        *current_size += 1;
-        (*dest)[*current_size] = '\0';
-
-        current = block_end;
-    }
-}
-
 bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_name, NSString *sourceString) {
     log_assert("METAL_RENDERER", renderer, "_renderer_shader_compile_source called with NULL renderer");
     log_assert("METAL_RENDERER", library_name, "_renderer_shader_compile_source called with NULL library_name");
@@ -429,14 +321,18 @@ bool renderer_create_pipeline_state(EseRenderer* renderer, const char *vertexFun
 
     // Parse vertex function string
     _split_library_func(vertexFunc, &vLib, &vFunc);
-    if (!vLib) {
+    if (!vLib || !vFunc) {
+        if (vLib) memory_manager.free(vLib);
+        if (vFunc) memory_manager.free(vFunc);
         return false;
     }
 
     _split_library_func(fragmentFunc, &fLib, &fFunc);
-    if (!vLib) {
+    if (!fLib || !fFunc) {
         memory_manager.free(vLib);
         memory_manager.free(vFunc);
+        if (fLib) memory_manager.free(fLib);
+        if (fFunc) memory_manager.free(fFunc);
         return false;
     }
 
@@ -463,18 +359,22 @@ bool renderer_create_pipeline_state(EseRenderer* renderer, const char *vertexFun
         return false;
     }
 
-    memory_manager.free(vLib);
-    memory_manager.free(vFunc);
-    memory_manager.free(fLib);
-    memory_manager.free(fFunc);
-
     // Get vertex and fragment functions
     id<MTLFunction> vertex = [vertexLibrary newFunctionWithName:[NSString stringWithUTF8String:vFunc]];
     id<MTLFunction> fragment = [fragmentLibrary newFunctionWithName:[NSString stringWithUTF8String:fFunc]];
     if (!vertex || !fragment) {
+        memory_manager.free(vLib);
+        memory_manager.free(vFunc);
+        memory_manager.free(fLib);
+        memory_manager.free(fFunc);
         NSLog(@"Failed to get vertex or fragment function: %s, %s", vertexFunc, fragmentFunc);
         return false;
     }
+
+    memory_manager.free(vLib);
+    memory_manager.free(vFunc);
+    memory_manager.free(fLib);
+    memory_manager.free(fFunc);
 
     // New: Create and configure the MTLVertexDescriptor
     MTLVertexDescriptor *vertexDescriptor = [MTLVertexDescriptor new];
@@ -581,6 +481,9 @@ void renderer_draw(EseRenderer *renderer) {
                 // Draw the batch
                 [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:batch->vertex_count];
 
+                [vertexBuffer release];
+                [uboBuffer release];
+
             } else if (batch->type == RL_RECT) {
                 // Handle rectangle batch
                 // Create vertex buffer from batch data
@@ -610,6 +513,9 @@ void renderer_draw(EseRenderer *renderer) {
 
                 // Draw the batch
                 [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:batch->vertex_count];
+
+                [vertexBuffer release];
+                [uboBuffer release];
             }
         }
     }
@@ -725,13 +631,7 @@ bool renderer_load_texture_indexed(EseRenderer* renderer, const char* texture_id
     // Prepare output buffer (RGBA)
     NSUInteger dstRowBytes = width * bytesPerPixel;
     NSUInteger bufferSize = dstRowBytes * height;
-    unsigned char *dst = memory_manager.malloc(bufferSize, MMTAG_RENDER);
-    if (!dst) {
-        NSLog(@"Failed to allocate memory for texture buffer");
-        return false;
-    }
-
-    // Get source buffer
+    unsigned char *dst = memory_manager.malloc(bufferSize, MMTAG_RENDERER);
     unsigned char *src = [bitmap bitmapData];
 
     // Get transparent color from top-left pixel (y = height-1, x = 0)

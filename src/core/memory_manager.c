@@ -72,7 +72,7 @@ MemoryManager *g_memory_manager = NULL;
 
 static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "RENDER ", "MAP    ", "SPRITE ",
-    "USER1  ", "USER2  ", "USER3  ", "USER4  ", "USER5  "
+    "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH", "LINKLST"
 };
 
 static size_t _align_up(size_t n, size_t align) {

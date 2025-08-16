@@ -206,9 +206,9 @@ EseWindow *window_create(int width, int height, const char *title) {
         return NULL;
     }
 
-    EseWindow *win = (EseWindow *)memory_manager.malloc(sizeof(EseWindow), MMTAG_RENDER);
+    EseWindow *win = (EseWindow *)memory_manager.malloc(sizeof(EseWindow), MMTAG_WINDOW);
     memset(win, 0, sizeof(EseWindow));
-    EseGLFWWindow *pw = (EseGLFWWindow *)memory_manager.malloc(sizeof(EseGLFWWindow), MMTAG_RENDER);
+    EseGLFWWindow *pw = (EseGLFWWindow *)memory_manager.malloc(sizeof(EseGLFWWindow), MMTAG_WINDOW);
     memset(pw, 0, sizeof(EseGLFWWindow));
 
     pw->glfw_window = glfwWin;
@@ -250,11 +250,15 @@ void window_destroy(EseWindow *window) {
 }
 
 void window_set_renderer(EseWindow *window, EseRenderer *renderer) {
-    if (!window || !renderer) return;
+    if (!window) return;
     EseGLFWWindow *pw = (EseGLFWWindow *)window->platform_window;
     if (!pw || !pw->glfw_window) return;
 
     window->renderer = renderer;
+
+    if (!renderer) {
+        return;
+    }
 
     // Make context current for any GL calls
     glfwMakeContextCurrent(pw->glfw_window);
@@ -325,7 +329,9 @@ void window_process(EseWindow *window, EseInputState *out_input_state) {
         return;
     }
 
-    renderer_draw(window->renderer);
+    if (window->renderer) {
+        renderer_draw(window->renderer);
+    }
 }
 
 void window_close(EseWindow *window) {

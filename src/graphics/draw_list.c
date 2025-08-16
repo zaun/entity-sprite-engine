@@ -79,15 +79,15 @@ static void _init_new_object(EseDrawListObject *obj) {
 }
 
 EseDrawList* draw_list_create(void) {
-    EseDrawList *draw_list = memory_manager.malloc(sizeof(EseDrawList), MMTAG_RENDER);
-    draw_list->objects = memory_manager.malloc(sizeof(EseDrawListObject*) * DRAW_LIST_INITIAL_CAPACITY, MMTAG_RENDER);
+    EseDrawList *draw_list = memory_manager.malloc(sizeof(EseDrawList), MMTAG_DRAWLIST);
+    draw_list->objects = memory_manager.malloc(sizeof(EseDrawListObject*) * DRAW_LIST_INITIAL_CAPACITY, MMTAG_DRAWLIST);
 
     draw_list->objects_capacity = DRAW_LIST_INITIAL_CAPACITY;
     draw_list->objects_count = 0;
 
     // Pre-allocate objects
     for (size_t i = 0; i < draw_list->objects_capacity; ++i) {
-        draw_list->objects[i] = memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_RENDER);
+        draw_list->objects[i] = memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
         _init_new_object(draw_list->objects[i]);
     }
     return draw_list;
@@ -114,7 +114,7 @@ EseDrawListObject* draw_list_request_object(EseDrawList *draw_list) {
     if (draw_list->objects_count == draw_list->objects_capacity) {
         // Grow pool
         size_t new_capacity = draw_list->objects_capacity * 2;
-        EseDrawListObject **new_objs = memory_manager.realloc(draw_list->objects, sizeof(EseDrawListObject*) * new_capacity, MMTAG_RENDER);
+        EseDrawListObject **new_objs = memory_manager.realloc(draw_list->objects, sizeof(EseDrawListObject*) * new_capacity, MMTAG_DRAWLIST);
         if (!new_objs) {
             log_error("RENDER_LIST", "Error: Failed to grow object pool");
             return NULL;

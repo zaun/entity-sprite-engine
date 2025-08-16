@@ -45,8 +45,8 @@ void _split_library_func(const char *input, char **group, char **name) {
     if (colon == NULL)
     {
         // No colon: full string is the name, group is "default"
-        *group = memory_manager.strdup("default", MMTAG_GENERAL);
-        *name = memory_manager.strdup(input, MMTAG_GENERAL);
+        *group = memory_manager.strdup("default", MMTAG_RENDERER);
+        *name = memory_manager.strdup(input, MMTAG_RENDERER);
     }
     else
     {
@@ -63,33 +63,38 @@ void _split_library_func(const char *input, char **group, char **name) {
         // Case: ":test" (no group, name exists)
         if (groupLength == 0)
         {
-            *group = memory_manager.strdup("default", MMTAG_GENERAL);
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
+            *group = memory_manager.strdup("default", MMTAG_RENDERER);
+            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
         }
         // Case: "group:test" (both group and name exist)
         else
         {
-            *group = (char *)memory_manager.malloc(groupLength + 1, MMTAG_GENERAL);
+            *group = (char *)memory_manager.malloc(groupLength + 1, MMTAG_RENDERER);
             if (*group)
             {
                 strncpy(*group, input, groupLength);
                 (*group)[groupLength] = '\0';
             }
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
+            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
         }
     }
+}
+
+void _gl_free_shader(void *item) {
+    GLuint *shaderId = (GLuint *)item;
+    glDeleteShader(*shaderId);
 }
 
 EseRenderer* renderer_create(bool hiDPI) {
     log_debug("RENDERER", "Initializing OpenGL Renderer...");
 
     // Allocate the renderer struct
-    EseRenderer *renderer = (EseRenderer *)memory_manager.malloc(sizeof(EseRenderer), MMTAG_RENDER);
-    EseGLRenderer *internal = (EseGLRenderer *)memory_manager.malloc(sizeof(EseGLRenderer), MMTAG_RENDER);
+    EseRenderer *renderer = (EseRenderer *)memory_manager.malloc(sizeof(EseRenderer), MMTAG_RENDERER);
+    EseGLRenderer *internal = (EseGLRenderer *)memory_manager.malloc(sizeof(EseGLRenderer), MMTAG_RENDERER);
 
     renderer->internal = (void *) internal;
     renderer->textures = hashmap_create();
-    renderer->shaders = grouped_hashmap_create(NULL);
+    renderer->shaders = grouped_hashmap_create((EseGroupedHashMapFreeFn)_gl_free_shader);
     renderer->shadersSources = grouped_hashmap_create((EseGroupedHashMapFreeFn)memory_manager.free);
     renderer->hiDPI = hiDPI;
     
@@ -174,17 +179,6 @@ void renderer_destroy(EseRenderer *renderer) {
     }
     hashmap_iter_free(iter);
 
-    // Clean up shaders
-    EseGroupedHashMapIter *group_iter = grouped_hashmap_iter_create(renderer->shaders);
-    while (grouped_hashmap_iter_next(group_iter, NULL, NULL, &value_ptr) == 1) {
-        if (value_ptr) {
-            GLuint *shaderId = (GLuint *)value_ptr;
-            glDeleteShader(*shaderId);
-            memory_manager.free(shaderId);
-        }
-    }
-    grouped_hashmap_iter_free(group_iter);
-
     hashmap_free(renderer->textures);
     grouped_hashmap_free(renderer->shaders);
     grouped_hashmap_free(renderer->shadersSources);
@@ -247,7 +241,7 @@ bool _renderer_shader_compile_source(EseRenderer *renderer, const char *library_
         return false;
     }
 
-    GLuint *vertexShaderId = memory_manager.malloc(sizeof(GLuint), MMTAG_RENDER);
+    GLuint *vertexShaderId = memory_manager.malloc(sizeof(GLuint), MMTAG_RENDERER);
     *vertexShaderId = vertexShader;
     grouped_hashmap_set(
         renderer->shaders,
@@ -256,9 +250,9 @@ bool _renderer_shader_compile_source(EseRenderer *renderer, const char *library_
     grouped_hashmap_set(
         renderer->shadersSources,
         library_name, "vertexShader",
-        memory_manager.strdup(vs.data, MMTAG_RENDER));
+        memory_manager.strdup(vs.data, MMTAG_RENDERER));
 
-    GLuint *fragmentShaderId = memory_manager.malloc(sizeof(GLuint), MMTAG_RENDER);
+    GLuint *fragmentShaderId = memory_manager.malloc(sizeof(GLuint), MMTAG_RENDERER);
     *fragmentShaderId = fragmentShader;
     grouped_hashmap_set(
         renderer->shaders,
@@ -267,14 +261,14 @@ bool _renderer_shader_compile_source(EseRenderer *renderer, const char *library_
     grouped_hashmap_set(
         renderer->shadersSources,
         library_name, "fragmentShader",
-        memory_manager.strdup(fs.data, MMTAG_RENDER));
+        memory_manager.strdup(fs.data, MMTAG_RENDERER));
 
     if (cs.data)
     {
         grouped_hashmap_set(
             renderer->shadersSources,
             library_name, "computeShader",
-            memory_manager.strdup(cs.data, MMTAG_RENDER));
+            memory_manager.strdup(cs.data, MMTAG_RENDERER));
     }
 
     free_shader_blob(vs);
@@ -315,7 +309,7 @@ bool renderer_shader_compile(EseRenderer *renderer, const char *library, const c
     }
 
     // Read the file into the buffer
-    char *source = (char *)memory_manager.malloc(length + 1, MMTAG_RENDER);
+    char *source = (char *)memory_manager.malloc(length + 1, MMTAG_RENDERER);
     size_t read_bytes = fread(source, 1, length, file);
     if (read_bytes != (size_t)length)
     {
@@ -484,7 +478,7 @@ bool renderer_load_texture_indexed(EseRenderer *renderer, const char *id, const 
     }
 
     size_t buffer_size = width * height * 4;
-    unsigned char *dst_data = memory_manager.malloc(buffer_size, MMTAG_RENDER);
+    unsigned char *dst_data = memory_manager.malloc(buffer_size, MMTAG_RENDERER);
     if (!dst_data)
     {
         fprintf(stderr, "Failed to allocate memory for texture buffer");
@@ -528,7 +522,7 @@ bool renderer_load_texture_indexed(EseRenderer *renderer, const char *id, const 
     memory_manager.free(dst_data);
 
     // Create and populate the GLTexture struct
-    GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDER);
+    GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDERER);
     if (tex_data)
     {
         tex_data->id = texture_id;
@@ -630,7 +624,7 @@ bool renderer_load_texture(EseRenderer *renderer, const char *id, const char *fi
     stbi_image_free(data);
 
     // Create and populate the GLTexture struct
-    GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDER);
+    GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDERER);
     if (tex_data)
     {
         tex_data->id = texture_id;

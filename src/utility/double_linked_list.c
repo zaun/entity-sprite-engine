@@ -34,7 +34,7 @@ void _dlist_remove(EseDoubleLinkedList* list, EseDListNode* node) {
 }
 
 EseDoubleLinkedList* dlist_create(DListFreeFn free_fn) {
-    EseDoubleLinkedList* list = memory_manager.malloc(sizeof(EseDoubleLinkedList), MMTAG_GENERAL);
+    EseDoubleLinkedList* list = memory_manager.malloc(sizeof(EseDoubleLinkedList), MMTAG_LINKED_LIST);
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
@@ -76,7 +76,7 @@ void dlist_append(EseDoubleLinkedList* list, void* value) {
     log_assert("DLIST", list, "dlist_append called with NULL list");
     log_assert("DLIST", value, "dlist_append called with NULL value");
 
-    EseDListNode* node = memory_manager.malloc(sizeof(EseDListNode), MMTAG_GENERAL);
+    EseDListNode* node = memory_manager.malloc(sizeof(EseDListNode), MMTAG_LINKED_LIST);
     node->value = value;
     node->prev = list->tail;
     node->next = NULL;
@@ -127,7 +127,7 @@ void dlist_remove_by(EseDoubleLinkedList* list, DListPredicate pred, void *user_
 EseDListIter* dlist_iter_create(EseDoubleLinkedList* list) {
     log_assert("DLIST", list, "dlist_iter_create called with NULL list");
 
-    EseDListIter* iter = memory_manager.malloc(sizeof(EseDListIter), MMTAG_GENERAL);
+    EseDListIter* iter = memory_manager.malloc(sizeof(EseDListIter), MMTAG_LINKED_LIST);
     iter->current = list->head;
     return iter;
 }
@@ -135,7 +135,7 @@ EseDListIter* dlist_iter_create(EseDoubleLinkedList* list) {
 EseDListIter* dlist_iter_create_from(EseDListIter* iter) {
     log_assert("DLIST", iter, "dlist_iter_create_from called with NULL iter");
 
-    EseDListIter* new_iter = memory_manager.malloc(sizeof(EseDListIter), MMTAG_GENERAL);
+    EseDListIter* new_iter = memory_manager.malloc(sizeof(EseDListIter), MMTAG_LINKED_LIST);
     if (new_iter) {
         // The new iterator just needs to point to the same current node
         new_iter->current = iter->current;

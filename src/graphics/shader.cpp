@@ -455,7 +455,7 @@ ShaderBlob glsl_to_spirv(const char* source, int shaderStage) {
     }
 
     size_t byteSize = spirv.size() * sizeof(uint32_t);
-    blob.data = (char*)memory_manager.malloc(byteSize, MMTAG_RENDER);
+    blob.data = (char*)memory_manager.malloc(byteSize, MMTAG_SHADER);
     if (!blob.data) return blob;
 
     memcpy(blob.data, spirv.data(), byteSize);
@@ -480,7 +480,7 @@ ShaderBlob glsl_to_glsl(const char* source, int shaderStage) {
 
     std::string glsl = spirv_to_glsl(spirv);
     blob.size = glsl.size();
-    blob.data = (char*)memory_manager.malloc(blob.size + 1, MMTAG_RENDER);
+    blob.data = (char*)memory_manager.malloc(blob.size + 1, MMTAG_SHADER);
     if (!blob.data) return blob;
 
     memcpy(blob.data, glsl.c_str(), blob.size);
@@ -505,7 +505,7 @@ ShaderBlob glsl_to_metal(const char* source, int shaderStage) {
 
     std::string metal = spirv_to_metal(spirv, shaderStage);
     blob.size = metal.size();
-    blob.data = (char*)memory_manager.malloc(blob.size + 1, MMTAG_RENDER);
+    blob.data = (char*)memory_manager.malloc(blob.size + 1, MMTAG_SHADER);
     if (!blob.data) return blob;
 
     memcpy(blob.data, metal.c_str(), blob.size);

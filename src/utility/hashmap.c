@@ -37,8 +37,8 @@ static unsigned int hash(const char* key) {
 static EseHashNode* create_node(const char* key, void* value) {
     if (!key || !value) return NULL;
 
-    EseHashNode* node = memory_manager.malloc(sizeof(EseHashNode), MMTAG_GENERAL);
-    node->key = memory_manager.strdup(key, MMTAG_GENERAL);
+    EseHashNode* node = memory_manager.malloc(sizeof(EseHashNode), MMTAG_HASHMAP);
+    node->key = memory_manager.strdup(key, MMTAG_HASHMAP);
     node->value = value;
     node->next = NULL;
     return node;
@@ -55,7 +55,7 @@ static void hashmap_resize(EseHashMap* map) {
     if (!map) return;
 
     size_t new_capacity = map->capacity * 2;
-    EseHashNode** new_buckets = memory_manager.calloc(new_capacity, sizeof(EseHashNode*), MMTAG_GENERAL);
+    EseHashNode** new_buckets = memory_manager.calloc(new_capacity, sizeof(EseHashNode*), MMTAG_HASHMAP);
 
     for (size_t i = 0; i < map->capacity; i++) {
         EseHashNode* node = map->buckets[i];
@@ -73,10 +73,10 @@ static void hashmap_resize(EseHashMap* map) {
 }
 
 EseHashMap* hashmap_create(void) {
-    EseHashMap* map = memory_manager.malloc(sizeof(EseHashMap), MMTAG_GENERAL);
+    EseHashMap* map = memory_manager.malloc(sizeof(EseHashMap), MMTAG_HASHMAP);
     map->capacity = INITIAL_CAPACITY;
     map->size = 0;
-    map->buckets = memory_manager.calloc(map->capacity, sizeof(EseHashNode*), MMTAG_GENERAL);
+    map->buckets = memory_manager.calloc(map->capacity, sizeof(EseHashNode*), MMTAG_HASHMAP);
     return map;
 }
 
@@ -161,7 +161,7 @@ size_t hashmap_size(EseHashMap* map) {
 EseHashMapIter* hashmap_iter_create(EseHashMap* map) {
     if (!map) return NULL;
 
-    EseHashMapIter* iter = memory_manager.malloc(sizeof(EseHashMapIter), MMTAG_GENERAL);
+    EseHashMapIter* iter = memory_manager.malloc(sizeof(EseHashMapIter), MMTAG_HASHMAP);
     iter->map = map;
     iter->bucket = 0;
     iter->node = NULL;

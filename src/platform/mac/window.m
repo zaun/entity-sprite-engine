@@ -115,8 +115,8 @@ EseWindow* window_create(int width, int height, const char* title) {
     [appMenu addItem:quitItem];
 
     // Create window + engine structs
-    EseWindow* window = (EseWindow*)memory_manager.malloc(sizeof(EseWindow), MMTAG_RENDER);
-    EseMetalWindow* metalWindow = (EseMetalWindow*)memory_manager.malloc(sizeof(EseMetalWindow), MMTAG_RENDER);
+    EseWindow* window = (EseWindow*)memory_manager.malloc(sizeof(EseWindow), MMTAG_WINDOW);
+    EseMetalWindow* metalWindow = (EseMetalWindow*)memory_manager.malloc(sizeof(EseMetalWindow), MMTAG_WINDOW);
     metalWindow->inputState = input_state_create(nil);
 
     // Create window
@@ -152,6 +152,8 @@ void window_destroy(EseWindow* window) {
     if (window->platform_window) {
         EseMetalWindow* metalWindow = (EseMetalWindow*)window->platform_window;
         [metalWindow->window close];
+
+        input_state_destroy(metalWindow->inputState);
         memory_manager.free(metalWindow);
     }
     memory_manager.free(window);

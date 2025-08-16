@@ -8,6 +8,7 @@
 #include "core/engine.h"
 #include "platform/renderer.h"
 #include "platform/window.h"
+#include "core/memory_manager.h"
 
 void segfault_handler(int signo, siginfo_t *info, void *context) {
     void *buffer[32];
@@ -68,5 +69,17 @@ int main(int argc, char *argv[]) {
             window_close(window);
         }
     }
+
+
+    engine_set_renderer(engine, NULL);
+    window_set_renderer(window, NULL);
+
+    engine_destroy(engine);
+    renderer_destroy(renderer);
+    window_destroy(window);
+
+    memory_manager.destroy();
+
+    printf("Bye\n");
     return 0;
 }

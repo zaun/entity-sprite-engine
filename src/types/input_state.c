@@ -404,6 +404,10 @@ EseInputState *input_state_create(EseLuaEngine *engine) {
         input->lua_ref = LUA_NOREF;
 
         _input_state_lua_register(input, false);
+    } else {
+        input->state = NULL;
+        input->lua_ref = LUA_NOREF;
+
     }
 
     return input;

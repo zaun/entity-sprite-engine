@@ -83,7 +83,6 @@ EseEngine *engine_create(const char *startup_script) {
 void engine_destroy(EseEngine *engine) {
     log_assert("ENGINE", engine, "engine_destroy called with NULL engine");
 
-    renderer_destroy(engine->renderer);
     draw_list_free(engine->draw_list);
     render_list_destroy(engine->render_list_a);
     render_list_destroy(engine->render_list_b);
@@ -99,7 +98,6 @@ void engine_destroy(EseEngine *engine) {
     lua_engine_destroy(engine->lua_engine);
 
     memory_manager.free(engine);
-    memory_manager.destroy();
 }
 
 void engine_add_entity(EseEngine *engine, EseEntity *entity) {
@@ -128,10 +126,17 @@ void engine_start(EseEngine *engine) {
 
 void engine_set_renderer(EseEngine *engine, EseRenderer *renderer) {
     log_assert("ENGINE", engine, "engine_set_renderer called with NULL engine");
-    log_assert("ENGINE", renderer, "engine_set_renderer called with NULL renderer");
 
     engine->renderer = renderer;
+    if (!renderer) {
+        return;
+    }
+
     renderer_set_render_list(engine->renderer, engine->render_list_a);
+
+    if (engine->asset_manager) {
+        asset_manager_destroy(engine->asset_manager);
+    }
     engine->asset_manager = asset_manager_create(engine->renderer);
 }
 
