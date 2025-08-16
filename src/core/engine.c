@@ -40,15 +40,17 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY, engine->lua_engine);
 
     // Add types
-    point_lua_init(engine->lua_engine);
-    rect_lua_init(engine->lua_engine);
-    vector_lua_init(engine->lua_engine);
-    uuid_lua_init(engine->lua_engine);
+    arc_lua_init(engine->lua_engine);
+    camera_state_lua_init(engine->lua_engine);
+    display_state_lua_init(engine->lua_engine);
     entity_lua_init(engine->lua_engine);
     entity_component_lua_init(engine->lua_engine);
     input_state_lua_init(engine->lua_engine);
-    display_state_lua_init(engine->lua_engine);
-    camera_state_lua_init(engine->lua_engine);
+    point_lua_init(engine->lua_engine);
+    ray_lua_init(engine->lua_engine);
+    rect_lua_init(engine->lua_engine);
+    vector_lua_init(engine->lua_engine);
+    uuid_lua_init(engine->lua_engine);
 
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
