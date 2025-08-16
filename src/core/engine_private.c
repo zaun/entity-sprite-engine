@@ -34,7 +34,8 @@ void _engine_add_texture_to_draw_list(
 
 void _engine_add_rect_to_draw_list(
     float screen_x, float screen_y, int z_index,
-    int width, int height, bool filled, unsigned char r, unsigned char g, unsigned char b, unsigned char a,
+    int width, int height, float rotation, bool filled,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a,
     void *user_data
 ) {
     log_assert("ENGINE", user_data, "_engine_add_rect_to_draw_list called with NULL user_data");
@@ -42,8 +43,9 @@ void _engine_add_rect_to_draw_list(
     EseDrawList *draw_list = (EseDrawList*)user_data;
 
     EseDrawListObject *obj = draw_list_request_object(draw_list);
-    draw_list_object_set_rect(obj, r, g, b, a, filled);
+    draw_list_object_set_rect_color(obj, r, g, b, a, filled);
     draw_list_object_set_bounds(obj, screen_x, screen_y, width, height);
+    draw_list_object_set_rotation(obj, rotation);
     draw_list_object_set_z_index(obj, z_index);
 }
 

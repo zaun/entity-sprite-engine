@@ -13,12 +13,13 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @details This structure stores the position and size of a rectangle in 2D space.
  */
 typedef struct EseRect {
-    float x;      /**< The x-coordinate of the rectangle's top-left corner */
-    float y;      /**< The y-coordinate of the rectangle's top-left corner */
-    float width;  /**< The width of the rectangle */
-    float height; /**< The height of the rectangle */
-    lua_State *state; /**< Lua State this EseRect belongs to */
-    int lua_ref; /**< Lua registry reference to its own proxy table */
+    float x;            /**< The x-coordinate of the rectangle's top-left corner */
+    float y;            /**< The y-coordinate of the rectangle's top-left corner */
+    float width;        /**< The width of the rectangle */
+    float height;       /**< The height of the rectangle */
+    float rotation;     /**< The rotation of the rect around the center point in rads */
+    lua_State *state;   /**< Lua State this EseRect belongs to */
+    int lua_ref;        /**< Lua registry reference to its own proxy table */
 } EseRect;
 
 /**
@@ -83,6 +84,10 @@ void rect_destroy(EseRect *rect);
  * @warning Returns NULL for invalid objects - always check return value before use
  */
 EseRect *rect_lua_get(lua_State *L, int idx);
+
+void rect_set_rotation(EseRect *rect, float radians);
+
+float rect_get_rotation(const EseRect *rect);
 
 /**
  * @brief Checks if a point is inside the rectangle.

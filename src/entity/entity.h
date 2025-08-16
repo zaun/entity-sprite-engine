@@ -33,7 +33,8 @@ typedef void (*EntityDrawTextureCallback)(
 
 typedef void (*EntityDrawRectCallback)(
     float screen_x, float screen_y, int z_index,
-    int width, int height, bool filled, unsigned char r, unsigned char g, unsigned char b, unsigned char a,
+    int width, int height, float rotation, bool filled,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a,
     void *user_data
 );
 

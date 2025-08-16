@@ -1,9 +1,73 @@
+#include <math.h>
 #include <string.h>
 #include <stdio.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "types/rect.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
+
+/* conversions */
+static inline float deg_to_rad(float d) { return d * (M_PI / 180.0f); }
+static inline float rad_to_deg(float r) { return r * (180.0f / M_PI); }
+
+/* small vector helper */
+typedef struct { float x, y; } Vec2;
+static inline float dotf(Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
+
+/* OBB for SAT */
+typedef struct {
+    Vec2 c;         /* center */
+    Vec2 axis[2];   /* normalized local axes in world space */
+    float ext[2];   /* half-widths along each axis */
+} OBB;
+
+
+static void _rect_to_obb(const EseRect *r, OBB *out) {
+    float cx = r->x + r->width * 0.5f;
+    float cy = r->y + r->height * 0.5f;
+    float a = r->rotation;
+    float ca = cosf(a);
+    float sa = sinf(a);
+
+    out->c.x = cx;
+    out->c.y = cy;
+    out->axis[0].x = ca; out->axis[0].y = sa;
+    out->axis[1].x = -sa; out->axis[1].y = ca;
+    out->ext[0] = r->width * 0.5f;
+    out->ext[1] = r->height * 0.5f;
+}
+
+/* SAT test for two OBBs */
+static bool _obb_overlap(const OBB *A, const OBB *B) {
+    const float EPS = 1e-6f;
+    Vec2 d = { B->c.x - A->c.x, B->c.y - A->c.y };
+
+    /* test A's axes */
+    for (int i = 0; i < 2; ++i) {
+        Vec2 axis = A->axis[i];
+        float ra = A->ext[i];
+        float rb = B->ext[0] * fabsf(dotf(B->axis[0], axis))
+                 + B->ext[1] * fabsf(dotf(B->axis[1], axis));
+        float dist = fabsf(dotf(d, axis));
+        if (dist > ra + rb + EPS) return false;
+    }
+
+    /* test B's axes */
+    for (int i = 0; i < 2; ++i) {
+        Vec2 axis = B->axis[i];
+        float ra = A->ext[0] * fabsf(dotf(A->axis[0], axis))
+                 + A->ext[1] * fabsf(dotf(A->axis[1], axis));
+        float rb = B->ext[i];
+        float dist = fabsf(dotf(d, axis));
+        if (dist > ra + rb + EPS) return false;
+    }
+
+    return true;
+}
 
 /**
  * @brief Pushes a EseRect pointer as a Lua userdata object onto the stack.
@@ -72,6 +136,7 @@ static int _rect_lua_new(lua_State *L) {
     rect->y = y;
     rect->width = width;
     rect->height = height;
+    rect->rotation = 0.0f;
     rect->state = L;
     rect->lua_ref = LUA_NOREF;
     _rect_lua_register(rect, true);
@@ -92,6 +157,7 @@ static int _rect_lua_zero(lua_State *L) {
     rect->y = 0.0f;
     rect->width = 0.0f;
     rect->height = 0.0f;
+    rect->rotation = 0.0f;
     rect->state = L;
     rect->lua_ref = LUA_NOREF;
     _rect_lua_register(rect, true);
@@ -183,6 +249,9 @@ static int _rect_lua_index(lua_State *L) {
     } else if (strcmp(key, "height") == 0) {
         lua_pushnumber(L, rect->height);
         return 1;
+    } else if (strcmp(key, "rotation") == 0) {
+        lua_pushnumber(L, (double)rad_to_deg(rect->rotation));
+        return 1;
     } else if (strcmp(key, "contains_point") == 0) {
         lua_pushlightuserdata(L, rect);
         lua_pushcclosure(L, _rect_lua_contains_point, 1);
@@ -234,6 +303,13 @@ static int _rect_lua_newindex(lua_State *L) {
         }
         rect->height = (float)lua_tonumber(L, 3);
         return 0;
+    }  else if (strcmp(key, "rotation") == 0) {
+        if (!lua_isnumber(L, 3)) {
+            return luaL_error(L, "rect.rotation must be a number (degrees)");
+        }
+        float deg = (float)lua_tonumber(L, 3);
+        rect->rotation = deg_to_rad(deg);
+        return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
@@ -271,8 +347,13 @@ static int _rect_lua_tostring(lua_State *L) {
         return 1;
     }
 
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Rect: %p (x=%.2f, y=%.2f, width=%.2f, height=%.2f)", (void*)rect, rect->x, rect->y, rect->width, rect->height);
+    char buf[160];
+    snprintf(
+        buf, sizeof(buf),
+        "Rect: %p (x=%.2f, y=%.2f, w=%.2f, h=%.2f, rot=%.2fdeg)",
+        (void*)rect, rect->x, rect->y, rect->width, rect->height,
+        (double)rad_to_deg(rect->rotation)
+    );
     lua_pushstring(L, buf);
 
     return 1;
@@ -316,6 +397,7 @@ EseRect *rect_create(EseLuaEngine *engine, bool c_only) {
     rect->y = 0.0f;
     rect->width = 0.0f;
     rect->height = 0.0f;
+    rect->rotation = 0.0f;
     rect->state = engine->runtime;
     rect->lua_ref = LUA_NOREF;
     if (!c_only) {
@@ -334,6 +416,7 @@ EseRect *rect_copy(const EseRect *source, bool c_only) {
     copy->y = source->y;
     copy->width = source->width;
     copy->height = source->height;
+    copy->rotation = source->rotation;
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     if (!c_only) {
@@ -382,18 +465,58 @@ EseRect *rect_lua_get(lua_State *L, int idx) {
     return (EseRect *)rect;
 }
 
+void rect_set_rotation(EseRect *rect, float radians) {
+    if (!rect) return;
+    rect->rotation = radians;
+}
+
+float rect_get_rotation(const EseRect *rect) {
+    if (!rect) return 0.0f;
+    return rect->rotation;
+}
+
 bool rect_contains_point(const EseRect *rect, float x, float y) {
     if (!rect) return false;
-    return (x >= rect->x && x <= rect->x + rect->width &&
-            y >= rect->y && y <= rect->y + rect->height);
+
+    /* fast AABB path */
+    if (fabsf(rect->rotation) < 1e-6f) {
+        return (x >= rect->x && x <= rect->x + rect->width &&
+                y >= rect->y && y <= rect->y + rect->height);
+    }
+
+    /* transform point to rect-local coordinates by rotating around center by -rotation */
+    float cx = rect->x + rect->width * 0.5f;
+    float cy = rect->y + rect->height * 0.5f;
+    float ca = cosf(rect->rotation);
+    float sa = sinf(rect->rotation);
+
+    float dx = x - cx;
+    float dy = y - cy;
+
+    float localX = ca * dx + sa * dy;
+    float localY = -sa * dx + ca * dy;
+
+    float halfW = rect->width * 0.5f;
+    float halfH = rect->height * 0.5f;
+
+    return (localX >= -halfW && localX <= halfW && localY >= -halfH && localY <= halfH);
 }
 
 bool rect_intersects(const EseRect *rect1, const EseRect *rect2) {
     if (!rect1 || !rect2) return false;
-    return !(rect1->x > rect2->x + rect2->width ||
-             rect2->x > rect1->x + rect1->width ||
-             rect1->y > rect2->y + rect2->height ||
-             rect2->y > rect1->y + rect1->height);
+
+    /* fast AABB path if both rotations are effectively zero */
+    if (fabsf(rect1->rotation) < 1e-6f && fabsf(rect2->rotation) < 1e-6f) {
+        return !(rect1->x > rect2->x + rect2->width ||
+                 rect2->x > rect1->x + rect1->width ||
+                 rect1->y > rect2->y + rect2->height ||
+                 rect2->y > rect1->y + rect1->height);
+    }
+
+    OBB a, b;
+    _rect_to_obb(rect1, &a);
+    _rect_to_obb(rect2, &b);
+    return _obb_overlap(&a, &b);
 }
 
 float rect_area(const EseRect *rect) {

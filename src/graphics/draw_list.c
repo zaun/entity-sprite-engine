@@ -1,3 +1,5 @@
+#include <float.h>
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,12 +35,16 @@ struct EseDrawListObject {
     } data;
 
     // Where to draw
-    float x;
-    float y;
-    int w;
-    int h;
+    float x;            /**< The x-coordinate of the rectangle's top-left corner */
+    float y;            /**< The y-coordinate of the rectangle's top-left corner */
+    int w;              /**< The width of the object */
+    int h;              /**< The height of the object */
 
-    int z_index;
+    float rotation;     /**< The rotation of the object around the center point in rads */
+    float rot_x;        /**< The x coord for the rotation piviot point */
+    float rot_y;        /**< The y coord for the rotation piviot point */
+
+    int z_index;        /**< The z-index / draw order of the object */
 };
 
 struct EseDrawList {
@@ -55,6 +61,23 @@ static int _compare_draw_list_object_z(const void *a, const void *b) {
     return (za > zb) - (za < zb);
 }
 
+static void _init_new_object(EseDrawListObject *obj) {
+    if (!obj) return;
+
+    obj->type = RL_RECT;
+    obj->x = 0.0f;
+    obj->y = 0.0f;
+    obj->w = 0;
+    obj->h = 0;
+    obj->rotation = 0.0f;
+    obj->rot_x = 0.5f; /* default pivot at center */
+    obj->rot_y = 0.5f; /* default pivot at center */
+    obj->z_index = 0;
+
+    /* zero union data */
+    memset(&obj->data, 0, sizeof(obj->data));
+}
+
 EseDrawList* draw_list_create(void) {
     EseDrawList *draw_list = memory_manager.malloc(sizeof(EseDrawList), MMTAG_RENDER);
     draw_list->objects = memory_manager.malloc(sizeof(EseDrawListObject*) * DRAW_LIST_INITIAL_CAPACITY, MMTAG_RENDER);
@@ -65,6 +88,7 @@ EseDrawList* draw_list_create(void) {
     // Pre-allocate objects
     for (size_t i = 0; i < draw_list->objects_capacity; ++i) {
         draw_list->objects[i] = memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_RENDER);
+        _init_new_object(draw_list->objects[i]);
     }
     return draw_list;
 }
@@ -105,6 +129,7 @@ EseDrawListObject* draw_list_request_object(EseDrawList *draw_list) {
     EseDrawListObject *obj = draw_list->objects[draw_list->objects_count++];
 
     memset(obj, 0, sizeof(EseDrawListObject));
+    _init_new_object(obj);
     return obj;
 }
 
@@ -151,8 +176,8 @@ void draw_list_object_set_texture(
     texture_data->texture_y2 = texture_y2;
 }
 
-void draw_list_object_set_rect(EseDrawListObject* object, unsigned char r, unsigned char g, unsigned char b, unsigned char a, bool filled) {
-    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_color called with NULL object");
+void draw_list_object_set_rect_color(EseDrawListObject* object, unsigned char r, unsigned char g, unsigned char b, unsigned char a, bool filled) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_color_color called with NULL object");
 
     object->type = RL_RECT;
     EseDrawListRect* rect_data = &object->data.rect;
@@ -228,4 +253,96 @@ void draw_list_object_get_rect_color(const EseDrawListObject* object, unsigned c
     if (b) *b = rect_data->b;
     if (a) *a = rect_data->a;
     if (filled) *filled = rect_data->filled;
+}
+
+void draw_list_object_set_rotation(EseDrawListObject* object, float radians) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_rotation called with NULL object");
+    object->rotation = radians;
+}
+
+float draw_list_object_get_rotation(const EseDrawListObject* object) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_rotation called with NULL object");
+    return object->rotation;
+}
+
+void draw_list_object_set_pivot(EseDrawListObject* object, float nx, float ny) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_pivot called with NULL object");
+    /* clamp to [0,1] */
+    if (nx < 0.0f) nx = 0.0f;
+    if (nx > 1.0f) nx = 1.0f;
+    if (ny < 0.0f) ny = 0.0f;
+    if (ny > 1.0f) ny = 1.0f;
+    object->rot_x = nx;
+    object->rot_y = ny;
+}
+
+void draw_list_object_get_pivot(const EseDrawListObject* object, float *nx, float *ny) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_pivot called with NULL object");
+    if (nx) *nx = object->rot_x;
+    if (ny) *ny = object->rot_y;
+}
+
+/* Compute rotated AABB for the object; outputs optional minx,miny,maxx,maxy */
+void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *minx, float *miny, float *maxx, float *maxy) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_rotated_aabb called with NULL object");
+
+    /* axis-aligned fast-path */
+    if (fabsf(object->rotation) < 1e-6f) {
+        float lx = object->x;
+        float ty = object->y;
+        float rx = object->x + (float)object->w;
+        float by = object->y + (float)object->h;
+        if (minx) *minx = lx;
+        if (miny) *miny = ty;
+        if (maxx) *maxx = rx;
+        if (maxy) *maxy = by;
+        return;
+    }
+
+    /* compute pivot in world coords */
+    float px = object->x + object->rot_x * (float)object->w;
+    float py = object->y + object->rot_y * (float)object->h;
+
+    /* compute four corners relative to pivot, rotate them, and find bounds */
+    float cosr = cosf(object->rotation);
+    float sinr = sinf(object->rotation);
+
+    float local_x[4];
+    float local_y[4];
+
+    /* corners relative to top-left */
+    float tlx = -object->rot_x * (float)object->w;
+    float tly = -object->rot_y * (float)object->h;
+    float trx = (1.0f - object->rot_x) * (float)object->w;
+    float tryy = -object->rot_y * (float)object->h;
+    float brx = (1.0f - object->rot_x) * (float)object->w;
+    float bry = (1.0f - object->rot_y) * (float)object->h;
+    float blx = -object->rot_x * (float)object->w;
+    float bly = (1.0f - object->rot_y) * (float)object->h;
+
+    local_x[0] = tlx; local_y[0] = tly; /* TL */
+    local_x[1] = trx; local_y[1] = tryy; /* TR */
+    local_x[2] = brx; local_y[2] = bry; /* BR */
+    local_x[3] = blx; local_y[3] = bly; /* BL */
+
+    float min_x = FLT_MAX;
+    float min_y = FLT_MAX;
+    float max_x = -FLT_MAX;
+    float max_y = -FLT_MAX;
+
+    for (int i = 0; i < 4; ++i) {
+        float rx = local_x[i] * cosr - local_y[i] * sinr;
+        float ry = local_x[i] * sinr + local_y[i] * cosr;
+        float vx = px + rx;
+        float vy = py + ry;
+        if (vx < min_x) min_x = vx;
+        if (vy < min_y) min_y = vy;
+        if (vx > max_x) max_x = vx;
+        if (vy > max_y) max_y = vy;
+    }
+
+    if (minx) *minx = min_x;
+    if (miny) *miny = min_y;
+    if (maxx) *maxx = max_x;
+    if (maxy) *maxy = max_y;
 }

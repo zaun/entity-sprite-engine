@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,6 +59,25 @@ static void _render_list_add_batch(EseRenderList *render_list, EseRenderBatch *b
     render_list->batches[render_list->batch_count++] = batch;
 }
 
+static void _rotate_point(
+    float lx, float ly,
+    float px, float py,
+    float rot,
+    float *ox, float *oy
+) {
+    float dx = lx - px;
+    float dy = ly - py;
+    float cr = cosf(rot);
+    float sr = sinf(rot);
+    *ox = px + (cr * dx - sr * dy);
+    *oy = py + (sr * dx + cr * dy);
+}
+
+static inline void _pixel_to_ndc(float px, float py, float view_w, float view_h, float *nx, float *ny) {
+    *nx = (px / view_w) * 2.0f - 1.0f;
+    *ny = 1.0f - (py / view_h) * 2.0f;
+}
+
 // Helper to add vertices to a batch
 static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDrawListObject *obj, int view_w, int view_h) {
     log_assert("RENDER_LIST", batch, "_render_batch_add_object_vertices called with NULL batch");
@@ -111,91 +131,145 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         v[5] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, u1, v0};
         
     } else if (draw_list_object_get_type(obj) == RL_RECT) {
-        unsigned char r, g, b, a;
+        unsigned char rc, gc, bc, ac;
         bool filled;
-        draw_list_object_get_rect_color(obj, &r, &g, &b, &a, &filled);
-        
-        if (filled) {
-            // Filled rectangle - single quad (6 vertices)
-            v[0] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-            v[1] = (EseVertex){ndc_x, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-            v[2] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-            
-            v[3] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-            v[4] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-            v[5] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, 0.0f, 0.0f};
+        draw_list_object_get_rect_color(obj, &rc, &gc, &bc, &ac, &filled);
+
+        /* rotation (radians) and pivot normalized (0..1) */
+        float rot = draw_list_object_get_rotation(obj);
+        float pivot_nx = 0.5f, pivot_ny = 0.5f;
+        draw_list_object_get_pivot(obj, &pivot_nx, &pivot_ny);
+
+        /* Use pixel-space bounds from x,y,w,h obtained earlier */
+        float sx = x;     /* top-left x in pixels */
+        float sy = y;     /* top-left y in pixels */
+        int pw = w;
+        int ph = h;
+
+        /* pivot in pixel coords */
+        float px_pix = sx + pivot_nx * (float)pw;
+        float py_pix = sy + pivot_ny * (float)ph;
+
+        /* Outer corners in pixel space (TL, TR, BR, BL) - y grows downward */
+        float oxp[4], oyp[4];
+        oxp[0] = sx;         oyp[0] = sy;          /* TL */
+        oxp[1] = sx + pw;    oyp[1] = sy;          /* TR */
+        oxp[2] = sx + pw;    oyp[2] = sy + ph;     /* BR */
+        oxp[3] = sx;         oyp[3] = sy + ph;     /* BL */
+
+        /* Rotate outer corners in pixel space */
+        float r_oxp[4], r_oyp[4];
+        if (fabsf(rot) < 1e-6f) {
+            for (int i = 0; i < 4; ++i) { r_oxp[i] = oxp[i]; r_oyp[i] = oyp[i]; }
         } else {
-            // Hollow rectangle - need to reallocate for 24 vertices (4 borders * 6 vertices each)
-            if (batch->vertex_count - 6 + 24 > batch->vertex_capacity) {
-                // We already reserved 6, but need 24 total, so check for 18 more
-                size_t new_capacity = batch->vertex_capacity * 2;
-                while (batch->vertex_count - 6 + 24 > new_capacity) {
-                    new_capacity *= 2;
-                }
-                EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_USER1);
-                if (new_buffer) {
-                    batch->vertex_buffer = new_buffer;
-                    batch->vertex_capacity = new_capacity;
-                }
-                // Update v pointer after potential reallocation
-                v = &batch->vertex_buffer[batch->vertex_count - 6];
+            for (int i = 0; i < 4; ++i) {
+                _rotate_point(oxp[i], oyp[i], px_pix, py_pix, rot, &r_oxp[i], &r_oyp[i]);
             }
-            
-            // Adjust vertex count for hollow rectangle (24 vertices instead of 6)
-            batch->vertex_count += 18; // We already added 6, so add 18 more for total of 24
-            
-            // Define border thickness in NDC
-            float border_thickness_ndc_w = (2.0f * 2.0f) / view_w;
-            float border_thickness_ndc_h = (2.0f * 2.0f) / view_h;
-            
-            // Calculate inner rectangle bounds in NDC
-            float inner_ndc_x = ndc_x + border_thickness_ndc_w;
-            float inner_ndc_y = ndc_y - border_thickness_ndc_h;
-            float inner_ndc_w = ndc_w - 2 * border_thickness_ndc_w;
-            float inner_ndc_h = ndc_h - 2 * border_thickness_ndc_h;
-            
-            // Ensure inner rectangle is valid
-            if (inner_ndc_w <= 0 || inner_ndc_h <= 0) {
-                // If inner rectangle would be invalid, draw as filled
-                batch->vertex_count -= 18; // Reset vertex count back to 6
-                v[0] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-                v[1] = (EseVertex){ndc_x, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[2] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[3] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-                v[4] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[5] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, 0.0f, 0.0f};
+        }
+
+        if (filled) {
+            /* Convert rotated pixel points -> NDC and write two triangles */
+            float ndc_px[4], ndc_py[4];
+            for (int i = 0; i < 4; ++i) _pixel_to_ndc(r_oxp[i], r_oyp[i], view_w, view_h, &ndc_px[i], &ndc_py[i]);
+
+            /* Triangles: TL, BL, BR  and  TL, BR, TR */
+            v[0] = (EseVertex){ ndc_px[0], ndc_py[0], 0.0f, 0.0f, 0.0f }; /* TL */
+            v[1] = (EseVertex){ ndc_px[3], ndc_py[3], 0.0f, 0.0f, 0.0f }; /* BL */
+            v[2] = (EseVertex){ ndc_px[2], ndc_py[2], 0.0f, 0.0f, 0.0f }; /* BR */
+
+            v[3] = (EseVertex){ ndc_px[0], ndc_py[0], 0.0f, 0.0f, 0.0f }; /* TL */
+            v[4] = (EseVertex){ ndc_px[2], ndc_py[2], 0.0f, 0.0f, 0.0f }; /* BR */
+            v[5] = (EseVertex){ ndc_px[1], ndc_py[1], 0.0f, 0.0f, 0.0f }; /* TR */
+        } else {
+            /* Hollow rectangle: create inner rect in pixels, rotate both outer and inner, convert to NDC. */
+            const float border_px = 2.0f; /* keep same pixel thickness as before */
+            float bx = border_px;
+            float by = border_px;
+
+            float inner_x = sx + bx;
+            float inner_y = sy + by;
+            float inner_w = (float)pw - 2.0f * bx;
+            float inner_h = (float)ph - 2.0f * by;
+
+            if (inner_w <= 0.0f || inner_h <= 0.0f) {
+                /* fallback to filled if inner invalid */
+                float ndc_px[4], ndc_py[4];
+                for (int i = 0; i < 4; ++i) _pixel_to_ndc(r_oxp[i], r_oyp[i], view_w, view_h, &ndc_px[i], &ndc_py[i]);
+
+                v[0] = (EseVertex){ ndc_px[0], ndc_py[0], 0.0f, 0.0f, 0.0f };
+                v[1] = (EseVertex){ ndc_px[3], ndc_py[3], 0.0f, 0.0f, 0.0f };
+                v[2] = (EseVertex){ ndc_px[2], ndc_py[2], 0.0f, 0.0f, 0.0f };
+
+                v[3] = (EseVertex){ ndc_px[0], ndc_py[0], 0.0f, 0.0f, 0.0f };
+                v[4] = (EseVertex){ ndc_px[2], ndc_py[2], 0.0f, 0.0f, 0.0f };
+                v[5] = (EseVertex){ ndc_px[1], ndc_py[1], 0.0f, 0.0f, 0.0f };
             } else {
-                // Top border (6 vertices)
-                v[0] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-                v[1] = (EseVertex){ndc_x, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[2] = (EseVertex){ndc_x + ndc_w, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[3] = (EseVertex){ndc_x, ndc_y, 0.0f, 0.0f, 0.0f};
-                v[4] = (EseVertex){ndc_x + ndc_w, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[5] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, 0.0f, 0.0f};
-                
-                // Bottom border (6 vertices)
-                v[6] = (EseVertex){ndc_x, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[7] = (EseVertex){ndc_x, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[8] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[9] = (EseVertex){ndc_x, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[10] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, 0.0f, 0.0f};
-                v[11] = (EseVertex){ndc_x + ndc_w, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                
-                // Left border (6 vertices)
-                v[12] = (EseVertex){ndc_x, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[13] = (EseVertex){ndc_x, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[14] = (EseVertex){inner_ndc_x, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[15] = (EseVertex){ndc_x, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[16] = (EseVertex){inner_ndc_x, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[17] = (EseVertex){inner_ndc_x, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                
-                // Right border (6 vertices)
-                v[18] = (EseVertex){inner_ndc_x + inner_ndc_w, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[19] = (EseVertex){inner_ndc_x + inner_ndc_w, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[20] = (EseVertex){ndc_x + ndc_w, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[21] = (EseVertex){inner_ndc_x + inner_ndc_w, inner_ndc_y, 0.0f, 0.0f, 0.0f};
-                v[22] = (EseVertex){ndc_x + ndc_w, inner_ndc_y - inner_ndc_h, 0.0f, 0.0f, 0.0f};
-                v[23] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, 0.0f, 0.0f};
+                /* inner corners in pixel space (TL, TR, BR, BL) */
+                float ixp[4], iyp[4];
+                ixp[0] = inner_x;           iyp[0] = inner_y;           /* TL */
+                ixp[1] = inner_x + inner_w; iyp[1] = inner_y;           /* TR */
+                ixp[2] = inner_x + inner_w; iyp[2] = inner_y + inner_h; /* BR */
+                ixp[3] = inner_x;           iyp[3] = inner_y + inner_h; /* BL */
+
+                /* rotate inner corners */
+                float r_ixp[4], r_iyp[4];
+                if (fabsf(rot) < 1e-6f) {
+                    for (int i = 0; i < 4; ++i) { r_ixp[i] = ixp[i]; r_iyp[i] = iyp[i]; }
+                } else {
+                    for (int i = 0; i < 4; ++i) {
+                        _rotate_point(ixp[i], iyp[i], px_pix, py_pix, rot, &r_ixp[i], &r_iyp[i]);
+                    }
+                }
+
+                /* ensure vertex capacity (we already reserved 6 earlier) */
+                if (batch->vertex_count - 6 + 24 > batch->vertex_capacity) {
+                    size_t new_capacity = batch->vertex_capacity * 2;
+                    while (batch->vertex_count - 6 + 24 > new_capacity) new_capacity *= 2;
+                    EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_USER1);
+                    if (new_buffer) {
+                        batch->vertex_buffer = new_buffer;
+                        batch->vertex_capacity = new_capacity;
+                    }
+                    v = &batch->vertex_buffer[batch->vertex_count - 6];
+                }
+                batch->vertex_count += 18; /* already reserved 6, add 18 more */
+
+                /* convert rotated pixel points to NDC arrays */
+                float odx[4], ody[4], idx[4], idy[4];
+                for (int i = 0; i < 4; ++i) _pixel_to_ndc(r_oxp[i], r_oyp[i], view_w, view_h, &odx[i], &ody[i]);
+                for (int i = 0; i < 4; ++i) _pixel_to_ndc(r_ixp[i], r_iyp[i], view_w, view_h, &idx[i], &idy[i]);
+
+                /* Top border */
+                v[0] = (EseVertex){ odx[0], ody[0], 0.0f, 0.0f, 0.0f };
+                v[1] = (EseVertex){ idx[0], idy[0], 0.0f, 0.0f, 0.0f };
+                v[2] = (EseVertex){ idx[1], idy[1], 0.0f, 0.0f, 0.0f };
+                v[3] = (EseVertex){ odx[0], ody[0], 0.0f, 0.0f, 0.0f };
+                v[4] = (EseVertex){ idx[1], idy[1], 0.0f, 0.0f, 0.0f };
+                v[5] = (EseVertex){ odx[1], ody[1], 0.0f, 0.0f, 0.0f };
+
+                /* Bottom border */
+                v[6]  = (EseVertex){ odx[3], ody[3], 0.0f, 0.0f, 0.0f };
+                v[7]  = (EseVertex){ odx[2], ody[2], 0.0f, 0.0f, 0.0f };
+                v[8]  = (EseVertex){ idx[2], idy[2], 0.0f, 0.0f, 0.0f };
+                v[9]  = (EseVertex){ odx[3], ody[3], 0.0f, 0.0f, 0.0f };
+                v[10] = (EseVertex){ idx[2], idy[2], 0.0f, 0.0f, 0.0f };
+                v[11] = (EseVertex){ idx[3], idy[3], 0.0f, 0.0f, 0.0f };
+
+                /* Left border */
+                v[12] = (EseVertex){ odx[0], ody[0], 0.0f, 0.0f, 0.0f };
+                v[13] = (EseVertex){ odx[3], ody[3], 0.0f, 0.0f, 0.0f };
+                v[14] = (EseVertex){ idx[3], idy[3], 0.0f, 0.0f, 0.0f };
+                v[15] = (EseVertex){ odx[0], ody[0], 0.0f, 0.0f, 0.0f };
+                v[16] = (EseVertex){ idx[3], idy[3], 0.0f, 0.0f, 0.0f };
+                v[17] = (EseVertex){ idx[0], idy[0], 0.0f, 0.0f, 0.0f };
+
+                /* Right border */
+                v[18] = (EseVertex){ idx[1], idy[1], 0.0f, 0.0f, 0.0f };
+                v[19] = (EseVertex){ idx[2], idy[2], 0.0f, 0.0f, 0.0f };
+                v[20] = (EseVertex){ odx[2], ody[2], 0.0f, 0.0f, 0.0f };
+                v[21] = (EseVertex){ idx[1], idy[1], 0.0f, 0.0f, 0.0f };
+                v[22] = (EseVertex){ odx[2], ody[2], 0.0f, 0.0f, 0.0f };
+                v[23] = (EseVertex){ odx[1], ody[1], 0.0f, 0.0f, 0.0f };
             }
         }
     }

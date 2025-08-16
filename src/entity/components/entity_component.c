@@ -118,6 +118,20 @@ bool entity_component_test_collision(EseEntityComponent *a, EseEntityComponent *
     return false;
 }
 
+bool entity_component_test_rect(EseEntityComponent *component, EseRect *rect) {
+    log_assert("ENTITY_COMP", component, "entity_component_test_rect called with NULL component");
+    log_assert("ENTITY_COMP", rect, "entity_component_test_rect called with NULL rect");
+
+    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
+    for (size_t i = 0; i < collider->rects_count; i++) {
+        EseRect *colliderRect = rect_copy(collider->rects[i], true);
+        if (rect_intersects(colliderRect, rect)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void entity_component_draw(
     EseEntityComponent *component,
     float camera_x, float camera_y,

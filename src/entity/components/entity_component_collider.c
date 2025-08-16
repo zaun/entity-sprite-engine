@@ -591,7 +591,12 @@ void _entity_component_collider_draw(EseEntityComponentCollider *collider, float
 
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *rect = collider->rects[i];
-        rectCallback(screen_x, screen_y, collider->base.entity->draw_order, rect->width, rect->height, false, 0, 0, 255, 255, callback_user_data);
+        rectCallback(
+            screen_x, screen_y, collider->base.entity->draw_order,
+            rect->width, rect->height, rect->rotation, false,
+            0, 0, 255, 255,
+            callback_user_data
+        );
     }
 };
 
