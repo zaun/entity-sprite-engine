@@ -1,11 +1,14 @@
 #include <stdbool.h>
+#include <string.h>
 #include "utility/log.h"
 #include "vendor/lua/src/lua.h"
 #include "vendor/lua/src/lauxlib.h"
 #include "vendor/lua/src/lualib.h"
 #include "core/engine_private.h"
 #include "core/engine.h"
+#include "core/memory_manager.h"
 #include "platform/renderer.h"
+#include "types/types.h"
 
 int _lua_print(lua_State *L) {
     log_assert("LUA", L, "_lua_print called with NULL L");
@@ -63,7 +66,7 @@ int _lua_asset_load_script(lua_State *L) {
 
     // Get engine reference
     EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    bool status = lua_engine_load_script(engine, script);
+    bool status = lua_engine_load_script(engine, script, "ENTITY");
 
     log_debug("ENGINE", "Loading script %s has %s.", script, status ? "completed" : "failed");
     
@@ -143,5 +146,62 @@ int _lua_set_pipeline(lua_State *L) {
     bool status = renderer_create_pipeline_state(engine->renderer, vertexShader, fragmentShader);
 
     lua_pushboolean(L, status);
+    return 1;
+}
+
+int _lua_detect_collision(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 2) {
+        log_warn("ENGINE", "detect_collision(rect, number max_results) takes 2 argument");
+        lua_newtable(L);
+        return 1;
+    }
+
+    if (!lua_isinteger(L, 2)) {
+        log_warn("ENGINE", "detect_collision(rect, number max_results) 2nd argumant to be an integer");
+        lua_newtable(L);
+        return 1;
+    }
+
+    // 1st argument must be a table
+    if (!lua_getmetatable(L, 1)) {
+        log_warn("ENGINE", "detect_collision(rect) expected rect");
+        lua_newtable(L);
+        return 1;
+    }
+
+    // table nust have a __name
+    lua_getfield(L, -1, "__name"); // get metatable.__name
+    const char *tname = lua_tostring(L, -1);
+    if (!tname) {
+        log_warn("ENGINE", "detect_collision(rect) expected rect");
+        lua_newtable(L);
+        return 1;
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    int max_results = (int)lua_tointeger(L, 2);
+
+    // If the table is a Rect
+    if (strcmp(tname, "RectProxyMeta") == 0) {
+        EseRect *rect = rect_lua_get (L, 1);
+        EseEntity **entities = engine_detect_collision_rect(engine, rect, max_results);
+
+        // build Lua table
+        lua_newtable(L);
+        int idx = 1;
+        for (int i = 0; entities[i] != NULL; i++) {
+            lua_pushinteger(L, idx++);
+            entity_lua_push(entities[i]);
+            lua_settable(L, -3);
+        }
+
+        // free the list, we dont own the entites.
+        memory_manager.free(entities);
+        return 1;
+    }
+    
+    log_warn("ENGINE", "detect_collision(rect) expected rect");
+    lua_newtable(L);
     return 1;
 }

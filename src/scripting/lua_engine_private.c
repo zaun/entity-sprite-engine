@@ -1,3 +1,4 @@
+#include <string.h>
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine_private.h"
@@ -6,6 +7,82 @@
 typedef struct LuaAllocHdr {
     size_t size; // user-visible size (bytes requested by Lua)
 } LuaAllocHdr;
+
+char* _replace_colon_calls(const char* prefix, const char* script) {
+    size_t script_len = strlen(script);
+    size_t prefix_len = strlen(prefix);
+    size_t buffer_size = script_len * 2; // Generous buffer
+    char* result = memory_manager.malloc(buffer_size, MMTAG_LUA);
+    
+    const char* src = script;
+    char* dst = result;
+    size_t remaining = buffer_size - 1;
+    
+    // Create search pattern "PREFIX:"
+    char* search_pattern = memory_manager.malloc(prefix_len + 2, MMTAG_LUA);
+    snprintf(search_pattern, prefix_len + 2, "%s:", prefix);
+    
+    while (*src) {
+        if (strncmp(src, search_pattern, prefix_len + 1) == 0) {
+            // Found PREFIX:, replace with PREFIX.
+            if (remaining < prefix_len + 1) break;
+            memcpy(dst, prefix, prefix_len);
+            dst += prefix_len;
+            *dst++ = '.';
+            remaining -= (prefix_len + 1);
+            src += (prefix_len + 1);
+            
+            // Skip whitespace and find opening paren
+            while (*src && (*src == ' ' || *src == '\t')) {
+                if (remaining < 1) break;
+                *dst++ = *src++;
+                remaining--;
+            }
+            
+            // Copy function name until (
+            while (*src && *src != '(') {
+                if (remaining < 1) break;
+                *dst++ = *src++;
+                remaining--;
+            }
+            
+            // Add opening paren and self
+            if (*src == '(' && remaining >= 6) {
+                *dst++ = '(';
+                remaining--;
+                
+                // Skip whitespace after (
+                src++;
+                while (*src && (*src == ' ' || *src == '\t')) {
+                    if (remaining < 1) break;
+                    *dst++ = *src++;
+                    remaining--;
+                }
+                
+                // Add self
+                if (*src == ')') {
+                    // Empty params: PREFIX:func() -> PREFIX.func(self)
+                    memcpy(dst, "self", 4);
+                    dst += 4;
+                    remaining -= 4;
+                } else {
+                    // Has params: PREFIX:func(x) -> PREFIX.func(self, x)
+                    memcpy(dst, "self, ", 6);
+                    dst += 6;
+                    remaining -= 6;
+                }
+            }
+        } else {
+            if (remaining < 1) break;
+            *dst++ = *src++;
+            remaining--;
+        }
+    }
+    
+    *dst = '\0';
+    memory_manager.free(search_pattern);
+    return result;
+}
 
 void _lua_copy_field(lua_State *L, int src_idx, int dst_idx, const char *k) {
     if (src_idx < 0) src_idx = lua_gettop(L) + 1 + src_idx;

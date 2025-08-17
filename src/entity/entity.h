@@ -8,6 +8,7 @@
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseEntity EseEntity;
 typedef struct EseEntityComponent EseEntityComponent;
+typedef struct EseRect EseRect;
 
 /**
  * @brief Callback function type for entity drawing operations.
@@ -85,6 +86,16 @@ void entity_run_function_with_args(
  * @param test Pointer to the secondary EseEntity to test
  */
 void entity_process_collision(EseEntity *entity, EseEntity *test);
+
+/**
+ * @brief Check for a collision between entitiy and a rect.
+ * 
+ * @param entity Pointer to the an EseEntity to check
+ * @param test Pointer to the an EseRect to test
+ * 
+ * @return True is there is a collisiton false if not.
+ */
+bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect);
 
 /**
  * @brief Draws an entity using the provided callback.

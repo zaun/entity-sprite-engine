@@ -1,6 +1,4 @@
-local M = {}
-
-function M:makeskull()
+function STARTUP:makeskull()
     local skull = Entity.new()
 
     if asset_load_script("skull.lua") then
@@ -25,7 +23,7 @@ function M:makeskull()
     return skull
 end
 
-function M:startup()
+function STARTUP:startup()
 
     if asset_load_shader("game", "shaders.glsl") == false then
         print("Shaders not loaded")
@@ -56,16 +54,14 @@ function M:startup()
     horse_collider.rects.add(Rect.new(0, 0, 144, 144))
     horse.components.add(horse_collider)
 
-    M:makeskull()
-    M:makeskull()
-    M:makeskull()
-    M:makeskull()
-    M:makeskull()
-    M:makeskull()
-    M:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
+    STARTUP:makeskull()
 
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 end
-
-return M

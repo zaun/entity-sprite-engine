@@ -49,6 +49,8 @@ typedef struct EseLuaEngineInternal {
     size_t max_instruction_count;
 } EseLuaEngineInternal;
 
+char* _replace_colon_calls(const char* prefix, const char* script);
+
 void _lua_copy_field(lua_State *L, int src_idx, int dst_idx, const char *k);
 
 int _lua_global_write_error(lua_State *L);

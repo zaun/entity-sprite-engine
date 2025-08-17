@@ -1,6 +1,4 @@
-local M = {}
-
-function M:entity_init()
+function ENTITY:entity_init()
     self.data.time = 0;
 
     local found_indexes = self.components:find("EntityComponentSprite");
@@ -16,7 +14,7 @@ function M:entity_init()
     self.data.collider_comp = self.components[found_indexes[1]];
 end
 
-function M:entity_update(delta_time)
+function ENTITY:entity_update(delta_time)
     if self.data.sprite_comp == nil then
         return
     end
@@ -110,14 +108,12 @@ function M:entity_update(delta_time)
     end
 end
 
-function M:entity_collision_enter(entity) 
+function ENTITY:entity_collision_enter(entity) 
     entity.dispatch("move");
 end
 
-function M:entity_collision_stay(entity) 
+function ENTITY:entity_collision_stay(entity) 
 end
 
-function M:entity_collision_exit(entity) 
+function ENTITY:entity_collision_exit(entity) 
 end
-
-return M

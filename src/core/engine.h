@@ -17,6 +17,7 @@
 typedef struct EseEntity EseEntity;
 typedef struct EseEngine EseEngine;
 typedef struct EseRenderer EseRenderer;
+typedef struct EseRect EseRect;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -85,5 +86,7 @@ void engine_start(EseEngine *engine);
  * @note This function asserts that both the `engine` and `state` pointers are not NULL.
  */
 void engine_update(EseEngine *engine, float delta_time, const EseInputState *state);
+
+EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count);
 
 #endif // ESE_ENGINE_H

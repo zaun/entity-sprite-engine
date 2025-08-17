@@ -58,6 +58,7 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_load_atlas", _lua_asset_load_atlas);
     lua_engine_add_function(engine->lua_engine, "asset_load_shader", _lua_asset_load_shader);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
+    lua_engine_add_function(engine->lua_engine, "detect_collision", _lua_detect_collision);
 
     // Add globals
     engine->input_state = input_state_create(engine->lua_engine);
@@ -72,7 +73,7 @@ EseEngine *engine_create(const char *startup_script) {
     // Lock global
     lua_engine_global_lock(engine->lua_engine);
 
-    lua_engine_load_script(engine->lua_engine, startup_script);
+    lua_engine_load_script(engine->lua_engine, startup_script, "STARTUP");
     engine->startup_ref = lua_engine_instance_script(engine->lua_engine, startup_script);
 
     engine->active_render_list = true;
@@ -181,7 +182,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     EseDListIter* iter_a = dlist_iter_create(engine->entities);
     while (dlist_iter_next(iter_a, &entity_a_value)) {
         EseEntity *entity_a = (EseEntity*)entity_a_value;
-        // Skip inactive entities and entities that don't have a collider
+        // Skip inactive entities
         if (!entity_a->active) {
             continue;
         }
@@ -243,4 +244,41 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
     // Forec Lua the GC each frame
     lua_engine_gc(engine->lua_engine);
+}
+
+EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count) {
+    // allocate array of pointers (+1 for NULL terminator)
+    EseEntity **results = memory_manager.malloc(sizeof(EseEntity*) * (max_count + 1), MMTAG_ENGINE);
+    if (!results) {
+        return NULL; // allocation failed
+    }
+
+    int count = 0;
+    void *entity_value;
+    EseDListIter *iter_a = dlist_iter_create(engine->entities);
+
+    while (dlist_iter_next(iter_a, &entity_value)) {
+        EseEntity *entity = (EseEntity*)entity_value;
+
+        // skip inactive
+        if (!entity->active) {
+            continue;
+        }
+
+        if (entity_detect_collision_rect(entity, rect)) {
+            results[count++] = entity;
+
+            // stop if we hit max_count
+            if (count >= max_count) {
+                break;
+            }
+        }
+    }
+
+    dlist_iter_free(iter_a);
+
+    // null terminate
+    results[count] = NULL;
+
+    return results;
 }

@@ -206,7 +206,7 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
     lua_pop(engine->runtime, 1); // master
 }
 
-bool lua_engine_load_script(EseLuaEngine *engine, const char* filename) {
+bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name) {
     log_assert("LUA_ENGINE", engine, "lua_engine_load_script called with NULL engine");
     log_assert("LUA_ENGINE", filename, "lua_engine_load_script called with NULL filename");
     log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_engine_load_script engine->internal->sandbox_master_ref is LUA_NOREF");
@@ -264,11 +264,29 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename) {
     _lua_engine_build_env_from_master(engine->runtime, engine->internal->sandbox_master_ref);
     int env_idx = lua_gettop(engine->runtime);
 
-    const char *prologue = "local _ENV = ...; return (function() ";
-    const char *epilogue = " end)()";
-    size_t new_len = strlen(prologue) + strlen(script) + strlen(epilogue);
+    // Create M table and add to environment
+    lua_newtable(engine->runtime);  // Create module
+    lua_setfield(engine->runtime, env_idx, module_name); 
+
+    // Lock environment against modifications
+    lua_newtable(engine->runtime);  // metatable
+    lua_pushcfunction(engine->runtime, _lua_global_write_error);
+    lua_setfield(engine->runtime, -2, "__newindex");
+    lua_pushstring(engine->runtime, "locked");
+    lua_setfield(engine->runtime, -2, "__metatable");
+    lua_setmetatable(engine->runtime, env_idx);
+
+    const char *prologue = "local _ENV = ...; (function() ";
+    size_t epilogue_len = strlen(" end)(); return ") + strlen(module_name) + 1;
+    char *epilogue = memory_manager.malloc(epilogue_len, MMTAG_LUA);
+    snprintf(epilogue, epilogue_len, " end)(); return %s", module_name);
+
+    char *processed_script = _replace_colon_calls(module_name, script);
+    size_t new_len = strlen(prologue) + strlen(processed_script) + strlen(epilogue);
     char *wrapped = memory_manager.malloc(new_len + 1, MMTAG_LUA);
-    snprintf(wrapped, new_len + 1, "%s%s%s", prologue, script, epilogue);
+    snprintf(wrapped, new_len + 1, "%s%s%s", prologue, processed_script, epilogue);
+    memory_manager.free(processed_script);
+    memory_manager.free(epilogue);
 
     // Load the script
     if (luaL_loadstring(engine->runtime, wrapped) == LUA_OK) {
@@ -307,12 +325,8 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *filename) {
 
     int *script_ref = hashmap_get(engine->internal->functions, filename);
     if (!script_ref) {
-        lua_engine_load_script(engine, filename);
-        script_ref = hashmap_get(engine->internal->functions, filename);
-        if (!script_ref) {
-            log_error("LUA_ENGINE", "Script not found");
-            return -1;
-        }
+        log_error("LUA_ENGINE", "Script not found");
+        return -1;
     }
 
     lua_State *L = engine->runtime;
@@ -346,7 +360,7 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *filename) {
 }
 
 void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_instance_script called with NULL engine");
+    log_assert("LUA_ENGINE", engine, "lua_engine_instance_remove called with NULL engine");
 
     lua_State *L = engine->runtime;
 

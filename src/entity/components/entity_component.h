@@ -18,7 +18,9 @@ void entity_component_push(EseEntityComponent *component);
 
 void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time);
 
-bool entity_component_test_collision(EseEntityComponent *a, EseEntityComponent *b);
+bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntityComponent *b);
+
+bool entity_component_detect_collision_rect(EseEntityComponent *a, EseRect *rect);
 
 void entity_component_draw(
     EseEntityComponent *component,

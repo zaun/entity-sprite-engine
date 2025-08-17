@@ -99,8 +99,8 @@ void entity_run_function_with_args(
 }
 
 void entity_process_collision(EseEntity *entity, EseEntity *test) {
-    log_assert("ENTITY", entity, "entity_process_collision called with NULL a");
-    log_assert("ENTITY", test, "entity_process_collision called with NULL b");
+    log_assert("ENTITY", entity, "entity_process_collision called with NULL entity");
+    log_assert("ENTITY", test, "entity_process_collision called with NULL test");
 
     // Get the key.
     const char* canonical_key = _get_collision_key(entity->id, test->id);
@@ -139,6 +139,24 @@ void entity_process_collision(EseEntity *entity, EseEntity *test) {
 
     lua_value_free(arg_test);
     lua_value_free(arg_entity);
+}
+
+bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {
+    log_assert("ENTITY", entity, "entity_detect_collision_rect called with NULL entity");
+    log_assert("ENTITY", rect, "entity_detect_collision_rect called with NULL rect");
+
+    for (size_t i = 0; i < entity->component_count; i++) {
+        EseEntityComponent *comp = entity->components[i];
+        if (!comp->active || comp->type != ENTITY_COMPONENT_COLLIDER) {
+            continue;
+        }
+
+        if (entity_component_detect_collision_rect(comp, rect)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void entity_draw(

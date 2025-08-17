@@ -104,13 +104,14 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
  * 
  * @param engine Pointer to the EseLuaEngine instance.
  * @param filename Name of the Lua script file to load (must have .lua extension).
+ * @param module_name Name of the module to load).
  * 
  * @return true if the script was successfully loaded and compiled, false on any error.
  * 
  * @warning Script files are read entirely into memory. Large files may cause issues.
  * @warning The script must return a table or loading will fail.
  */
-bool lua_engine_load_script(EseLuaEngine *engine, const char* filename);
+bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name);
 
 /**
  * @brief Creates a new proxy-wrapped instance from a loaded Lua script class.

@@ -87,9 +87,9 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
     }
 }
 
-bool entity_component_test_collision(EseEntityComponent *a, EseEntityComponent *b) {
-    log_assert("ENTITY_COMP", a, "entity_component_test_collision called with NULL a");
-    log_assert("ENTITY_COMP", b, "entity_component_test_collision called with NULL b");
+bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntityComponent *b) {
+    log_assert("ENTITY_COMP", a, "entity_component_detect_collision_component called with NULL a");
+    log_assert("ENTITY_COMP", b, "entity_component_detect_collision_component called with NULL b");
 
     if (a->type != ENTITY_COMPONENT_COLLIDER || b->type != ENTITY_COMPONENT_COLLIDER) {
         return false;
@@ -118,16 +118,20 @@ bool entity_component_test_collision(EseEntityComponent *a, EseEntityComponent *
     return false;
 }
 
-bool entity_component_test_rect(EseEntityComponent *component, EseRect *rect) {
-    log_assert("ENTITY_COMP", component, "entity_component_test_rect called with NULL component");
-    log_assert("ENTITY_COMP", rect, "entity_component_test_rect called with NULL rect");
+bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRect *rect) {
+    log_assert("ENTITY_COMP", component, "entity_component_detect_collision_rect called with NULL component");
+    log_assert("ENTITY_COMP", rect, "entity_component_detect_collision_rect called with NULL rect");
 
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *colliderRect = rect_copy(collider->rects[i], true);
+        colliderRect->x += component->entity->position->x;
+        colliderRect->y += component->entity->position->y;
         if (rect_intersects(colliderRect, rect)) {
+            memory_manager.free(colliderRect);
             return true;
         }
+        memory_manager.free(colliderRect);
     }
     return false;
 }

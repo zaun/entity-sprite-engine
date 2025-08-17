@@ -97,7 +97,7 @@ bool _entity_test_collision(EseEntity *a, EseEntity *b) {
                 continue;
             }
 
-            if (entity_component_test_collision(comp_a, comp_b)) {
+            if (entity_component_detect_collision_component(comp_a, comp_b)) {
                 return true;
             }
         }
