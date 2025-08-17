@@ -34,6 +34,7 @@ void _entity_lua_register(EseEntity *entity, bool is_lua_owned) {
 
     // Store a reference to this proxy table in the Lua registry
     entity->lua_ref = luaL_ref(entity->lua->runtime, LUA_REGISTRYINDEX);
+    lua_value_set_ref(entity->lua_val_ref, entity->lua_ref);
 }
 
 void entity_lua_push(EseEntity *entity) {

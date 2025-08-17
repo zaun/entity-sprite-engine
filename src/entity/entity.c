@@ -67,6 +67,9 @@ void entity_destroy(EseEntity *entity) {
     if (entity->lua_ref != LUA_NOREF) {
         luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
     }
+    if (entity->lua_val_ref) {
+        lua_value_free(entity->lua_val_ref);
+    }
 
     dlist_free(entity->default_props);
 
@@ -111,21 +114,18 @@ void entity_process_collision(EseEntity *entity, EseEntity *test) {
 
     bool currently_colliding = _entity_test_collision(entity, test);
 
-    EseLuaValue *arg_test = lua_value_create_ref("entity", test->lua_ref);
-    EseLuaValue *arg_entity = lua_value_create_ref("entity", entity->lua_ref);
-
     if (currently_colliding && (!was_colliding_a || !was_colliding_b)) {
         // Collision Enter
-        entity_run_function_with_args(entity, "entity_collision_enter", 1, arg_test);
-        entity_run_function_with_args(test, "entity_collision_enter", 1, arg_entity);
+        entity_run_function_with_args(entity, "entity_collision_enter", 1, test->lua_val_ref);
+        entity_run_function_with_args(test, "entity_collision_enter", 1, entity->lua_val_ref);
     } else if (currently_colliding && was_colliding_a && was_colliding_b) {
         // Collision Stay
-        entity_run_function_with_args(entity, "entity_collision_stay", 1, arg_test);
-        entity_run_function_with_args(test, "entity_collision_stay", 1, arg_entity);
+        entity_run_function_with_args(entity, "entity_collision_stay", 1, test->lua_val_ref);
+        entity_run_function_with_args(test, "entity_collision_stay", 1, entity->lua_val_ref);
     } else if (!currently_colliding && (was_colliding_a || was_colliding_b)) {
         // Collision Exit
-        entity_run_function_with_args(entity, "entity_collision_exit", 1, arg_test);
-        entity_run_function_with_args(test, "entity_collision_exit", 1, arg_entity);
+        entity_run_function_with_args(entity, "entity_collision_exit", 1, test->lua_val_ref);
+        entity_run_function_with_args(test, "entity_collision_exit", 1, entity->lua_val_ref);
     }
 
 
@@ -136,9 +136,6 @@ void entity_process_collision(EseEntity *entity, EseEntity *test) {
         hashmap_remove(entity->current_collisions, canonical_key);
         hashmap_remove(test->current_collisions, canonical_key);
     }
-
-    lua_value_free(arg_test);
-    lua_value_free(arg_entity);
 }
 
 bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {

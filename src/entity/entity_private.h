@@ -12,21 +12,22 @@
  * @brief Internal entity structure.
  */
 struct EseEntity {
-    EseUUID *id;                           /**< Unique entity identifier */
-    bool active;                        /**< Whether entity is active */
-    int draw_order;                     /**< Drawing order (z-index) */
+    EseUUID *id;                            /**< Unique entity identifier */
+    bool active;                            /**< Whether entity is active */
+    int draw_order;                         /**< Drawing order (z-index) */
     
-    EsePoint *position;                    /**< EseEntity position */
+    EsePoint *position;                     /**< EseEntity position */
     
-    EseEntityComponent **components;       /**< Array of components */
-    size_t component_count;             /**< Number of components */
-    size_t component_capacity;          /**< Capacity of component array */
+    EseEntityComponent **components;        /**< Array of components */
+    size_t component_count;                 /**< Number of components */
+    size_t component_capacity;              /**< Capacity of component array */
 
     EseHashMap* current_collisions;
 
-    EseLuaEngine *lua;                     /**< Lua engine reference */
-    int lua_ref;                        /**< Lua registry reference */
-    EseDoubleLinkedList *default_props;    /**< Lua default props added to self.data */
+    EseLuaEngine *lua;                      /**< Lua engine reference */
+    EseDoubleLinkedList *default_props;     /**< Lua default props added to self.data */
+    EseLuaValue *lua_val_ref;               /**< A EseLuaVale self reference */
+    int lua_ref;                            /**< Lua registry self reference */
 };
 
 /**

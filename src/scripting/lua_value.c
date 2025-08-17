@@ -57,17 +57,17 @@ static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
 EseLuaValue* lua_value_copy(const EseLuaValue *src) {
     log_assert("LUA", src, "_lua_value_reset called with NULL src");
     
-    EseLuaValue *copy = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *copy = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     copy->type = src->type;
-    copy->name = src->name ? memory_manager.strdup(src->name, MMTAG_LUA) : NULL;
+    copy->name = src->name ? memory_manager.strdup(src->name, MMTAG_LUA_VALUE) : NULL;
     
     switch (src->type) {
         case LUA_VAL_STRING:
-            copy->value.string = src->value.string ? memory_manager.strdup(src->value.string, MMTAG_LUA) : NULL;
+            copy->value.string = src->value.string ? memory_manager.strdup(src->value.string, MMTAG_LUA_VALUE) : NULL;
             break;
         case LUA_VAL_TABLE:
             if (src->value.table.count > 0) {
-                copy->value.table.items = memory_manager.malloc(src->value.table.count * sizeof(EseLuaValue*), MMTAG_LUA);
+                copy->value.table.items = memory_manager.malloc(src->value.table.count * sizeof(EseLuaValue*), MMTAG_LUA_VALUE);
                 copy->value.table.count = src->value.table.count;
                 for (size_t i = 0; i < src->value.table.count; i++) {
                     copy->value.table.items[i] = lua_value_copy(src->value.table.items[i]);
@@ -84,71 +84,71 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
 EseLuaValue *lua_value_create_nil(const char *name) {
     log_assert("LUA", name, "lua_value_create_nil called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NIL;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_bool(const char *name, bool value) {
     log_assert("LUA", name, "lua_value_create_bool called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_BOOL;
     v->value.boolean = value;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_number(const char *name, double value) {
     log_assert("LUA", name, "lua_value_create_number called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NUMBER;
     v->value.number = value;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_string(const char *name, const char *value) {
     log_assert("LUA", name, "lua_value_create_string called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_STRING;
-    v->value.string = memory_manager.strdup(value, MMTAG_LUA);
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    v->value.string = memory_manager.strdup(value, MMTAG_LUA_VALUE);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_table(const char *name) {
     log_assert("LUA", name, "lua_value_create_table called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_TABLE;
     v->value.table.items = NULL;
     v->value.table.count = 0;
     v->value.table.capacity = 0;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_ref(const char *name, int value) {
     log_assert("LUA", name, "lua_value_create_number called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_REF;
     v->value.lua_ref = value;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
 EseLuaValue *lua_value_create_userdata(const char *name, void* value) {
     log_assert("LUA", name, "lua_value_create_number called with NULL name");
 
-    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA);
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_USERDATA;
     v->value.userdata = value;
-    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
 
@@ -164,7 +164,7 @@ void lua_value_push(EseLuaValue *val, EseLuaValue *item, bool copy) {
     // Grow array if needed
     if (val->value.table.count >= val->value.table.capacity) {
         size_t new_capacity = val->value.table.capacity == 0 ? 4 : val->value.table.capacity * 2;
-        EseLuaValue **new_items = memory_manager.realloc(val->value.table.items, new_capacity * sizeof(EseLuaValue*), MMTAG_LUA);  // ← Array of pointers
+        EseLuaValue **new_items = memory_manager.realloc(val->value.table.items, new_capacity * sizeof(EseLuaValue*), MMTAG_LUA_VALUE);  // ← Array of pointers
         if (!new_items) return;
         val->value.table.items = new_items;
         val->value.table.capacity = new_capacity;
@@ -213,7 +213,7 @@ void lua_value_set_string(EseLuaValue *val, const char *value) {
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_STRING;
-    val->value.string = memory_manager.strdup(value, MMTAG_LUA);
+    val->value.string = memory_manager.strdup(value, MMTAG_LUA_VALUE);
 }
 
 void lua_value_set_table(EseLuaValue *val) {

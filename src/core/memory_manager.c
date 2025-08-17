@@ -71,8 +71,8 @@ typedef struct MemoryManager MemoryManager;
 MemoryManager *g_memory_manager = NULL;
 
 static const char *mem_tag_names[MMTAG_COUNT] = {
-    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "RENDER ", "MAP    ", "SPRITE ",
-    "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH", "LINKLST"
+    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "RENDER ", "MAP    ",
+    "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH", "LINKLST"
 };
 
 static size_t _align_up(size_t n, size_t align) {
