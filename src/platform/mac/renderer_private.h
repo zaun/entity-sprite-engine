@@ -27,6 +27,15 @@ typedef struct EseMetalRenderer {
     id<MTLRenderPipelineState> pipelineState;
 
     id<MTLBuffer> render_listBuffer;
+
+    // Reusable buffers to avoid per-batch allocations
+    id<MTLBuffer> vertexBuffer;
+    size_t perFrameVertexCapacity;
+    size_t frameVertexCursor;
+    NSUInteger inflightCount;
+    NSUInteger inflightIndex;
+    id<MTLBuffer> uboBuffer;
+    size_t vertexBufferCapacity;
 } EseMetalRenderer;
 
 bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_name, NSString *sourceString);
