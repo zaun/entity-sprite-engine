@@ -288,6 +288,62 @@
                 "horse running sw0010",
                 "horse running sw0011"
             ]
+        },
+        {
+            "name": "horse stopped north",
+            "speed": 75,
+            "frames": [
+                "horse stopped0002"
+            ]
+        },
+        {
+            "name": "horse stopped south",
+            "speed": 75,
+            "frames": [
+                "horse stopped0006"
+            ]
+        },
+        {
+            "name": "horse stopped east",
+            "speed": 75,
+            "frames": [
+                "horse stopped0004"
+            ]
+        },
+        {
+            "name": "horse stopped west",
+            "speed": 75,
+            "frames": [
+                "horse stopped0000"
+            ]
+        },
+        {
+            "name": "horse stopped nort east",
+            "speed": 75,
+            "frames": [
+                "horse stopped0003"
+            ]
+        },
+        {
+            "name": "horse stopped south east",
+            "speed": 75,
+            "frames": [
+                "horse stopped0005"
+            ]
+        },
+        {
+            "name": "horse stopped south west",
+            "speed": 75,
+            "frames": [
+                "horse stopped0007"
+            ]
+        },
+        {
+            "name": "horse stopped north west",
+            "speed": 75,
+            "frames": [
+                "horse stopped0001"
+            ]
         }
     ],
     "frames": [

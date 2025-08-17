@@ -1,22 +1,50 @@
+// Basic map in JSONC
 {
-  "tile_width": 128,
-  "tile_height": 128,
-  "width": 10,
-  "height": 10,
-  "layers": [
-    {
-      "cells": [
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-t-1", "g-t-t-2", "g-t-t-3", "g-t-tr","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ],
-        ["g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl","g-t-tl", "g-t-tl", "g-t-tl", "g-t-tl" ]
+   "title": "Example Map",
+   "author": "Alice",
+   "version": 1,
+   "type": "grid",
+   "width": 6,
+   "height": 4,
+   "tileset": {
+      "0": [                                              // Keys MUST be converted to numbers
+         { "sprite":"grassland:s-g", "weight": 1 }        // Solid Grass
+      ],
+      "1": [
+         { "sprite":"grassland:t-g-d-1", "weight": 10 },  // Top Grass to Dirt
+         { "sprite":"grassland:t-g-d-2", "weight": 7 }
+      ],
+      "2": [
+         { "sprite":"grassland:tl-g-d", "weight": 1 }     // Top Left Grass to Dirt
+      ],
+      "3": [
+         { "sprite":"grassland:tr-g-d", "weight": 1 }     // Top Right Grass to Dirt
       ]
-    }
-  ]
+   },
+   "cells":[                                              // MUST be width * height in size, ALL tile_ids in layers MUST be defined in tileset.
+      { "layers": [ 0 ] },                                // MUST have layers, flags defalut is 0, isDynamic is false
+      { "layers": [ 0 ], "flags": 0, "isDynamic": true },
+      { "layers": [ 1 ] },
+      { "layers": [ 1 ] },
+      { "layers": [ 2 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 1, 2 ] },
+      { "layers": [ ] },                                  // No tile IDs, this is valid
+      { "layers": [ ] },
+      { "layers": [ 3, 1 ], "flags": 2 },
+      { "layers": [ ] },
+      { "layers": [ ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 4 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] },
+      { "layers": [ 0 ] }
+   ]
 }

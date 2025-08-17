@@ -247,6 +247,7 @@ static int _entity_component_sprite_newindex(lua_State *L) {
             EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
 
             const char *sprite_name = lua_tostring(L, 3);
+            component->current_frame = 0;
             component->sprite_name = memory_manager.strdup(sprite_name, MMTAG_ENTITY);
             component->sprite = asset_manager_get_sprite(engine->asset_manager, component->sprite_name);
             return 0;

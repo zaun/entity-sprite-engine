@@ -1,5 +1,5 @@
 function ENTITY:entity_init()
-    self.data.time = 0;
+    self.data.last_direction = "south";
 
     local found_indexes = self.components:find("EntityComponentSprite");
     if #found_indexes ~= 1 then
@@ -33,66 +33,81 @@ function ENTITY:entity_update(delta_time)
     local down = InputState.keys_down[InputState.KEY.S]
     local running = InputState.keys_down[InputState.KEY.LSHIFT]
 
-    local multiplyer = 1;
-    local movement_type = "walking"
-    if running then
-        multiplyer = 2;
-        movement_type = "running"
-    end
-
     -- Reset collider rotation
     local r = self.data.collider_comp.rects[1]
     r.rotation = 0;
 
+    -- Setup default movement
+    local move_x = 0
+    local move_y = 0
+    local direction = self.data.last_direction
+    local moving = false
+
     if right and up then
         -- Northeast
-        self.position.x = self.position.x + (delta_time * DIAGONAL_SPEED * multiplyer)
-        self.position.y = self.position.y - (delta_time * DIAGONAL_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " north east"
+        move_x = delta_time * DIAGONAL_SPEED
+        move_y = - delta_time * DIAGONAL_SPEED
+        direction = "north east"
         r.rotation = 45;
         moving = true
     elseif right and down then
         -- Southeast
-        self.position.x = self.position.x + (delta_time * DIAGONAL_SPEED * multiplyer)
-        self.position.y = self.position.y + (delta_time * DIAGONAL_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " south east"
+        move_x = delta_time * DIAGONAL_SPEED
+        move_y = delta_time * DIAGONAL_SPEED
+        direction = "south east"
         r.rotation = 45;
         moving = true
     elseif left and up then
         -- Northwest
-        self.position.x = self.position.x - (delta_time * DIAGONAL_SPEED * multiplyer)
-        self.position.y = self.position.y - (delta_time * DIAGONAL_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " north west"
+        move_x = - delta_time * DIAGONAL_SPEED
+        move_y = - delta_time * DIAGONAL_SPEED
+        direction = "north west"
         r.rotation = 45;
         moving = true
     elseif left and down then
         -- Southwest
-        self.position.x = self.position.x - (delta_time * DIAGONAL_SPEED * multiplyer)
-        self.position.y = self.position.y + (delta_time * DIAGONAL_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " south west"
+        move_x = - delta_time * DIAGONAL_SPEED
+        move_y = delta_time * DIAGONAL_SPEED
+        direction = "south west"
         r.rotation = 45;
         moving = true
     elseif right then
         -- East
-        self.position.x = self.position.x + (delta_time * BASE_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " east"
+        move_x = delta_time * BASE_SPEED
+        direction = "east"
         moving = true
     elseif left then
         -- West
-        self.position.x = self.position.x - (delta_time * BASE_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " west"
+        move_x = - delta_time * BASE_SPEED
+        direction = "west"
         moving = true
     elseif up then
         -- North
-        self.position.y = self.position.y - (delta_time * BASE_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " north"
+        move_y = - delta_time * BASE_SPEED
+        direction = "north"
         moving = true
     elseif down then
         -- South
-        self.position.y = self.position.y + (delta_time * BASE_SPEED * multiplyer)
-        new_sprite = "game:horse " .. movement_type .. " south"
+        move_y = delta_time * BASE_SPEED
+        direction = "south"
         moving = true
     end
+    self.data.last_direction = direction
+    
+    -- Set the sprite and move multiplier
+    local movement_type = "stopped"
+    local multiplyer = 0;
+    if moving and running then
+        multiplyer = 2;
+        movement_type = "running"
+    elseif moving then
+        multiplyer = 1;
+        movement_type = "running"
+    end
+    
+    -- Move the entity
+    self.position.x = self.position.x + (move_x * multiplyer)
+    self.position.y = self.position.y + (move_y * multiplyer)
 
     if self.position.x < 0 then
         self.position.x = 0
@@ -102,8 +117,9 @@ function ENTITY:entity_update(delta_time)
         self.position.y = 0
     end
 
-    -- Update sprite if moving
-    if moving and new_sprite then
+    new_sprite = "game:horse " .. movement_type .. " " .. direction
+
+    if self.data.sprite_comp.sprite ~= new_sprite then
         self.data.sprite_comp.sprite = new_sprite
     end
 end

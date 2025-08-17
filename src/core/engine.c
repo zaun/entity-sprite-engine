@@ -46,9 +46,12 @@ EseEngine *engine_create(const char *startup_script) {
     entity_lua_init(engine->lua_engine);
     entity_component_lua_init(engine->lua_engine);
     input_state_lua_init(engine->lua_engine);
+    map_lua_init(engine->lua_engine);
+    mapcell_lua_init(engine->lua_engine);
     point_lua_init(engine->lua_engine);
     ray_lua_init(engine->lua_engine);
     rect_lua_init(engine->lua_engine);
+    tileset_lua_init(engine->lua_engine);
     vector_lua_init(engine->lua_engine);
     uuid_lua_init(engine->lua_engine);
 

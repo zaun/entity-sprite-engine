@@ -15,7 +15,7 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @details This structure stores multiple tile layers for a single cell position,
  *          along with cell-wide properties and optional data payload.
  */
-typedef struct {
+typedef struct EseMapCell {
     // Multiple tile layers for this cell position
     uint8_t *tile_ids;                /**< Array of tile IDs for layering */
     size_t layer_count;              /**< Number of layers in this specific cell */

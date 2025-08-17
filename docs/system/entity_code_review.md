@@ -28,13 +28,13 @@ Overall architecture and entity/component model
   - The hash key uses a static char buffer: this is not thread-safe. If you ever multi-thread collisions, this will be a race. Consider using a per-call heap buffer or a thread-local buffer, or store combined keys as 128-bit/struct keys in the hashmap directly.
 
 - Potential correctness concerns
-  - entity_component_detect_collision_component casts EseEntityComponent* to specific subtype structs incorrectly:
+  - entity_component_detect_collision_component casts EntityComponent* to specific subtype structs incorrectly:
     - You currently do:
-      EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a;
+      EntityComponentCollider *colliderA = (EntityComponentCollider *)a;
       but a actually points to the base struct, and the collider’s data is at a->data.
       Correct:
-      EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a->data;
-      EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
+      EntityComponentCollider *colliderA = (EntityComponentCollider *)a->data;
+      EntityComponentCollider *colliderB = (EntityComponentCollider *)b->data;
       The same issue appears elsewhere in a few places; most other call sites correctly use component->data.
   - Entity Lua dispatch returns true regardless of underlying execution result. You push boolean true at the end even if the script wasn’t found or args conversion failed. Consider returning the real status or throwing a Lua error for consistency.
   - In entity_process_collision, for “stay” you call entity_run_function_with_args(entity, "entity_collision_stay", 1, arg_b) for both a and b. For a, arg_b is a ref to entity (self), not test. Likely a bug. Consistency:
@@ -57,7 +57,7 @@ Lua integration and runtime
   - Scripts are loaded via luaL_loadstring(fileContent) and must return a class table; instances are thin instance tables with metatable __index = class. That’s a common and minimal pattern.
   - You use an instruction hook and time limit for running functions. This is a strong guard.
 
-- EseLuaValue conversions
+- LuaValue conversions
   - There’s a full conversion path both directions. The table conversion uses name to decide field vs array. Reasonable for your use case.
 
 - Potential API inconsistencies
@@ -123,11 +123,11 @@ High/critical issues and fixes
 Correctness and safety bugs to fix now
 - Casting bug in entity_component_detect_collision_component:
   - Replace:
-    EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a;
-    EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b;
+    EntityComponentCollider *colliderA = (EntityComponentCollider *)a;
+    EntityComponentCollider *colliderB = (EntityComponentCollider *)b;
   - With:
-    EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a->data;
-    EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
+    EntityComponentCollider *colliderA = (EntityComponentCollider *)a->data;
+    EntityComponentCollider *colliderB = (EntityComponentCollider *)b->data;
 - Collision stay callback arguments:
   - For “stay”, pass the other entity consistently:
     entity_run_function_with_args(entity, "entity_collision_stay", 1, arg);
@@ -161,11 +161,11 @@ Hardening changes to implement
   - Ensure calling C functions return meaningful booleans or errors when failures occur.
 
 Smaller quality improvements
-- EseLuaValue:
+- LuaValue:
   - lua_value_get_bool currently returns val->name instead of boolean. Bug:
     - Should return val->value.boolean.
-  - lua_value_copy allocation for table items uses sizeof(EseLuaValue) instead of sizeof(EseLuaValue*). Should allocate pointer array:
-    - memory_manager.malloc(src->value.table.count * sizeof(EseLuaValue*), MMTAG_LUA);
+  - lua_value_copy allocation for table items uses sizeof(LuaValue) instead of sizeof(LuaValue*). Should allocate pointer array:
+    - memory_manager.malloc(src->value.table.count * sizeof(LuaValue*), MMTAG_LUA);
 - Engine logging content and consistency
   - Replace expletives in logs; add categories and structured messages consistently.
 

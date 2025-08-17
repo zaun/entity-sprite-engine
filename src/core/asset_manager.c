@@ -8,6 +8,7 @@
 #include "core/asset_manager.h"
 #include "core/memory_manager.h"
 #include "graphics/sprite.h"
+#include "types/types.h"
 
 #define DEFAULT_GROUP "default"
 
@@ -15,9 +16,9 @@
 typedef enum {
     ASSET_SPRITE,
     ASSET_TEXTURE,
+    ASSET_MAP,
     // ASSET_SOUND,              // Future use
     // ASSET_MUSIC,              // Future use
-    // ASSET_SHADER,             // Future use
     // ASSET_PARTICLE_SYSTEM,    // Future use
     // ASSET_FONT,               // Future use
     // ASSET_MATERIAL            // Future use
@@ -39,6 +40,7 @@ struct EseAssetManager {
     EseGroupedHashMap* sprites;
     EseGroupedHashMap* textures;
     EseGroupedHashMap* atlases;
+    EseGroupedHashMap* maps;
 
     // Group tracking
     char **groups;           // Array of group names
@@ -113,6 +115,9 @@ void _asset_free(void *data) {
     } else if (asset->type == ASSET_TEXTURE) {
         EseAssetTexture *texture = (EseAssetTexture*) asset->data;
         memory_manager.free(texture);
+    } else if (asset->type == ASSET_MAP) {
+        EseMap *map = (EseMap*) asset->data;
+        map_destroy(map);
     } else {
         log_error("ASSET_MANAGER", "Unable to memory_manager.free unknown asset type");
     }
@@ -193,6 +198,33 @@ cJSON *_asset_manager_load_json(const char *filename) {
     fclose(f);
     memory_manager.free(full_path);
 
+    // Strip // style comments
+    char *src = data;
+    char *dst = data;
+    bool in_str = false;
+    bool esc = false;
+    while (*src) {
+        if (!in_str && src[0] == '/' && src[1] == '/') {
+            src += 2;
+            while (*src && *src != '\n') src++;
+        } else {
+            char c = *src++;
+            if (in_str) {
+                if (esc) {
+                    esc = false;
+                } else if (c == '\\') {
+                    esc = true;
+                } else if (c == '"') {
+                    in_str = false;
+                }
+            } else if (c == '"') {
+                in_str = true;
+            }
+            *dst++ = c;
+        }
+    }
+    *dst = '\0';
+
     cJSON *json = cJSON_Parse(data);
     if (!json) {
         log_error("ENGINE", "Error: Failed to parse JSON from %s", filename);
@@ -213,6 +245,7 @@ EseAssetManager* asset_manager_create(EseRenderer* renderer) {
     manager->sprites = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
     manager->textures = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
     manager->atlases = grouped_hashmap_create(NULL);
+    manager->maps = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
     
     manager->groups = NULL;        // init groups array
     manager->group_count = 0;      // init count
@@ -230,6 +263,7 @@ void asset_manager_destroy(EseAssetManager* manager) {
     grouped_hashmap_free(manager->sprites);
     grouped_hashmap_free(manager->textures);
     grouped_hashmap_free(manager->atlases);
+    grouped_hashmap_free(manager->maps);
 
     for (size_t i = 0; i < manager->group_count; i++) {
         memory_manager.free(manager->groups[i]);
@@ -392,8 +426,8 @@ bool asset_manager_load_sprite_atlas(EseAssetManager* manager, const char* filen
 }
 
 EseSprite* asset_manager_get_sprite(EseAssetManager* manager, const char* asset_id) {
-    log_assert("ASSET_MANAGER", manager, "asset_manager_get_sprite_grouped called with NULL manager");
-    log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_sprite_grouped called with NULL asset_id");
+    log_assert("ASSET_MANAGER", manager, "asset_manager_get_sprite called with NULL manager");
+    log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_sprite called with NULL asset_id");
 
     char* out_group = NULL;
     char* out_name = NULL;
@@ -410,6 +444,25 @@ EseSprite* asset_manager_get_sprite(EseAssetManager* manager, const char* asset_
     return (EseSprite*)asset->data;
 }
 
+EseMap* asset_manager_get_map(EseAssetManager* manager, const char* asset_id) {
+    log_assert("ASSET_MANAGER", manager, "asset_manager_get_map called with NULL manager");
+    log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_map called with NULL asset_id");
+
+    char* out_group = NULL;
+    char* out_name = NULL;
+    _split_string(asset_id, &out_group, &out_name);
+
+    EseAsset* asset = (EseAsset*)grouped_hashmap_get(manager->maps, out_group, out_name);
+    memory_manager.free(out_group);
+    memory_manager.free(out_name);
+
+    if (!asset) {
+        return NULL;
+    }
+
+    return (EseMap*)asset->data;
+}
+
 void asset_manager_remove_group(EseAssetManager *manager, const char *group) {
     if (!manager) {
         log_error("ASSET_MANAGER", "Error: asset_manager_remove_group called with NULL manager");
@@ -422,6 +475,9 @@ void asset_manager_remove_group(EseAssetManager *manager, const char *group) {
     }
 
     grouped_hashmap_remove_group(manager->sprites, group);
+    grouped_hashmap_remove_group(manager->textures, group);
+    grouped_hashmap_remove_group(manager->atlases, group);
+    grouped_hashmap_remove_group(manager->maps, group);
 
     _asset_manager_remove_group(manager, group);
 }
