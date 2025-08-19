@@ -411,9 +411,6 @@ static MemoryManager *_get_manager(void) {
             fprintf(stderr, "FATAL: Out of memory (manager struct)\n");
             abort();
         }
-        for (size_t i = 0; i < BUCKET_COUNT; i++) {
-            _add_block(g_memory_manager, i, MM_BLOCK_SIZE);
-        }
     }
     return g_memory_manager;
 }
@@ -664,91 +661,12 @@ static void _mm_destroy(void) {
     g_memory_manager = NULL;
 }
 
-static void _mm_memset(void *ptr, int value, size_t count) {
-    if (!ptr) return;
-    
-    MemoryManager *manager = _get_manager();
-    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
-    
-    // Verify this is a valid allocation
-    if (header->magic != MEM_MAGIC_HEADER) {
-        fprintf(stderr, "FATAL: mm_memset called on invalid pointer %p\n", ptr);
-        _abort_with_report(manager, "mm_memset: Invalid pointer (bad magic)");
-    }
-    
-    // Check bounds
-    char *user_start = (char *)ptr;
-    char *user_end = (char *)header + _align_up(sizeof(MemHeader), MM_ALIGN) + header->size;
-    char *write_end = user_start + count;
-    
-    if (write_end > user_end) {
-        fprintf(stderr, "FATAL: mm_memset buffer overflow!\n");
-        fprintf(stderr, "  Pointer: %p\n", ptr);
-        fprintf(stderr, "  Allocated size: %zu bytes\n", header->size);
-        fprintf(stderr, "  Memset count: %zu bytes\n", count);
-        fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(write_end - user_end));
-        _abort_with_report(manager, "mm_memset: Buffer overflow detected");
-    }
-    
-    // Safe to proceed
-    memset(ptr, value, count);
-}
-
-static void _mm_memcpy(void *dest, const void *src, size_t count) {
-    if (!dest || !src) return;
-    
-    MemoryManager *manager = _get_manager();
-    
-    // Check destination bounds
-    MemHeader *dest_header = (MemHeader *)((char *)dest - _align_up(sizeof(MemHeader), MM_ALIGN));
-    if (dest_header->magic != MEM_MAGIC_HEADER) {
-        fprintf(stderr, "FATAL: mm_memcpy called on invalid dest pointer %p\n", dest);
-        _abort_with_report(manager, "mm_memcpy: Invalid destination pointer");
-    }
-    
-    char *dest_start = (char *)dest;
-    char *dest_end = (char *)dest_header + _align_up(sizeof(MemHeader), MM_ALIGN) + dest_header->size;
-    char *write_end = dest_start + count;
-    
-    if (write_end > dest_end) {
-        fprintf(stderr, "FATAL: mm_memcpy destination buffer overflow!\n");
-        fprintf(stderr, "  Dest pointer: %p\n", dest);
-        fprintf(stderr, "  Allocated size: %zu bytes\n", dest_header->size);
-        fprintf(stderr, "  Copy count: %zu bytes\n", count);
-        fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(write_end - dest_end));
-        _abort_with_report(manager, "mm_memcpy: Destination buffer overflow");
-    }
-    
-    // Optionally check source bounds too (if it's also managed by us)
-    MemHeader *src_header = (MemHeader *)((char *)src - _align_up(sizeof(MemHeader), MM_ALIGN));
-    if (src_header->magic == MEM_MAGIC_HEADER) {
-        // Source is also managed by us, check its bounds
-        char *src_start = (char *)src;
-        char *src_end = (char *)src_header + _align_up(sizeof(MemHeader), MM_ALIGN) + src_header->size;
-        char *read_end = src_start + count;
-        
-        if (read_end > src_end) {
-            fprintf(stderr, "FATAL: mm_memcpy source buffer overflow!\n");
-            fprintf(stderr, "  Src pointer: %p\n", src);
-            fprintf(stderr, "  Allocated size: %zu bytes\n", src_header->size);
-            fprintf(stderr, "  Copy count: %zu bytes\n", count);
-            fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(read_end - src_end));
-            _abort_with_report(manager, "mm_memcpy: Source buffer overflow");
-        }
-    }
-    
-    // Safe to proceed
-    memcpy(dest, src, count);
-}
-
 const struct memory_manager_api memory_manager = {
     .malloc = _mm_malloc,
     .calloc = _mm_calloc,
     .realloc = _mm_realloc,
     .free = _mm_free,
     .strdup = _mm_strdup,
-    .memset = _mm_memset,
-    .memcpy = _mm_memcpy,
     .report = _mm_report,
     .get_current_usage = _mm_get_current_usage,
     .get_max_usage = _mm_get_max_usage,

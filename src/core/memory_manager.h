@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define MM_BLOCK_SIZE (20 * 1024 * 1024)
+#define MM_BLOCK_SIZE (2 * 1024 * 1024)
 
 typedef enum {
     MMTAG_GENERAL = 0,
@@ -34,8 +34,6 @@ struct memory_manager_api {
     void *(*realloc)(void *ptr, size_t size, MemTag tag);
     void  (*free)(void *ptr);
     char *(*strdup)(const char *str, MemTag tag);
-    void  (*memset)(void *ptr, int value, size_t count);
-    void  (*memcpy)(void *dest, const void *src, size_t count);
     void  (*report)(void);
     size_t (*get_current_usage)(void);
     size_t (*get_max_usage)(void);
