@@ -170,11 +170,11 @@ void* _lua_engine_limited_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 
     if (!ptr) {
         // malloc
-        new_hdr = (LuaAllocHdr *)memory_manager.malloc(total_bytes, MMTAG_LUA);
+        new_hdr = (LuaAllocHdr *)memory_manager.malloc(total_bytes, MMTAG_LUA_SCRIPT);
         if (!new_hdr) return NULL;
     } else {
         // realloc
-        new_hdr = (LuaAllocHdr *)memory_manager.realloc(old_hdr, total_bytes, MMTAG_LUA);
+        new_hdr = (LuaAllocHdr *)memory_manager.realloc(old_hdr, total_bytes, MMTAG_LUA_SCRIPT);
         if (!new_hdr) return NULL;
     }
 

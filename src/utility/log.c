@@ -10,6 +10,7 @@
 
 static struct timeval log_start_time;
 static char *log_enabled_categories = NULL;
+static bool log_verbose_en = false;
 
 void log_init(void) {
     gettimeofday(&log_start_time, NULL);
@@ -46,6 +47,10 @@ static void log_vprint(const char *level, const char *category, const char *fmt,
         return;
     }
     
+    if (strcmp(level, "VRB") == 0 && !log_verbose_en) {
+        return;
+    }
+
     struct timeval now;
     gettimeofday(&now, NULL);
 

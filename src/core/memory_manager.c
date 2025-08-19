@@ -2,9 +2,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <time.h>
 #include <execinfo.h>
 #include <stdalign.h>
 #include "core/memory_manager.h"
+#include "utility/log.h"
 
 // Remove C11 alignof requirement with a fallback
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
@@ -26,6 +28,12 @@
 #define DEBUG_PRINTF(fmt, ...) do { } while(0)
 #endif
 
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
+#define BUCKET_COUNT 4
+
 typedef struct MemHeader {
     size_t size;
     uint64_t magic;
@@ -45,7 +53,6 @@ typedef struct FreeChunk {
 typedef struct Block {
     struct Block *next;
     size_t size;
-    size_t used;
     char data[];
 } Block;
 
@@ -55,13 +62,14 @@ typedef struct {
     size_t total_allocs;
     size_t total_frees;
     size_t total_bytes_alloced;
+    size_t total_blocks_alloced[BUCKET_COUNT];
     size_t largest_alloc;
 } MemStats;
 
 struct MemoryManager {
     Block *blocks;
-    FreeChunk *free_list;
-    MemHeader *allocated_list; // Added to track all active allocations
+    FreeChunk *free_lists[BUCKET_COUNT];
+    MemHeader *allocated_list;
     MemStats global;
     MemStats tags[MMTAG_COUNT];
 };
@@ -71,12 +79,20 @@ typedef struct MemoryManager MemoryManager;
 MemoryManager *g_memory_manager = NULL;
 
 static const char *mem_tag_names[MMTAG_COUNT] = {
-    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "RENDER ", "MAP    ",
-    "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH", "LINKLST"
+    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "LUA VM ", "RENDER ",
+    "MAP    ", "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH",
+    "LINKLST", "TEMP   "
 };
 
 static size_t _align_up(size_t n, size_t align) {
     return (n + align - 1) & ~(align - 1);
+}
+
+static size_t _get_bucket(size_t size) {
+    if (size <= 256) return 0;
+    if (size <= 1024) return 1; 
+    if (size <= 5 * 1024 * 1024) return 2;
+    return 3;
 }
 
 static void _set_footer(MemHeader *header) {
@@ -89,9 +105,9 @@ static int _check_footer(MemHeader *header) {
     return footer->magic == MEM_MAGIC_FOOTER;
 }
 
-static void _debug_print_free_list(MemoryManager *manager, const char *context) {
+static void _debug_print_free_list(MemoryManager *manager, size_t bucket, const char *context) {
     DEBUG_PRINTF("FREE_LIST_DEBUG [%s]: ", context);
-    FreeChunk *chunk = manager->free_list;
+    FreeChunk *chunk = manager->free_lists[bucket];
     int count = 0;
     while (chunk && count < 10) {
         DEBUG_PRINTF("(%p:%zu)->", (void*)chunk, chunk->size);
@@ -160,15 +176,20 @@ static void _memory_manager_report(MemoryManager *manager, FILE *out) {
     if (!manager) return;
     fprintf(out, "=== Memory Usage Report ===\n");
     fprintf(out, "Global:\n");
-    fprintf(out, "  Current usage: %zu bytes\n", manager->global.current_usage);
-    fprintf(out, "  Max usage:     %zu bytes\n", manager->global.max_usage);
-    fprintf(out, "  Total allocs:  %zu\n", manager->global.total_allocs);
-    fprintf(out, "  Total frees:   %zu\n", manager->global.total_frees);
-    fprintf(out, "  Largest alloc: %zu bytes\n", manager->global.largest_alloc);
-    fprintf(out, "  Average alloc: %zu bytes\n", manager->global.total_allocs ? manager->global.total_bytes_alloced / manager->global.total_allocs : 0);
+    fprintf(out, "  Current usage:  %zu bytes\n", manager->global.current_usage);
+    fprintf(out, "  Max usage:      %zu bytes\n", manager->global.max_usage);
+    fprintf(out, "  Total allocs:   %zu\n", manager->global.total_allocs);
+    fprintf(out, "  Total frees:    %zu\n", manager->global.total_frees);
+    fprintf(out, "  Largest alloc:  %zu bytes\n", manager->global.largest_alloc);
+    fprintf(out, "  Average alloc:  %zu bytes\n", manager->global.total_allocs ? manager->global.total_bytes_alloced / manager->global.total_allocs : 0);
+    fprintf(out, "  Blocks (sml):   %zu\n", manager->global.total_blocks_alloced[0]);
+    fprintf(out, "  Blocks (med):   %zu\n", manager->global.total_blocks_alloced[1]);
+    fprintf(out, "  Blocks (lrg):   %zu\n", manager->global.total_blocks_alloced[2]);
+    fprintf(out, "  Blocks (xl):    %zu\n", manager->global.total_blocks_alloced[3]);
     if (manager->global.current_usage != 0) {
         fprintf(out, "  WARNING: Memory leak detected!\n");
     }
+
     fprintf(out, "\nPer-Tag:\n");
     for (int i = 0; i < MMTAG_COUNT; ++i) {
         const MemStats *s = &manager->tags[i];
@@ -225,30 +246,37 @@ static int _freechunk_addr_cmp(const void *pa, const void *pb) {
     return 0;
 }
 
-static void _coalesce_free_list(MemoryManager *manager) {
-    DEBUG_PRINTF("COALESCE: START\n");
-    fflush(stdout);
-
+static void _coalesce_free_list(MemoryManager *manager, size_t bucket) {    
     // Count free chunks
     size_t count = 0;
-    for (FreeChunk *c = manager->free_list; c; c = c->next) {
+    for (FreeChunk *c = manager->free_lists[bucket]; c; c = c->next) {
         count++;
     }
     if (count < 2) {
-        DEBUG_PRINTF("COALESCE: nothing to coalesce (count=%zu)\n", count);
-        fflush(stdout);
+        log_verbose("MEM_COALESCE", "nothing to coalesce (count=%zu)", count);
+        return;
+    }
+    
+    // Log ALL chunks if there are multiple
+    if (count >= 2) {
+        log_verbose("MEM_COALESCE", "COALESCE: Found %zu chunks to check:", count);
+        int i = 0;
+        for (FreeChunk *c = manager->free_lists[bucket]; c && i < 20; c = c->next, i++) {
+            log_verbose("MEM_COALESCE", "  [%d] addr=%p size=%zu", i, (void*)c, c->size);
+        }
+    } else {
+        log_verbose("MEM_COALESCE", "nothing to coalesce (count=%zu)", count);
         return;
     }
 
     // Collect pointers into an array
     FreeChunk **arr = (FreeChunk **)malloc(count * sizeof(FreeChunk *));
     if (!arr) {
-        DEBUG_PRINTF("COALESCE: malloc failed, skipping\n");
-        fflush(stdout);
+        log_verbose("MEM_COALESCE", "malloc failed, skipping");
         return;
     }
     size_t i = 0;
-    for (FreeChunk *c = manager->free_list; c; c = c->next) {
+    for (FreeChunk *c = manager->free_lists[bucket]; c; c = c->next) {
         arr[i++] = c;
     }
 
@@ -273,70 +301,79 @@ static void _coalesce_free_list(MemoryManager *manager) {
     }
 
     // Rebuild free list (LIFO is fine)
-    manager->free_list = NULL;
+    manager->free_lists[bucket] = NULL;
     for (size_t k = 0; k < w; ++k) {
-        arr[k]->next = manager->free_list;
-        manager->free_list = arr[k];
+        arr[k]->next = manager->free_lists[bucket];
+        manager->free_lists[bucket] = arr[k];
     }
 
     free(arr);
-    DEBUG_PRINTF("COALESCE: DONE, chunks=%zu -> %zu\n", count, w);
+    log_verbose("MEM_COALESCE", "chunks=%zu -> %zu\n", count, w);
     fflush(stdout);
 }
 
 static void *_alloc_from_free_list(MemoryManager *manager, size_t total_size) {
     DEBUG_PRINTF("ALLOC_FREE_LIST: Looking for size=%zu\n", total_size);
     fflush(stdout);
-    _debug_print_free_list(manager, "before_alloc");
 
-    FreeChunk **pp = &manager->free_list;
+    size_t bucket = _get_bucket(total_size);
+    FreeChunk **best_pp = NULL;
+    FreeChunk *best_chunk = NULL;
+    size_t best_size = SIZE_MAX;
+    
+    // Find the best-fitting chunk (smallest that fits)
+    FreeChunk **pp = &manager->free_lists[bucket];
     while (*pp) {
         FreeChunk *chunk = *pp;
-        DEBUG_PRINTF("ALLOC_FREE_LIST: Checking chunk=%p, size=%zu\n",
-                     (void *)chunk, chunk->size);
-        fflush(stdout);
-
-        if (chunk->size >= total_size) {
-            // Remove chosen chunk from list
-            *pp = chunk->next;
-
-            // Optional split to reduce internal fragmentation
-            size_t remain = chunk->size - total_size;
-            if (remain >= sizeof(FreeChunk) + 16) {
-                // Place the tail back on the free list
-                FreeChunk *tail = (FreeChunk *)((char *)chunk + total_size);
-                tail->size = remain;
-                tail->next = manager->free_list;
-                manager->free_list = tail;
-
-                DEBUG_PRINTF("ALLOC_FREE_LIST: Splitting chunk=%p -> "
-                             "alloc=%zu, tail=%p tail_size=%zu\n",
-                             (void *)chunk, total_size, (void *)tail, remain);
-                fflush(stdout);
-
-                // Mark the allocated portion size for clarity (not strictly required)
-                chunk->size = total_size;
-            } else {
-                DEBUG_PRINTF("ALLOC_FREE_LIST: Using whole chunk=%p (no split)\n",
-                             (void *)chunk);
-                fflush(stdout);
+        if (chunk->size >= total_size && chunk->size < best_size) {
+            best_pp = pp;
+            best_chunk = chunk;
+            best_size = chunk->size;
+            
+            // Perfect fit? Use it immediately
+            if (chunk->size == total_size) {
+                break;
             }
-
-            _debug_print_free_list(manager, "after_alloc");
-            DEBUG_PRINTF("ALLOC_FREE_LIST: Returning %p\n", (void *)chunk);
-            fflush(stdout);
-            return (void *)chunk;
         }
-
         pp = &(*pp)->next;
     }
+    
+    if (!best_chunk) {
+        DEBUG_PRINTF("ALLOC_FREE_LIST: No suitable chunk found\n");
+        fflush(stdout);
+        return NULL;
+    }
 
-    DEBUG_PRINTF("ALLOC_FREE_LIST: No suitable chunk found, returning NULL\n");
+    MemHeader *maybe_header = (MemHeader *)best_chunk;
+    if (maybe_header->magic == MEM_MAGIC_HEADER) {
+        _abort_with_report(manager, "Allocated memory in free list");
+    }
+
+    // Remove chosen chunk from list
+    *best_pp = best_chunk->next;
+    
+    // Split if there's significant leftover space
+    size_t remain = best_chunk->size - total_size;
+    if (remain >= sizeof(FreeChunk) + 64) {  // Increased minimum split size to reduce fragments
+        FreeChunk *tail = (FreeChunk *)((char *)best_chunk + total_size);
+        tail->size = remain;
+        tail->next = manager->free_lists[bucket];
+        manager->free_lists[bucket] = tail;
+    } else if (remain > 0) {
+        // Don't split tiny remainders - give the caller slightly more than requested
+        DEBUG_PRINTF("ALLOC_FREE_LIST: Using whole chunk to avoid tiny fragment (waste=%zu)\n", remain);
+        fflush(stdout);
+    }
+    
+    _debug_print_free_list(manager, bucket, "after_alloc");
+    DEBUG_PRINTF("ALLOC_FREE_LIST: Returning %p (size=%zu, waste=%zu)\n", 
+                 (void *)best_chunk, best_chunk->size, 
+                 best_chunk->size - total_size);
     fflush(stdout);
-    return NULL;
+    return (void *)best_chunk;
 }
 
-static Block *_add_block(MemoryManager *manager, size_t min_size) {
+static void _add_block(MemoryManager *manager, size_t bucket, size_t min_size) {
     DEBUG_PRINTF("ADD_BLOCK: min_size=%zu\n", min_size);
     fflush(stdout);
 
@@ -351,12 +388,18 @@ static Block *_add_block(MemoryManager *manager, size_t min_size) {
 
     block->next = manager->blocks;
     block->size = block_size;
-    block->used = 0;
     manager->blocks = block;
+    manager->global.total_blocks_alloced[bucket] += 1;
 
-    DEBUG_PRINTF("ADD_BLOCK: added to chain, returning %p\n", (void*)block);
+    // Add the entire block to the free list as one big chunk
+    FreeChunk *chunk = (FreeChunk *)block->data;
+    chunk->size = block_size;
+    chunk->next = manager->free_lists[bucket];
+    manager->free_lists[bucket] = chunk;
+
+    DEBUG_PRINTF("ADD_BLOCK: added entire block to free list as chunk=%p size=%zu\n", 
+                 (void*)chunk, block_size);
     fflush(stdout);
-    return block;
 }
 
 static MemoryManager *_get_manager(void) {
@@ -368,7 +411,9 @@ static MemoryManager *_get_manager(void) {
             fprintf(stderr, "FATAL: Out of memory (manager struct)\n");
             abort();
         }
-        _add_block(g_memory_manager, MM_BLOCK_SIZE);
+        for (size_t i = 0; i < BUCKET_COUNT; i++) {
+            _add_block(g_memory_manager, i, MM_BLOCK_SIZE);
+        }
     }
     return g_memory_manager;
 }
@@ -383,43 +428,44 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     DEBUG_PRINTF("MALLOC: total_with_headers=%zu\n", total);
     fflush(stdout);
 
-    void *mem = _alloc_from_free_list(manager, total);
-    if (!mem) {
-        _coalesce_free_list(manager);
+    void *mem = NULL;
+
+
+    // Try allocating from free list
+    mem = _alloc_from_free_list(manager, total);
+    if (mem) {
+        log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list", mem, total);
+    } else {
+        // Coalesce and try again
+        size_t bucket = _get_bucket(total);
+        _coalesce_free_list(manager, bucket);
         mem = _alloc_from_free_list(manager, total);
-    }
-    if (!mem) {
-        DEBUG_PRINTF("MALLOC: Using block allocator\n");
-        fflush(stdout);
-
-        Block *block = manager->blocks;
-        if (!block || block->size - block->used < total) {
-            block = _add_block(manager, total);
+        if (mem) {
+            log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list after coalesce", mem, total);
+        } else {
+            // Add new block to free list and try again
+            _add_block(manager, bucket, max(total, MM_BLOCK_SIZE));
+            mem = _alloc_from_free_list(manager, total);
+            if (!mem) {
+                _abort_with_report(manager, "Failed to allocate from free list after adding new block");
+            }
+            log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list after adding block", mem, total);
         }
-        if (block->size - block->used < total) {
-            _abort_with_report(manager, "Block too small after adding new block");
-        }
-        mem = block->data + block->used;
-        block->used += total;
-
-        DEBUG_PRINTF("MALLOC: allocated from block, mem=%p\n", mem);
-        fflush(stdout);
     }
 
+    // Setup header and footer (unchanged)
     MemHeader *header = (MemHeader *)mem;
     header->size = size;
     header->magic = MEM_MAGIC_HEADER;
     header->tag = tag;
-    header->next = manager->allocated_list; // Add to head of allocated list
+    header->next = manager->allocated_list;
     manager->allocated_list = header;
     
     _set_footer(header);
 
     void *user_ptr = (void *)((char *)header + _align_up(sizeof(MemHeader), MM_ALIGN));
 
-    DEBUG_PRINTF("MALLOC: header=%p, user_ptr=%p, size=%zu\n", (void*)header, user_ptr, size);
-    fflush(stdout);
-
+    // Update stats (unchanged)
     manager->global.current_usage += size;
     manager->global.total_bytes_alloced += size;
     if (manager->global.current_usage > manager->global.max_usage)
@@ -440,6 +486,16 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     DEBUG_PRINTF("MALLOC: returning user_ptr=%p\n", user_ptr);
     fflush(stdout);
 
+    size_t clear_size = _align_up(sizeof(MemHeader), MM_ALIGN);
+    if (clear_size < sizeof(FreeChunk)) {
+        // Zero out any remaining FreeChunk metadata
+        char *clear_start = (char*)header + sizeof(MemHeader);
+        size_t clear_len = sizeof(FreeChunk) - sizeof(MemHeader);
+        if (clear_len > 0 && clear_len < size) {
+            memset(clear_start, 0, clear_len);
+        }
+    }
+
     return user_ptr;
 }
 
@@ -447,20 +503,27 @@ static void *_mm_calloc(size_t count, size_t size, MemTag tag) {
     if (size != 0 && count > SIZE_MAX / size) {
         _abort_with_report(_get_manager(), "calloc size overflow");
     }
-    size_t total = count * size;
-    void *ptr = _mm_malloc(total, tag);
-    if (ptr) memset(ptr, 0, total);
+    size_t requested_total = count * size;
+    void *ptr = _mm_malloc(requested_total, tag);
+    if (ptr) {
+        // ONLY zero the requested size, not the entire allocated chunk
+        memset(ptr, 0, requested_total);
+    }
     return ptr;
 }
 
 static void _mm_free(void *ptr) {
     if (!ptr) return;
 
-    DEBUG_PRINTF("FREE: freeing ptr=%p\n", ptr);
+    log_verbose("MEM_FREE", "freeing ptr=%p", ptr);
     fflush(stdout);
 
     MemoryManager *manager = _get_manager();
     MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
+    
+    // Calculate the same total size used in allocation
+    size_t total = _align_up(sizeof(MemHeader), MM_ALIGN) + header->size + sizeof(MemFooter);
+    size_t bucket = _get_bucket(total);
 
     DEBUG_PRINTF("FREE: header=%p, checking integrity\n", (void*)header);
     fflush(stdout);
@@ -497,22 +560,21 @@ static void _mm_free(void *ptr) {
         s->total_frees++;
     }
 
-    DEBUG_PRINTF("FREE: adding to free list\n");
-    fflush(stdout);
-    _debug_print_free_list(manager, "before_add_to_free_list");
-
-    FreeChunk *chunk = (FreeChunk *)header;
-    chunk->size = _align_up(sizeof(MemHeader), MM_ALIGN) + size + sizeof(MemFooter);
-    chunk->next = manager->free_list;
-    manager->free_list = chunk;
-
-    DEBUG_PRINTF("FREE: added chunk=%p (size=%zu) to free list\n", (void*)chunk, chunk->size);
-    fflush(stdout);
-    _debug_print_free_list(manager, "after_add_to_free_list");
-
+    // Clear magic FIRST
     header->magic = 0;
     MemFooter *footer = (MemFooter *)((char *)(header + 1) + size);
     footer->magic = 0;
+
+    // THEN create the FreeChunk
+    FreeChunk *chunk = (FreeChunk *)header;
+    chunk->size = _align_up(sizeof(MemHeader), MM_ALIGN) + size + sizeof(MemFooter);
+    chunk->next = manager->free_lists[bucket];
+    manager->free_lists[bucket] = chunk;
+
+   static int free_count = 0;
+    if (++free_count % 100 == 0) {
+        _coalesce_free_list(manager, bucket);
+    }
 
     DEBUG_PRINTF("FREE: completed for ptr=%p\n", ptr);
     fflush(stdout);
@@ -563,30 +625,120 @@ static size_t _mm_get_max_usage(void) {
 
 static void _mm_destroy(void) {
     if (!g_memory_manager) return;
-    
+
+    struct timespec t0, t_report, t_before_free, t_after_free;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+
     _memory_manager_report(g_memory_manager, stdout);
-    
-    if (g_memory_manager->allocated_list) {
-        fprintf(stdout, "\n=== Memory Leak Report ===\n");
-        int leak_count = 1;
-        MemHeader *current = g_memory_manager->allocated_list;
-        while (current) {
-            char *user_ptr = (char *)current + _align_up(sizeof(MemHeader), MM_ALIGN);
-            fprintf(stdout, "%d) %zu Bytes ", leak_count, current->size);
-            _print_hex_dump(user_ptr, current->size, stdout);
-            current = current->next;
-            leak_count++;
-        }
+    clock_gettime(CLOCK_MONOTONIC, &t_report);
+
+    size_t block_count = 0;
+    size_t total_block_bytes = 0;
+    Block *b = g_memory_manager->blocks;
+    while (b) {
+        block_count++;
+        total_block_bytes += b->size;
+        b = b->next;
     }
-    
+    fflush(stdout);
+
+    clock_gettime(CLOCK_MONOTONIC, &t_before_free);
+
     Block *block = g_memory_manager->blocks;
     while (block) {
         Block *next = block->next;
         free(block);
         block = next;
     }
+
+    clock_gettime(CLOCK_MONOTONIC, &t_after_free);
+
+    double s_report = (t_report.tv_sec - t0.tv_sec) +
+                      (t_report.tv_nsec - t0.tv_nsec) * 1e-9;
+    double s_count  = (t_before_free.tv_sec - t_report.tv_sec) +
+                      (t_before_free.tv_nsec - t_report.tv_nsec) * 1e-9;
+    double s_free   = (t_after_free.tv_sec - t_before_free.tv_sec) +
+                      (t_after_free.tv_nsec - t_before_free.tv_nsec) * 1e-9;
+
     free(g_memory_manager);
     g_memory_manager = NULL;
+}
+
+static void _mm_memset(void *ptr, int value, size_t count) {
+    if (!ptr) return;
+    
+    MemoryManager *manager = _get_manager();
+    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
+    
+    // Verify this is a valid allocation
+    if (header->magic != MEM_MAGIC_HEADER) {
+        fprintf(stderr, "FATAL: mm_memset called on invalid pointer %p\n", ptr);
+        _abort_with_report(manager, "mm_memset: Invalid pointer (bad magic)");
+    }
+    
+    // Check bounds
+    char *user_start = (char *)ptr;
+    char *user_end = (char *)header + _align_up(sizeof(MemHeader), MM_ALIGN) + header->size;
+    char *write_end = user_start + count;
+    
+    if (write_end > user_end) {
+        fprintf(stderr, "FATAL: mm_memset buffer overflow!\n");
+        fprintf(stderr, "  Pointer: %p\n", ptr);
+        fprintf(stderr, "  Allocated size: %zu bytes\n", header->size);
+        fprintf(stderr, "  Memset count: %zu bytes\n", count);
+        fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(write_end - user_end));
+        _abort_with_report(manager, "mm_memset: Buffer overflow detected");
+    }
+    
+    // Safe to proceed
+    memset(ptr, value, count);
+}
+
+static void _mm_memcpy(void *dest, const void *src, size_t count) {
+    if (!dest || !src) return;
+    
+    MemoryManager *manager = _get_manager();
+    
+    // Check destination bounds
+    MemHeader *dest_header = (MemHeader *)((char *)dest - _align_up(sizeof(MemHeader), MM_ALIGN));
+    if (dest_header->magic != MEM_MAGIC_HEADER) {
+        fprintf(stderr, "FATAL: mm_memcpy called on invalid dest pointer %p\n", dest);
+        _abort_with_report(manager, "mm_memcpy: Invalid destination pointer");
+    }
+    
+    char *dest_start = (char *)dest;
+    char *dest_end = (char *)dest_header + _align_up(sizeof(MemHeader), MM_ALIGN) + dest_header->size;
+    char *write_end = dest_start + count;
+    
+    if (write_end > dest_end) {
+        fprintf(stderr, "FATAL: mm_memcpy destination buffer overflow!\n");
+        fprintf(stderr, "  Dest pointer: %p\n", dest);
+        fprintf(stderr, "  Allocated size: %zu bytes\n", dest_header->size);
+        fprintf(stderr, "  Copy count: %zu bytes\n", count);
+        fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(write_end - dest_end));
+        _abort_with_report(manager, "mm_memcpy: Destination buffer overflow");
+    }
+    
+    // Optionally check source bounds too (if it's also managed by us)
+    MemHeader *src_header = (MemHeader *)((char *)src - _align_up(sizeof(MemHeader), MM_ALIGN));
+    if (src_header->magic == MEM_MAGIC_HEADER) {
+        // Source is also managed by us, check its bounds
+        char *src_start = (char *)src;
+        char *src_end = (char *)src_header + _align_up(sizeof(MemHeader), MM_ALIGN) + src_header->size;
+        char *read_end = src_start + count;
+        
+        if (read_end > src_end) {
+            fprintf(stderr, "FATAL: mm_memcpy source buffer overflow!\n");
+            fprintf(stderr, "  Src pointer: %p\n", src);
+            fprintf(stderr, "  Allocated size: %zu bytes\n", src_header->size);
+            fprintf(stderr, "  Copy count: %zu bytes\n", count);
+            fprintf(stderr, "  Overflow by: %zu bytes\n", (size_t)(read_end - src_end));
+            _abort_with_report(manager, "mm_memcpy: Source buffer overflow");
+        }
+    }
+    
+    // Safe to proceed
+    memcpy(dest, src, count);
 }
 
 const struct memory_manager_api memory_manager = {
@@ -595,6 +747,8 @@ const struct memory_manager_api memory_manager = {
     .realloc = _mm_realloc,
     .free = _mm_free,
     .strdup = _mm_strdup,
+    .memset = _mm_memset,
+    .memcpy = _mm_memcpy,
     .report = _mm_report,
     .get_current_usage = _mm_get_current_usage,
     .get_max_usage = _mm_get_max_usage,
