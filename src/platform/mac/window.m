@@ -203,6 +203,11 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
                                           inMode:NSDefaultRunLoopMode
                                          dequeue:YES])) {
 
+        // Menu handled it; skip engine handling and don't cause beep.
+        if ([[NSApp mainMenu] performKeyEquivalent:event]) {
+            continue;
+        }
+
         // --- Update modifier keys for every event ---
         NSEventModifierFlags mods = [event modifierFlags];
         metalWindow->inputState->keys_down[InputKey_LSHIFT]  = (mods & NSEventModifierFlagShift) != 0;
@@ -218,7 +223,6 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
         metalWindow->inputState->keys_down[InputKey_RCMD]    = (mods & NSEventModifierFlagCommand) != 0;
 
         metalWindow->inputState->keys_down[InputKey_CAPSLOCK] = (mods & NSEventModifierFlagCapsLock) != 0;
-        // -------------------------------------------------
 
         switch ([event type]) {
             case NSEventTypeKeyDown: {
@@ -227,6 +231,8 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
                     metalWindow->inputState->keys_down[key] = true;
                     metalWindow->inputState->keys_pressed[key] = true;
                 }
+                // Dont forward the event to prevent beeps
+                continue;
             } break;
             case NSEventTypeKeyUp: {
                 EseInputKey key = _mapMacOSKeycodeToInputKey([event keyCode]);
