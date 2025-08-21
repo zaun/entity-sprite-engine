@@ -7,6 +7,7 @@
 // Forward declarations
 typedef struct EseAssetManager EseAssetManager;
 typedef struct EseRenderer EseRenderer;
+typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
 
 // EseAsset Manager
@@ -15,6 +16,7 @@ void asset_manager_destroy(EseAssetManager* manager);
 
 // EseAsset File Loaders
 bool asset_manager_load_sprite_atlas(EseAssetManager* manager, const char* filename, const char* group);
+bool asset_manager_load_map(EseAssetManager* manager, EseLuaEngine *lua, const char* filename, const char* group);
 
 // EseAsset Retrieval
 EseSprite* asset_manager_get_sprite(EseAssetManager* manager, const char* asset_id);

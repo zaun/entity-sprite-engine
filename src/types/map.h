@@ -31,7 +31,7 @@ typedef struct EseMap {
     // Metadata
     char *title;                     /**< Map title */
     char *author;                    /**< Map author */
-    char *version;                   /**< Map version string */
+    uint32_t version;                /**< Map version number */
     EseMapType type;                 /**< Map coordinate type */
     
     // Tileset reference
@@ -129,10 +129,9 @@ bool map_set_author(EseMap *map, const char *author);
  * @brief Sets the map version.
  * 
  * @param map Pointer to the EseMap object
- * @param version New version string (will be copied)
- * @return true if successful, false if memory allocation fails
+ * @param version New version number
  */
-bool map_set_version(EseMap *map, const char *version);
+void map_set_version(EseMap *map, int version);
 
 /**
  * @brief Sets the map tileset.

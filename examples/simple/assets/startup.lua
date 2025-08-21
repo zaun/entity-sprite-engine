@@ -35,6 +35,11 @@ function STARTUP:startup()
         return
     end
 
+    if asset_load_map("game", "map.json") == false then
+        print("Map no loaded")
+        return
+    end
+
     local horse = Entity.new()
 
     if asset_load_script("horse.lua") then

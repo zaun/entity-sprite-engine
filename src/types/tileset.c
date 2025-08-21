@@ -135,11 +135,11 @@ static int _tileset_lua_index(lua_State *L) {
     // Check if it's a number (tile_id access)
     if (lua_isnumber(L, 2)) {
         uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-        char sprite = tileset_get_sprite(tiles, tile_id);
-        if (sprite == 0) {
+        const char *sprite = tileset_get_sprite(tiles, tile_id);
+        if (sprite == NULL) {
             lua_pushnil(L);
         } else {
-            lua_pushlstring(L, &sprite, 1);
+            lua_pushstring(L, sprite);
         }
         return 1;
     }
@@ -168,12 +168,11 @@ static int _tileset_lua_add_sprite(lua_State *L) {
     const char *sprite_str = lua_tostring(L, 2);
     uint16_t weight = lua_isnumber(L, 3) ? (uint16_t)lua_tonumber(L, 3) : 1;
     
-    if (strlen(sprite_str) == 0) {
+    if (sprite_str == NULL || strlen(sprite_str) == 0) {
         return luaL_error(L, "sprite_id cannot be empty string");
     }
     
-    char sprite_id = sprite_str[0];
-    lua_pushboolean(L, tileset_add_sprite(tiles, tile_id, sprite_id, weight));
+    lua_pushboolean(L, tileset_add_sprite(tiles, tile_id, sprite_str, weight));
     return 1;
 }
 
@@ -190,12 +189,11 @@ static int _tileset_lua_remove_sprite(lua_State *L) {
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 1);
     const char *sprite_str = lua_tostring(L, 2);
     
-    if (strlen(sprite_str) == 0) {
+    if (sprite_str == NULL || strlen(sprite_str) == 0) {
         return luaL_error(L, "sprite_id cannot be empty string");
     }
     
-    char sprite_id = sprite_str[0];
-    lua_pushboolean(L, tileset_remove_sprite(tiles, tile_id, sprite_id));
+    lua_pushboolean(L, tileset_remove_sprite(tiles, tile_id, sprite_str));
     return 1;
 }
 
@@ -210,12 +208,12 @@ static int _tileset_lua_get_sprite(lua_State *L) {
     }
     
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 1);
-    char sprite = tileset_get_sprite(tiles, tile_id);
+    const char *sprite = tileset_get_sprite(tiles, tile_id);
     
-    if (sprite == 0) {
+    if (sprite == NULL) {
         lua_pushnil(L);
     } else {
-        lua_pushlstring(L, &sprite, 1);
+        lua_pushstring(L, sprite);
     }
     return 1;
 }
@@ -264,12 +262,11 @@ static int _tileset_lua_update_sprite_weight(lua_State *L) {
     const char *sprite_str = lua_tostring(L, 2);
     uint16_t weight = (uint16_t)lua_tonumber(L, 3);
     
-    if (strlen(sprite_str) == 0) {
+    if (sprite_str == NULL || strlen(sprite_str) == 0) {
         return luaL_error(L, "sprite_id cannot be empty string");
     }
     
-    char sprite_id = sprite_str[0];
-    lua_pushboolean(L, tileset_update_sprite_weight(tiles, tile_id, sprite_id, weight));
+    lua_pushboolean(L, tileset_update_sprite_weight(tiles, tile_id, sprite_str, weight));
     return 1;
 }
 
@@ -301,7 +298,8 @@ void tileset_lua_init(EseLuaEngine *engine) {
 }
 
 EseTileSet *tileset_create(EseLuaEngine *engine, bool c_only) {
-    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_GENERAL);
+    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet),
+                                                           MMTAG_GENERAL);
     
     // Initialize all mappings to empty
     for (int i = 0; i < 256; i++) {
@@ -327,9 +325,14 @@ void tileset_destroy(EseTileSet *tiles) {
             luaL_unref(tiles->state, LUA_REGISTRYINDEX, tiles->lua_ref);
         }
         
-        // Free all sprite arrays
+        // Free all sprite strings and arrays
         for (int i = 0; i < 256; i++) {
             if (tiles->mappings[i].sprites) {
+                for (size_t j = 0; j < tiles->mappings[i].sprite_count; j++) {
+                    if (tiles->mappings[i].sprites[j].sprite_id) {
+                        memory_manager.free(tiles->mappings[i].sprites[j].sprite_id);
+                    }
+                }
                 memory_manager.free(tiles->mappings[i].sprites);
             }
         }
@@ -369,14 +372,15 @@ EseTileSet *tileset_lua_get(lua_State *L, int idx) {
     return (EseTileSet *)tiles;
 }
 
-bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint16_t weight) {
-    if (!tiles || weight == 0) return false;
+bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id,
+                        uint16_t weight) {
+    if (!tiles || !sprite_id || weight == 0) return false;
     
     EseTileMapping *mapping = &tiles->mappings[tile_id];
     
     // Check if sprite already exists and update weight
     for (size_t i = 0; i < mapping->sprite_count; i++) {
-        if (mapping->sprites[i].sprite_id == sprite_id) {
+        if (strcmp(mapping->sprites[i].sprite_id, sprite_id) == 0) {
             mapping->total_weight -= mapping->sprites[i].weight;
             mapping->sprites[i].weight = weight;
             mapping->total_weight += weight;
@@ -388,8 +392,8 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint
     if (mapping->sprite_count >= mapping->sprite_capacity) {
         size_t new_capacity = mapping->sprite_capacity == 0 ? INITIAL_SPRITE_CAPACITY : mapping->sprite_capacity * 2;
         EseSpriteWeight *new_array = (EseSpriteWeight *)memory_manager.realloc(
-            mapping->sprites, 
-            sizeof(EseSpriteWeight) * new_capacity, 
+            mapping->sprites,
+            sizeof(EseSpriteWeight) * new_capacity,
             MMTAG_GENERAL
         );
         if (!new_array) {
@@ -399,8 +403,16 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint
         mapping->sprite_capacity = new_capacity;
     }
     
+    // Copy sprite string
+    size_t len = strlen(sprite_id);
+    char *copy = (char *)memory_manager.malloc(len + 1, MMTAG_GENERAL);
+    if (!copy) {
+        return false;
+    }
+    memcpy(copy, sprite_id, len + 1);
+    
     // Add new sprite
-    mapping->sprites[mapping->sprite_count].sprite_id = sprite_id;
+    mapping->sprites[mapping->sprite_count].sprite_id = copy;
     mapping->sprites[mapping->sprite_count].weight = weight;
     mapping->sprite_count++;
     mapping->total_weight += weight;
@@ -408,14 +420,17 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint
     return true;
 }
 
-bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id) {
-    if (!tiles) return false;
+bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id) {
+    if (!tiles || !sprite_id) return false;
     
     EseTileMapping *mapping = &tiles->mappings[tile_id];
     
     for (size_t i = 0; i < mapping->sprite_count; i++) {
-        if (mapping->sprites[i].sprite_id == sprite_id) {
+        if (strcmp(mapping->sprites[i].sprite_id, sprite_id) == 0) {
             mapping->total_weight -= mapping->sprites[i].weight;
+            
+            // Free the sprite string
+            memory_manager.free(mapping->sprites[i].sprite_id);
             
             // Shift remaining elements down
             for (size_t j = i; j < mapping->sprite_count - 1; j++) {
@@ -430,13 +445,13 @@ bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id) {
     return false;
 }
 
-char tileset_get_sprite(const EseTileSet *tiles, uint8_t tile_id) {
-    if (!tiles) return 0;
+const char *tileset_get_sprite(const EseTileSet *tiles, uint8_t tile_id) {
+    if (!tiles) return NULL;
     
     const EseTileMapping *mapping = &tiles->mappings[tile_id];
     
     if (mapping->sprite_count == 0 || mapping->total_weight == 0) {
-        return 0;
+        return NULL;
     }
     
     uint32_t random_weight = _get_random_weight(mapping->total_weight);
@@ -457,7 +472,17 @@ void tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id) {
     if (!tiles) return;
     
     EseTileMapping *mapping = &tiles->mappings[tile_id];
+    for (size_t i = 0; i < mapping->sprite_count; i++) {
+        if (mapping->sprites[i].sprite_id) {
+            memory_manager.free(mapping->sprites[i].sprite_id);
+        }
+    }
+    if (mapping->sprites) {
+        memory_manager.free(mapping->sprites);
+    }
+    mapping->sprites = NULL;
     mapping->sprite_count = 0;
+    mapping->sprite_capacity = 0;
     mapping->total_weight = 0;
 }
 
@@ -466,13 +491,14 @@ size_t tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id) {
     return tiles->mappings[tile_id].sprite_count;
 }
 
-bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint16_t new_weight) {
-    if (!tiles || new_weight == 0) return false;
+bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id,
+                                  uint16_t new_weight) {
+    if (!tiles || !sprite_id || new_weight == 0) return false;
     
     EseTileMapping *mapping = &tiles->mappings[tile_id];
     
     for (size_t i = 0; i < mapping->sprite_count; i++) {
-        if (mapping->sprites[i].sprite_id == sprite_id) {
+        if (strcmp(mapping->sprites[i].sprite_id, sprite_id) == 0) {
             mapping->total_weight -= mapping->sprites[i].weight;
             mapping->sprites[i].weight = new_weight;
             mapping->total_weight += new_weight;

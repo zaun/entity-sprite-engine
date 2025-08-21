@@ -125,6 +125,33 @@ int _lua_asset_load_shader(lua_State *L) {
     return 1;
 }
 
+int _lua_asset_load_map(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 2) {
+        log_warn("ENGINE", "asset_load_map(String group, String map) takes 2 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    
+    if (!lua_isstring(L, 1) || !lua_isstring(L, 2)) {
+        log_warn("ENGINE", "asset_load_map(String group, String map) takes 2 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    
+    const char *group = lua_tostring(L, 1);
+    const char *map = lua_tostring(L, 2);
+
+    // Get engine reference
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    bool status = asset_manager_load_map(engine->asset_manager, engine->lua_engine, map, group);
+
+    log_debug("ENGINE", "Loading map %s has %s.", map, status ? "completed" : "failed");
+    
+    lua_pushboolean(L, status);
+    return 1;
+}
+
 int _lua_set_pipeline(lua_State *L) {
     int n_args = lua_gettop(L);
     if (n_args != 2) {

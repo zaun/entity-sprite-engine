@@ -60,6 +60,7 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_load_script", _lua_asset_load_script);
     lua_engine_add_function(engine->lua_engine, "asset_load_atlas", _lua_asset_load_atlas);
     lua_engine_add_function(engine->lua_engine, "asset_load_shader", _lua_asset_load_shader);
+    lua_engine_add_function(engine->lua_engine, "asset_load_map", _lua_asset_load_map);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
     lua_engine_add_function(engine->lua_engine, "detect_collision", _lua_detect_collision);
 

@@ -189,7 +189,7 @@ static int _map_lua_new(lua_State *L) {
     EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_GENERAL);
     map->title = _strdup_safe("Untitled Map");
     map->author = _strdup_safe("Unknown");
-    map->version = _strdup_safe("1.0");
+    map->version = 0;
     map->type = type;
     map->tileset = NULL;
     map->width = width;
@@ -201,7 +201,6 @@ static int _map_lua_new(lua_State *L) {
     if (!_allocate_cells_array(map)) {
         if (map->title) memory_manager.free(map->title);
         if (map->author) memory_manager.free(map->author);
-        if (map->version) memory_manager.free(map->version);
         memory_manager.free(map);
         return luaL_error(L, "Failed to allocate cell array");
     }
@@ -235,7 +234,7 @@ static int _map_lua_index(lua_State *L) {
         lua_pushstring(L, map->author ? map->author : "");
         return 1;
     } else if (strcmp(key, "version") == 0) {
-        lua_pushstring(L, map->version ? map->version : "");
+        lua_pushnumber(L, map->version);
         return 1;
     } else if (strcmp(key, "type") == 0) {
         lua_pushstring(L, map_type_to_string(map->type));
@@ -285,7 +284,7 @@ static int _map_lua_newindex(lua_State *L) {
         const char *author = lua_tostring(L, 3);
         map_set_author(map, author);
     } else if (strcmp(key, "version") == 0) {
-        const char *version = lua_tostring(L, 3);
+        int version = lua_tonumber(L, 3);
         map_set_version(map, version);
     } else if (strcmp(key, "type") == 0) {
         const char *type_str = lua_tostring(L, 3);
@@ -404,7 +403,7 @@ EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMap
     EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_GENERAL);
     map->title = _strdup_safe("Untitled Map");
     map->author = _strdup_safe("Unknown");
-    map->version = _strdup_safe("1.0");
+    map->version = 0;
     map->type = type;
     map->tileset = NULL;
     map->width = width;
@@ -416,7 +415,6 @@ EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMap
     if (!_allocate_cells_array(map)) {
         if (map->title) memory_manager.free(map->title);
         if (map->author) memory_manager.free(map->author);
-        if (map->version) memory_manager.free(map->version);
         memory_manager.free(map);
         return NULL;
     }
@@ -438,7 +436,6 @@ void map_destroy(EseMap *map) {
         
         if (map->title) memory_manager.free(map->title);
         if (map->author) memory_manager.free(map->author);
-        if (map->version) memory_manager.free(map->version);
         
         memory_manager.free(map);
     }
@@ -537,15 +534,10 @@ bool map_set_author(EseMap *map, const char *author) {
     return map->author != NULL;
 }
 
-bool map_set_version(EseMap *map, const char *version) {
-    if (!map) return false;
+void map_set_version(EseMap *map, int version) {
+    if (!map) return;
     
-    if (map->version) {
-        memory_manager.free(map->version);
-    }
-    
-    map->version = _strdup_safe(version);
-    return map->version != NULL;
+    map->version = version;
 }
 
 void map_set_tileset(EseMap *map, EseTileSet *tileset) {

@@ -13,18 +13,18 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @brief Represents a weighted sprite entry for tile mapping.
  */
 typedef struct EseSpriteWeight {
-    char sprite_id;                  /**< The sprite character/ID */
-    uint16_t weight;                 /**< Weight for random selection */
+    char *sprite_id;                /**< The sprite string (heap-allocated) */
+    uint16_t weight;                /**< Weight for random selection */
 } EseSpriteWeight;
 
 /**
  * @brief Represents a mapping for a single tile ID to weighted sprites.
  */
 typedef struct EseTileMapping {
-    EseSpriteWeight *sprites;        /**< Array of weighted sprites */
-    size_t sprite_count;             /**< Number of sprites in this mapping */
-    size_t sprite_capacity;          /**< Allocated capacity for sprites array */
-    uint32_t total_weight;           /**< Sum of all weights for fast selection */
+    EseSpriteWeight *sprites;       /**< Array of weighted sprites */
+    size_t sprite_count;            /**< Number of sprites in this mapping */
+    size_t sprite_capacity;         /**< Allocated capacity for sprites array */
+    uint32_t total_weight;          /**< Sum of all weights for fast selection */
 } EseTileMapping;
 
 /**
@@ -34,11 +34,11 @@ typedef struct EseTileMapping {
  *          lists of sprite_ids (chars). Supports weighted random selection.
  */
 typedef struct EseTileSet {
-    EseTileMapping mappings[256];    /**< Mappings indexed by tile_id */
+    EseTileMapping mappings[256];   /**< Mappings indexed by tile_id */
     
     // Lua integration
-    lua_State *state;                /**< Lua State this EseTileSet belongs to */
-    int lua_ref;                     /**< Lua registry reference to its own proxy table */
+    lua_State *state;               /**< Lua State this EseTileSet belongs to */
+    int lua_ref;                    /**< Lua registry reference to its own proxy table */
 } EseTileSet;
 
 /**
@@ -80,21 +80,21 @@ EseTileSet *tileset_lua_get(lua_State *L, int idx);
  * 
  * @param tiles Pointer to the EseTileSet object
  * @param tile_id The tile ID to add the sprite to
- * @param sprite_id The sprite character to add
+ * @param sprite_id The sprite string to add
  * @param weight The weight for random selection (default 1 if 0)
  * @return true if successful, false if memory allocation fails
  */
-bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint16_t weight);
+bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t weight);
 
 /**
  * @brief Removes a sprite from a tile mapping.
  * 
  * @param tiles Pointer to the EseTileSet object
  * @param tile_id The tile ID to remove the sprite from
- * @param sprite_id The sprite character to remove
+ * @param sprite_id The sprite string to remove
  * @return true if successful, false if sprite not found
  */
-bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id);
+bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id);
 
 /**
  * @brief Gets a random sprite based on weights for a tile.
@@ -103,7 +103,7 @@ bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, char sprite_id);
  * @param tile_id The tile ID to get a sprite for
  * @return A sprite character based on weights, or 0 if no mapping exists
  */
-char tileset_get_sprite(const EseTileSet *tiles, uint8_t tile_id);
+const char *tileset_get_sprite(const EseTileSet *tiles, uint8_t tile_id);
 
 /**
  * @brief Clears all sprites from a tile mapping.
@@ -127,10 +127,10 @@ size_t tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
  * 
  * @param tiles Pointer to the EseTileSet object
  * @param tile_id The tile ID containing the sprite
- * @param sprite_id The sprite character to update
+ * @param sprite_id The sprite string to update
  * @param new_weight The new weight value
  * @return true if successful, false if sprite not found
  */
-bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, char sprite_id, uint16_t new_weight);
+bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t new_weight);
 
 #endif // ESE_TILE_SET_H
