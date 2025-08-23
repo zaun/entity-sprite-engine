@@ -14,9 +14,18 @@ typedef struct EseLuaValue EseLuaValue;
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngineInternal EseLuaEngineInternal;
 
+/**
+ * @brief Main interface for the Lua scripting engine.
+ * 
+ * @details This structure provides the public interface for Lua scripting
+ *          functionality. It contains a Lua state for script execution
+ *          and internal state for configuration and security management.
+ *          The engine enforces memory limits, execution timeouts, and
+ *          provides a sandboxed environment for safe script execution.
+ */
 typedef struct EseLuaEngine {
-    lua_State *runtime;
-    EseLuaEngineInternal *internal;
+    lua_State *runtime;             /**< Lua state for script execution */
+    EseLuaEngineInternal *internal; /**< Internal state and configuration */
 } EseLuaEngine;
 
 extern const char _ENGINE_SENTINEL;

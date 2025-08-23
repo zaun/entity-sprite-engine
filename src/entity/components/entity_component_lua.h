@@ -10,16 +10,24 @@ typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseLuaValue EseLuaValue;
 typedef struct lua_State lua_State;
 
+/**
+ * @brief Component that provides Lua scripting capabilities to an entity.
+ * 
+ * @details This component manages Lua script execution, instance data, and
+ *          property storage. It stores the script filename, engine reference,
+ *          instance registry reference, argument values, and dynamic properties.
+ *          The engine reference is not owned and should not be freed.
+ */
 typedef struct EseEntityComponentLua {
-    EseEntityComponent base;
+    EseEntityComponent base;        /**< Base component structure */
 
-    char *script;
-    EseLuaEngine *engine; // we dont own this
-    int instance_ref;
+    char *script;                   /**< Filename of the Lua script to execute */
+    EseLuaEngine *engine;           /**< Reference to Lua engine (not owned) */
+    int instance_ref;               /**< Lua registry reference to instance table */
 
-    EseLuaValue *arg;
-    EseLuaValue **props;
-    size_t props_count;
+    EseLuaValue *arg;               /**< Argument value passed to script functions */
+    EseLuaValue **props;            /**< Array of dynamic properties */
+    size_t props_count;             /**< Number of properties in the array */
 } EseEntityComponentLua;
 
 EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src);

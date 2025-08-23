@@ -10,47 +10,75 @@
 #define DRAW_LIST_INITIAL_CAPACITY 256
 #define TEXTURE_ID_MAX_LEN 256
 
+/**
+ * @brief Texture data for draw list objects.
+ * 
+ * @details This structure stores texture coordinates and ID for rendering
+ *          textured objects. The texture coordinates are normalized values
+ *          that define the region of the texture to sample.
+ */
 typedef struct EseDrawListTexture {
     // Texture to draw
-    char texture_id[TEXTURE_ID_MAX_LEN];
-    float texture_x1;
-    float texture_y1;
-    float texture_x2;
-    float texture_y2;
+    char texture_id[TEXTURE_ID_MAX_LEN]; /**< ID of the texture to render */
+    float texture_x1;                    /**< Left texture coordinate (normalized) */
+    float texture_y1;                    /**< Top texture coordinate (normalized) */
+    float texture_x2;                    /**< Right texture coordinate (normalized) */
+    float texture_y2;                    /**< Bottom texture coordinate (normalized) */
 } EseDrawListTexture;
 
+/**
+ * @brief Rectangle data for draw list objects.
+ * 
+ * @details This structure stores color and fill information for rendering
+ *          rectangular objects. Colors are stored as 8-bit RGBA values.
+ */
 typedef struct EseDrawListRect {
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
-    unsigned char a;
-    bool filled;
+    unsigned char r;                      /**< Red component (0-255) */
+    unsigned char g;                      /**< Green component (0-255) */
+    unsigned char b;                      /**< Blue component (0-255) */
+    unsigned char a;                      /**< Alpha component (0-255) */
+    bool filled;                          /**< Whether the rectangle is filled or outlined */
 } EseDrawListRect;
 
+/**
+ * @brief Represents a drawable object in the render list.
+ * 
+ * @details This structure contains all the information needed to render
+ *          an object, including position, size, rotation, z-index, and
+ *          type-specific data (texture or rectangle). It supports both
+ *          textured sprites and colored rectangles.
+ */
 struct EseDrawListObject {
-    EseDrawListObjectType type;
+    EseDrawListObjectType type;           /**< Type of object (texture or rectangle) */
     union {
-        EseDrawListTexture texture;
-        EseDrawListRect rect;
-    } data;
+        EseDrawListTexture texture;       /**< Texture data for RL_TEXTURE type */
+        EseDrawListRect rect;             /**< Rectangle data for RL_RECT type */
+    } data;                               /**< Union containing type-specific data */
 
     // Where to draw
-    float x;            /**< The x-coordinate of the rectangle's top-left corner */
-    float y;            /**< The y-coordinate of the rectangle's top-left corner */
-    int w;              /**< The width of the object */
-    int h;              /**< The height of the object */
+    float x;                              /**< The x-coordinate of the object's top-left corner */
+    float y;                              /**< The y-coordinate of the object's top-left corner */
+    int w;                                /**< The width of the object in pixels */
+    int h;                                /**< The height of the object in pixels */
 
-    float rotation;     /**< The rotation of the object around the center point in rads */
-    float rot_x;        /**< The x coord for the rotation piviot point */
-    float rot_y;        /**< The y coord for the rotation piviot point */
+    float rotation;                       /**< The rotation of the object around the pivot point in radians */
+    float rot_x;                          /**< The x coordinate for the rotation pivot point (normalized) */
+    float rot_y;                          /**< The y coordinate for the rotation pivot point (normalized) */
 
-    int z_index;        /**< The z-index / draw order of the object */
+    int z_index;                          /**< The z-index / draw order of the object */
 };
 
+/**
+ * @brief Manages a collection of drawable objects for rendering.
+ * 
+ * @details This structure implements an object pool for efficient rendering.
+ *          It pre-allocates objects and reuses them across frames to avoid
+ *          memory allocation overhead during rendering.
+ */
 struct EseDrawList {
-    EseDrawListObject **objects;    // Pool of pointers to objects
-    size_t objects_count;           // Number of objects in use this frame
-    size_t objects_capacity;        // Total allocated
+    EseDrawListObject **objects;          /**< Pool of pre-allocated object pointers */
+    size_t objects_count;                 /**< Number of objects in use this frame */
+    size_t objects_capacity;              /**< Total allocated capacity for objects */
 };
 
 static int _compare_draw_list_object_z(const void *a, const void *b) {

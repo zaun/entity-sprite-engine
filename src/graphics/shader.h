@@ -8,9 +8,17 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Represents compiled shader data or source code.
+ * 
+ * @details This structure stores either compiled shader binary data or
+ *          source code strings. The data pointer is heap-allocated and
+ *          must be freed when the blob is destroyed. For strings, the
+ *          size excludes the null terminator.
+ */
 typedef struct {
-    char* data;    // Pointer to compiled shader data or source string
-    size_t size;   // Size in bytes (for strings, excludes null terminator)
+    char* data;                     /**< Pointer to compiled shader data or source string */
+    size_t size;                    /**< Size in bytes (for strings, excludes null terminator) */
 } ShaderBlob;
 
 // Compile GLSL source to SPIR-V binary.

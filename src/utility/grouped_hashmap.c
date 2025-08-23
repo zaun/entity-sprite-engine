@@ -11,28 +11,54 @@ void log_error(const char *tag, const char *fmt, ...);
 #define INITIAL_CAPACITY 16
 #define LOAD_FACTOR 0.75
 
+/**
+ * @brief Composite key structure for grouped hash maps.
+ * 
+ * @details This structure represents a two-part key consisting of a group
+ *          identifier and a specific ID within that group. Both parts are
+ *          heap-allocated strings that must be freed when the key is destroyed.
+ */
 typedef struct EseGroupedKey {
-    char* group;
-    char* id;
+    char* group;                    /**< Group identifier string */
+    char* id;                       /**< Specific ID within the group */
 } EseGroupedKey;
 
+/**
+ * @brief Node structure for grouped hash map entries.
+ * 
+ * @details Each node contains a grouped key, a value pointer, and a pointer
+ *          to the next node in the same bucket for collision resolution.
+ */
 typedef struct EseHashNode {
-    EseGroupedKey key;
-    void* value;
-    struct EseHashNode* next;
+    EseGroupedKey key;              /**< Composite key for the hash map entry */
+    void* value;                    /**< Value associated with the key */
+    struct EseHashNode* next;       /**< Pointer to next node in collision chain */
 } EseHashNode;
 
+/**
+ * @brief Grouped hash map data structure for hierarchical key-value storage.
+ * 
+ * @details This structure implements a hash table that organizes entries by
+ *          groups, allowing efficient lookup by both group and ID. It supports
+ *          dynamic resizing and collision resolution using chaining.
+ */
 struct EseGroupedHashMap {
-    EseHashNode** buckets;
-    size_t capacity;
-    size_t size;
-    EseGroupedHashMapFreeFn free_fn;
+    EseHashNode** buckets;          /**< Array of bucket pointers */
+    size_t capacity;                /**< Number of buckets in the hash map */
+    size_t size;                    /**< Number of key-value pairs stored */
+    EseGroupedHashMapFreeFn free_fn; /**< Function to free stored values */
 };
 
+/**
+ * @brief Iterator structure for traversing grouped hash map entries.
+ * 
+ * @details This structure maintains the current position in the grouped hash map
+ *          for iteration, tracking the current bucket and node within that bucket.
+ */
 struct EseGroupedHashMapIter {
-    EseGroupedHashMap* map;
-    size_t bucket;
-    EseHashNode* node;
+    EseGroupedHashMap* map;         /**< Reference to the grouped hash map being iterated */
+    size_t bucket;                  /**< Current bucket index */
+    EseHashNode* node;              /**< Current node within the bucket */
 };
 
 static unsigned int _hash_grouped(const char* group, const char* id) {

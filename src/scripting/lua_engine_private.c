@@ -4,8 +4,15 @@
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_engine.h"
 
+/**
+ * @brief Header structure for Lua memory allocations.
+ * 
+ * @details This structure is prepended to every memory block allocated
+ *          by Lua to track the user-visible size requested by Lua scripts.
+ *          It's used for memory accounting and debugging purposes.
+ */
 typedef struct LuaAllocHdr {
-    size_t size; // user-visible size (bytes requested by Lua)
+    size_t size;                    /**< User-visible size in bytes (requested by Lua) */
 } LuaAllocHdr;
 
 char* _replace_colon_calls(const char* prefix, const char* script) {

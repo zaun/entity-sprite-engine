@@ -9,11 +9,17 @@
 #import "core/memory_manager.h"
 #import "types/input_state.h"
 
-// Platform-specific window struct
+/**
+ * @brief Platform-specific window structure for macOS Metal implementation.
+ * 
+ * @details This structure wraps the macOS NSWindow and NSView handles along
+ *          with the engine's input state for the Metal platform. It provides
+ *          the bridge between macOS window events and the engine's input system.
+ */
 typedef struct EseMetalWindow {
-    NSWindow *window;
-    NSView *view;
-    EseInputState *inputState;
+    NSWindow *window;              /**< macOS NSWindow handle */
+    NSView *view;                  /**< macOS NSView handle for the window */
+    EseInputState *inputState;     /**< Reference to the engine's input state */
 } EseMetalWindow;
 
 // Map macOS keycodes to your engine's keys

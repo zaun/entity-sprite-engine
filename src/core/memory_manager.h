@@ -27,17 +27,25 @@ typedef enum {
     MMTAG_COUNT
 } MemTag;
 
-// API struct for "memory_manager.malloc" style usage
+/**
+ * @brief API structure for memory management operations.
+ * 
+ * @details This structure provides function pointers for all memory management
+ *          operations including allocation, deallocation, and reporting. It enables
+ *          the "memory_manager.malloc" style usage pattern throughout the codebase.
+ *          All functions are implemented by the memory manager and provide consistent
+ *          memory tracking and management capabilities.
+ */
 struct memory_manager_api {
-    void *(*malloc)(size_t size, MemTag tag);
-    void *(*calloc)(size_t count, size_t size, MemTag tag);
-    void *(*realloc)(void *ptr, size_t size, MemTag tag);
-    void  (*free)(void *ptr);
-    char *(*strdup)(const char *str, MemTag tag);
-    void  (*report)(void);
-    size_t (*get_current_usage)(void);
-    size_t (*get_max_usage)(void);
-    void  (*destroy)(void);
+    void *(*malloc)(size_t size, MemTag tag);      /**< Allocate memory with tag tracking */
+    void *(*calloc)(size_t count, size_t size, MemTag tag); /**< Allocate zeroed memory with tag tracking */
+    void *(*realloc)(void *ptr, size_t size, MemTag tag);  /**< Reallocate memory with tag tracking */
+    void  (*free)(void *ptr);                      /**< Free allocated memory */
+    char *(*strdup)(const char *str, MemTag tag);  /**< Duplicate string with tag tracking */
+    void  (*report)(void);                         /**< Print memory usage report */
+    size_t (*get_current_usage)(void);             /**< Get current memory usage in bytes */
+    size_t (*get_max_usage)(void);                 /**< Get peak memory usage in bytes */
+    void  (*destroy)(void);                        /**< Cleanup memory manager resources */
 };
 
 extern const struct memory_manager_api memory_manager;

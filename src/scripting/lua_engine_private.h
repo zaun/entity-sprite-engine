@@ -15,38 +15,60 @@ static const char hook_key_sentinel = 0;
 #define LUA_HOOK_FRQ 100
 #define LUA_MAX_ALLOC 1024 * 1024 * 5
 
+/**
+ * @brief Represents a Lua value with type safety and memory management.
+ * 
+ * @details This structure provides a C representation of Lua values including
+ *          nil, boolean, number, string, table, reference, and userdata types.
+ *          It supports nested tables and provides memory management for strings
+ *          and table contents. Each value can have an optional name for debugging.
+ */
 struct EseLuaValue {
-    enum { LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING, LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA } type;
+    enum { LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING, LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA } type; /**< Type of the Lua value */
     union {
-        bool boolean;
-        double number;
-        char *string;
-        int lua_ref;
-        void *userdata;
+        bool boolean;                /**< Boolean value for LUA_VAL_BOOL type */
+        double number;               /**< Numeric value for LUA_VAL_NUMBER type */
+        char *string;                /**< String value for LUA_VAL_STRING type */
+        int lua_ref;                 /**< Lua registry reference for LUA_VAL_REF type */
+        void *userdata;              /**< User data pointer for LUA_VAL_USERDATA type */
         struct {
-            struct EseLuaValue **items;
-            size_t count;
-            size_t capacity;
-        } table;
-    } value;
-    char *name;
+            struct EseLuaValue **items; /**< Array of table items */
+            size_t count;               /**< Number of items in the table */
+            size_t capacity;            /**< Allocated capacity for items array */
+        } table;                    /**< Table data for LUA_VAL_TABLE type */
+    } value;                        /**< Union containing the actual value data */
+    char *name;                     /**< Optional name for debugging and identification */
 };
 
+/**
+ * @brief Hook structure for monitoring Lua function execution.
+ * 
+ * @details This structure tracks execution time, instruction count, and call
+ *          frequency for Lua functions. It's used for performance monitoring
+ *          and enforcing execution limits.
+ */
 typedef struct LuaFunctionHook {
-    clock_t start_time;
-    clock_t max_execution_time;
-    size_t max_instruction_count;
-    size_t instruction_count;
-    size_t call_count;
+    clock_t start_time;             /**< Start time of function execution */
+    clock_t max_execution_time;     /**< Maximum allowed execution time */
+    size_t max_instruction_count;   /**< Maximum allowed instruction count */
+    size_t instruction_count;       /**< Current instruction count */
+    size_t call_count;              /**< Number of times function was called */
 } LuaFunctionHook;
 
+/**
+ * @brief Internal state and configuration for the Lua engine.
+ * 
+ * @details This structure manages the Lua engine's internal state including
+ *          function registry, sandbox environment, memory limits, and execution
+ *          constraints for security and performance.
+ */
 typedef struct EseLuaEngineInternal {
-    EseHashMap *functions;
-    int sandbox_master_ref;
-    size_t memory_limit;
-    size_t memory_used;
-    clock_t max_execution_time;
-    size_t max_instruction_count;
+    EseHashMap *functions;          /**< Registry of available Lua functions */
+    int sandbox_master_ref;         /**< Reference to master sandbox environment */
+    size_t memory_limit;            /**< Maximum memory usage limit */
+    size_t memory_used;             /**< Current memory usage */
+    clock_t max_execution_time;     /**< Maximum execution time limit */
+    size_t max_instruction_count;   /**< Maximum instruction count limit */
 } EseLuaEngineInternal;
 
 char* _replace_colon_calls(const char* prefix, const char* script);

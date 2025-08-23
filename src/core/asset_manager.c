@@ -24,28 +24,51 @@ typedef enum {
     // ASSET_MATERIAL            // Future use
 } EseAssetType;
 
+/**
+ * @brief Represents a single asset in the asset management system.
+ * 
+ * @details This structure stores metadata about a loaded asset including
+ *          its unique instance ID, type classification, and pointer to
+ *          the actual asset data. The instance_id is heap-allocated
+ *          and must be freed when the asset is destroyed.
+ */
 typedef struct EseAsset {
-    char *instance_id;
-    EseAssetType type;
-    void *data;
+    char *instance_id;              /**< Unique identifier for this asset instance */
+    EseAssetType type;              /**< Type classification of the asset */
+    void *data;                     /**< Pointer to the actual asset data */
 } EseAsset;
 
+/**
+ * @brief Structure for texture asset metadata.
+ * 
+ * @details This structure stores metadata about loaded textures including
+ *          dimensions and any additional properties needed for texture
+ *          management and rendering.
+ */
 typedef struct EseAssetTexture {
-    int width;
-    int heigh;
+    int width;                      /**< Width of the texture in pixels */
+    int heigh;                      /**< Height of the texture in pixels */
 } EseAssetTexture;
 
+/**
+ * @brief Main asset management system.
+ * 
+ * @details This structure manages all game assets including sprites, textures,
+ *          atlases, and maps. It organizes assets by groups for efficient
+ *          loading, caching, and retrieval. The renderer reference is used
+ *          for texture loading operations.
+ */
 struct EseAssetManager {
-    EseRenderer *renderer;
-    EseGroupedHashMap *sprites;
-    EseGroupedHashMap *textures;
-    EseGroupedHashMap *atlases;
-    EseGroupedHashMap *maps;
+    EseRenderer *renderer;          /**< Reference to renderer for texture operations */
+    EseGroupedHashMap *sprites;     /**< Hash map of sprite assets by group and ID */
+    EseGroupedHashMap *textures;    /**< Hash map of texture assets by group and ID */
+    EseGroupedHashMap *atlases;     /**< Hash map of atlas assets by group and ID */
+    EseGroupedHashMap *maps;        /**< Hash map of map assets by group and ID */
 
     // Group tracking
-    char **groups;         // Array of group names
-    size_t group_count;    // Number of groups in use
-    size_t group_capacity; // Allocated capacity
+    char **groups;                  /**< Array of group names for asset organization */
+    size_t group_count;             /**< Number of groups currently in use */
+    size_t group_capacity;          /**< Allocated capacity for groups array */
 };
 
 /**

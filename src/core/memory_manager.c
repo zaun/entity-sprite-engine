@@ -34,44 +34,89 @@
 
 #define BUCKET_COUNT 4
 
+/**
+ * @brief Header structure for allocated memory blocks.
+ * 
+ * @details This structure is prepended to every allocated memory block
+ *          and contains metadata for memory management, including size,
+ *          magic number for corruption detection, memory tag, and link
+ *          to the next allocated block.
+ */
 typedef struct MemHeader {
-    size_t size;
-    uint64_t magic;
-    int tag;
-    struct MemHeader *next;
+    size_t size;                    /**< Size of the allocated block in bytes */
+    uint64_t magic;                 /**< Magic number for corruption detection */
+    int tag;                        /**< Memory tag for categorization and tracking */
+    struct MemHeader *next;         /**< Pointer to next allocated block in list */
 } MemHeader;
 
+/**
+ * @brief Footer structure for allocated memory blocks.
+ * 
+ * @details This structure is appended to every allocated memory block
+ *          and contains a magic number for corruption detection at the
+ *          end of the block.
+ */
 typedef struct MemFooter {
-    uint64_t magic;
+    uint64_t magic;                 /**< Magic number for corruption detection */
 } MemFooter;
 
+/**
+ * @brief Structure for free memory chunks in the free list.
+ * 
+ * @details This structure represents a contiguous block of free memory
+ *          and is used to link free chunks together in size-sorted
+ *          free lists for efficient allocation.
+ */
 typedef struct FreeChunk {
-    size_t size;
-    struct FreeChunk *next;
+    size_t size;                    /**< Size of the free chunk in bytes */
+    struct FreeChunk *next;         /**< Pointer to next free chunk in list */
 } FreeChunk;
 
+/**
+ * @brief Memory block structure for the memory manager.
+ * 
+ * @details This structure represents a large block of memory allocated
+ *          from the system, which is then subdivided into smaller chunks
+ *          for allocation requests. The data array contains the actual
+ *          memory available for allocation.
+ */
 typedef struct Block {
-    struct Block *next;
-    size_t size;
-    char data[];
+    struct Block *next;             /**< Pointer to next memory block */
+    size_t size;                    /**< Total size of this memory block */
+    char data[];                    /**< Flexible array member containing the memory */
 } Block;
 
+/**
+ * @brief Statistics structure for memory usage tracking.
+ * 
+ * @details This structure tracks various memory usage statistics including
+ *          current and maximum usage, allocation counts, and bucket-specific
+ *          statistics for different size ranges.
+ */
 typedef struct {
-    size_t current_usage;
-    size_t max_usage;
-    size_t total_allocs;
-    size_t total_frees;
-    size_t total_bytes_alloced;
-    size_t total_blocks_alloced[BUCKET_COUNT];
-    size_t largest_alloc;
+    size_t current_usage;           /**< Current memory usage in bytes */
+    size_t max_usage;               /**< Peak memory usage in bytes */
+    size_t total_allocs;            /**< Total number of allocations */
+    size_t total_frees;             /**< Total number of deallocations */
+    size_t total_bytes_alloced;     /**< Total bytes allocated over time */
+    size_t total_blocks_alloced[BUCKET_COUNT]; /**< Allocations per size bucket */
+    size_t largest_alloc;           /**< Largest single allocation size */
 } MemStats;
 
+/**
+ * @brief Main memory manager structure.
+ * 
+ * @details This structure manages all memory allocation and deallocation
+ *          operations. It maintains free lists for different size ranges,
+ *          tracks allocated blocks, and provides statistics for monitoring
+ *          memory usage patterns.
+ */
 struct MemoryManager {
-    Block *blocks;
-    FreeChunk *free_lists[BUCKET_COUNT];
-    MemHeader *allocated_list;
-    MemStats global;
-    MemStats tags[MMTAG_COUNT];
+    Block *blocks;                  /**< Linked list of allocated memory blocks */
+    FreeChunk *free_lists[BUCKET_COUNT]; /**< Free lists for different size ranges */
+    MemHeader *allocated_list;      /**< Linked list of allocated memory blocks */
+    MemStats global;                /**< Global memory usage statistics */
+    MemStats tags[MMTAG_COUNT];     /**< Per-tag memory usage statistics */
 };
 
 typedef struct MemoryManager MemoryManager;

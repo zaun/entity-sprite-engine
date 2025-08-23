@@ -9,18 +9,33 @@
 #define RENDER_LIST_INITIAL_CAPACITY 32
 #define BATCH_INITIAL_CAPACITY 256
 
+/**
+ * @brief Iterator structure for traversing render batches.
+ * 
+ * @details This structure maintains the current position in the render list
+ *          for iteration, tracking the current batch and vertex count within
+ *          that batch for efficient batch processing.
+ */
 typedef struct EseRenderBatchIterator {
-    EseRenderBatch *batch;
-    size_t current_vertex_index;
-    size_t total_vertices;
+    EseRenderList *render_list;     /**< Reference to the render list being iterated */
+    size_t batch_index;             /**< Current batch index */
+    size_t vertex_index;            /**< Current vertex index within the batch */
+    size_t total_vertices;          /**< Total vertices processed so far */
 } EseRenderBatchIterator;
 
+/**
+ * @brief Manages a collection of render batches for GPU rendering.
+ * 
+ * @details This structure organizes drawable objects into batches by type
+ *          and shared state for efficient GPU rendering. It manages memory
+ *          allocation for batches and provides iteration capabilities.
+ */
 typedef struct EseRenderList {
-    EseRenderBatch **batches;
-    size_t batch_count;
-    size_t batch_capacity;
-    int width;
-    int height;
+    EseRenderBatch **batches;       /**< Array of render batch pointers */
+    size_t batch_count;             /**< Number of batches in the list */
+    size_t batch_capacity;          /**< Allocated capacity for batches array */
+    int width;                      /**< Viewport width for coordinate conversion */
+    int height;                     /**< Viewport height for coordinate conversion */
 } EseRenderList;
 
 // Helper to create a new batch

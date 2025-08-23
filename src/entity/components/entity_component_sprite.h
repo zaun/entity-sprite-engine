@@ -12,13 +12,21 @@ typedef struct EseEntity EseEntity;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
 
+/**
+ * @brief Component that provides sprite rendering capabilities to an entity.
+ * 
+ * @details This component manages sprite animation, frame timing, and visual
+ *          representation. It stores the sprite name, reference to the sprite
+ *          object, current frame index, and elapsed time for animation control.
+ *          The sprite object is not owned by this component and should not be freed.
+ */
 typedef struct EseEntityComponentSprite {
-    EseEntityComponent base;
+    EseEntityComponent base;        /**< Base component structure */
 
-    char *sprite_name;
-    EseSprite *sprite; // Not owned by EseEntityComponentSprite
-    size_t current_frame;
-    float sprite_ellapse_time;
+    char *sprite_name;              /**< Name/ID of the sprite to display */
+    EseSprite *sprite;              /**< Reference to the sprite object (not owned) */
+    size_t current_frame;           /**< Current animation frame index */
+    float sprite_ellapse_time;      /**< Elapsed time for frame timing control */
 } EseEntityComponentSprite;
 
 EseEntityComponent *_entity_component_sprite_copy(const EseEntityComponentSprite *src);

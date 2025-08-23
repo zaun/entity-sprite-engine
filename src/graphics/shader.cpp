@@ -124,11 +124,6 @@ static TBuiltInResource GetDefaultResources() {
     return resources;
 }
 
-typedef struct {
-    char* data;   // null-terminated string for GLSL/Metal output, or SPIR-V binary cast
-    size_t size;  // length in bytes (for strings, excluding null terminator)
-} ShaderBlob;
-
 // Helper: Initialize glslang once per process
 static bool glslangInitialized = false;
 static void ensure_glslang_initialized() {

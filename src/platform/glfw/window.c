@@ -11,10 +11,16 @@
 #include "types/input_state.h"
 #include "utility/log.h"
 
-// Platform-specific window struct for GLFW
+/**
+ * @brief Platform-specific window structure for GLFW implementation.
+ * 
+ * @details This structure wraps the GLFW window handle and input state
+ *          for the GLFW platform. It provides the bridge between GLFW
+ *          window events and the engine's input system.
+ */
 typedef struct EseGLFWWindow {
-    GLFWwindow *glfw_window;
-    EseInputState *inputState;
+    GLFWwindow *glfw_window;       /**< GLFW window handle */
+    EseInputState *inputState;     /**< Reference to the engine's input state */
 } EseGLFWWindow;
 
 // Map GLFW keycodes to your engine's keys

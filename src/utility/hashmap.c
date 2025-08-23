@@ -6,22 +6,42 @@
 #define INITIAL_CAPACITY 16
 #define LOAD_FACTOR 0.75
 
+/**
+ * @brief Node structure for hash map entries.
+ * 
+ * @details Each node contains a key-value pair and a pointer to the next
+ *          node in the same bucket for collision resolution using chaining.
+ */
 typedef struct EseHashNode {
-    char* key;
-    void* value;
-    struct EseHashNode* next;
+    char* key;                      /**< String key for the hash map entry */
+    void* value;                    /**< Value associated with the key */
+    struct EseHashNode* next;       /**< Pointer to next node in collision chain */
 } EseHashNode;
 
+/**
+ * @brief Hash map data structure for key-value storage.
+ * 
+ * @details This structure implements a hash table with dynamic resizing
+ *          and collision resolution using chaining. It stores an array
+ *          of buckets, each containing a linked list of hash nodes.
+ */
 typedef struct EseHashMap {
-    EseHashNode** buckets;
-    size_t capacity;
-    size_t size;
+    EseHashNode** buckets;          /**< Array of bucket pointers */
+    size_t capacity;                /**< Number of buckets in the hash map */
+    size_t size;                    /**< Number of key-value pairs stored */
 } EseHashMap;
 
+/**
+ * @brief Iterator structure for traversing hash map entries.
+ * 
+ * @details This structure maintains the current position in the hash map
+ *          for iteration, tracking the current bucket and node within
+ *          that bucket.
+ */
 struct EseHashMapIter {
-    EseHashMap* map;
-    size_t bucket;
-    struct EseHashNode* node;
+    EseHashMap* map;                /**< Reference to the hash map being iterated */
+    size_t bucket;                  /**< Current bucket index */
+    struct EseHashNode* node;       /**< Current node within the bucket */
 };
 
 static unsigned int hash(const char* key) {

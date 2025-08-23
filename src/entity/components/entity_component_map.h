@@ -8,15 +8,24 @@ typedef struct EseMap EseMap;
 typedef struct EsePoint EsePoint;
 typedef struct lua_State lua_State;
 
+/**
+ * @brief Component that provides tile-based map rendering capabilities to an entity.
+ * 
+ * @details This component manages map display, positioning, and rendering.
+ *          It stores the map reference, map position for centering, tile size,
+ *          random seed for procedural generation, and sprite frame data.
+ *          The map reference is not owned and should not be freed.
+ */
 typedef struct EseEntityComponentMap
 {
-    EseEntityComponent base;
-    EseMap *map;       /**< map to render */
-    EsePoint *map_pos; /**< which map‐cell to center */
-    int size;
-    uint32_t seed;
+    EseEntityComponent base;        /**< Base component structure */
 
-    int *sprite_frames;
+    EseMap *map;                    /**< Reference to the map to render (not owned) */
+    EsePoint *map_pos;              /**< Map cell position to center on */
+    int size;                       /**< Tile size in pixels */
+    uint32_t seed;                  /**< Random seed for procedural generation */
+    
+    int *sprite_frames;             /**< Array of sprite frame indices for tiles */
 } EseEntityComponentMap;
 
 EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src);

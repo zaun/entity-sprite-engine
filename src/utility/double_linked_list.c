@@ -3,21 +3,41 @@
 #include "utility/log.h"
 #include "core/memory_manager.h"
 
+/**
+ * @brief Node structure for doubly-linked list entries.
+ * 
+ * @details Each node contains a value pointer and pointers to the previous
+ *          and next nodes in the list, enabling bidirectional traversal.
+ */
 typedef struct EseDListNode {
-    void* value;
-    struct EseDListNode* prev;
-    struct EseDListNode* next;
+    void* value;                    /**< Pointer to the stored value */
+    struct EseDListNode* prev;      /**< Pointer to the previous node */
+    struct EseDListNode* next;      /**< Pointer to the next node */
 } EseDListNode;
 
+/**
+ * @brief Doubly-linked list data structure.
+ * 
+ * @details This structure implements a doubly-linked list with head and tail
+ *          pointers for efficient insertion and removal at both ends. It also
+ *          tracks the list size and provides optional cleanup functions for
+ *          stored values.
+ */
 struct EseDoubleLinkedList {
-    EseDListNode* head;
-    EseDListNode* tail;
-    size_t size;
-    DListFreeFn free_fn;
+    EseDListNode* head;             /**< Pointer to the first node in the list */
+    EseDListNode* tail;             /**< Pointer to the last node in the list */
+    size_t size;                    /**< Number of nodes in the list */
+    DListFreeFn free_fn;            /**< Optional function to free stored values */
 };
 
+/**
+ * @brief Iterator structure for traversing doubly-linked list entries.
+ * 
+ * @details This structure maintains the current position in the list
+ *          for iteration, allowing sequential access to list elements.
+ */
 struct EseDListIter {
-    EseDListNode* current;
+    EseDListNode* current;          /**< Pointer to the current node being iterated */
 };
 
 void _dlist_remove(EseDoubleLinkedList* list, EseDListNode* node) {

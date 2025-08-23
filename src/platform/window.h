@@ -7,13 +7,21 @@
 typedef struct EseRenderer EseRenderer;
 typedef struct EseInputState EseInputState;
 
+/**
+ * @brief Platform-agnostic window interface.
+ * 
+ * @details This structure provides a unified interface for window management
+ *          across different platforms (macOS, Linux). It stores platform-specific
+ *          window handles, dimensions, and references to renderer and input
+ *          state for consistent window behavior.
+ */
 typedef struct EseWindow {
-    void* platform_window;  // GLFWwindow* or NSWindow*
-    int width;
-    int height;
-    EseRenderer* renderer;
-    EseInputState* input_state;
-    bool should_close;
+    void* platform_window;          /**< Platform-specific window handle (GLFWwindow* or NSWindow*) */
+    int width;                      /**< Window width in pixels */
+    int height;                     /**< Window height in pixels */
+    EseRenderer* renderer;          /**< Reference to the renderer for this window */
+    EseInputState* input_state;     /**< Reference to the input state for this window */
+    bool should_close;              /**< Flag indicating if the window should close */
 } EseWindow;
 
 // Window management functions - platform agnostic interface

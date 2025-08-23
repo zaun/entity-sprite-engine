@@ -4,20 +4,35 @@
 #include "core/memory_manager.h"
 #include "graphics/sprite.h"
 
-typedef struct {
-    const char* texture_id;
-    float x1;   // normalized coord1-x texture position 
-    float y1;   // normalized coord1-y texture position
-    float x2;   // normalized coord2-x texture position 
-    float y2;   // normalized coord2-y texture position
-    int w;      // pixel width
-    int h;      // pixel height
+/**
+ * @brief Represents a single frame within a sprite animation.
+ * 
+ * @details This structure stores the texture coordinates and dimensions
+ *          for a single frame of a sprite animation. The texture_id is
+ *          heap-allocated and must be freed when the frame is destroyed.
+ */
+typedef struct EseSpriteFrame {
+    char *texture_id;               /**< ID of the texture containing this frame */
+    float x1;                       /**< Left texture coordinate (normalized) */
+    float y1;                       /**< Top texture coordinate (normalized) */
+    float x2;                       /**< Right texture coordinate (normalized) */
+    float y2;                       /**< Bottom texture coordinate (normalized) */
+    int w;                          /**< Width of the frame in pixels */
+    int h;                          /**< Height of the frame in pixels */
 } EseSpriteFrame;
 
+/**
+ * @brief Represents a sprite with multiple animation frames.
+ * 
+ * @details This structure manages a collection of animation frames,
+ *          frame timing, and playback speed. It stores an array of
+ *          frame pointers, frame count, and animation speed in
+ *          frames per second.
+ */
 struct EseSprite {
-    EseSpriteFrame** frames;
-    int frame_count;
-    float speed;
+    EseSpriteFrame** frames;        /**< Array of animation frame pointers */
+    int frame_count;                /**< Number of frames in the animation */
+    float speed;                    /**< Animation speed in frames per second */
 };
 
 EseSprite *sprite_create() {

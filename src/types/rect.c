@@ -14,15 +14,26 @@
 static inline float deg_to_rad(float d) { return d * (M_PI / 180.0f); }
 static inline float rad_to_deg(float r) { return r * (180.0f / M_PI); }
 
-/* small vector helper */
+/**
+ * @brief Simple 2D vector structure for mathematical operations.
+ * 
+ * @details This structure represents a 2D vector with x and y components
+ *          for use in collision detection and geometric calculations.
+ */
 typedef struct { float x, y; } Vec2;
 static inline float dotf(Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
 
-/* OBB for SAT */
+/**
+ * @brief Oriented bounding box structure for collision detection.
+ * 
+ * @details This structure represents an oriented bounding box using
+ *          center point, normalized axes, and half-widths for efficient
+ *          collision detection using the Separating Axis Theorem (SAT).
+ */
 typedef struct {
-    Vec2 c;         /* center */
-    Vec2 axis[2];   /* normalized local axes in world space */
-    float ext[2];   /* half-widths along each axis */
+    Vec2 c;                         /**< Center point of the bounding box */
+    Vec2 axis[2];                   /**< Normalized local axes in world space */
+    float ext[2];                   /**< Half-widths along each axis */
 } OBB;
 
 
