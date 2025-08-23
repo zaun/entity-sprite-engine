@@ -7,7 +7,7 @@ function STARTUP:makeskull()
         skull.components.add(lua_comp)
     end
 
-    if asset_load_atlas("game", "skull.json") then
+    if asset_load_atlas("game", "skull.json", true) then
         local sprite_comp = EntityComponentSprite.new()
         sprite_comp.sprite = "game:skull floating east"
         skull.components.add(sprite_comp)
@@ -67,7 +67,7 @@ function STARTUP:startup()
         horse.components.add(lua_comp)
     end
 
-    if asset_load_atlas("game", "horse_saddle.json") then
+    if asset_load_atlas("game", "horse_saddle.json", true) then
         local sprite_comp = EntityComponentSprite.new()
         sprite_comp.sprite = "game:horse running east"
         horse.components.add(sprite_comp)

@@ -76,24 +76,31 @@ int _lua_asset_load_script(lua_State *L) {
 
 int _lua_asset_load_atlas(lua_State *L) {
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
-        log_warn("ENGINE", "asset_load_atlast(String group, String stlas) takes 2 string arguments");
+    if (n_args < 2 || n_args > 3) {
+        log_warn("ENGINE", "asset_load_atlas(String group, String stlas, [Boolean indexed]) takes 2 arguments and 1 optional argument");
         lua_pushboolean(L, false);
         return 1;
     }
     
     if (!lua_isstring(L, 1) || !lua_isstring(L, 2)) {
-        log_warn("ENGINE", "asset_load_atlast(String group, String stlas) takes 2 string arguments");
+        log_warn("ENGINE", "asset_load_atlas(String group, String stlas, [Boolean indexed]) takes 2 arguments and 1 optional argument");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    if (n_args == 3 && !lua_isboolean(L, 3)) {
+        log_warn("ENGINE", "asset_load_atlas(String group, String stlas, [Boolean indexed]) takes 2 arguments and 1 optional argument");
         lua_pushboolean(L, false);
         return 1;
     }
     
     const char *group = lua_tostring(L, 1);
     const char *atlas = lua_tostring(L, 2);
+    bool indexed = n_args == 3 ? lua_toboolean(L, 3) : false;
 
     // Get engine reference
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    bool status = asset_manager_load_sprite_atlas(engine->asset_manager, atlas, group);
+    bool status = asset_manager_load_sprite_atlas(engine->asset_manager, atlas, group, indexed);
 
     log_debug("ENGINE", "Loading atlas %s has %s.", atlas, status ? "completed" : "failed");
     

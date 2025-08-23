@@ -428,185 +428,17 @@ bool renderer_create_pipeline_state(EseRenderer *renderer, const char *vertexFun
     return true;
 }
 
-bool renderer_load_texture_indexed(EseRenderer *renderer, const char *id, const char *filename, int *out_width, int *out_height) {
-    log_assert("GL_RENDERER", renderer, "renderer_load_texture_indexed called with NULL renderer");
-    log_assert("GL_RENDERER", id, "renderer_load_texture_indexed called with NULL id");
-    log_assert("GL_RENDERER", filename, "renderer_load_texture_indexed called with NULL filename");
-
-    // The hashmap now stores a pointer to a GLTexture struct
-    if (hashmap_get(renderer->textures, id)) {
-        log_debug("GL_RENDERER", "Texture already loaded (%s) %s", id, filename);
-        return true;
-    }
-
-    const char *extensions[] = {"png", "jpg", "jpeg", "bmp"};
-    char *path = NULL;
-    char full_filename[256];
-
-    for (int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++)
-    {
-        if (snprintf(full_filename, sizeof(full_filename), "%s.%s", filename, extensions[i]) >= sizeof(full_filename))
-        {
-            continue;
-        }
-
-        char *temp_path = filesystem_get_resource(full_filename);
-        if (temp_path)
-        {
-            if (access(temp_path, F_OK) == 0)
-            {
-                path = temp_path;
-                break;
-            }
-            memory_manager.free(temp_path);
-        }
-    }
-
-    if (!path)
-    {
-        fprintf(stderr, "Texture file not found: %s (tried png, jpg, jpeg, bmp)\n", filename);
-        return false;
-    }
-
-    int width, height, comp;
-    unsigned char *src_data = stbi_load(path, &width, &height, &comp, STBI_rgb_alpha);
-    memory_manager.free(path);
-    if (!src_data)
-    {
-        fprintf(stderr, "Failed to load image %s: %s\n", filename, stbi_failure_reason());
-        return false;
-    }
-
-    size_t buffer_size = width * height * 4;
-    unsigned char *dst_data = memory_manager.malloc(buffer_size, MMTAG_RENDERER);
-    if (!dst_data)
-    {
-        fprintf(stderr, "Failed to allocate memory for texture buffer");
-        stbi_image_free(src_data);
-        return false;
-    }
-
-    unsigned char tr = src_data[0];
-    unsigned char tg = src_data[1];
-    unsigned char tb = src_data[2];
-
-    for (int y = 0; y < height; y++)
-    {
-        unsigned char *src_row = src_data + y * width * 4;
-        unsigned char *dst_row = dst_data + y * width * 4;
-        for (int x = 0; x < width; x++)
-        {
-            unsigned char *src_pixel = src_row + x * 4;
-            unsigned char *dst_pixel = dst_row + x * 4;
-
-            dst_pixel[0] = src_pixel[0];
-            dst_pixel[1] = src_pixel[1];
-            dst_pixel[2] = src_pixel[2];
-            dst_pixel[3] = (src_pixel[0] == tr && src_pixel[1] == tg && src_pixel[2] == tb) ? 0 : 255;
-        }
-    }
-
-    GLuint texture_id;
-    glGenTextures(1, &texture_id);
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, dst_data);
-
-    stbi_image_free(src_data);
-    memory_manager.free(dst_data);
-
-    // Create and populate the GLTexture struct
-    GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDERER);
-    if (tex_data)
-    {
-        tex_data->id = texture_id;
-        tex_data->width = width;
-        tex_data->height = height;
-        hashmap_set(renderer->textures, id, tex_data);
-        log_debug("RENDERER_GL", "Loaded indexed texture (%s) %s", id, filename);
-    }
-    else
-    {
-        glDeleteTextures(1, &texture_id);
-        fprintf(stderr, "Failed to allocate GLTexture struct\n");
-        return false;
-    }
-
-    if (out_width)
-    {
-        *out_width = width;
-    }
-    if (out_height)
-    {
-        *out_height = height;
-    }
-
-    return true;
-}
-
-bool renderer_load_texture(EseRenderer *renderer, const char *id, const char *filename, int *out_width, int *out_height) {
+bool renderer_load_texture(EseRenderer *renderer, const char *id, const unsigned char *rgba_data, int width, int height) {
     log_assert("GL_RENDERER", renderer, "renderer_load_texture called with NULL renderer");
     log_assert("GL_RENDERER", id, "renderer_load_texture called with NULL id");
-    log_assert("GL_RENDERER", filename, "renderer_load_texture called with NULL filename");
+    log_assert("GL_RENDERER", rgba_data, "renderer_load_texture called with NULL rgba_data");
+    log_assert("GL_RENDERER", width > 0, "renderer_load_texture called with invalid width");
+    log_assert("GL_RENDERER", height > 0, "renderer_load_texture called with invalid height");
 
-    // The hashmap now stores a pointer to a GLTexture struct
+    // Check if texture already loaded
     if (hashmap_get(renderer->textures, id)) {
-        log_debug("GL_RENDERER", "Texture already loaded (%s) %s", id, filename);
+        log_debug("GL_RENDERER", "Texture already loaded (%s)", id);
         return true;
-    }
-
-    const char *extensions[] = {"png", "jpg", "jpeg", "bmp"};
-    char *path = NULL;
-    char full_filename[256];
-
-    for (int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++)
-    {
-        if (snprintf(full_filename, sizeof(full_filename), "%s.%s", filename, extensions[i]) >= sizeof(full_filename))
-        {
-            continue;
-        }
-
-        char *temp_path = filesystem_get_resource(full_filename);
-        if (temp_path)
-        {
-            if (access(temp_path, F_OK) == 0)
-            {
-                path = temp_path;
-                break;
-            }
-            memory_manager.free(temp_path);
-        }
-    }
-
-    if (!path)
-    {
-        fprintf(stderr, "Texture file not found: %s (tried png, jpg, jpeg, bmp)\n", filename);
-        return false;
-    }
-
-    int width, height, comp;
-    unsigned char *data = stbi_load(path, &width, &height, &comp, 0);
-    memory_manager.free(path);
-    if (!data)
-    {
-        fprintf(stderr, "Failed to load image %s: %s\n", filename, stbi_failure_reason());
-        return false;
-    }
-
-    GLenum format;
-    if (comp == 1) format = GL_RED;
-    else if (comp == 3) format = GL_RGB;
-    else if (comp == 4) format = GL_RGBA;
-    else {
-        fprintf(stderr, "Unsupported number of image components: %d\n", comp);
-        stbi_image_free(data);
-        return false;
     }
 
     GLuint texture_id;
@@ -619,9 +451,7 @@ bool renderer_load_texture(EseRenderer *renderer, const char *id, const char *fi
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-
-    stbi_image_free(data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba_data);
 
     // Create and populate the GLTexture struct
     GLTexture *tex_data = memory_manager.malloc(sizeof(GLTexture), MMTAG_RENDERER);
@@ -631,7 +461,7 @@ bool renderer_load_texture(EseRenderer *renderer, const char *id, const char *fi
         tex_data->width = width;
         tex_data->height = height;
         hashmap_set(renderer->textures, id, tex_data);
-        log_debug("RENDERER_GL", "Loaded texture (%s) %s", id, filename);
+        log_debug("RENDERER_GL", "Loaded raw texture (%s) %dx%d", id, width, height);
     }
     else
     {
@@ -639,15 +469,6 @@ bool renderer_load_texture(EseRenderer *renderer, const char *id, const char *fi
         glDeleteTextures(1, &texture_id);
         fprintf(stderr, "Failed to allocate GLTexture struct\n");
         return false;
-    }
-
-    if (out_width)
-    {
-        *out_width = width;
-    }
-    if (out_height)
-    {
-        *out_height = height;
     }
 
     return true;

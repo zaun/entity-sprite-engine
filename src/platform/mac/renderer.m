@@ -609,155 +609,39 @@ void renderer_draw(EseRenderer *renderer) {
     internal->inflightIndex = (internal->inflightIndex + 1) % (internal->inflightCount ? internal->inflightCount : 3);
 }
 
-bool renderer_load_texture(EseRenderer* renderer, const char* texture_id, const char* filename, int *out_width, int *out_height) {
+bool renderer_load_texture(EseRenderer* renderer, const char* texture_id, const unsigned char* rgba_data, int width, int height) {
     log_assert("METAL_RENDERER", renderer, "renderer_load_texture called with NULL renderer");
     log_assert("METAL_RENDERER", texture_id, "renderer_load_texture called with NULL texture_id");
-    log_assert("METAL_RENDERER", filename, "renderer_load_texture called with NULL filename");
+    log_assert("METAL_RENDERER", rgba_data, "renderer_load_texture called with NULL rgba_data");
+    log_assert("METAL_RENDERER", width > 0, "renderer_load_texture called with invalid width");
+    log_assert("METAL_RENDERER", height > 0, "renderer_load_texture called with invalid height");
 
-    // The hashmap now stores a pointer to a GLTexture struct
+    // Check if texture already loaded
     if (hashmap_get(renderer->textures, texture_id)) {
-        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", texture_id, filename);
+        log_debug("METAL_RENDERER", "Texture already loaded (%s)", texture_id);
         return true;
     }
 
     EseMetalRenderer *internal = (EseMetalRenderer *)renderer->internal;
 
-    // Check cache first
-    if (hashmap_get(renderer->textures, filename)) return true;
-
-    // Create NSString from filename (assume no extension)
-    NSString *name = [NSString stringWithUTF8String:filename];
-
-    // List of supported extensions
-    NSArray *extensions = @[ @"png", @"jpg", @"jpeg", @"bmp" ];
-    NSString *path = nil;
-
-    // Try each extension
-    for (NSString *ext in extensions) {
-        path = [[NSBundle mainBundle] pathForResource:name ofType:ext];
-        if (path) break;
-    }
-
-    if (!path) {
-        NSLog(@"Texture file not found: %s (tried png, jpg, jpeg, bmp)", filename);
-        return false;
-    }
-
-    NSURL *url = [NSURL fileURLWithPath:path];
-    NSError *error = nil;
-    id<MTLTexture> texture = [internal->textureLoader newTextureWithContentsOfURL:url options:nil error:&error];
-    if (!texture) {
-        NSLog(@"Failed to load texture %s: %@", filename, error.localizedDescription);
-        return false;
-    }
-
-    // Store in hashmap (key: filename, value: texture)
-    hashmap_set(renderer->textures, texture_id, texture);
-
-    // Get the dimensions from the texture object
-    NSUInteger width = [texture width];
-    NSUInteger height = [texture height];
-
-    if (out_width) {
-        *out_width = (int)width;
-    }
-    if (out_height) {
-        *out_height = (int)height;
-    }
-
-    return true;
-}
-
-bool renderer_load_texture_indexed(EseRenderer* renderer, const char* texture_id, const char* filename, int *out_width, int *out_height) {
-    log_assert("METAL_RENDERER", renderer, "renderer_load_texture_indexed called with NULL renderer");
-    log_assert("METAL_RENDERER", texture_id, "renderer_load_texture_indexed called with NULL texture_id");
-    log_assert("METAL_RENDERER", filename, "renderer_load_texture_indexed called with NULL filename");
-
-    // The hashmap now stores a pointer to a GLTexture struct
-    if (hashmap_get(renderer->textures, texture_id)) {
-        log_debug("METAL_RENDERER", "Texture already loaded (%s) %s", texture_id, filename);
-        return true;
-    }
-
-    EseMetalRenderer *internal = (EseMetalRenderer *)renderer->internal;
-
-    NSString *name = [NSString stringWithUTF8String:filename];
-    NSArray *extensions = @[ @"png", @"jpg", @"jpeg", @"bmp" ];
-    NSString *path = nil;
-
-    for (NSString *ext in extensions) {
-        path = [[NSBundle mainBundle] pathForResource:name ofType:ext];
-        if (path) break;
-    }
-
-    if (!path) {
-        NSLog(@"Texture file not found: %s (tried png, jpg, jpeg, bmp)", filename);
-        return false;
-    }
-
-    NSImage *image = [[NSImage alloc] initWithContentsOfFile:path];
-    if (!image) {
-        NSLog(@"Failed to load image: %s", filename);
-        return false;
-    }
-
-    NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithData:[image TIFFRepresentation]];
-    if (!bitmap) {
-        NSLog(@"Failed to create bitmap for: %s", filename);
-        return false;
-    }
-
-    NSInteger width = bitmap.pixelsWide;
-    NSInteger height = bitmap.pixelsHigh;
-    NSInteger bytesPerPixel = 4;
-    NSInteger srcRowBytes = [bitmap bytesPerRow];
-
-    // Prepare output buffer (RGBA)
-    NSUInteger dstRowBytes = width * bytesPerPixel;
-    NSUInteger bufferSize = dstRowBytes * height;
-    unsigned char *dst = memory_manager.malloc(bufferSize, MMTAG_RENDERER);
-    unsigned char *src = [bitmap bitmapData];
-
-    // Get transparent color from top-left pixel (y = height-1, x = 0)
-    unsigned char *topLeft = src + (height - 1) * srcRowBytes;
-    unsigned char tr = topLeft[0];
-    unsigned char tg = topLeft[1];
-    unsigned char tb = topLeft[2];
-
-    // Fast C loop for transparency
-    for (NSInteger y = 0; y < height; y++) {
-        unsigned char *srcRow = src + y * srcRowBytes;
-        unsigned char *dstRow = dst + y * dstRowBytes;
-        for (NSInteger x = 0; x < width; x++) {
-            unsigned char *sp = srcRow + x * bytesPerPixel;
-            unsigned char *dp = dstRow + x * bytesPerPixel;
-            dp[0] = sp[0]; // R
-            dp[1] = sp[1]; // G
-            dp[2] = sp[2]; // B
-            dp[3] = (sp[0] == tr && sp[1] == tg && sp[2] == tb) ? 0 : 255; // A
-        }
-    }
-
-    // Create Metal texture from raw pixel data
+    // Create Metal texture from raw RGBA pixel data
     MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
                                                                                    width:width
                                                                                   height:height
                                                                                mipmapped:NO];
     id<MTLTexture> texture = [internal->device newTextureWithDescriptor:desc];
+    if (!texture) {
+        NSLog(@"Failed to create Metal texture for %s", texture_id);
+        return false;
+    }
 
+    // Upload the RGBA data to the texture
     MTLRegion region = { {0, 0, 0}, {width, height, 1} };
-    [texture replaceRegion:region mipmapLevel:0 withBytes:dst bytesPerRow:dstRowBytes];
+    NSUInteger bytesPerRow = width * 4; // 4 bytes per pixel (RGBA)
+    [texture replaceRegion:region mipmapLevel:0 withBytes:rgba_data bytesPerRow:bytesPerRow];
 
+    // Store in hashmap (key: texture_id, value: texture)
     hashmap_set(renderer->textures, texture_id, texture);
-
-    memory_manager.free(dst);
-
-    if (out_width) {
-        *out_width = width;
-    }
-    if (out_height) {
-        *out_height = height;
-    }
 
     return true;
 }

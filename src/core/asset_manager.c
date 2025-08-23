@@ -10,6 +10,10 @@
 #include "utility/log.h"
 #include "vendor/json/cJSON.h"
 #include <string.h>
+#include <unistd.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb/stb_image.h"
 
 #define DEFAULT_GROUP "default"
 
@@ -47,7 +51,7 @@ typedef struct EseAsset {
  */
 typedef struct EseAssetTexture {
     int width;                      /**< Width of the texture in pixels */
-    int heigh;                      /**< Height of the texture in pixels */
+    int height;                     /**< Height of the texture in pixels */
 } EseAssetTexture;
 
 /**
@@ -322,14 +326,12 @@ void asset_manager_destroy(
 bool asset_manager_load_sprite_atlas(
     EseAssetManager *manager,
     const char *filename,
-    const char *group)
+    const char *group,
+    bool indexed)
 {
-    log_assert("ASSET_MANAGER", manager,
-        "asset_manager_load_sprite_atlas_grouped called with NULL manager");
-    log_assert("ASSET_MANAGER", filename,
-        "asset_manager_load_sprite_atlas_grouped called with NULL filename");
-    log_assert(
-        "ASSET_MANAGER", group, "asset_manager_load_sprite_atlas_grouped called with NULL group");
+    log_assert("ASSET_MANAGER", manager, "asset_manager_load_sprite_atlas_grouped called with NULL manager");
+    log_assert("ASSET_MANAGER", filename, "asset_manager_load_sprite_atlas_grouped called with NULL filename");
+    log_assert("ASSET_MANAGER", group, "asset_manager_load_sprite_atlas_grouped called with NULL group");
 
     if (grouped_hashmap_get(manager->atlases, group, filename) == (void *)1) {
         return true;
@@ -356,13 +358,112 @@ bool asset_manager_load_sprite_atlas(
     texture_id = memory_manager.malloc(texture_id_len, MMTAG_ASSET);
     snprintf(texture_id, texture_id_len, "%s:%s", group, image);
 
-    // Load texture
-    int img_width, img_height;
-    renderer_load_texture_indexed(manager->renderer, texture_id, image, &img_width, &img_height);
+    // Load image with stb_image (try multiple extensions)
+    int img_width, img_height, img_channels;
+    unsigned char *image_data = NULL;
+    char *image_path = NULL;
+    
+    const char *extensions[] = {"png", "jpg", "jpeg", "bmp"};
+    char full_filename[256];
+    
+    for (int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
+        if (snprintf(full_filename, sizeof(full_filename), "%s.%s", image, extensions[i]) >= sizeof(full_filename)) {
+            continue;
+        }
+        
+        char *temp_path = filesystem_get_resource(full_filename);
+        if (temp_path) {
+            if (access(temp_path, F_OK) == 0) {
+                image_path = temp_path;
+                break;
+            }
+            memory_manager.free(temp_path);
+        }
+    }
+    
+    if (!image_path) {
+        log_error("ASSET_MANAGER", "Error: Image file not found: %s (tried png, jpg, jpeg, bmp)", image);
+        cJSON_Delete(json);
+        memory_manager.free(texture_id);
+        return false;
+    }
+    
+    image_data = stbi_load(image_path, &img_width, &img_height, &img_channels, 4);
+    memory_manager.free(image_path);
+    
+    if (!image_data) {
+        log_error("ASSET_MANAGER", "Error: Failed to load image: %s", image);
+        cJSON_Delete(json);
+        memory_manager.free(texture_id);
+        return false;
+    }
+    
+    unsigned char *processed_data = image_data;
+    
+    // Process indexed texture if requested
+    if (indexed) {
+        // Get transparent color from top-left pixel
+        unsigned char tr = image_data[0];
+        unsigned char tg = image_data[1];
+        unsigned char tb = image_data[2];
+        
+        // Allocate buffer for processed data
+        size_t buffer_size = img_width * img_height * 4;
+        processed_data = memory_manager.malloc(buffer_size, MMTAG_ASSET);
+        if (!processed_data) {
+            log_error("ASSET_MANAGER", "Error: Failed to allocate memory for indexed texture processing");
+            stbi_image_free(image_data);
+            cJSON_Delete(json);
+            memory_manager.free(texture_id);
+            return false;
+        }
+        
+        // Process pixels: convert transparency key to alpha
+        for (int y = 0; y < img_height; y++) {
+            unsigned char *src_row = image_data + y * img_width * 4;
+            unsigned char *dst_row = processed_data + y * img_width * 4;
+            for (int x = 0; x < img_width; x++) {
+                unsigned char *src_pixel = src_row + x * 4;
+                unsigned char *dst_pixel = dst_row + x * 4;
+                
+                dst_pixel[0] = src_pixel[0]; // R
+                dst_pixel[1] = src_pixel[1]; // G
+                dst_pixel[2] = src_pixel[2]; // B
+                dst_pixel[3] = (src_pixel[0] == tr && src_pixel[1] == tg && src_pixel[2] == tb) ? 0 : 255; // A
+            }
+        }
+    }
+    
+    // Load texture using renderer_load_texture
+    if (!renderer_load_texture(manager->renderer, texture_id, processed_data, img_width, img_height)) {
+        log_error("ASSET_MANAGER", "Error: Failed to load texture for image: %s", image);
+        if (indexed && processed_data != image_data) {
+            memory_manager.free(processed_data);
+        }
+        stbi_image_free(image_data);
+        cJSON_Delete(json);
+        memory_manager.free(texture_id);
+        return false;
+    }
+    
+    // Create texture asset
     EseAsset *asset_texture = _asset_create();
     asset_texture->type = ASSET_TEXTURE;
     asset_texture->data = memory_manager.malloc(sizeof(EseAssetTexture), MMTAG_ASSET);
+    if (asset_texture->data) {
+        EseAssetTexture *tex_data = (EseAssetTexture *)asset_texture->data;
+        tex_data->width = img_width;
+        tex_data->height = img_height;
+    }
     grouped_hashmap_set(manager->textures, group, image, asset_texture);
+    
+    // Free the processed data if it was allocated separately
+    if (indexed && processed_data != image_data) {
+        memory_manager.free(processed_data);
+    }
+    
+    // Free the original image data
+    stbi_image_free(image_data);
 
     // Get regions array
     cJSON *frameData = cJSON_GetObjectItem(json, "frames");
