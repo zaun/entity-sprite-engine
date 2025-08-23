@@ -1,9 +1,4 @@
 cmake_minimum_required(VERSION 3.16)
-project(entityspriteengine LANGUAGES C OBJC CXX)
-
-#
-# Platform
-#
 
 # Platform Detection
 option(FORCE_PLATFORM_LINUX "Force the use of the Linux platform" OFF)
@@ -25,6 +20,19 @@ endif()
 if(FORCE_PLATFORM_MAC)
     set(PLATFORM "MAC")
 endif()
+
+# Set languages based on platform
+if(PLATFORM STREQUAL "MAC")
+    set(PROJECT_LANGUAGES "C;OBJC;CXX")
+else()
+    set(PROJECT_LANGUAGES "C;CXX")
+endif()
+
+project(entityspriteengine LANGUAGES ${PROJECT_LANGUAGES})
+
+#
+# Platform
+#
 
 # Conditionally include platform specific code.
 if(PLATFORM STREQUAL "MAC")
