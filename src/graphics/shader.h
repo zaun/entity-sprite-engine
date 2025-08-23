@@ -16,7 +16,7 @@ extern "C" {
  *          must be freed when the blob is destroyed. For strings, the
  *          size excludes the null terminator.
  */
-typedef struct {
+typedef struct ShaderBlob {
     char* data;                     /**< Pointer to compiled shader data or source string */
     size_t size;                    /**< Size in bytes (for strings, excludes null terminator) */
 } ShaderBlob;

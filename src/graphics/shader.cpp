@@ -15,6 +15,7 @@
 
 #include "core/memory_manager.h"
 #include "utility/log.h"
+#include "graphics/shader.h"
 
 extern "C" {
 
