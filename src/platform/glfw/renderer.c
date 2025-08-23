@@ -16,8 +16,6 @@
 #include "utility/grouped_hashmap.h"
 #include "platform/filesystem.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb/stb_image.h"
 
 #define MAX_BATCH_VERTICES 100000
 
