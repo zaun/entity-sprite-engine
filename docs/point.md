@@ -10,16 +10,26 @@ A point is defined by its **x** and **y** floating-point coordinates.
 In Lua, points are represented as **proxy tables** with the metatable `PointProxyMeta`.  
 They behave like objects with properties accessible via dot notation.
 
+⚠️ **Important Notes:**
+- Coordinates are stored as **floating-point numbers** (32-bit float precision)
+- Points are **mutable** - you can modify x and y values directly
+- No validation is performed on coordinate values (can be negative, NaN, or infinite)
+
 ```lua
 -- Create a new point
 local p = Point.new(10, 20)
 
 -- Access properties
-print(p.x, p.y)  --> 10, 20
+print("Position:", p.x, p.y)  --> 10, 20
 
 -- Modify properties
 p.x = 15
 p.y = 25
+print("New position:", p.x, p.y)  --> 15, 25
+
+-- Negative coordinates are valid
+p.x = -5.5
+p.y = 100.75
 ```
 
 ---
@@ -30,14 +40,25 @@ p.y = 25
 Creates a new point with the given coordinates.  
 
 **Arguments:**
-- `x` → number (x-coordinate)  
-- `y` → number (y-coordinate)  
+- `x` → x-coordinate (number)  
+- `y` → y-coordinate (number)  
 
-**Returns:** `Point` object  
+**Returns:** `Point` object
 
+**Notes:**
+- Both arguments are **required** (unlike some other types)
+- Coordinates can be any numeric value (including negative, fractional, etc.)
+- The point is created with Lua ownership (will be garbage collected)
+
+**Example:**
 ```lua
-local p = Point.new(5, 7)
-print(p.x, p.y)  --> 5, 7
+local p1 = Point.new(5, 7)
+print(p1.x, p1.y)  --> 5, 7
+
+local p2 = Point.new(-10.5, 3.14159)
+print(p2.x, p2.y)  --> -10.5, 3.14159
+
+local p3 = Point.new(0, 0)  -- Same as Point.zero()
 ```
 
 ---
@@ -45,11 +66,22 @@ print(p.x, p.y)  --> 5, 7
 ### `Point.zero()`
 Creates a new point at the origin `(0, 0)`.  
 
-**Returns:** `Point` object  
+**Returns:** `Point` object
 
+**Notes:**
+- This is equivalent to `Point.new(0, 0)` but more semantically clear
+- Useful for initializing points that will be set later
+- The point is created with Lua ownership
+
+**Example:**
 ```lua
+local origin = Point.zero()
+print(origin.x, origin.y)  --> 0, 0
+
+-- Common pattern: create zero point, then set coordinates
 local p = Point.zero()
-print(p.x, p.y)  --> 0, 0
+p.x = 100
+p.y = 200
 ```
 
 ---
@@ -61,39 +93,100 @@ Each `Point` object has the following **read/write** properties:
 - `x` → x-coordinate (number)  
 - `y` → y-coordinate (number)  
 
-### Example
+**Notes:**
+- Both properties are **mutable** - you can assign new values directly
+- No validation is performed on assigned values
+- Changes take effect immediately
+- Properties accept any numeric value (including negative, fractional, etc.)
 
+**Example:**
 ```lua
 local p = Point.new(1, 2)
+print("Initial:", p.x, p.y)  --> 1, 2
+
+-- Modify coordinates
 p.x = p.x + 5
 p.y = p.y + 10
-print(p.x, p.y)  --> 6, 12
+print("Modified:", p.x, p.y)  --> 6, 12
+
+-- Direct assignment
+p.x = 100.5
+p.y = -50.25
+print("New values:", p.x, p.y)  --> 100.5, -50.25
+
+-- Mathematical operations
+p.x = math.cos(math.pi / 4)  -- cos(45°)
+p.y = math.sin(math.pi / 4)  -- sin(45°)
+print("Trig values:", p.x, p.y)  --> ~0.707, ~0.707
 ```
 
 ---
 
 ## Metamethods
 
-- `tostring(point)` → returns a string representation:  
-  `"Point: (x=..., y=...)"`  
+### `tostring(point)`
+Returns a string representation of the point with its memory address and coordinates.
 
-- Garbage collection (`__gc`) → if Lua owns the point, memory is freed automatically.  
+**Format:** `"Point: 0x... (x=..., y=...)"`
+
+**Example:**
+```lua
+local p = Point.new(10, 20)
+print(p)  --> Point: 0x... (x=10.00, y=20.00)
+```
+
+### Garbage Collection (`__gc`)
+If Lua owns the point object (created via `Point.new()` or `Point.zero()`), memory is automatically freed when the object is garbage collected. C-owned points are not freed by Lua's garbage collector.
 
 ---
 
-## Example Usage
+## Complete Example
 
 ```lua
--- Create a point
-local p1 = Point.new(3, 4)
-print(p1)  --> Point: (x=3.00, y=4.00)
+-- Create points for different purposes
+local player_pos = Point.new(100, 200)
+local target_pos = Point.new(300, 400)
+local velocity = Point.new(5, -2)
 
--- Create a zero point
-local p2 = Point.zero()
-print(p2)  --> Point: (x=0.00, y=0.00)
+-- Print initial state
+print("Player at:", player_pos)
+print("Target at:", target_pos)
+print("Velocity:", velocity)
 
--- Modify coordinates
-p1.x = 10
-p1.y = 20
-print(p1)  --> Point: (x=10.00, y=20.00)
+-- Calculate distance to target
+local dx = target_pos.x - player_pos.x
+local dy = target_pos.y - player_pos.y
+local distance = math.sqrt(dx * dx + dy * dy)
+print("Distance to target:", distance)
+
+-- Move player towards target
+player_pos.x = player_pos.x + velocity.x
+player_pos.y = player_pos.y + velocity.y
+print("Player moved to:", player_pos)
+
+-- Create a grid of points
+local grid = {}
+for i = 0, 2 do
+    for j = 0, 2 do
+        local p = Point.new(i * 50, j * 50)
+        table.insert(grid, p)
+        print("Grid point", i, j, ":", p)
+    end
+end
+
+-- Use points in mathematical calculations
+local center = Point.new(0, 0)
+local radius = 100
+local angle = math.pi / 6  -- 30 degrees
+
+local point_on_circle = Point.new(
+    center.x + radius * math.cos(angle),
+    center.y + radius * math.sin(angle)
+)
+print("Point on circle:", point_on_circle)
+
+-- Reset a point to origin
+player_pos.x = 0
+player_pos.y = 0
+print("Player reset to:", player_pos)
 ```
