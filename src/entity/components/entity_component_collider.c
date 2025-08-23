@@ -47,6 +47,7 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->rects = memory_manager.malloc(sizeof(EseRect*) * COLLIDER_RECT_CAPACITY, MMTAG_ENTITY);
     component->rects_capacity = COLLIDER_RECT_CAPACITY;
     component->rects_count = 0;
+    component->draw_debug = false;
 
     return &component->base;
 }
@@ -67,6 +68,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->rects = memory_manager.malloc(sizeof(EseRect*) * src->rects_capacity, MMTAG_ENTITY);
     copy->rects_capacity = src->rects_capacity;
     copy->rects_count = src->rects_count;
+    copy->draw_debug = src->draw_debug;
 
     for (size_t i = 0; i < copy->rects_count; ++i) {
         EseRect *src_comp = src->rects[i];
@@ -381,6 +383,9 @@ static int _entity_component_collider_index(lua_State *L) {
     } else if (strcmp(key, "id") == 0) {
         lua_pushstring(L, component->base.id->value);
         return 1;
+    } else if (strcmp(key, "draw_debug") == 0) {
+        lua_pushboolean(L, component->draw_debug);
+        return 1;
     } else if (strcmp(key, "rects") == 0) {
         // Create components proxy table
         lua_newtable(L);
@@ -422,6 +427,13 @@ static int _entity_component_collider_newindex(lua_State *L) {
         return 1;
     } else if (strcmp(key, "id") == 0) {
         return luaL_error(L, "id is read-only");
+    } else if (strcmp(key, "draw_debug") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            return luaL_error(L, "draw_debug must be a boolean");
+        }
+        component->draw_debug = lua_toboolean(L, 3);
+        lua_pushboolean(L, component->draw_debug);
+        return 1;
     } else if (strcmp(key, "rects") == 0) {
         return luaL_error(L, "rects is not assignable");
     }
@@ -535,10 +547,11 @@ static int _entity_component_collider_tostring(lua_State *L) {
     }
     
     char buf[128];
-    snprintf(buf, sizeof(buf), "EntityComponentCollider: %p (id=%s active=%s)", 
+    snprintf(buf, sizeof(buf), "EntityComponentCollider: %p (id=%s active=%s draw_debug=%s)", 
              (void*)component,
              component->base.id->value,
-             component->base.active ? "true" : "false");
+             component->base.active ? "true" : "false",
+             component->draw_debug ? "true" : "false");
     lua_pushstring(L, buf);
     
     return 1;
@@ -586,6 +599,10 @@ void _entity_component_collider_init(EseLuaEngine *engine) {
 
 void _entity_component_collider_draw(EseEntityComponentCollider *collider, float screen_x, float screen_y, EntityDrawRectCallback rectCallback, void *callback_user_data) {
     log_assert("ENTITY_COMP", collider, "_entity_component_collider_drawable called with NULL collider");
+
+    if (!collider->draw_debug) {
+        return;
+    }
 
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *rect = collider->rects[i];

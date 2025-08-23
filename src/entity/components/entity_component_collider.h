@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_COLLIDER_H
 
 #include <string.h>
+#include <stdbool.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
 // Forward declarations
@@ -24,6 +25,7 @@ typedef struct EseEntityComponentCollider {
     EseRect **rects;                /**< Array of collision rectangles */
     size_t rects_count;             /**< Number of collision rectangles */
     size_t rects_capacity;          /**< Allocated capacity for rectangles array */
+    bool draw_debug;                /**< Whether to draw debug visualization of colliders */
 } EseEntityComponentCollider;
 
 EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentCollider *src);
