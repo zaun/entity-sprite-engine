@@ -29,6 +29,7 @@ endif()
 # Conditionally include platform specific code.
 if(PLATFORM STREQUAL "MAC")
     message(STATUS "Building with Mac platform")
+    add_definitions(-DPLATFORM="MAC")
     find_library(METAL_LIB Metal REQUIRED)
     file(GLOB PLATFORM_SOURCES 
         "src/platform/mac/window.m"
@@ -39,6 +40,7 @@ if(PLATFORM STREQUAL "MAC")
     )
 elseif(PLATFORM STREQUAL "LINUX")
     message(STATUS "Building with Linux platform")
+    add_definitions(-DPLATFORM="LINUX")
     find_package(OpenGL REQUIRED)
     find_package(glfw3 REQUIRED)
     file(GLOB PLATFORM_SOURCES 

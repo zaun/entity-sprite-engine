@@ -1,11 +1,14 @@
 #include <stdbool.h>
 #include <string.h>
-#ifdef __APPLE__
-    #include <CoreFoundation/CoreFoundation.h>
-#endif
-#include "core/memory_manager.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <limits.h>
 #include "platform/filesystem.h"
+#include "core/memory_manager.h"
 #include "utility/log.h"
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 bool filesystem_check_file(const char *filename, const char *ext) {
     if (!filename) return false;
@@ -31,94 +34,58 @@ bool filesystem_check_file(const char *filename, const char *ext) {
 char *filesystem_get_resource(const char *filename) {
     if (!filename) return NULL;
 
-    #ifdef __APPLE__
-        // Get a reference to the main application bundle.
-        CFBundleRef mainBundle = CFBundleGetMainBundle();
-        if (!mainBundle) {
-            return NULL;
-        }
-
-        // Convert the filename string into a CFStringRef.
-        CFStringRef filenameRef = CFStringCreateWithCString(kCFAllocatorDefault, filename, kCFStringEncodingUTF8);
-        if (!filenameRef) {
-            return NULL;
-        }
-
-        // Find the last dot to split the name and extension.
-        const char* lastDot = strrchr(filename, '.');
-        CFStringRef nameRef = NULL;
-        CFStringRef typeRef = NULL;
-
-        if (lastDot) {
-            // Filename has an extension.
-            char nameBuffer[1024];
-            char typeBuffer[256];
-            size_t nameLength = lastDot - filename;
-
-            // Ensure buffers are large enough.
-            if (nameLength >= sizeof(nameBuffer) || (strlen(lastDot + 1) >= sizeof(typeBuffer))) {
-                CFRelease(filenameRef);
-                return NULL;
-            }
-
-            strncpy(nameBuffer, filename, nameLength);
-            nameBuffer[nameLength] = '\0';
-            strcpy(typeBuffer, lastDot + 1);
-
-            nameRef = CFStringCreateWithCString(kCFAllocatorDefault, nameBuffer, kCFStringEncodingUTF8);
-            typeRef = CFStringCreateWithCString(kCFAllocatorDefault, typeBuffer, kCFStringEncodingUTF8);
+    // Cross-platform approach: look for resources in the resources/ directory next to the executable
+    // First try to get the executable path using platform-specific methods
+    
+    char exe_path[4096];
+    char *exe_dir = NULL;
+    
+    #ifdef __linux__
+        // Linux: check APPDIR env var first, fallback to /proc/self/exe
+        const char *appdir = getenv("APPDIR");
+        if (appdir) {
+            exe_dir = appdir;
         } else {
-            // Filename has no extension.
-            nameRef = CFStringCreateWithCString(kCFAllocatorDefault, filename, kCFStringEncodingUTF8);
-            typeRef = NULL; // As per the NSBundle documentation, nil for no extension.
+            ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+            if (len != -1) {
+                exe_path[len] = '\0';
+                exe_dir = exe_path;
+            }
         }
-
-        if (!nameRef) {
-            if (filenameRef) CFRelease(filenameRef);
-            return NULL;
+    #elif defined(__APPLE__)
+        // macOS: use _NSGetExecutablePath
+        uint32_t size = sizeof(exe_path);
+        if (_NSGetExecutablePath(exe_path, &size) == 0) {
+            exe_dir = exe_path;
         }
-
-        // Get a reference to the file's URL from the bundle.
-        CFURLRef fileURL = CFBundleCopyResourceURL(mainBundle, nameRef, typeRef, NULL);
-
-        if (nameRef) CFRelease(nameRef);
-        if (typeRef) CFRelease(typeRef);
-        if (filenameRef) CFRelease(filenameRef);
-
-        if (!fileURL) {
-            return NULL;
-        }
-
-        // Convert the URL reference into a path string reference.
-        CFStringRef pathRef = CFURLCopyFileSystemPath(fileURL, kCFURLPOSIXPathStyle);
-        CFRelease(fileURL);
-
-        if (!pathRef) {
-            return NULL;
-        }
-
-        // Convert the CFStringRef path to a C string.
-        CFIndex length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(pathRef), kCFStringEncodingUTF8);
-        char* cPath = malloc(length + 1);
-        if (!cPath) {
-            CFRelease(pathRef);
-            return NULL;
-        }
-
-        if (!CFStringGetCString(pathRef, cPath, length + 1, kCFStringEncodingUTF8)) {
-            free(cPath);
-            CFRelease(pathRef);
-            return NULL;
-        }
-        CFRelease(pathRef);
-
-        // Use the specified memory manager to duplicate the path.
-        char* result = memory_manager.strdup(cPath, MMTAG_GENERAL);
-        log_debug("APP", "File: %s", result);
-        free(cPath);
-
-        return result;
-    #else
-        return memory_manager.strdup(filename, MMTAG_GENERAL);
     #endif
+    
+    if (exe_dir) {
+        // Find the directory containing the executable
+        char *last_slash = strrchr(exe_dir, '/');
+        if (last_slash) {
+            *last_slash = '\0'; // Remove executable name, keep directory path
+            
+            // Construct the full resource path: executable_dir/resources/filename
+            size_t resource_path_len = strlen(exe_dir) + strlen("/resources/") + strlen(filename) + 1;
+            char *resource_path = memory_manager.malloc(resource_path_len, MMTAG_GENERAL);
+            if (resource_path) {
+                snprintf(resource_path, resource_path_len, "%s/resources/%s", exe_dir, filename);
+                
+                // Check if the file exists
+                FILE *test_file = fopen(resource_path, "r");
+                if (test_file) {
+                    fclose(test_file);
+                    char *result = memory_manager.strdup(resource_path, MMTAG_GENERAL);
+                    memory_manager.free(resource_path);
+                    log_debug("CROSS_PLATFORM", "Resource file found: %s", result);
+                    return result;
+                }
+                memory_manager.free(resource_path);
+            }
+        }
+    }
+    
+    // Fallback: return the filename as-is if we can't construct the resource path
+    return memory_manager.strdup(filename, MMTAG_GENERAL);
 }
