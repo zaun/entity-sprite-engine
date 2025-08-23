@@ -3,7 +3,6 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
-#include "core/engine_private.h"
 #include "core/engine.h"
 #include "entity/entity_private.h"
 #include "entity/entity.h"
@@ -12,6 +11,8 @@
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
+
+#define PROXY_META "EntityComponentSpriteProxyMeta"
 
 static void _entity_component_sprite_register(EseEntityComponentSprite *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_sprite_register called with NULL component");
@@ -25,7 +26,7 @@ static void _entity_component_sprite_register(EseEntityComponentSprite *componen
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, "EntityComponentSpriteProxyMeta");
+    luaL_getmetatable(component->base.lua->runtime, PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -45,7 +46,7 @@ static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, c
     if (sprite_name != NULL) {
         EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(engine->runtime, ENGINE_KEY);
         component->sprite_name = memory_manager.strdup(sprite_name, MMTAG_ENTITY);
-        component->sprite = asset_manager_get_sprite(game_engine->asset_manager, component->sprite_name);
+        component->sprite = engine_get_sprite(game_engine, component->sprite_name);
     } else {
         component->sprite_name = NULL;
         component->sprite = NULL;
@@ -100,7 +101,7 @@ void _entity_component_sprite_update(EseEntityComponentSprite *component, EseEnt
 /**
  * @brief Lua function to create a new EseEntityComponentSprite object.
  * 
- * @details Callable from Lua as EseEntityComponentSprite.new(). Creates a new EsePoint.
+ * @details Callable from Lua as EseEntityComponentSprite.new().
  * 
  * @param L Lua state pointer
  * @return Number of return values (always 1 - the new point object)
@@ -144,7 +145,7 @@ EseEntityComponentSprite *_entity_component_sprite_get(lua_State *L, int idx) {
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, "EntityComponentSpriteProxyMeta");
+    luaL_getmetatable(L, PROXY_META);
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -249,7 +250,7 @@ static int _entity_component_sprite_newindex(lua_State *L) {
             const char *sprite_name = lua_tostring(L, 3);
             component->current_frame = 0;
             component->sprite_name = memory_manager.strdup(sprite_name, MMTAG_ENTITY);
-            component->sprite = asset_manager_get_sprite(engine->asset_manager, component->sprite_name);
+            component->sprite = engine_get_sprite(engine, component->sprite_name);
             return 0;
         }
     }
@@ -310,8 +311,8 @@ void _entity_component_sprite_init(EseLuaEngine *engine) {
 
     lua_State *L = engine->runtime;
     
-    // Register EseEntityComponentSprite metatable
-    if (luaL_newmetatable(L, "EntityComponentSpriteProxyMeta")) {
+    // Register EntityComponentSprite metatable
+    if (luaL_newmetatable(L, PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentSpriteProxyMeta to engine");
         lua_pushcfunction(L, _entity_component_sprite_index);
         lua_setfield(L, -2, "__index");
@@ -324,11 +325,11 @@ void _entity_component_sprite_init(EseLuaEngine *engine) {
     }
     lua_pop(L, 1);
     
-    // Create global EseEntityComponentSprite table with constructor
+    // Create global EntityComponentSprite table with constructor
     lua_getglobal(L, "EntityComponentSprite");
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
-        log_debug("LUA", "Creating global EseEntityComponentSprite table");
+        log_debug("LUA", "Creating global EntityComponentSprite table");
         lua_newtable(L);
         lua_pushcfunction(L, _entity_component_sprite_new);
         lua_setfield(L, -2, "new");

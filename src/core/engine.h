@@ -18,6 +18,7 @@ typedef struct EseEntity EseEntity;
 typedef struct EseEngine EseEngine;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseRect EseRect;
+typedef struct EseSprite EseSprite;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -88,5 +89,7 @@ void engine_start(EseEngine *engine);
 void engine_update(EseEngine *engine, float delta_time, const EseInputState *state);
 
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count);
+
+EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
 
 #endif // ESE_ENGINE_H

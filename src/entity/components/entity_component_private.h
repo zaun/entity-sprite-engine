@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENTS_PRIVATE_H
 
 #include <stdbool.h>
+#include "entity/entity.h"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;
@@ -11,6 +12,7 @@ typedef struct EseUUID EseUUID;
 typedef enum {
     ENTITY_COMPONENT_COLLIDER,
     ENTITY_COMPONENT_LUA,
+    ENTITY_COMPONENT_MAP,
     ENTITY_COMPONENT_SPRITE,
 } EntityComponentType;
 

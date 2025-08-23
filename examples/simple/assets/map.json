@@ -11,8 +11,9 @@
          { "sprite":"grassland:s-g", "weight": 1 }        // Solid Grass
       ],
       "1": [
-         { "sprite":"grassland:t-g-d-1", "weight": 10 },  // Top Grass to Dirt
-         { "sprite":"grassland:t-g-d-2", "weight": 7 }
+         { "sprite":"grassland:t-g-d-1", "weight": 20 },  // Top Grass to Dirt
+         { "sprite":"grassland:t-g-d-2", "weight": 5 },
+         { "sprite":"grassland:t-g-d-3", "weight": 2 }
       ],
       "2": [
          { "sprite":"grassland:tl-g-d", "weight": 1 }     // Top Left Grass to Dirt

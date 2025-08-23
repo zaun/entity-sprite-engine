@@ -26,19 +26,38 @@ end
 function STARTUP:startup()
 
     if asset_load_shader("game", "shaders.glsl") == false then
-        print("Shaders not loaded")
+        print("Shaders failed")
         return
     end
 
     if set_pipeline("game:vertexShader", "game:fragmentShader") == false then
-        print("Pipline filed")
+        print("Pipline failed")
+        return
+    end
+
+    if asset_load_atlas("grassland", "grassland.json") == false then
+        print("Tileset atless failed")
         return
     end
 
     if asset_load_map("game", "map.json") == false then
-        print("Map no loaded")
+        print("Map failed")
         return
     end
+
+    -- Setup the map display, cetner of screen
+    local map_comp = EntityComponentMap.new()
+    map_comp.map = asset_get_map("game:map.json")
+    map_comp.size = 64
+    map_comp.position.x = 6
+    map_comp.position.y = 4
+    local map_manager = Entity.new()
+    map_manager.draw_order = -1000
+    map_manager.components.add(map_comp)
+    map_manager.position.x = Display.viewport.width / 2
+    map_manager.position.y = Display.viewport.height / 2
+    print("Map: " .. tostring(map_comp.map));
+    print("Sized: " .. map_comp.size);
 
     local horse = Entity.new()
 

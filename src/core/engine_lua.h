@@ -63,6 +63,8 @@ int _lua_asset_load_shader(lua_State *L);
 
 int _lua_asset_load_map(lua_State *L);
 
+int _lua_asset_get_map(lua_State *L);
+
 int _lua_set_pipeline(lua_State *L);
 
 int _lua_detect_collision(lua_State *L);

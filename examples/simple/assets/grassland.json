@@ -2,44 +2,44 @@
     "image": "grassland",
     "sprites": [
         {
-            "name": "g-t-tl",
+            "name": "tl-g-d",
             "speed": 0,
             "frames": [
-                "g-t-tl"
+                "tl-g-d"
             ]
         },
         {
-            "name": "g-t-t-1",
+            "name": "t-g-d-1",
             "speed": 0,
             "frames": [
-                "g-t-t-1"
+                "t-g-d-1"
             ]
         },
         {
-            "name": "g-t-t-2",
+            "name": "t-g-d-2",
             "speed": 0,
             "frames": [
-                "g-t-t-2"
+                "t-g-d-2"
             ]
         },
         {
-            "name": "g-t-t-3",
+            "name": "t-g-d-3",
             "speed": 0,
             "frames": [
-                "g-t-t-3"
+                "t-g-d-3"
             ]
         },
         {
-            "name": "g-t-tr",
+            "name": "tr-g-d",
             "speed": 0,
             "frames": [
-                "g-t-tr"
+                "tr-g-d"
             ]
         }
     ],
     "frames": [
         {
-            "name": "g-t-tl",
+            "name": "tl-g-d",
             "x": 0,
             "y": 0,
             "rotation": 0,
@@ -47,7 +47,7 @@
             "height": 128
         },
         {
-            "name": "g-t-t-1",
+            "name": "t-g-d-1",
             "x": 128,
             "y": 0,
             "rotation": 0,
@@ -55,7 +55,7 @@
             "height": 128
         },
         {
-            "name": "g-t-t-2",
+            "name": "t-g-d-2",
             "x": 256,
             "y": 0,
             "rotation": 0,
@@ -63,7 +63,7 @@
             "height": 128
         },
         {
-            "name": "g-t-t-3",
+            "name": "t-g-d-3",
             "x": 384,
             "y": 0,
             "rotation": 0,
@@ -71,7 +71,7 @@
             "height": 128
         },
         {
-            "name": "g-t-tr",
+            "name": "tr-g-d",
             "x": 512,
             "y": 0,
             "rotation": 0,

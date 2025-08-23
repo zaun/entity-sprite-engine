@@ -39,12 +39,14 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_registry_key(engine->lua_engine->runtime, ENGINE_KEY, engine);
     lua_engine_add_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY, engine->lua_engine);
 
+    // Add Entities
+    entity_lua_init(engine->lua_engine);
+    entity_component_lua_init(engine->lua_engine);
+
     // Add types
     arc_lua_init(engine->lua_engine);
     camera_state_lua_init(engine->lua_engine);
     display_state_lua_init(engine->lua_engine);
-    entity_lua_init(engine->lua_engine);
-    entity_component_lua_init(engine->lua_engine);
     input_state_lua_init(engine->lua_engine);
     map_lua_init(engine->lua_engine);
     mapcell_lua_init(engine->lua_engine);
@@ -61,6 +63,7 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_load_atlas", _lua_asset_load_atlas);
     lua_engine_add_function(engine->lua_engine, "asset_load_shader", _lua_asset_load_shader);
     lua_engine_add_function(engine->lua_engine, "asset_load_map", _lua_asset_load_map);
+    lua_engine_add_function(engine->lua_engine, "asset_get_map", _lua_asset_get_map);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
     lua_engine_add_function(engine->lua_engine, "detect_collision", _lua_detect_collision);
 
@@ -285,4 +288,9 @@ EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int m
     results[count] = NULL;
 
     return results;
+}
+
+// Asset manager passthorugh functions
+EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id) {
+    return asset_manager_get_sprite(engine->asset_manager, sprite_id);
 }

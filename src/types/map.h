@@ -23,9 +23,12 @@ typedef enum {
 
 /**
  * @brief Represents a complete map with metadata, tileset, and cell grid.
- * 
- * @details This structure contains all map data including metadata,
- *          associated tileset, dimensions, and a 2D array of map cells.
+ *
+ * @details
+ * This structure contains all map data including metadata,
+ * associated tileset, dimensions, and a 2D array of map cells.
+ * Each cell is a pointer to a `EseMapCell` object that is
+ * created with `mapcell_create` and destroyed with `mapcell_destroy`.
  */
 typedef struct EseMap {
     // Metadata
@@ -33,62 +36,104 @@ typedef struct EseMap {
     char *author;                    /**< Map author */
     uint32_t version;                /**< Map version number */
     EseMapType type;                 /**< Map coordinate type */
-    
+
     // Tileset reference
     EseTileSet *tileset;             /**< Associated tileset for this map */
-    
+
     // Dimensions
     uint32_t width;                  /**< Map width in cells */
     uint32_t height;                 /**< Map height in cells */
-    
+
     // Cell data
-    EseMapCell **cells;              /**< 2D array of map cells [y][x] */
-    
+    EseMapCell ***cells;             /**< 2D array of pointers to map cells [y][x] */
+
     // Lua integration
     lua_State *state;                /**< Lua State this EseMap belongs to */
+    EseLuaEngine *engine;            /**< Engine reference for creating cells */
     int lua_ref;                     /**< Lua registry reference to its own proxy table */
 } EseMap;
 
+/* ----------------- Lua API ----------------- */
+
 /**
  * @brief Initializes the EseMap userdata type in the Lua state.
- * 
+ *
+ * @details
+ * Creates and registers the "MapProxyMeta" metatable with
+ * __index, __newindex, __gc, and __tostring metamethods.
+ * This allows EseMap objects to be used naturally from Lua
+ * with dot notation and automatic garbage collection.
+ *
  * @param engine EseLuaEngine pointer where the EseMap type will be registered
  */
 void map_lua_init(EseLuaEngine *engine);
 
 /**
+ * @brief Pushes a registered EseMap proxy table back onto the Lua stack.
+ *
+ * @param map Pointer to the EseMap object
+ */
+void map_lua_push(EseMap *map);
+
+/**
+ * @brief Extracts a EseMap pointer from a Lua proxy table with type safety.
+ *
+ * @details
+ * Retrieves the C EseMap pointer from the "__ptr" field of a Lua
+ * table that was created by map_lua_push(). Performs type checking
+ * to ensure the object is a valid EseMap proxy table with the correct
+ * metatable and userdata pointer.
+ *
+ * @param L Lua state pointer
+ * @param idx Stack index of the Lua EseMap object
+ * @return Pointer to the EseMap object, or NULL if extraction fails
+ *
+ * @warning Returns NULL for invalid objects — always check return value before use.
+ */
+EseMap *map_lua_get(lua_State *L, int idx);
+
+/* ----------------- C API ----------------- */
+
+/**
  * @brief Creates a new EseMap object with specified dimensions.
- * 
+ *
+ * @details
+ * Allocates memory for a new EseMap and initializes its cells.
+ * Each cell is created with `mapcell_create(engine, false)` and
+ * registered with Lua as C-owned.
+ *
+ * If `c_only` is false, the map itself is also registered with Lua
+ * and wrapped in a proxy table. If true, the map exists only in C.
+ *
  * @param engine Pointer to a EseLuaEngine
  * @param width Map width in cells
  * @param height Map height in cells
  * @param type Map coordinate type
- * @param c_only True if this object won't be accessible in LUA
+ * @param c_only True if this object won't be accessible in Lua
  * @return Pointer to newly created EseMap object
- * 
+ *
  * @warning The returned EseMap must be freed with map_destroy()
+ *          to prevent memory leaks.
  */
-EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMapType type, bool c_only);
+EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
+                   EseMapType type, bool c_only);
 
 /**
  * @brief Destroys a EseMap object and frees its memory.
- * 
+ *
+ * @details
+ * Frees the memory allocated by map_create(), including all cells,
+ * metadata strings, and Lua registry references.
+ *
  * @param map Pointer to the EseMap object to destroy
  */
 void map_destroy(EseMap *map);
 
-/**
- * @brief Extracts a EseMap pointer from a Lua userdata object.
- * 
- * @param L Lua state pointer
- * @param idx Stack index of the Lua EseMap object
- * @return Pointer to the EseMap object, or NULL if extraction fails
- */
-EseMap *map_lua_get(lua_State *L, int idx);
+/* ----------------- Map Operations ----------------- */
 
 /**
  * @brief Gets a map cell at the specified coordinates.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param x X coordinate
  * @param y Y coordinate
@@ -98,18 +143,23 @@ EseMapCell *map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
 
 /**
  * @brief Sets a map cell at the specified coordinates.
- * 
+ *
+ * @details
+ * The provided cell is copied into the map using `mapcell_copy`.
+ * The map takes ownership of the new copy, and the old cell at
+ * that position is destroyed.
+ *
  * @param map Pointer to the EseMap object
  * @param x X coordinate
  * @param y Y coordinate
- * @param cell Pointer to the EseMapCell to set
+ * @param cell Pointer to the EseMapCell to copy into the map
  * @return true if successful, false if coordinates are out of bounds
  */
 bool map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell);
 
 /**
  * @brief Sets the map title.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param title New title string (will be copied)
  * @return true if successful, false if memory allocation fails
@@ -118,7 +168,7 @@ bool map_set_title(EseMap *map, const char *title);
 
 /**
  * @brief Sets the map author.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param author New author string (will be copied)
  * @return true if successful, false if memory allocation fails
@@ -127,7 +177,7 @@ bool map_set_author(EseMap *map, const char *author);
 
 /**
  * @brief Sets the map version.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param version New version number
  */
@@ -135,7 +185,7 @@ void map_set_version(EseMap *map, int version);
 
 /**
  * @brief Sets the map tileset.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param tileset Pointer to the EseTileSet to associate
  */
@@ -143,19 +193,26 @@ void map_set_tileset(EseMap *map, EseTileSet *tileset);
 
 /**
  * @brief Resizes the map to new dimensions.
- * 
+ *
+ * @details
+ * Allocates a new cell array and copies existing cells that fit
+ * within the new dimensions. Cells outside the new bounds are destroyed.
+ * New cells are created with `mapcell_create(engine, false)`.
+ *
  * @param map Pointer to the EseMap object
  * @param new_width New width in cells
  * @param new_height New height in cells
  * @return true if successful, false if memory allocation fails
- * 
- * @warning This will destroy existing cells that are outside the new bounds
+ *
+ * @warning This will destroy existing cells that are outside the new bounds.
  */
 bool map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
 
+/* ----------------- Map Type Conversion ----------------- */
+
 /**
  * @brief Converts map type enum to string representation.
- * 
+ *
  * @param type EseMapType value
  * @return String representation of the map type
  */
@@ -163,7 +220,7 @@ const char *map_type_to_string(EseMapType type);
 
 /**
  * @brief Converts string to map type enum.
- * 
+ *
  * @param type_str String representation of map type
  * @return EseMapType value, or MAP_TYPE_GRID if string is invalid
  */

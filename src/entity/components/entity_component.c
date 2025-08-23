@@ -7,6 +7,7 @@
 #include "vendor/lua/src/lauxlib.h"
 #include "entity/components/entity_component_collider.h"
 #include "entity/components/entity_component_lua.h"
+#include "entity/components/entity_component_map.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component.h"
@@ -14,6 +15,7 @@
 void entity_component_lua_init(EseLuaEngine *engine) {
     _entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
+    _entity_component_map_init(engine);
     _entity_component_sprite_init(engine);
 }
 
@@ -51,6 +53,9 @@ void entity_component_destroy(EseEntityComponent* component) {
         case ENTITY_COMPONENT_LUA:
             _entity_component_lua_destroy((EseEntityComponentLua*)component->data);
             break;
+        case ENTITY_COMPONENT_MAP:
+            _entity_component_map_destroy((EseEntityComponentMap*)component->data);
+            break;
         case ENTITY_COMPONENT_SPRITE:
             _entity_component_sprite_destroy((EseEntityComponentSprite*)component->data);
             break;
@@ -77,6 +82,9 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
             break;
         case ENTITY_COMPONENT_LUA:
             _entity_component_lua_update((EseEntityComponentLua*)component->data, entity, delta_time);
+            break;
+        case ENTITY_COMPONENT_MAP:
+            _entity_component_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
             break;
         case ENTITY_COMPONENT_SPRITE:
             _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
@@ -156,17 +164,24 @@ void entity_component_draw(
     int screen_y = (int)(entity_y - view_top);
 
     switch(component->type) {
-        case ENTITY_COMPONENT_SPRITE: {
-            _entity_component_sprite_draw(
-                (EseEntityComponentSprite*)component->data,
-                screen_x, screen_y, texCallback, callback_user_data
-            );
-            break;
-        }
         case ENTITY_COMPONENT_COLLIDER: {
             _entity_component_collider_draw(
                 (EseEntityComponentCollider*)component->data,
                 screen_x, screen_y, rectCallback, callback_user_data
+            );
+            break;
+        }
+        case ENTITY_COMPONENT_MAP: {
+            _entity_component_map_draw(
+                (EseEntityComponentMap*)component->data,
+                screen_x, screen_y, texCallback, callback_user_data
+            );
+            break;
+        }
+        case ENTITY_COMPONENT_SPRITE: {
+            _entity_component_sprite_draw(
+                (EseEntityComponentSprite*)component->data,
+                screen_x, screen_y, texCallback, callback_user_data
             );
             break;
         }
@@ -234,6 +249,13 @@ EseEntityComponent *entity_component_get(lua_State *L) {
             return  NULL;
         }
         return &lua_comp->base;
+    } else if (strcmp(metatable_name, "EntityComponentMapProxyMeta") == 0) {
+        EseEntityComponentMap *map_comp = _entity_component_map_get(L, 1);
+        if (map_comp == NULL) {
+            luaL_error(L, "internal error: Map metatable name identified, but _get returned NULL.");
+            return NULL;
+        }
+        return &map_comp->base;
     } else if (strcmp(metatable_name, "EntityComponentSpriteProxyMeta") == 0) {
         EseEntityComponentSprite *sprite_comp = _entity_component_sprite_get(L, 1);
         if (sprite_comp == NULL) {

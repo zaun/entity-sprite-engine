@@ -93,14 +93,12 @@ void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
 void _entity_component_collider_update(EseEntityComponentCollider *component, EseEntity *entity, float delta_time) {
     log_assert("ENTITY_COMP", component, "entity_component_lua_update called with NULL component");
     log_assert("ENTITY_COMP", entity, "entity_component_lua_update called with NULL src");
-
-    // FUTUTE TODO: Draw the rects' bounding box
 }
 
 /**
  * @brief Lua function to create a new EseEntityComponentCollider object.
  * 
- * @details Callable from Lua as EseEntityComponentCollider.new(). Creates a new EsePoint.
+ * @details Callable from Lua as EseEntityComponentCollider.new().
  * 
  * @param L Lua state pointer
  * @return Number of return values (always 1 - the new point object)

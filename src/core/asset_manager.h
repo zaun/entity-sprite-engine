@@ -9,6 +9,7 @@ typedef struct EseAssetManager EseAssetManager;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
+typedef struct EseMap EseMap;
 
 // EseAsset Manager
 EseAssetManager* asset_manager_create(EseRenderer* renderer);
@@ -21,6 +22,7 @@ bool asset_manager_load_map(EseAssetManager* manager, EseLuaEngine *lua, const c
 // EseAsset Retrieval
 EseSprite* asset_manager_get_sprite(EseAssetManager* manager, const char* asset_id);
 void asset_manager_get_texture_size(EseAssetManager* manager, const char* asset_id, int **out_width, int **out_height);
+EseMap* asset_manager_get_map(EseAssetManager* manager, const char* asset_id);
 
 // EseAsset Manager Management
 void asset_manager_remove_group(EseAssetManager *manager, const char *group);

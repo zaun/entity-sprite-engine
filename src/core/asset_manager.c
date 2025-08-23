@@ -13,8 +13,7 @@
 
 #define DEFAULT_GROUP "default"
 
-typedef enum
-{
+typedef enum {
     ASSET_SPRITE,
     ASSET_TEXTURE,
     ASSET_MAP,
@@ -25,21 +24,18 @@ typedef enum
     // ASSET_MATERIAL            // Future use
 } EseAssetType;
 
-typedef struct EseAsset
-{
+typedef struct EseAsset {
     char *instance_id;
     EseAssetType type;
     void *data;
 } EseAsset;
 
-typedef struct EseAssetTexture
-{
+typedef struct EseAssetTexture {
     int width;
     int heigh;
 } EseAssetTexture;
 
-struct EseAssetManager
-{
+struct EseAssetManager {
     EseRenderer *renderer;
     EseGroupedHashMap *sprites;
     EseGroupedHashMap *textures;
@@ -62,50 +58,45 @@ struct EseAssetManager
  * The caller is responsible for freeing this memory.
  * Will be set to NULL if no name is found or if the input is invalid.
  */
-void _split_string(const char *input, char **group, char **name)
+void _split_string(
+    const char *input,
+    char **group,
+    char **name)
 {
     // Initialize output pointers to NULL
     *group = NULL;
     *name = NULL;
 
     // Handle NULL input immediately
-    if (input == NULL)
-    {
+    if (input == NULL) {
         return;
     }
 
     const char *colon = strchr(input, ':');
 
-    if (colon == NULL)
-    {
+    if (colon == NULL) {
         // No colon: full string is the name, group is "default"
         *group = memory_manager.strdup("default", MMTAG_GENERAL);
         *name = memory_manager.strdup(input, MMTAG_GENERAL);
-    }
-    else
-    {
+    } else {
         // Calculate lengths of potential group and name parts
         size_t groupLength = colon - input;
         size_t nameLength = strlen(colon + 1);
 
         // Case: "test:" or ":" (group exists, name is empty)
-        if (nameLength == 0)
-        {
+        if (nameLength == 0) {
             return;
         }
 
         // Case: ":test" (no group, name exists)
-        if (groupLength == 0)
-        {
+        if (groupLength == 0) {
             *group = memory_manager.strdup("default", MMTAG_GENERAL);
             *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
         }
         // Case: "group:test" (both group and name exist)
-        else
-        {
+        else {
             *group = (char *)memory_manager.malloc(groupLength + 1, MMTAG_GENERAL);
-            if (*group)
-            {
+            if (*group) {
                 strncpy(*group, input, groupLength);
                 (*group)[groupLength] = '\0';
             }
@@ -121,50 +112,42 @@ EseAsset *_asset_create()
     return asset;
 }
 
-void _asset_free(void *data)
+void _asset_free(
+    void *data)
 {
     EseAsset *asset = (EseAsset *)data;
-    if (asset->type == ASSET_SPRITE)
-    {
+    if (asset->type == ASSET_SPRITE) {
         EseSprite *sprite = (EseSprite *)asset->data;
         sprite_free(sprite);
-    }
-    else if (asset->type == ASSET_TEXTURE)
-    {
+    } else if (asset->type == ASSET_TEXTURE) {
         EseAssetTexture *texture = (EseAssetTexture *)asset->data;
         memory_manager.free(texture);
-    }
-    else if (asset->type == ASSET_MAP)
-    {
+    } else if (asset->type == ASSET_MAP) {
         EseMap *map = (EseMap *)asset->data;
         map_destroy(map);
-    }
-    else
-    {
+    } else {
         log_error("ASSET_MANAGER", "Unable to memory_manager.free unknown asset type");
     }
     memory_manager.free(asset);
 }
 
-static void _asset_manager_add_group(EseAssetManager *manager, const char *group)
+static void _asset_manager_add_group(
+    EseAssetManager *manager,
+    const char *group)
 {
     // Check if group already exists
-    for (size_t i = 0; i < manager->group_count; i++)
-    {
-        if (strcmp(manager->groups[i], group) == 0)
-        {
+    for (size_t i = 0; i < manager->group_count; i++) {
+        if (strcmp(manager->groups[i], group) == 0) {
             return;
         }
     }
 
     // Resize if needed
-    if (manager->group_count == manager->group_capacity)
-    {
+    if (manager->group_count == manager->group_capacity) {
         size_t new_capacity = manager->group_capacity == 0 ? 4 : manager->group_capacity * 2;
         char **new_groups =
             memory_manager.realloc(manager->groups, new_capacity * sizeof(char *), MMTAG_ASSET);
-        if (!new_groups)
-        {
+        if (!new_groups) {
             log_error("ASSET_MANAGER", "Failed to allocate memory for groups array");
             return;
         }
@@ -175,12 +158,12 @@ static void _asset_manager_add_group(EseAssetManager *manager, const char *group
     manager->groups[manager->group_count++] = memory_manager.strdup(group, MMTAG_ASSET);
 }
 
-static void _asset_manager_remove_group(EseAssetManager *manager, const char *group)
+static void _asset_manager_remove_group(
+    EseAssetManager *manager,
+    const char *group)
 {
-    for (size_t i = 0; i < manager->group_count; i++)
-    {
-        if (strcmp(manager->groups[i], group) == 0)
-        {
+    for (size_t i = 0; i < manager->group_count; i++) {
+        if (strcmp(manager->groups[i], group) == 0) {
             memory_manager.free(manager->groups[i]);
             // Move last group to this slot
             manager->groups[i] = manager->groups[manager->group_count - 1];
@@ -190,18 +173,17 @@ static void _asset_manager_remove_group(EseAssetManager *manager, const char *gr
     }
 }
 
-cJSON *_asset_manager_load_json(const char *filename)
+cJSON *_asset_manager_load_json(
+    const char *filename)
 {
     char *full_path = filesystem_get_resource(filename);
-    if (!full_path)
-    {
+    if (!full_path) {
         log_error("ENGINE", "Error: filesystem_get_resource failed for %s", filename);
         return NULL;
     }
 
     FILE *f = fopen(full_path, "rb");
-    if (!f)
-    {
+    if (!f) {
         log_error("ENGINE", "Error: Failed to open file %s", full_path);
         memory_manager.free(full_path);
         return NULL;
@@ -209,8 +191,7 @@ cJSON *_asset_manager_load_json(const char *filename)
 
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
-    if (len < 0)
-    {
+    if (len < 0) {
         log_error("ENGINE", "Error: ftell failed for %s", full_path);
         fclose(f);
         memory_manager.free(full_path);
@@ -221,8 +202,7 @@ cJSON *_asset_manager_load_json(const char *filename)
     char *data = memory_manager.malloc(len + 1, MMTAG_ASSET);
 
     size_t read = fread(data, 1, len, f);
-    if (read != (size_t)len)
-    {
+    if (read != (size_t)len) {
         log_error("ENGINE", "Error: fread failed for %s", full_path);
         memory_manager.free(data);
         fclose(f);
@@ -239,34 +219,22 @@ cJSON *_asset_manager_load_json(const char *filename)
     char *dst = data;
     bool in_str = false;
     bool esc = false;
-    while (*src)
-    {
-        if (!in_str && src[0] == '/' && src[1] == '/')
-        {
+    while (*src) {
+        if (!in_str && src[0] == '/' && src[1] == '/') {
             src += 2;
             while (*src && *src != '\n')
                 src++;
-        }
-        else
-        {
+        } else {
             char c = *src++;
-            if (in_str)
-            {
-                if (esc)
-                {
+            if (in_str) {
+                if (esc) {
                     esc = false;
-                }
-                else if (c == '\\')
-                {
+                } else if (c == '\\') {
                     esc = true;
-                }
-                else if (c == '"')
-                {
+                } else if (c == '"') {
                     in_str = false;
                 }
-            }
-            else if (c == '"')
-            {
+            } else if (c == '"') {
                 in_str = true;
             }
             *dst++ = c;
@@ -275,8 +243,7 @@ cJSON *_asset_manager_load_json(const char *filename)
     *dst = '\0';
 
     cJSON *json = cJSON_Parse(data);
-    if (!json)
-    {
+    if (!json) {
         log_error("ENGINE", "Error: Failed to parse JSON from %s", filename);
     }
     memory_manager.free(data);
@@ -284,10 +251,10 @@ cJSON *_asset_manager_load_json(const char *filename)
     return json;
 }
 
-EseAssetManager *asset_manager_create(EseRenderer *renderer)
+EseAssetManager *asset_manager_create(
+    EseRenderer *renderer)
 {
-    if (!renderer)
-    {
+    if (!renderer) {
         log_error("ASSET_MANAGER", "Error: asset_manager_create called with NULL renderer");
         return NULL;
     }
@@ -306,10 +273,10 @@ EseAssetManager *asset_manager_create(EseRenderer *renderer)
     return manager;
 }
 
-void asset_manager_destroy(EseAssetManager *manager)
+void asset_manager_destroy(
+    EseAssetManager *manager)
 {
-    if (!manager)
-    {
+    if (!manager) {
         log_error("ASSET_MANAGER", "Error: asset_manager_destroy called with NULL manager");
         return;
     }
@@ -319,19 +286,18 @@ void asset_manager_destroy(EseAssetManager *manager)
     grouped_hashmap_free(manager->atlases);
     grouped_hashmap_free(manager->maps);
 
-    for (size_t i = 0; i < manager->group_count; i++)
-    {
+    for (size_t i = 0; i < manager->group_count; i++) {
         memory_manager.free(manager->groups[i]);
     }
-    if (manager->groups)
-    {
+    if (manager->groups) {
         memory_manager.free(manager->groups);
     }
 
     memory_manager.free(manager);
 }
 
-bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
+bool asset_manager_load_sprite_atlas(
+    EseAssetManager *manager,
     const char *filename,
     const char *group)
 {
@@ -342,22 +308,19 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
     log_assert(
         "ASSET_MANAGER", group, "asset_manager_load_sprite_atlas_grouped called with NULL group");
 
-    if (grouped_hashmap_get(manager->atlases, group, filename) == (void *)1)
-    {
+    if (grouped_hashmap_get(manager->atlases, group, filename) == (void *)1) {
         return true;
     }
 
     cJSON *json = _asset_manager_load_json(filename);
-    if (!json)
-    {
+    if (!json) {
         log_error("ASSET_MANAGER", "Error: Failed to load atlas JSON: %s", filename);
         return false;
     }
 
     // Get image property
     cJSON *image_item = cJSON_GetObjectItem(json, "image");
-    if (!cJSON_IsString(image_item))
-    {
+    if (!cJSON_IsString(image_item)) {
         log_error("ASSET_MANAGER", "Error: 'image' property missing or not a string in atlas");
         cJSON_Delete(json);
         return false;
@@ -380,8 +343,7 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
 
     // Get regions array
     cJSON *frameData = cJSON_GetObjectItem(json, "frames");
-    if (!cJSON_IsArray(frameData))
-    {
+    if (!cJSON_IsArray(frameData)) {
         log_error("ASSET_MANAGER", "Error: 'frames' property missing or not an array in atlas");
         cJSON_Delete(json);
         memory_manager.free(texture_id);
@@ -390,8 +352,7 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
 
     // Get sprites array
     cJSON *sprites = cJSON_GetObjectItem(json, "sprites");
-    if (!cJSON_IsArray(sprites))
-    {
+    if (!cJSON_IsArray(sprites)) {
         log_error("ASSET_MANAGER", "Error: 'sprites' property missing or not an array in atlas");
         cJSON_Delete(json);
         memory_manager.free(texture_id);
@@ -404,8 +365,7 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
     // For each sprite (animation)
     int sprite_count = cJSON_GetArraySize(sprites);
     log_debug("ASSET_MANAGER", "Loading %d sprites from atlas", sprite_count);
-    for (int i = 0; i < sprite_count; i++)
-    {
+    for (int i = 0; i < sprite_count; i++) {
         cJSON *sprite_obj = cJSON_GetArrayItem(sprites, i);
         if (!cJSON_IsObject(sprite_obj))
             continue;
@@ -418,22 +378,19 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
 
         const char *spriteName = name_item->valuestring;
         EseSprite *sprite = sprite_create();
-        if (!sprite)
-        {
+        if (!sprite) {
             log_error("ASSET_MANAGER", "Error: Failed to create sprite for %s", spriteName);
             continue;
         }
 
         int speed = speed_item->valueint;
-        if (speed < 0)
-        {
+        if (speed < 0) {
             speed = 0;
         }
         sprite_set_speed(sprite, speed / 1000.0f);
 
         int frame_count = cJSON_GetArraySize(frames);
-        for (int j = 0; j < frame_count; j++)
-        {
+        for (int j = 0; j < frame_count; j++) {
             cJSON *frame_name_item = cJSON_GetArrayItem(frames, j);
             if (!cJSON_IsString(frame_name_item))
                 continue;
@@ -442,18 +399,15 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
             // Find frame by name
             cJSON *frame = NULL;
             int region_count = cJSON_GetArraySize(frameData);
-            for (int k = 0; k < region_count; k++)
-            {
+            for (int k = 0; k < region_count; k++) {
                 cJSON *reg = cJSON_GetArrayItem(frameData, k);
                 cJSON *reg_name = cJSON_GetObjectItem(reg, "name");
-                if (cJSON_IsString(reg_name) && strcmp(reg_name->valuestring, frame_name) == 0)
-                {
+                if (cJSON_IsString(reg_name) && strcmp(reg_name->valuestring, frame_name) == 0) {
                     frame = reg;
                     break;
                 }
             }
-            if (!frame)
-            {
+            if (!frame) {
                 log_error("ASSET_MANAGER", "Error: Frame region '%s' not found for sprite '%s'",
                     frame_name, spriteName);
                 continue;
@@ -464,8 +418,7 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
             cJSON *w_item = cJSON_GetObjectItem(frame, "width");
             cJSON *h_item = cJSON_GetObjectItem(frame, "height");
             if (!cJSON_IsNumber(x_item) || !cJSON_IsNumber(y_item) || !cJSON_IsNumber(w_item) ||
-                !cJSON_IsNumber(h_item))
-            {
+                !cJSON_IsNumber(h_item)) {
                 log_error("ASSET_MANAGER", "Error: Malformed region for frame '%s'", frame_name);
                 continue;
             }
@@ -478,8 +431,7 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
                 h_item->valueint);
         }
 
-        if (sprite_get_frame_count(sprite) == 0)
-        {
+        if (sprite_get_frame_count(sprite) == 0) {
             log_error("ASSET_MANAGER", "Sprite '%s' has no valid frames; skipping", spriteName);
             sprite_free(sprite);
             continue;
@@ -501,7 +453,9 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager,
     return true;
 }
 
-EseSprite *asset_manager_get_sprite(EseAssetManager *manager, const char *asset_id)
+EseSprite *asset_manager_get_sprite(
+    EseAssetManager *manager,
+    const char *asset_id)
 {
     log_assert("ASSET_MANAGER", manager, "asset_manager_get_sprite called with NULL manager");
     log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_sprite called with NULL asset_id");
@@ -514,15 +468,15 @@ EseSprite *asset_manager_get_sprite(EseAssetManager *manager, const char *asset_
     memory_manager.free(out_group);
     memory_manager.free(out_name);
 
-    if (!asset)
-    {
+    if (!asset) {
         return NULL;
     }
 
     return (EseSprite *)asset->data;
 }
 
-bool asset_manager_load_map(EseAssetManager *manager,
+bool asset_manager_load_map(
+    EseAssetManager *manager,
     EseLuaEngine *lua,
     const char *filename,
     const char *group)
@@ -533,30 +487,26 @@ bool asset_manager_load_map(EseAssetManager *manager,
     log_assert("ASSET_MANAGER", group, "asset_manager_load_map called with NULL group");
 
     // Already loaded?
-    if (grouped_hashmap_get(manager->maps, group, filename) != NULL)
-    {
+    if (grouped_hashmap_get(manager->maps, group, filename) != NULL) {
         return true;
     }
 
     cJSON *json = _asset_manager_load_json(filename);
-    if (!json)
-    {
+    if (!json) {
         return false;
     }
 
     // Validate dimensions
     cJSON *width_item = cJSON_GetObjectItem(json, "width");
     cJSON *height_item = cJSON_GetObjectItem(json, "height");
-    if (!cJSON_IsNumber(width_item) || !cJSON_IsNumber(height_item))
-    {
+    if (!cJSON_IsNumber(width_item) || !cJSON_IsNumber(height_item)) {
         log_error("ASSET_MANAGER", "Map JSON missing width/height or not numbers: %s", filename);
         cJSON_Delete(json);
         return false;
     }
     int width = width_item->valueint;
     int height = height_item->valueint;
-    if (width <= 0 || height <= 0)
-    {
+    if (width <= 0 || height <= 0) {
         log_error("ASSET_MANAGER", "Invalid map dimensions in %s", filename);
         cJSON_Delete(json);
         return false;
@@ -565,34 +515,29 @@ bool asset_manager_load_map(EseAssetManager *manager,
     // Map type
     EseMapType map_type = MAP_TYPE_GRID;
     cJSON *type_item = cJSON_GetObjectItem(json, "type");
-    if (cJSON_IsString(type_item))
-    {
+    if (cJSON_IsString(type_item)) {
         map_type = map_type_from_string(type_item->valuestring);
     }
 
     // Tileset object must exist and be an object
     cJSON *tileset_obj = cJSON_GetObjectItem(json, "tileset");
-    if (!tileset_obj || tileset_obj->type != cJSON_Object)
-    {
+    if (!tileset_obj || tileset_obj->type != cJSON_Object) {
         log_error("ASSET_MANAGER", "Map JSON missing or invalid 'tileset' object: %s", filename);
         cJSON_Delete(json);
         return false;
     }
 
-    // Create a tileset (no Lua registration)
+    // Create a tileset (C-only, not Lua-registered)
     EseTileSet *tileset = tileset_create(lua, true);
-    if (!tileset)
-    {
+    if (!tileset) {
         log_error("ASSET_MANAGER", "Failed to create tileset for %s", filename);
         cJSON_Delete(json);
         return false;
     }
 
-    // Populate tileset from JSON; validate keys and entries
-    for (cJSON *tile_entry = tileset_obj->child; tile_entry; tile_entry = tile_entry->next)
-    {
-        if (!tile_entry->string)
-        {
+    // Populate tileset from JSON
+    for (cJSON *tile_entry = tileset_obj->child; tile_entry; tile_entry = tile_entry->next) {
+        if (!tile_entry->string) {
             log_error("ASSET_MANAGER", "Invalid tile key in tileset for %s", filename);
             tileset_destroy(tileset);
             cJSON_Delete(json);
@@ -601,33 +546,29 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
         char *endptr = NULL;
         long tid = strtol(tile_entry->string, &endptr, 10);
-        if (*endptr != '\0' || tid < 0 || tid > 255)
-        {
-            log_error("ASSET_MANAGER", "Invalid tile id '%s' in tileset for %s", tile_entry->string,
-                filename);
+        if (*endptr != '\0' || tid < 0 || tid > 255) {
+            log_error("ASSET_MANAGER", "Invalid tile id '%s' in tileset for %s",
+                      tile_entry->string, filename);
             tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
         uint8_t tile_id = (uint8_t)tid;
 
-        if (!cJSON_IsArray(tile_entry))
-        {
-            log_error("ASSET_MANAGER", "Tileset entry for id %d is not an array in %s", tile_id,
-                filename);
+        if (!cJSON_IsArray(tile_entry)) {
+            log_error("ASSET_MANAGER", "Tileset entry for id %d is not an array in %s",
+                      tile_id, filename);
             tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
 
         int mapping_count = cJSON_GetArraySize(tile_entry);
-        for (int mi = 0; mi < mapping_count; mi++)
-        {
+        for (int mi = 0; mi < mapping_count; mi++) {
             cJSON *map_item = cJSON_GetArrayItem(tile_entry, mi);
-            if (!map_item || !cJSON_IsObject(map_item))
-            {
-                log_error(
-                    "ASSET_MANAGER", "Malformed mapping for tile %d in %s", tile_id, filename);
+            if (!map_item || !cJSON_IsObject(map_item)) {
+                log_error("ASSET_MANAGER", "Malformed mapping for tile %d in %s",
+                          tile_id, filename);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
@@ -635,10 +576,9 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
             cJSON *sprite_item = cJSON_GetObjectItem(map_item, "sprite");
             if (!sprite_item || !cJSON_IsString(sprite_item) ||
-                strlen(sprite_item->valuestring) == 0)
-            {
-                log_error("ASSET_MANAGER", "Missing or invalid 'sprite' for tile %d in %s", tile_id,
-                    filename);
+                strlen(sprite_item->valuestring) == 0) {
+                log_error("ASSET_MANAGER", "Missing or invalid 'sprite' for tile %d in %s",
+                          tile_id, filename);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
@@ -647,17 +587,14 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
             cJSON *weight_item = cJSON_GetObjectItem(map_item, "weight");
             int weight = 1;
-            if (weight_item && cJSON_IsNumber(weight_item))
-            {
+            if (weight_item && cJSON_IsNumber(weight_item)) {
                 weight = weight_item->valueint;
             }
-            if (weight <= 0)
-                weight = 1;
+            if (weight <= 0) weight = 1;
 
-            if (!tileset_add_sprite(tileset, tile_id, sprite_str, (uint16_t)weight))
-            {
+            if (!tileset_add_sprite(tileset, tile_id, sprite_str, (uint16_t)weight)) {
                 log_error("ASSET_MANAGER", "Failed to add sprite '%s' for tile %d in %s",
-                    sprite_str, tile_id, filename);
+                          sprite_str, tile_id, filename);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
@@ -667,27 +604,24 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
     // Cells array must exist and match width*height
     cJSON *cells = cJSON_GetObjectItem(json, "cells");
-    if (!cells || !cJSON_IsArray(cells))
-    {
+    if (!cells || !cJSON_IsArray(cells)) {
         log_error("ASSET_MANAGER", "Map JSON missing or invalid 'cells' array: %s", filename);
         tileset_destroy(tileset);
         cJSON_Delete(json);
         return false;
     }
     int cell_count = cJSON_GetArraySize(cells);
-    if (cell_count != width * height)
-    {
-        log_error("ASSET_MANAGER", "Cells length (%d) != width*height (%d) in %s", cell_count,
-            width * height, filename);
+    if (cell_count != width * height) {
+        log_error("ASSET_MANAGER", "Cells length (%d) != width*height (%d) in %s",
+                  cell_count, width * height, filename);
         tileset_destroy(tileset);
         cJSON_Delete(json);
         return false;
     }
 
-    // Create map (no Lua registration)
-    EseMap *map = map_create(lua, (uint32_t)width, (uint32_t)height, map_type, true);
-    if (!map)
-    {
+    // Create map (C-only, not Lua-registered)
+    EseMap *map = map_create(lua, (uint32_t)width, (uint32_t)height, map_type, false);
+    if (!map) {
         log_error("ASSET_MANAGER", "Failed to create map struct for %s", filename);
         tileset_destroy(tileset);
         cJSON_Delete(json);
@@ -696,27 +630,22 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
     // Set metadata if present
     cJSON *title_item = cJSON_GetObjectItem(json, "title");
-    if (title_item && cJSON_IsString(title_item))
-    {
+    if (title_item && cJSON_IsString(title_item)) {
         map_set_title(map, title_item->valuestring);
     }
     cJSON *author_item = cJSON_GetObjectItem(json, "author");
-    if (author_item && cJSON_IsString(author_item))
-    {
+    if (author_item && cJSON_IsString(author_item)) {
         map_set_author(map, author_item->valuestring);
     }
     cJSON *version_item = cJSON_GetObjectItem(json, "version");
-    if (version_item && cJSON_IsNumber(version_item))
-    {
+    if (version_item && cJSON_IsNumber(version_item)) {
         map_set_version(map, version_item->valueint);
     }
 
-    // Parse and set each cell
-    for (int ci = 0; ci < cell_count; ci++)
-    {
+    // Parse and set each cell directly
+    for (int ci = 0; ci < cell_count; ci++) {
         cJSON *cell_obj = cJSON_GetArrayItem(cells, ci);
-        if (!cell_obj || !cJSON_IsObject(cell_obj))
-        {
+        if (!cell_obj || !cJSON_IsObject(cell_obj)) {
             log_error("ASSET_MANAGER", "Invalid cell object at index %d in %s", ci, filename);
             map_destroy(map);
             tileset_destroy(tileset);
@@ -725,8 +654,7 @@ bool asset_manager_load_map(EseAssetManager *manager,
         }
 
         cJSON *layers = cJSON_GetObjectItem(cell_obj, "layers");
-        if (!layers || !cJSON_IsArray(layers))
-        {
+        if (!layers || !cJSON_IsArray(layers)) {
             log_error("ASSET_MANAGER", "Cell %d missing 'layers' array in %s", ci, filename);
             map_destroy(map);
             tileset_destroy(tileset);
@@ -734,10 +662,11 @@ bool asset_manager_load_map(EseAssetManager *manager,
             return false;
         }
 
-        EseMapCell *tmp = mapcell_create(lua, true);
-        if (!tmp)
-        {
-            log_error("ASSET_MANAGER", "Failed to allocate map cell for %s", filename);
+        uint32_t x = (uint32_t)(ci % width);
+        uint32_t y = (uint32_t)(ci / width);
+        EseMapCell *dst = map_get_cell(map, x, y);
+        if (!dst) {
+            log_error("ASSET_MANAGER", "Invalid cell coords (%u,%u) in %s", x, y, filename);
             map_destroy(map);
             tileset_destroy(tileset);
             cJSON_Delete(json);
@@ -745,25 +674,20 @@ bool asset_manager_load_map(EseAssetManager *manager,
         }
 
         int layer_count = cJSON_GetArraySize(layers);
-        for (int li = 0; li < layer_count; li++)
-        {
+        for (int li = 0; li < layer_count; li++) {
             cJSON *lid_item = cJSON_GetArrayItem(layers, li);
-            if (!lid_item || !cJSON_IsNumber(lid_item))
-            {
-                log_error("ASSET_MANAGER", "Invalid layer id at cell %d layer %d in %s", ci, li,
-                    filename);
-                mapcell_destroy(tmp);
+            if (!lid_item || !cJSON_IsNumber(lid_item)) {
+                log_error("ASSET_MANAGER", "Invalid layer id at cell %d layer %d in %s",
+                          ci, li, filename);
                 map_destroy(map);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
             long lid = lid_item->valueint;
-            if (lid < 0 || lid > 255)
-            {
-                log_error("ASSET_MANAGER", "Out of range tile id %ld at cell %d in %s", lid, ci,
-                    filename);
-                mapcell_destroy(tmp);
+            if (lid < 0 || lid > 255) {
+                log_error("ASSET_MANAGER", "Out of range tile id %ld at cell %d in %s",
+                          lid, ci, filename);
                 map_destroy(map);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
@@ -771,24 +695,19 @@ bool asset_manager_load_map(EseAssetManager *manager,
             }
             uint8_t tile_id = (uint8_t)lid;
 
-            // Ensure tile_id exists in tileset
-            if (tileset_get_sprite_count(tileset, tile_id) == 0)
-            {
+            if (tileset_get_sprite_count(tileset, tile_id) == 0) {
                 log_error("ASSET_MANAGER",
-                    "Tile id %d used in cells but not defined in tileset for %s", tile_id,
-                    filename);
-                mapcell_destroy(tmp);
+                          "Tile id %d used in cells but not defined in tileset for %s",
+                          tile_id, filename);
                 map_destroy(map);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
 
-            if (!mapcell_add_layer(tmp, tile_id))
-            {
+            if (!mapcell_add_layer(dst, tile_id)) {
                 log_error("ASSET_MANAGER", "Failed to add layer for tile %d at cell %d in %s",
-                    tile_id, ci, filename);
-                mapcell_destroy(tmp);
+                          tile_id, ci, filename);
                 map_destroy(map);
                 tileset_destroy(tileset);
                 cJSON_Delete(json);
@@ -798,44 +717,17 @@ bool asset_manager_load_map(EseAssetManager *manager,
 
         // Optional flags
         cJSON *flags_item = cJSON_GetObjectItem(cell_obj, "flags");
-        if (flags_item && cJSON_IsNumber(flags_item))
-        {
-            tmp->flags = (uint32_t)flags_item->valueint;
+        if (flags_item && cJSON_IsNumber(flags_item)) {
+            dst->flags = (uint32_t)flags_item->valueint;
         }
 
-        // Optional isDynamic (boolean or numeric)
+        // Optional isDynamic
         cJSON *dyn_item = cJSON_GetObjectItem(cell_obj, "isDynamic");
-        if (dyn_item)
-        {
-            if (dyn_item->type == cJSON_True)
-            {
-                tmp->isDynamic = true;
-            }
-            else if (dyn_item->type == cJSON_False)
-            {
-                tmp->isDynamic = false;
-            }
-            else if (cJSON_IsNumber(dyn_item))
-            {
-                tmp->isDynamic = (dyn_item->valueint != 0);
-            }
+        if (dyn_item) {
+            if (dyn_item->type == cJSON_True) dst->isDynamic = true;
+            else if (dyn_item->type == cJSON_False) dst->isDynamic = false;
+            else if (cJSON_IsNumber(dyn_item)) dst->isDynamic = (dyn_item->valueint != 0);
         }
-
-        uint32_t x = (uint32_t)(ci % width);
-        uint32_t y = (uint32_t)(ci / width);
-
-        if (!map_set_cell(map, x, y, tmp))
-        {
-            log_error("ASSET_MANAGER", "Failed to set cell (%u,%u) for %s", x, y, filename);
-            mapcell_destroy(tmp);
-            map_destroy(map);
-            tileset_destroy(tileset);
-            cJSON_Delete(json);
-            return false;
-        }
-
-        // tmp copied into map; free temporary
-        mapcell_destroy(tmp);
     }
 
     // Attach tileset to map
@@ -848,11 +740,14 @@ bool asset_manager_load_map(EseAssetManager *manager,
     asset->data = (void *)map;
     grouped_hashmap_set(manager->maps, group, filename, asset);
 
+    log_debug("ASSET_MANAGER", "Added map '%s'.", filename);
     cJSON_Delete(json);
     return true;
 }
 
-EseMap *asset_manager_get_map(EseAssetManager *manager, const char *asset_id)
+EseMap *asset_manager_get_map(
+    EseAssetManager *manager,
+    const char *asset_id)
 {
     log_assert("ASSET_MANAGER", manager, "asset_manager_get_map called with NULL manager");
     log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_map called with NULL asset_id");
@@ -865,24 +760,23 @@ EseMap *asset_manager_get_map(EseAssetManager *manager, const char *asset_id)
     memory_manager.free(out_group);
     memory_manager.free(out_name);
 
-    if (!asset)
-    {
+    if (!asset) {
         return NULL;
     }
 
     return (EseMap *)asset->data;
 }
 
-void asset_manager_remove_group(EseAssetManager *manager, const char *group)
+void asset_manager_remove_group(
+    EseAssetManager *manager,
+    const char *group)
 {
-    if (!manager)
-    {
+    if (!manager) {
         log_error("ASSET_MANAGER", "Error: asset_manager_remove_group called with NULL manager");
         return;
     }
 
-    if (!group)
-    {
+    if (!group) {
         log_error("ASSET_MANAGER", "Error: asset_manager_remove_group called with NULL group");
         return;
     }
