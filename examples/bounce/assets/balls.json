@@ -1,0 +1,742 @@
+{
+    "image": "balls",
+    "sprites": [
+        {
+            "name": "ball blue glass large",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Glass-32x32"
+            ]
+        },
+        {
+            "name": "ball blue glass medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Glass-24x24"
+            ]
+        },
+        {
+            "name": "ball blue glass small",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Glass-16x16"
+            ]
+        },
+        {
+            "name": "ball chrome glass large",
+            "speed": 75,
+            "frames": [
+                "Ball_Chrome_Glass-32x32"
+            ]
+        },
+        {
+            "name": "ball chrome glass medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Chrome_Glass-24x24"
+            ]
+        },
+        {
+            "name": "ball chrome glass small",
+            "speed": 75,
+            "frames": [
+                "Ball_Chrome_Glass-16x16"
+            ]
+        },
+        {
+            "name": "ball green glossy large",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Glossy-32x32"
+            ]
+        },
+        {
+            "name": "ball green glossy medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Glossy-24x24"
+            ]
+        },
+        {
+            "name": "ball green glossy small",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Glossy-16x16"
+            ]
+        },
+        {
+            "name": "ball orange glossy large",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Glossy-32x32"
+            ]
+        },
+        {
+            "name": "ball orange glossy medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Glossy-24x24"
+            ]
+        },
+        {
+            "name": "ball orange glossy small",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Glossy-16x16"
+            ]
+        },
+        {
+            "name": "ball red glossy large",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Glossy-32x32"
+            ]
+        },
+        {
+            "name": "ball red glossy medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Glossy-24x24"
+            ]
+        },
+        {
+            "name": "ball red glossy small",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Glossy-16x16"
+            ]
+        },
+        {
+            "name": "ball yellow glossy large",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Glossy-32x32"
+            ]
+        },
+        {
+            "name": "ball yellow glossy medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Glossy-24x24"
+            ]
+        },
+        {
+            "name": "ball yellow glossy small",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Glossy-16x16"
+            ]
+        },
+        {
+            "name": "ball blue shiny large",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Shiny-32x32"
+            ]
+        },
+        {
+            "name": "ball blue shiny medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Shiny-24x24"
+            ]
+        },
+        {
+            "name": "ball blue shiny small",
+            "speed": 75,
+            "frames": [
+                "Ball_Blue_Shiny-16x16"
+            ]
+        },
+        {
+            "name": "ball green shiny large",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Shiny-32x32"
+            ]
+        },
+        {
+            "name": "ball green shiny medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Shiny-24x24"
+            ]
+        },
+        {
+            "name": "ball green shiny small",
+            "speed": 75,
+            "frames": [
+                "Ball_Green_Shiny-16x16"
+            ]
+        },
+        {
+            "name": "ball orange shiny large",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Shiny-32x32"
+            ]
+        },
+        {
+            "name": "ball orange shiny medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Shiny-24x24"
+            ]
+        },
+        {
+            "name": "ball orange shiny small",
+            "speed": 75,
+            "frames": [
+                "Ball_Orange_Shiny-16x16"
+            ]
+        },
+        {
+            "name": "ball red shiny large",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Shiny-32x32"
+            ]
+        },
+        {
+            "name": "ball red shiny medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Shiny-24x24"
+            ]
+        },
+        {
+            "name": "ball red shiny small",
+            "speed": 75,
+            "frames": [
+                "Ball_Red_Shiny-16x16"
+            ]
+        },
+        {
+            "name": "ball yellow shiny large",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Shiny-32x32"
+            ]
+        },
+        {
+            "name": "ball yellow shiny medium",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Shiny-24x24"
+            ]
+        },
+        {
+            "name": "ball yellow shiny small",
+            "speed": 75,
+            "frames": [
+                "Ball_Yellow_Shiny-16x16"
+            ]
+        }
+    ],
+    "frames": [
+        {
+            "name": "Paddle_A_Blue_192x28",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Red_192x28",
+            "x": 0,
+            "y": 28,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Purple_192x28",
+            "x": 0,
+            "y": 56,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Yellow_192x28",
+            "x": 0,
+            "y": 84,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Blue_192x28",
+            "x": 0,
+            "y": 112,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Red_192x28",
+            "x": 0,
+            "y": 140,
+            "rotation": 0,
+            "width": 192,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Blue_160x28",
+            "x": 192,
+            "y": 0,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Red_160x28",
+            "x": 192,
+            "y": 28,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Purple_160x28",
+            "x": 192,
+            "y": 56,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Yellow_160x28",
+            "x": 192,
+            "y": 84,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Blue_160x28",
+            "x": 192,
+            "y": 112,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Red_160x28",
+            "x": 192,
+            "y": 140,
+            "rotation": 0,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Blue_128x28",
+            "x": 0,
+            "y": 168,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Red_128x28",
+            "x": 128,
+            "y": 168,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Purple_128x28",
+            "x": 0,
+            "y": 196,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Yellow_128x28",
+            "x": 128,
+            "y": 196,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Blue_128x28",
+            "x": 0,
+            "y": 224,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Red_128x28",
+            "x": 128,
+            "y": 224,
+            "rotation": 0,
+            "width": 128,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Blue_96x28",
+            "x": 256,
+            "y": 168,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Red_96x28",
+            "x": 256,
+            "y": 196,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Purple_96x28",
+            "x": 256,
+            "y": 224,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Yellow_96x28",
+            "x": 0,
+            "y": 252,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Blue_96x28",
+            "x": 96,
+            "y": 252,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Red_96x28",
+            "x": 192,
+            "y": 252,
+            "rotation": 0,
+            "width": 96,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Red_64x28",
+            "x": 288,
+            "y": 252,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Paddle_A_Blue_64x28",
+            "x": 0,
+            "y": 280,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Purple_64x28",
+            "x": 64,
+            "y": 280,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Paddle_B_Yellow_64x28",
+            "x": 128,
+            "y": 280,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Blue_64x28",
+            "x": 192,
+            "y": 280,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Paddle_C_Red_64x28",
+            "x": 256,
+            "y": 280,
+            "rotation": 0,
+            "width": 64,
+            "height": 28
+        },
+        {
+            "name": "Ball_Blue_Glass-32x32",
+            "x": 0,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Chrome_Glass-32x32",
+            "x": 32,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Green_Glossy-32x32",
+            "x": 64,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Orange_Glossy-32x32",
+            "x": 96,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Red_Glossy-32x32",
+            "x": 128,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Yellow_Glossy-32x32",
+            "x": 160,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Blue_Shiny-32x32",
+            "x": 192,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Green_Shiny-32x32",
+            "x": 224,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Orange_Shiny-32x32",
+            "x": 256,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Red_Shiny-32x32",
+            "x": 288,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Yellow_Shiny-32x32",
+            "x": 320,
+            "y": 308,
+            "rotation": 0,
+            "width": 32,
+            "height": 32
+        },
+        {
+            "name": "Ball_Blue_Glass-24x24",
+            "x": 320,
+            "y": 280,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Chrome_Glass-24x24",
+            "x": 344,
+            "y": 280,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Green_Glossy-24x24",
+            "x": 0,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Orange_Glossy-24x24",
+            "x": 24,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Red_Glossy-24x24",
+            "x": 48,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Yellow_Glossy-24x24",
+            "x": 72,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Blue_Shiny-24x24",
+            "x": 96,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Green_Shiny-24x24",
+            "x": 120,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Orange_Shiny-24x24",
+            "x": 144,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Red_Shiny-24x24",
+            "x": 168,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Yellow_Shiny-24x24",
+            "x": 192,
+            "y": 340,
+            "rotation": 0,
+            "width": 24,
+            "height": 24
+        },
+        {
+            "name": "Ball_Blue_Glass-16x16",
+            "x": 352,
+            "y": 0,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Chrome_Glass-16x16",
+            "x": 352,
+            "y": 28,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Green_Glossy-16x16",
+            "x": 352,
+            "y": 56,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Orange_Glossy-16x16",
+            "x": 352,
+            "y": 84,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Red_Glossy-16x16",
+            "x": 352,
+            "y": 112,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Yellow_Glossy-16x16",
+            "x": 352,
+            "y": 140,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Blue_Shiny-16x16",
+            "x": 352,
+            "y": 168,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Green_Shiny-16x16",
+            "x": 352,
+            "y": 196,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Orange_Shiny-16x16",
+            "x": 352,
+            "y": 224,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Red_Shiny-16x16",
+            "x": 352,
+            "y": 252,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        },
+        {
+            "name": "Ball_Yellow_Shiny-16x16",
+            "x": 352,
+            "y": 308,
+            "rotation": 0,
+            "width": 16,
+            "height": 16
+        }
+    ]
+}
