@@ -16,6 +16,7 @@ They behave like objects with properties and methods accessible via dot notation
 - **Component management** - the `components` property provides a proxy table with array-like access and methods
 - **Custom data storage** - the `data` property is a Lua table for storing arbitrary script data
 - **Position is a Point object** - you cannot assign a new Point, but you can modify the existing one's x and y values
+- **Tag system** - entities support a flexible tagging system for categorization and searching
 
 ```lua
 -- Create a new entity
@@ -32,13 +33,18 @@ e.position.y = 200
 
 -- Work with components
 print("Component count:", e.components.count)
+
+-- Work with tags
+e:add_tag("player")
+e:add_tag("hero")
+print("Has player tag:", e:has_tag("player"))
 ```
 
 ---
 
 ## Global Entity Table
 
-The `Entity` table is a global table created by the engine during initialization. It provides a constructor for creating new entity objects.
+The `Entity` table is a global table created by the engine during initialization. It provides a constructor for creating new entity objects and static methods for finding entities.
 
 ---
 
@@ -55,6 +61,7 @@ Creates a new entity and automatically registers it with the engine.
 - **Default values** - entity starts at position (0,0), active=true, draw_order=0
 - **Unique ID** - each entity gets a unique UUID generated automatically
 - **Position object** - a new `Point` object is created and assigned to the entity
+- **Empty tag list** - new entities start with no tags
 
 **Example:**
 ```lua
@@ -63,6 +70,73 @@ print("Entity created with ID:", e.id)  --> "550e8400-e29b-41d4-a716-44665544000
 print("Default position:", e.position.x, e.position.y)  --> 0, 0
 print("Default active:", e.active)  --> true
 print("Default draw order:", e.draw_order)  --> 0
+print("Initial tag count:", #e.tags)  --> 0
+```
+
+### `Entity.find_by_tag(tag)`
+Finds all entities that have the specified tag.
+
+**Arguments:**
+- `tag` → string (tag to search for)
+
+**Returns:** Lua table containing all matching entities (1-based indexed)
+
+**Notes:**
+- **Tag normalization** - tags are automatically capitalized and truncated to 16 characters
+- **Case insensitive** - "player", "Player", and "PLAYER" all match the same tag
+- **Array-like result** - returns a table where `#result` gives the count and `result[1]`, `result[2]`, etc. access entities
+- **Empty result** - returns an empty table if no entities have the tag
+- **Safety limit** - limited to 1000 entities maximum for performance
+
+**Example:**
+```lua
+-- Find all player entities
+local players = Entity.find_by_tag("player")
+print("Found", #players, "players")
+
+for i, player in ipairs(players) do
+    print("Player", i, "ID:", player.id)
+end
+
+-- Find all enemies
+local enemies = Entity.find_by_tag("enemy")
+print("Found", #enemies, "enemies")
+
+-- Tags are normalized automatically
+local heroes = Entity.find_by_tag("hero")  -- Will find entities tagged with "HERO"
+```
+
+### `Entity.find_by_id(uuid_string)`
+Finds a specific entity by its UUID string.
+
+**Arguments:**
+- `uuid_string` → string (UUID of the entity to find)
+
+**Returns:** Entity object if found, `nil` if not found
+
+**Notes:**
+- **Exact match** - requires the exact UUID string
+- **Nil return** - returns `nil` if no entity with that UUID exists
+- **Performance** - efficient lookup through engine's entity list
+- **Useful for references** - can store UUIDs and look up entities later
+
+**Example:**
+```lua
+-- Store a reference to an entity's ID
+local player_id = player.id
+
+-- Later, find the entity by ID
+local found_player = Entity.find_by_id(player_id)
+if found_player then
+    print("Found player:", found_player.id)
+    print("Player position:", found_player.position.x, found_player.position.y)
+else
+    print("Player not found")
+end
+
+-- Can also use for entity references across scripts
+local enemy_id = "550e8400-e29b-41d4-a716-446655440000"
+local enemy = Entity.find_by_id(enemy_id)
 ```
 
 ---
@@ -77,6 +151,7 @@ Each `Entity` object has the following properties:
 - `position` → a `Point` object (read-only reference, but its fields are mutable)  
 - `components` → a **components proxy table** (read-only reference)  
 - `data` → a Lua table for storing arbitrary script data (read/write)  
+- `tags` → a Lua table containing all entity tags (read-only)
 
 **Notes:**
 - **ID is immutable** - cannot be changed once assigned
@@ -85,6 +160,7 @@ Each `Entity` object has the following properties:
 - **Position reference** - you cannot assign a new Point, but you can modify the existing one's x and y values
 - **Components proxy** - provides array-like access and management methods
 - **Data table** - persistent Lua table for storing custom properties and state
+- **Tags table** - read-only table showing all current tags (1-based indexed)
 - **Type validation** - active must be boolean, draw_order must be integer
 
 **Example:**
@@ -107,11 +183,221 @@ e.data.inventory = {}              -- Custom table property
 e.data.inventory.gold = 50         -- Nested data
 e.data.inventory.items = {"sword", "shield"}
 
+-- Add tags
+e:add_tag("player")
+e:add_tag("hero")
+
+-- Access tags
+print("Tag count:", #e.tags)       --> 2
+print("First tag:", e.tags[1])     --> "PLAYER"
+print("Second tag:", e.tags[2])    --> "HERO"
+
 -- Access custom data
 print("Health:", e.data.health)    --> 100
 print("Name:", e.data.name)        --> "Player"
 print("Gold:", e.data.inventory.gold)  --> 50
 ```
+
+---
+
+## Entity Object Methods
+
+### `entity:add_tag(tag)`
+Adds a tag to the entity.
+
+**Arguments:**
+- `tag` → string (tag to add)
+
+**Returns:** `true` if tag was added, `false` if tag already exists or on failure
+
+**Notes:**
+- **Tag normalization** - tags are automatically capitalized and truncated to 16 characters
+- **Duplicate prevention** - cannot add the same tag twice
+- **Case insensitive** - "player" and "Player" are treated as the same tag
+- **Length limit** - tags longer than 16 characters are truncated
+- **Memory management** - tags are properly allocated and managed
+
+**Example:**
+```lua
+local e = Entity.new()
+
+-- Add tags
+local success = e:add_tag("player")
+print("Added player tag:", success)  --> true
+
+success = e:add_tag("hero")
+print("Added hero tag:", success)    --> true
+
+-- Try to add duplicate
+success = e:add_tag("player")
+print("Added duplicate player tag:", success)  --> false
+
+-- Tags are normalized
+e:add_tag("lowercase tag")          -- Becomes "LOWERCASE TAG"
+e:add_tag("very long tag that should be truncated")  -- Becomes "VERY LONG TAG TH"
+
+print("All tags:")
+for i, tag in ipairs(e.tags) do
+    print("  " .. i .. ": " .. tag)
+end
+```
+
+### `entity:remove_tag(tag)`
+Removes a tag from the entity.
+
+**Arguments:**
+- `tag` → string (tag to remove)
+
+**Returns:** `true` if tag was removed, `false` if tag was not found
+
+**Notes:**
+- **Tag normalization** - tags are normalized before removal (same as add_tag)
+- **Case insensitive** - "player", "Player", and "PLAYER" all match the same tag
+- **Memory cleanup** - removed tags are properly deallocated
+- **Array reordering** - remaining tags are reordered to maintain contiguous array
+
+**Example:**
+```lua
+local e = Entity.new()
+e:add_tag("player")
+e:add_tag("hero")
+e:add_tag("combat")
+
+print("Before removal, tag count:", #e.tags)  --> 3
+
+-- Remove a tag
+local removed = e:remove_tag("hero")
+print("Removed hero tag:", removed)  --> true
+
+print("After removal, tag count:", #e.tags)   --> 2
+
+-- Tags are reordered
+print("Remaining tags:")
+for i, tag in ipairs(e.tags) do
+    print("  " .. i .. ": " .. tag)
+end
+
+-- Try to remove non-existent tag
+removed = e:remove_tag("nonexistent")
+print("Removed nonexistent tag:", removed)  --> false
+```
+
+### `entity:has_tag(tag)`
+Checks if the entity has a specific tag.
+
+**Arguments:**
+- `tag` → string (tag to check for)
+
+**Returns:** `true` if entity has the tag, `false` otherwise
+
+**Notes:**
+- **Tag normalization** - tags are normalized before checking (same as add_tag)
+- **Case insensitive** - "player", "Player", and "PLAYER" all match the same tag
+- **Fast lookup** - efficient tag checking
+- **Boolean return** - simple true/false result
+
+**Example:**
+```lua
+local e = Entity.new()
+e:add_tag("player")
+e:add_tag("hero")
+
+-- Check for tags
+print("Has player tag:", e:has_tag("player"))      --> true
+print("Has hero tag:", e:has_tag("hero"))          --> true
+print("Has enemy tag:", e:has_tag("enemy"))        --> false
+
+-- Case insensitive
+print("Has PLAYER tag:", e:has_tag("PLAYER"))      --> true
+print("Has Player tag:", e:has_tag("Player"))      --> true
+
+-- Use in conditional logic
+if e:has_tag("player") then
+    print("This is a player entity")
+end
+
+if e:has_tag("hero") then
+    print("This is a hero entity")
+end
+
+-- Check multiple tags
+local is_player_hero = e:has_tag("player") and e:has_tag("hero")
+print("Is player hero:", is_player_hero)  --> true
+```
+
+### `entity:dispatch(funcName, ...)`
+Calls a function on all **Lua components** attached to the entity.  
+
+**Arguments:**
+- `funcName` → string (function name to call)  
+- `...` → variable arguments passed to the function  
+
+**Returns:** `true` if dispatched successfully, `false` if no function was found or executed
+
+**Notes:**
+- **Lua components only** - only affects components of type `EntityComponentLua`
+- **Function search** - looks for the named function in each Lua component's script
+- **Argument passing** - all arguments after funcName are passed to the target function
+- **Return value** - returns true if any function was executed, false otherwise
+- **Error handling** - if a component's function errors, other components are still processed
+
+**Example:**
+```lua
+-- Dispatch update function to all Lua components
+local success = e:dispatch("on_update", 0.016)  -- 16ms delta time
+if success then
+    print("Update dispatched successfully")
+else
+    print("No update function found in Lua components")
+end
+
+-- Dispatch custom function with multiple arguments
+e:dispatch("on_damage", 25, "fire", true)  -- damage amount, damage type, critical hit
+```
+
+---
+
+## Tag System Details
+
+### Tag Normalization
+All tags are automatically normalized when added, removed, or checked:
+
+- **Capitalization** - all lowercase letters are converted to uppercase
+- **Length limit** - tags are truncated to 16 characters maximum
+- **Consistent storage** - normalized tags are stored in the entity
+
+**Examples:**
+```lua
+local e = Entity.new()
+
+-- These all become the same tag: "PLAYER"
+e:add_tag("player")
+e:add_tag("Player")
+e:add_tag("PLAYER")
+
+-- Long tags are truncated
+e:add_tag("very long tag that exceeds sixteen characters")  -- Becomes "VERY LONG TAG TH"
+
+print("Normalized tags:")
+for i, tag in ipairs(e.tags) do
+    print("  " .. i .. ": " .. tag)
+end
+```
+
+### Tag Storage
+Tags are stored efficiently in the entity:
+
+- **Dynamic allocation** - tag arrays grow as needed
+- **Memory efficient** - each tag uses exactly the space needed (up to 16 chars)
+- **Fast access** - O(1) access to individual tags
+- **Proper cleanup** - tags are automatically cleaned up when entities are destroyed
+
+### Tag Limits
+The tagging system has reasonable limits:
+
+- **Per tag** - maximum 16 characters per tag
+- **Per entity** - maximum 32 tags per entity
+- **Total entities** - no limit on total number of tagged entities
 
 ---
 
@@ -190,40 +476,6 @@ print("After pop/shift, count:", e.components.count)  --> 1
 
 ---
 
-## Entity Methods
-
-### `entity:dispatch(funcName, ...)`
-Calls a function on all **Lua components** attached to the entity.  
-
-**Arguments:**
-- `funcName` → string (function name to call)  
-- `...` → variable arguments passed to the function  
-
-**Returns:** `true` if dispatched successfully, `false` if no function was found or executed
-
-**Notes:**
-- **Lua components only** - only affects components of type `EntityComponentLua`
-- **Function search** - looks for the named function in each Lua component's script
-- **Argument passing** - all arguments after funcName are passed to the target function
-- **Return value** - returns true if any function was executed, false otherwise
-- **Error handling** - if a component's function errors, other components are still processed
-
-**Example:**
-```lua
--- Dispatch update function to all Lua components
-local success = e:dispatch("on_update", 0.016)  -- 16ms delta time
-if success then
-    print("Update dispatched successfully")
-else
-    print("No update function found in Lua components")
-end
-
--- Dispatch custom function with multiple arguments
-e:dispatch("on_damage", 25, "fire", true)  -- damage amount, damage type, critical hit
-```
-
----
-
 ## Automatic Lua Component Callbacks
 
 When an entity has a **Lua component** (`EntityComponentLua`), the engine automatically calls the following functions if they are defined in the script:
@@ -243,6 +495,10 @@ function entity_init()
     self.data.max_health = 100
     self.data.speed = 50
     self.data.name = "Player"
+    
+    -- Add appropriate tags
+    self:add_tag("player")
+    self:add_tag("hero")
 end
 
 -- Called every frame
@@ -288,17 +544,23 @@ function entity_collision_enter(other)
     print("Collided with entity:", other.id)
     print("Other entity position:", other.position.x, other.position.y)
     
-    -- Check if other entity is an enemy
-    if other.data and other.data.type == "enemy" then
+    -- Check if other entity is an enemy using tags
+    if other:has_tag("enemy") then
         -- Take damage
         self.data.health = self.data.health - 10
         print("Took damage! Health:", self.data.health)
+    end
+    
+    -- Check if other entity is a powerup
+    if other:has_tag("powerup") then
+        self.data.power_level = self.data.power_level + 1
+        print("Power level increased to:", self.data.power_level)
     end
 end
 
 function entity_collision_stay(other)
     -- Called every frame while colliding
-    if other.data and other.data.type == "damage_zone" then
+    if other:has_tag("damage_zone") then
         -- Continuous damage
         self.data.health = self.data.health - 5 * 0.016  -- 5 damage per second
     end
@@ -352,11 +614,17 @@ e.data = "string value"
 e.data = {health = 100, name = "Player"}
 ```
 
----
+- **Tags are read-only** - cannot directly modify the tags table:
 
-## Entity Object Methods
+```lua
+-- ❌ Invalid - will cause Lua error
+e.tags[1] = "new_tag"
+-- Error: Tags table is read-only
 
-**Note:** The Entity API currently only provides the `dispatch()` method beyond property access.
+-- ✅ Correct - use tag methods
+e:add_tag("new_tag")
+e:remove_tag("old_tag")
+```
 
 ---
 
@@ -391,6 +659,11 @@ player.data.speed = 50
 player.data.name = "Player"
 player.data.inventory = {gold = 0, items = {}}
 
+-- Add player tags
+player:add_tag("player")
+player:add_tag("hero")
+player:add_tag("combat")
+
 -- Add components
 local sprite = SpriteComponent.new("player_sprite.png")
 player.components:add(sprite)
@@ -402,11 +675,18 @@ local script = EntityComponentLua.new("player_script.lua")
 player.components:add(script)
 
 print("Player component count:", player.components.count)  --> 3
+print("Player tag count:", #player.tags)  --> 3
 
 -- Verify components
 print("Sprite component:", player.components[1].id)
 print("Collider component:", player.components[2].id)
 print("Script component:", player.components[3].id)
+
+-- Verify tags
+print("Player tags:")
+for i, tag in ipairs(player.tags) do
+    print("  " .. i .. ": " .. tag)
+end
 
 -- Find components by type
 local sprite_indices = player.components:find("Sprite")
@@ -421,6 +701,10 @@ enemy.position.x = 200
 enemy.position.y = 200
 enemy.data.type = "enemy"
 enemy.data.damage = 20
+
+-- Add enemy tags
+enemy:add_tag("enemy")
+enemy:add_tag("boss")
 
 -- Add enemy components
 local enemy_sprite = SpriteComponent.new("enemy_sprite.png")
@@ -438,11 +722,13 @@ print("Player ID:", player.id)
 print("Player position:", player.position.x, player.position.y)
 print("Player health:", player.data.health)
 print("Player components:", player.components.count)
+print("Player tags:", #player.tags)
 
 print("Enemy ID:", enemy.id)
 print("Enemy position:", enemy.position.x, enemy.position.y)
 print("Enemy type:", enemy.data.type)
 print("Enemy components:", enemy.components.count)
+print("Enemy tags:", #enemy.tags)
 
 -- Component operations
 local first_comp = player.components:shift()  -- Remove first component
@@ -451,7 +737,102 @@ print("Removed first component, new count:", player.components.count)
 player.components:insert(first_comp, 1)       -- Insert back at beginning
 print("Reinserted component, new count:", player.components.count)
 
+-- Tag operations
+print("Player has hero tag:", player:has_tag("hero"))  --> true
+print("Enemy has boss tag:", enemy:has_tag("boss"))    --> true
+
+-- Remove a tag
+player:remove_tag("combat")
+print("After removing combat tag, count:", #player.tags)  --> 2
+
+-- Find entities by tag
+local all_players = Entity.find_by_tag("player")
+print("Found", #all_players, "players")
+
+local all_enemies = Entity.find_by_tag("enemy")
+print("Found", #all_enemies, "enemies")
+
+local all_heroes = Entity.find_by_tag("hero")
+print("Found", #all_heroes, "heroes")
+
+-- Find entity by ID
+local found_player = Entity.find_by_id(player.id)
+if found_player then
+    print("Found player by ID:", found_player.id)
+    print("Player has hero tag:", found_player:has_tag("hero"))
+end
+
 -- Verify final state
 print("Final player components:", player.components.count)
 print("Final enemy components:", enemy.components.count)
+print("Final player tags:", #player.tags)
+print("Final enemy tags:", #enemy.tags)
+```
+
+---
+
+## Tag System Use Cases
+
+### Entity Categorization
+```lua
+-- Categorize entities by type
+player:add_tag("player")
+enemy:add_tag("enemy")
+item:add_tag("item")
+npc:add_tag("npc")
+
+-- Categorize by behavior
+player:add_tag("combat")
+enemy:add_tag("combat")
+player:add_tag("movable")
+enemy:add_tag("movable")
+```
+
+### Entity Selection
+```lua
+-- Find all combat entities
+local combat_entities = Entity.find_by_tag("combat")
+for i, entity in ipairs(combat_entities) do
+    -- Process combat logic
+    entity:dispatch("on_combat_update")
+end
+
+-- Find all movable entities
+local movable_entities = Entity.find_by_tag("movable")
+for i, entity in ipairs(movable_entities) do
+    -- Process movement
+    entity:dispatch("on_movement_update")
+end
+```
+
+### Entity References
+```lua
+-- Store entity references by ID for later lookup
+local player_id = player.id
+local enemy_id = enemy.id
+
+-- Later, find entities by ID
+local found_player = Entity.find_by_id(player_id)
+local found_enemy = Entity.find_by_id(enemy_id)
+
+if found_player and found_enemy then
+    -- Process interaction
+    found_player:dispatch("on_enemy_encounter", found_enemy)
+end
+```
+
+### Dynamic Tag Management
+```lua
+-- Add temporary tags
+player:add_tag("invulnerable")
+player:add_tag("powered_up")
+
+-- Remove when no longer needed
+player:remove_tag("invulnerable")
+player:remove_tag("powered_up")
+
+-- Check tag combinations
+if player:has_tag("player") and player:has_tag("powered_up") then
+    print("Player is powered up!")
+end
 ```

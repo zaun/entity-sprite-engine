@@ -8,6 +8,9 @@
 #include "types/types.h"
 #include "entity.h"
 
+#define MAX_TAG_LENGTH 16
+#define MAX_TAGS_PER_ENTITY 32
+
 /**
  * @brief Internal entity structure.
  */
@@ -28,6 +31,11 @@ struct EseEntity {
     EseDoubleLinkedList *default_props;     /**< Lua default props added to self.data */
     EseLuaValue *lua_val_ref;               /**< A EseLuaVale self reference */
     int lua_ref;                            /**< Lua registry self reference */
+    
+    // Tag system
+    char **tags;                            /**< Array of tag strings */
+    size_t tag_count;                       /**< Number of tags */
+    size_t tag_capacity;                    /**< Capacity of tag array */
 };
 
 /**

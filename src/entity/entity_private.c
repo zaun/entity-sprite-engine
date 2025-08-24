@@ -39,6 +39,11 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
 
     entity->default_props = dlist_create((DListFreeFn)lua_value_free);
 
+    // Initialize tag system
+    entity->tags = NULL;
+    entity->tag_count = 0;
+    entity->tag_capacity = 0;
+
     return entity;
 }
 

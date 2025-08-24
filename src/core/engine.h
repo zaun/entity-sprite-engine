@@ -92,4 +92,23 @@ EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int m
 
 EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
 
+/**
+ * @brief Finds all entities with a specific tag.
+ * 
+ * @param engine Pointer to the EseEngine
+ * @param tag Tag string to search for
+ * @param max_count Maximum number of entities to return
+ * @return Array of entity pointers, NULL-terminated (caller must free)
+ */
+EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count);
+
+/**
+ * @brief Finds an entity by its UUID.
+ * 
+ * @param engine Pointer to the EseEngine
+ * @param uuid_string UUID string to search for
+ * @return Pointer to the found entity, or NULL if not found
+ */
+EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string);
+
 #endif // ESE_ENGINE_H

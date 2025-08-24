@@ -418,6 +418,133 @@ static int _entity_lua_components_get(lua_State *L) {
     return 1;
 }
 
+// Tag system Lua functions
+
+/**
+ * @brief Lua function to add a tag to an entity.
+ */
+static int _entity_lua_add_tag(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    if (!lua_isstring(L, 2)) {
+        return luaL_error(L, "Tag must be a string");
+    }
+
+    const char *tag = lua_tostring(L, 2);
+    bool success = entity_add_tag(entity, tag);
+    lua_pushboolean(L, success);
+    return 1;
+}
+
+/**
+ * @brief Lua function to remove a tag from an entity.
+ */
+static int _entity_lua_remove_tag(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    if (!lua_isstring(L, 2)) {
+        return luaL_error(L, "Tag must be a string");
+    }
+
+    const char *tag = lua_tostring(L, 2);
+    bool success = entity_remove_tag(entity, tag);
+    lua_pushboolean(L, success);
+    return 1;
+}
+
+/**
+ * @brief Lua function to check if an entity has a tag.
+ */
+static int _entity_lua_has_tag(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    if (!lua_isstring(L, 2)) {
+        return luaL_error(L, "Tag must be a string");
+    }
+
+    const char *tag = lua_tostring(L, 2);
+    bool has_tag = entity_has_tag(entity, tag);
+    lua_pushboolean(L, has_tag);
+    return 1;
+}
+
+/**
+ * @brief Lua function to find entities by tag.
+ */
+static int _entity_lua_find_by_tag(lua_State *L) {
+    if (!lua_isstring(L, 1)) {
+        return luaL_error(L, "Tag must be a string");
+    }
+
+    const char *tag = lua_tostring(L, 1);
+    
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    // Find entities with tag (limit to 1000 for safety)
+    EseEntity **found = engine_find_by_tag(engine, tag, 1000);
+    if (!found) {
+        lua_newtable(L);
+        return 1;
+    }
+
+    // Count found entities
+    int count = 0;
+    while (found[count] != NULL) {
+        count++;
+    }
+
+    // Create Lua table with found entities
+    lua_newtable(L);
+    for (int i = 0; i < count; i++) {
+        entity_lua_push(found[i]);
+        lua_rawseti(L, -2, i + 1); // Lua uses 1-based indexing
+    }
+
+    // Free the result array
+    memory_manager.free(found);
+
+    return 1;
+}
+
+/**
+ * @brief Lua function to find an entity by ID.
+ */
+static int _entity_lua_find_by_id(lua_State *L) {
+    if (!lua_isstring(L, 1)) {
+        return luaL_error(L, "UUID must be a string");
+    }
+
+    const char *uuid_string = lua_tostring(L, 1);
+    
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    EseEntity *found = engine_find_by_id(engine, uuid_string);
+    if (!found) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    entity_lua_push(found);
+    return 1;
+}
+
 // Function to convert a Lua value on the stack to an EseLuaValue struct
 static EseLuaValue _convert_lua_value_to_ese_lua_value(lua_State *L, int index) {
     EseLuaValue result;
@@ -645,6 +772,26 @@ static int _entity_lua_index(lua_State *L) {
             lua_setfield(L, 1, "__data");
         }
         return 1;
+    } else if (strcmp(key, "add_tag") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_add_tag, 1);
+        return 1;
+    } else if (strcmp(key, "remove_tag") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_remove_tag, 1);
+        return 1;
+    } else if (strcmp(key, "has_tag") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_has_tag, 1);
+        return 1;
+    } else if (strcmp(key, "tags") == 0) {
+        // Return a table of all tags
+        lua_newtable(L);
+        for (size_t i = 0; i < entity->tag_count; i++) {
+            lua_pushstring(L, entity->tags[i]);
+            lua_rawseti(L, -2, i + 1); // Lua uses 1-based indexing
+        }
+        return 1;
     }
 
     return 0;
@@ -832,6 +979,14 @@ void entity_lua_init(EseLuaEngine *engine) {
         lua_pushlightuserdata(engine->runtime, engine);
         lua_pushcclosure(engine->runtime, _entity_lua_new, 1);
         lua_setfield(engine->runtime, -2, "new");
+        
+        // Add static tag functions
+        lua_pushcfunction(engine->runtime, _entity_lua_find_by_tag);
+        lua_setfield(engine->runtime, -2, "find_by_tag");
+        
+        lua_pushcfunction(engine->runtime, _entity_lua_find_by_id);
+        lua_setfield(engine->runtime, -2, "find_by_id");
+        
         lua_setglobal(engine->runtime, "Entity");
     } else {
         lua_pop(engine->runtime, 1);

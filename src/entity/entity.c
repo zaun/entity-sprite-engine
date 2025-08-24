@@ -45,6 +45,21 @@ EseEntity *entity_copy(EseEntity *entity) {
         copy->components[i] = dst_comp;
     }
 
+    // Copy tags
+    if (entity->tag_count > 0) {
+        copy->tags = memory_manager.malloc(sizeof(char*) * entity->tag_capacity, MMTAG_ENTITY);
+        copy->tag_capacity = entity->tag_capacity;
+        copy->tag_count = entity->tag_count;
+        
+        for (size_t i = 0; i < entity->tag_count; ++i) {
+            copy->tags[i] = memory_manager.strdup(entity->tags[i], MMTAG_ENTITY);
+        }
+    } else {
+        copy->tags = NULL;
+        copy->tag_count = 0;
+        copy->tag_capacity = 0;
+    }
+
     // Copy default props
     copy->default_props = dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy);
 
@@ -63,6 +78,12 @@ void entity_destroy(EseEntity *entity) {
         entity_component_destroy(entity->components[i]);
     }
     memory_manager.free(entity->components);
+
+    // Clean up tags
+    for (size_t i = 0; i < entity->tag_count; ++i) {
+        memory_manager.free(entity->tags[i]);
+    }
+    memory_manager.free(entity->tags);
 
     if (entity->lua_ref != LUA_NOREF) {
         luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
@@ -242,4 +263,100 @@ bool entity_add_prop(EseEntity *entity, EseLuaValue *value) {
 int entity_get_lua_ref(EseEntity *entity) {
     log_assert("ENTITY", entity, "entity_component_remove called with NULL entity");
     return entity->lua_ref;
+}
+
+// Tag management functions
+
+/**
+ * @brief Helper function to capitalize a string and truncate to MAX_TAG_LENGTH
+ */
+static void _normalize_tag(char *dest, const char *src) {
+    size_t i = 0;
+    while (src[i] && i < MAX_TAG_LENGTH - 1) {
+        if (src[i] >= 'a' && src[i] <= 'z') {
+            dest[i] = src[i] - 32; // Convert to uppercase
+        } else {
+            dest[i] = src[i];
+        }
+        i++;
+    }
+    dest[i] = '\0';
+}
+
+bool entity_add_tag(EseEntity *entity, const char *tag) {
+    log_assert("ENTITY", entity, "entity_add_tag called with NULL entity");
+    log_assert("ENTITY", tag, "entity_add_tag called with NULL tag");
+
+    // Check if tag already exists
+    if (entity_has_tag(entity, tag)) {
+        return false;
+    }
+
+    // Expand tag array if needed
+    if (entity->tag_count == entity->tag_capacity) {
+        size_t new_capacity = entity->tag_capacity == 0 ? 4 : entity->tag_capacity * 2;
+        char **new_tags = memory_manager.realloc(
+            entity->tags, 
+            sizeof(char*) * new_capacity, 
+            MMTAG_ENTITY
+        );
+        if (!new_tags) {
+            log_error("ENTITY", "entity_add_tag: failed to allocate memory for tags");
+            return false;
+        }
+        entity->tags = new_tags;
+        entity->tag_capacity = new_capacity;
+    }
+
+    // Allocate and normalize the tag
+    char *normalized_tag = memory_manager.malloc(MAX_TAG_LENGTH, MMTAG_ENTITY);
+    if (!normalized_tag) {
+        log_error("ENTITY", "entity_add_tag: failed to allocate memory for tag string");
+        return false;
+    }
+
+    _normalize_tag(normalized_tag, tag);
+    entity->tags[entity->tag_count++] = normalized_tag;
+
+    return true;
+}
+
+bool entity_remove_tag(EseEntity *entity, const char *tag) {
+    log_assert("ENTITY", entity, "entity_remove_tag called with NULL entity");
+    log_assert("ENTITY", tag, "entity_remove_tag called with NULL tag");
+
+    char normalized_tag[MAX_TAG_LENGTH];
+    _normalize_tag(normalized_tag, tag);
+
+    for (size_t i = 0; i < entity->tag_count; i++) {
+        if (strcmp(entity->tags[i], normalized_tag) == 0) {
+            // Free the tag string
+            memory_manager.free(entity->tags[i]);
+            
+            // Shift remaining tags down
+            for (size_t j = i; j < entity->tag_count - 1; j++) {
+                entity->tags[j] = entity->tags[j + 1];
+            }
+            entity->tag_count--;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool entity_has_tag(EseEntity *entity, const char *tag) {
+    log_assert("ENTITY", entity, "entity_has_tag called with NULL entity");
+    log_assert("ENTITY", tag, "entity_has_tag called with NULL tag");
+
+    char normalized_tag[MAX_TAG_LENGTH];
+    _normalize_tag(normalized_tag, tag);
+
+    for (size_t i = 0; i < entity->tag_count; i++) {
+        if (strcmp(entity->tags[i], normalized_tag) == 0) {
+            return true;
+        }
+    }
+
+    return false;
 }

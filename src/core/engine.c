@@ -10,10 +10,10 @@
 #include "vendor/lua/src/lauxlib.h"
 #include "graphics/render_list.h"
 #include "platform/renderer.h"
-#include "platform/filesystem.h"
 #include "core/engine_lua.h"
 #include "core/engine_private.h"
 #include "core/engine.h"
+#include "utility/double_linked_list.h"
 
  
 EseEngine *engine_create(const char *startup_script) {
@@ -293,4 +293,74 @@ EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int m
 // Asset manager passthorugh functions
 EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id) {
     return asset_manager_get_sprite(engine->asset_manager, sprite_id);
+}
+
+// Tag system functions
+
+/**
+ * @brief Helper function to capitalize a string and truncate to MAX_TAG_LENGTH
+ */
+static void _normalize_tag(char *dest, const char *src) {
+    size_t i = 0;
+    while (src[i] && i < 16 - 1) { // MAX_TAG_LENGTH is 16
+        if (src[i] >= 'a' && src[i] <= 'z') {
+            dest[i] = src[i] - 32; // Convert to uppercase
+        } else {
+            dest[i] = src[i];
+        }
+        i++;
+    }
+    dest[i] = '\0';
+}
+
+EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count) {
+    log_assert("ENGINE", engine, "engine_find_by_tag called with NULL engine");
+    log_assert("ENGINE", tag, "engine_find_by_tag called with NULL tag");
+
+    char normalized_tag[16]; // MAX_TAG_LENGTH
+    _normalize_tag(normalized_tag, tag);
+
+    // Allocate result array (max_count + 1 for NULL terminator)
+    EseEntity **result = memory_manager.malloc(sizeof(EseEntity*) * (max_count + 1), MMTAG_ENGINE);
+    if (!result) {
+        log_error("ENGINE", "engine_find_by_tag: failed to allocate result array");
+        return NULL;
+    }
+
+    int found_count = 0;
+    void *entity_value;
+    EseDListIter *iter = dlist_iter_create(engine->entities);
+
+    while (dlist_iter_next(iter, &entity_value) && found_count < max_count) {
+        EseEntity *entity = (EseEntity*)entity_value;
+        if (entity && entity->active && entity_has_tag(entity, normalized_tag)) {
+            result[found_count++] = entity;
+        }
+    }
+
+    dlist_iter_free(iter);
+
+    // NULL-terminate the array
+    result[found_count] = NULL;
+
+    return result;
+}
+
+EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
+    log_assert("ENGINE", engine, "engine_find_by_id called with NULL engine");
+    log_assert("ENGINE", uuid_string, "engine_find_by_id called with NULL uuid_string");
+
+    void *entity_value;
+    EseDListIter *iter = dlist_iter_create(engine->entities);
+
+    while (dlist_iter_next(iter, &entity_value)) {
+        EseEntity *entity = (EseEntity*)entity_value;
+        if (entity && entity->active && strcmp(entity->id->value, uuid_string) == 0) {
+            dlist_iter_free(iter);
+            return entity;
+        }
+    }
+
+    dlist_iter_free(iter);
+    return NULL;
 }

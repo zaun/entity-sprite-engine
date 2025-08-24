@@ -153,6 +153,33 @@ bool entity_component_remove(EseEntity *entity, const char *id);
  */
 bool entity_add_prop(EseEntity *entity, EseLuaValue *value);
 
+/**
+ * @brief Adds a tag to an entity.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @param tag Tag string to add (will be capitalized and truncated to 16 characters)
+ * @return true if tag was added, false if already exists or on failure
+ */
+bool entity_add_tag(EseEntity *entity, const char *tag);
+
+/**
+ * @brief Removes a tag from an entity.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @param tag Tag string to remove
+ * @return true if tag was removed, false if not found
+ */
+bool entity_remove_tag(EseEntity *entity, const char *tag);
+
+/**
+ * @brief Checks if an entity has a specific tag.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @param tag Tag string to check
+ * @return true if entity has the tag, false otherwise
+ */
+bool entity_has_tag(EseEntity *entity, const char *tag);
+
 int entity_get_lua_ref(EseEntity *entity);
 
 #endif // ESE_ENTITY_H
