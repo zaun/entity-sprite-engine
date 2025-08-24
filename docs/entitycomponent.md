@@ -142,6 +142,7 @@ Creates a new collider component for collision detection.
 **Properties:**
 - `id` → UUID string (read-only)  
 - `active` → boolean (read/write, controls collision detection)  
+- `draw_debug` → boolean (read/write, controls debug visualization)  
 - `rects` → a **proxy collection** of `Rect` objects (read-only reference)  
 
 ### Rects Proxy API
@@ -164,6 +165,7 @@ The `rects` property is a proxy table with array-like access and methods:
 ```lua
 local collider = EntityComponentCollider.new()
 collider.active = true
+collider.draw_debug = true  -- Enable debug visualization
 
 -- Add collision rectangles
 collider.rects:add(Rect.new(0, 0, 32, 32))      -- Main body
@@ -244,29 +246,56 @@ Creates a new map component for rendering tile-based maps.
 - **Tile-based rendering** - renders maps using the engine's tile rendering system
 - **Position centering** - the component centers the map on a specific map cell position
 - **Dynamic map switching** - can change maps at runtime by modifying the map property
+- **Tileset integration** - works with the Tileset system for sprite selection
 
 **Properties:**
 - `id` → UUID string (read-only)  
 - `active` → boolean (read/write, controls rendering)  
-- `map` → string (map asset name, read/write)  
-- `map_pos` → `Point` object (map cell position to center on, read/write)  
+- `map` → `Map` object (map to render, read/write)  
+- `position` → `Point` object (map cell position to center on, read/write)  
 - `size` → integer (tile size in pixels, read/write)  
 - `seed` → integer (random seed for procedural generation, read/write)  
 
 **Example:**
 ```lua
-local map = EntityComponentMap.new("maps/level1.tmx")
-map.active = true
-map.size = 32  -- 32x32 pixel tiles
-map.map_pos.x = 10  -- Center on map cell (10, 5)
-map.map_pos.y = 5
+local map_comp = EntityComponentMap.new()
+map_comp.active = true
+map_comp.size = 32  -- 32x32 pixel tiles
+map_comp.position.x = 10  -- Center on map cell (10, 5)
+map_comp.position.y = 5
 
--- Change map at runtime
-map.map = "maps/level2.tmx"
+-- Set map at runtime
+map_comp.map = some_map_object
 
 -- Adjust rendering position
-map.map_pos.x = 15
-map.map_pos.y = 8
+map_comp.position.x = 15
+map_comp.position.y = 8
+```
+
+**Advanced Usage with Tilesets:**
+```lua
+-- Create a map component with procedural generation
+local map_comp = EntityComponentMap.new()
+map_comp.active = true
+map_comp.size = 32
+map_comp.seed = 42  -- Set seed for consistent generation
+
+-- Create a tileset for variety
+local tileset = Tiles.new()
+tileset:add_sprite(1, "grass_1.png", 15)
+tileset:add_sprite(1, "grass_2.png", 10)
+tileset:add_sprite(2, "stone_1.png", 8)
+tileset:add_sprite(2, "stone_2.png", 6)
+
+-- Create a map and associate the tileset
+local world_map = Map.new(64, 48, "grid")
+world_map:set_tileset(tileset)
+world_map.title = "Procedural World"
+
+-- Use the map in the component
+map_comp.map = world_map
+map_comp.position.x = 32  -- Center on middle of map
+map_comp.position.y = 24
 ```
 
 ---
