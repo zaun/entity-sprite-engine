@@ -4,6 +4,8 @@
 #include <string.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
+#define MAP_PROXY_META "EntityComponentMapProxyMeta"
+
 typedef struct EseMap EseMap;
 typedef struct EsePoint EsePoint;
 typedef struct lua_State lua_State;

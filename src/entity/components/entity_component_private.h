@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "entity/entity.h"
 
+#define SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
+
 // Forward declarations
 typedef struct EseEntity EseEntity;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -14,6 +16,7 @@ typedef enum {
     ENTITY_COMPONENT_LUA,
     ENTITY_COMPONENT_MAP,
     ENTITY_COMPONENT_SPRITE,
+    ENTITY_COMPONENT_TEXT,
 } EntityComponentType;
 
 /**
@@ -31,7 +34,7 @@ typedef struct EseEntityComponent {
     void *data;                     /**< Component-specific data (cast to specific type) */
 
     EseEntity *entity;              /**< EseEntity this component belongs to */
-    EseLuaEngine *lua;             /**< EseLuaEngine this component belongs to */
+    EseLuaEngine *lua;              /**< EseLuaEngine this component belongs to */
     int lua_ref;                    /**< Lua registry reference to its own proxy table */
 } EseEntityComponent;
 

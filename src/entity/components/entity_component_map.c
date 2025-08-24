@@ -10,8 +10,6 @@
 #include "entity/entity_private.h"
 #include "types/types.h"
 
-#define PROXY_META "EntityComponentMapProxyMeta"
-
 static void _entity_component_map_register(EseEntityComponentMap *component, bool is_lua_owned)
 {
     log_assert("ENTITY_COMP", component, "_entity_component_map_register called with NULL component");
@@ -25,7 +23,7 @@ static void _entity_component_map_register(EseEntityComponentMap *component, boo
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, PROXY_META);
+    luaL_getmetatable(component->base.lua->runtime, MAP_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -148,7 +146,7 @@ EseEntityComponentMap *_entity_component_map_get(lua_State *L, int idx)
     }
 
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, PROXY_META);
+    luaL_getmetatable(L, MAP_PROXY_META);
 
     // Compare metatables
     if (!lua_rawequal(L, -1, -2))
@@ -398,9 +396,9 @@ void _entity_component_map_init(EseLuaEngine *engine)
     lua_State *L = engine->runtime;
 
     // Register EntityComponentMap metatable
-    if (luaL_newmetatable(L, PROXY_META))
+    if (luaL_newmetatable(L, MAP_PROXY_META))
     {
-        log_debug("LUA", "Adding %s to engine", PROXY_META);
+        log_debug("LUA", "Adding %s to engine", MAP_PROXY_META);
         lua_pushcfunction(L, _entity_component_map_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_map_newindex);

@@ -27,7 +27,7 @@ static void _entity_component_collider_register(EseEntityComponentCollider *comp
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, "EntityComponentColliderProxyMeta");
+    luaL_getmetatable(component->base.lua->runtime, COLLIDER_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -108,15 +108,19 @@ void _entity_component_collider_update(EseEntityComponentCollider *component, Es
  * @warning Items created in Lua are owned by Lua
  */
 static int _entity_component_collider_new(lua_State *L) {
-    const char *collider_name = NULL;
+    EseRect *rect = NULL;
 
     int n_args = lua_gettop(L);
-    if (n_args == 1 && lua_isstring(L, 1)) {
-        collider_name = lua_tostring(L, 1);
-    } else if (n_args == 1 && !lua_isstring(L, 1)) {
-        log_debug("ENTITY_COMP", "Script must be a string, ignored");
-    } else if (n_args != 0) {
-        log_debug("ENTITY_COMP", "EntityComponentCollider.new() or EntityComponentCollider.new(String)");
+    if (n_args == 1) {
+        // The rect parameter is at index 1 (first argument to the function)
+        EseRect *rect = rect_lua_get(L, 1);
+        if (rect == NULL) {
+            luaL_argerror(L, 1, "EntityComponentCollider.new() or EntityComponentCollider.new(Rect)");
+            return 0;
+        }
+    } else if (n_args > 1) {
+        luaL_argerror(L, 1, "EntityComponentCollider.new() or EntityComponentCollider.new(Rect)");
+        return 0;
     }
 
     // Set engine reference
@@ -129,6 +133,10 @@ static int _entity_component_collider_new(lua_State *L) {
     _entity_component_collider_register((EseEntityComponentCollider *)component->data, true);
     entity_component_push(component);
     
+    if (rect) {
+        entity_component_collider_rects_add((EseEntityComponentCollider *)component->data, rect);
+    }
+
     return 1;
 }
 
@@ -144,7 +152,7 @@ EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, "EntityComponentColliderProxyMeta");
+    luaL_getmetatable(L, COLLIDER_PROXY_META);
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -563,7 +571,7 @@ void _entity_component_collider_init(EseLuaEngine *engine) {
     lua_State *L = engine->runtime;
     
     // Register EseEntityComponentCollider metatable
-    if (luaL_newmetatable(L, "EntityComponentColliderProxyMeta")) {
+    if (luaL_newmetatable(L, COLLIDER_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentColliderProxyMeta to engine");
         lua_pushcfunction(L, _entity_component_collider_index);
         lua_setfield(L, -2, "__index");

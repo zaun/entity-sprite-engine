@@ -12,8 +12,6 @@
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 
-#define PROXY_META "EntityComponentSpriteProxyMeta"
-
 static void _entity_component_sprite_register(EseEntityComponentSprite *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_sprite_register called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_sprite_register component is already registered");
@@ -26,7 +24,7 @@ static void _entity_component_sprite_register(EseEntityComponentSprite *componen
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, PROXY_META);
+    luaL_getmetatable(component->base.lua->runtime, SPRITE_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -42,11 +40,15 @@ static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, c
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_SPRITE;
 
-    EseSprite *sprite = NULL;
     if (sprite_name != NULL) {
         EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(engine->runtime, ENGINE_KEY);
         component->sprite_name = memory_manager.strdup(sprite_name, MMTAG_ENTITY);
         component->sprite = engine_get_sprite(game_engine, component->sprite_name);
+        if (component->sprite == NULL) {
+            log_debug("ENTITY_COMP", "Sprite '%s' not found", sprite_name);
+        } else {
+            log_debug("ENTITY_COMP", "Sprite '%s' found, frame count: %d", sprite_name, sprite_get_frame_count(component->sprite));
+        }
     } else {
         component->sprite_name = NULL;
         component->sprite = NULL;
@@ -145,7 +147,7 @@ EseEntityComponentSprite *_entity_component_sprite_get(lua_State *L, int idx) {
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, PROXY_META);
+    luaL_getmetatable(L, SPRITE_PROXY_META);
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -312,7 +314,7 @@ void _entity_component_sprite_init(EseLuaEngine *engine) {
     lua_State *L = engine->runtime;
     
     // Register EntityComponentSprite metatable
-    if (luaL_newmetatable(L, PROXY_META)) {
+    if (luaL_newmetatable(L, SPRITE_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentSpriteProxyMeta to engine");
         lua_pushcfunction(L, _entity_component_sprite_index);
         lua_setfield(L, -2, "__index");

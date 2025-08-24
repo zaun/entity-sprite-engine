@@ -20,7 +20,7 @@ static void _entity_component_lua_register(EseEntityComponentLua *component, boo
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, "EntityComponentLuaProxyMeta");
+    luaL_getmetatable(component->base.lua->runtime, LUA_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -145,7 +145,7 @@ EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx) {
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, "EntityComponentLuaProxyMeta");
+    luaL_getmetatable(L, LUA_PROXY_META);
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -313,7 +313,7 @@ void _entity_component_lua_init(EseLuaEngine *engine) {
     lua_State *L = engine->runtime;
     
     // Register EseEntityComponentLua metatable
-    if (luaL_newmetatable(L, "EntityComponentLuaProxyMeta")) {
+    if (luaL_newmetatable(L, LUA_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentLuaProxyMeta to engine");
         lua_pushcfunction(L, _entity_component_lua_index);
         lua_setfield(L, -2, "__index");

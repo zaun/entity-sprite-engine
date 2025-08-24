@@ -10,6 +10,7 @@
 #include "entity/components/entity_component_map.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_sprite.h"
+#include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component.h"
 
 void entity_component_lua_init(EseLuaEngine *engine) {
@@ -17,6 +18,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     _entity_component_lua_init(engine);
     _entity_component_map_init(engine);
     _entity_component_sprite_init(engine);
+    _entity_component_text_init(engine);
 }
 
 EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
@@ -29,8 +31,14 @@ EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
         case ENTITY_COMPONENT_LUA:
             return _entity_component_lua_copy((EseEntityComponentLua*)component->data);
             break;
+        case ENTITY_COMPONENT_MAP:
+            return _entity_component_map_copy((EseEntityComponentMap*)component->data);
+            break;
         case ENTITY_COMPONENT_SPRITE:
             return _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
+            break;
+        case ENTITY_COMPONENT_TEXT:
+            return _entity_component_text_copy((EseEntityComponentText*)component->data);
             break;
         default:
             return NULL;
@@ -58,6 +66,9 @@ void entity_component_destroy(EseEntityComponent* component) {
             break;
         case ENTITY_COMPONENT_SPRITE:
             _entity_component_sprite_destroy((EseEntityComponentSprite*)component->data);
+            break;
+        case ENTITY_COMPONENT_TEXT:
+            _entity_component_text_destroy((EseEntityComponentText*)component->data);
             break;
         default:
             log_error("ENTITY", "Can't free unknown component type");
@@ -88,6 +99,9 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
             break;
         case ENTITY_COMPONENT_SPRITE:
             _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
+            break;
+        case ENTITY_COMPONENT_TEXT:
+            _entity_component_text_update((EseEntityComponentText*)component->data, entity, delta_time);
             break;
         default:
             log_debug("ENTITY_COMP", "Unknown TYPE updaging EseEntityComponent %s", component->id->value);
@@ -185,6 +199,13 @@ void entity_component_draw(
             );
             break;
         }
+        case ENTITY_COMPONENT_TEXT: {
+            _entity_component_text_draw(
+                (EseEntityComponentText*)component->data,
+                screen_x, screen_y, texCallback, callback_user_data
+            );
+            break;
+        }
         default:
             break;
     }
@@ -235,7 +256,7 @@ EseEntityComponent *entity_component_get(lua_State *L) {
 
     lua_pop(L, 2);
 
-    if (strcmp(metatable_name, "EntityComponentColliderProxyMeta") == 0) {
+    if (strcmp(metatable_name, COLLIDER_PROXY_META) == 0) {
         EseEntityComponentCollider *collider_comp = _entity_component_collider_get(L, 1);
         if (collider_comp == NULL) {
             luaL_error(L, "internal error: Collider metatable name identified, but _get returned NULL.");
@@ -249,20 +270,27 @@ EseEntityComponent *entity_component_get(lua_State *L) {
             return  NULL;
         }
         return &lua_comp->base;
-    } else if (strcmp(metatable_name, "EntityComponentMapProxyMeta") == 0) {
+    } else if (strcmp(metatable_name, MAP_PROXY_META) == 0) {
         EseEntityComponentMap *map_comp = _entity_component_map_get(L, 1);
         if (map_comp == NULL) {
             luaL_error(L, "internal error: Map metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &map_comp->base;
-    } else if (strcmp(metatable_name, "EntityComponentSpriteProxyMeta") == 0) {
+    } else if (strcmp(metatable_name, SPRITE_PROXY_META) == 0) {
         EseEntityComponentSprite *sprite_comp = _entity_component_sprite_get(L, 1);
         if (sprite_comp == NULL) {
             luaL_error(L, "internal error: Sprite metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &sprite_comp->base;
+    } else if (strcmp(metatable_name, TEXT_PROXY_META) == 0) {
+        EseEntityComponentText *text_comp = _entity_component_text_get(L, 1);
+        if (text_comp == NULL) {
+            luaL_error(L, "internal error: Text metatable name identified, but _get returned NULL.");
+            return NULL;
+        }
+        return &text_comp->base;
     } else {
         luaL_error(L, "unknown component type with metatable name: %s", metatable_name);
         return NULL;
