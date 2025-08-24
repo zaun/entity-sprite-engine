@@ -429,16 +429,12 @@ void _entity_component_map_init(EseLuaEngine *engine)
     }
 }
 
-void _entity_component_map_draw(
+void _entity_component_map_draw_grid(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
     void *callback_user_data)
 {
-    if (!component->map) {
-        log_debug("ENTITY_COMP_MAP", "map not set");
-        return;
-    }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
     tileset_set_seed(component->map->tileset, component->seed);
@@ -491,6 +487,236 @@ void _entity_component_map_draw(
                     callback_user_data);
             }
         }
+    }
+}
+
+void _entity_component_map_draw_hex_point_up(
+    EseEntityComponentMap *component,
+    float screen_x, float screen_y,
+    EntityDrawTextureCallback texCallback,
+    void *callback_user_data)
+{
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
+    tileset_set_seed(component->map->tileset, component->seed);
+
+    // For hex point up: width = height * sqrt(3) / 2
+    const int th = component->size;
+    const int tw = (int)(th * 0.866025f); // sqrt(3) / 2 ≈ 0.866025
+
+    // center cell
+    float cx = component->map_pos->x;
+    float cy = component->map_pos->y;
+
+    for (uint32_t y = 0; y < component->map->height; y++)
+    {
+        for (uint32_t x = 0; x < component->map->width; x++)
+        {
+            EseMapCell *cell = map_get_cell(component->map, x, y);
+            
+            // Hex point up positioning: offset every other row
+            float dx = screen_x + (x - cx) * tw;
+            float dy = screen_y + (y - cy) * (th * 0.75f); // 3/4 of height for vertical spacing
+            
+            // Offset odd rows by half width
+            if (y % 2 == 1) {
+                dx += tw / 2.0f;
+            }
+
+            for (size_t i = 0; i < cell->layer_count; i++)
+            {
+                uint8_t tid = cell->tile_ids[i];
+                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                if (!sprite_id)
+                {
+                    continue;
+                }
+
+                EseSprite *sprite = engine_get_sprite(engine, sprite_id);
+                if (!sprite) {
+                    continue;
+                }
+
+                int z_index = component->base.entity->draw_order;
+                z_index += y * component->map->width;
+                z_index += x;
+
+                const char *texture_id;
+                float x1, y1, x2, y2;
+                int w, h;
+                sprite_get_frame(
+                    sprite, component->sprite_frames[y * component->map->width + x],
+                    &texture_id, &x1, &y1, &x2, &y2, &w, &h
+                );
+
+                texCallback(
+                    dx, dy, tw, th,
+                    z_index,
+                    texture_id, x1, y1, x2, y2, w, h,
+                    callback_user_data);
+            }
+        }
+    }
+}
+
+void _entity_component_map_draw_hex_flat_up(
+    EseEntityComponentMap *component,
+    float screen_x, float screen_y,
+    EntityDrawTextureCallback texCallback,
+    void *callback_user_data)
+{
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
+    tileset_set_seed(component->map->tileset, component->seed);
+
+    // For hex flat up: width = height * 2 / sqrt(3)
+    const int th = component->size;
+    const int tw = (int)(th * 1.154701f); // 2 / sqrt(3) ≈ 1.154701
+
+    // center cell
+    float cx = component->map_pos->x;
+    float cy = component->map_pos->y;
+
+    for (uint32_t y = 0; y < component->map->height; y++)
+    {
+        for (uint32_t x = 0; x < component->map->width; x++)
+        {
+            EseMapCell *cell = map_get_cell(component->map, x, y);
+            
+            // Hex flat up positioning: offset every other column
+            float dx = screen_x + (x - cx) * (tw * 0.75f); // 3/4 of width for horizontal spacing
+            float dy = screen_y + (y - cy) * th;
+            
+            // Offset odd columns by half height
+            if (x % 2 == 1) {
+                dy += th / 2.0f;
+            }
+
+            for (size_t i = 0; i < cell->layer_count; i++)
+            {
+                uint8_t tid = cell->tile_ids[i];
+                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                if (!sprite_id)
+                {
+                    continue;
+                }
+
+                EseSprite *sprite = engine_get_sprite(engine, sprite_id);
+                if (!sprite) {
+                    continue;
+                }
+
+                int z_index = component->base.entity->draw_order;
+                z_index += y * component->map->width;
+                z_index += x;
+
+                const char *texture_id;
+                float x1, y1, x2, y2;
+                int w, h;
+                sprite_get_frame(
+                    sprite, component->sprite_frames[y * component->map->width + x],
+                    &texture_id, &x1, &y1, &x2, &y2, &w, &h
+                );
+
+                texCallback(
+                    dx, dy, tw, th,
+                    z_index,
+                    texture_id, x1, y1, x2, y2, w, h,
+                    callback_user_data);
+            }
+        }
+    }
+}
+
+void _entity_component_map_draw_iso(
+    EseEntityComponentMap *component,
+    float screen_x, float screen_y,
+    EntityDrawTextureCallback texCallback,
+    void *callback_user_data)
+{
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
+    tileset_set_seed(component->map->tileset, component->seed);
+
+    // For isometric: width = height * 2 (standard 2:1 isometric ratio)
+    const int th = component->size;
+    const int tw = th * 2;
+
+    // center cell
+    float cx = component->map_pos->x;
+    float cy = component->map_pos->y;
+
+    for (uint32_t y = 0; y < component->map->height; y++)
+    {
+        for (uint32_t x = 0; x < component->map->width; x++)
+        {
+            EseMapCell *cell = map_get_cell(component->map, x, y);
+            
+            // Isometric positioning: diamond-shaped grid
+            float dx = screen_x + (x - cx) * (tw / 2.0f) - (y - cy) * (tw / 2.0f);
+            float dy = screen_y + (x - cx) * (th / 2.0f) + (y - cy) * (th / 2.0f);
+
+            for (size_t i = 0; i < cell->layer_count; i++)
+            {
+                uint8_t tid = cell->tile_ids[i];
+                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                if (!sprite_id)
+                {
+                    continue;
+                }
+
+                EseSprite *sprite = engine_get_sprite(engine, sprite_id);
+                if (!sprite) {
+                    continue;
+                }
+
+                int z_index = component->base.entity->draw_order;
+                z_index += y * component->map->width;
+                z_index += x;
+
+                const char *texture_id;
+                float x1, y1, x2, y2;
+                int w, h;
+                sprite_get_frame(
+                    sprite, component->sprite_frames[y * component->map->width + x],
+                    &texture_id, &x1, &y1, &x2, &y2, &w, &h
+                );
+
+                texCallback(
+                    dx, dy, tw, th,
+                    z_index,
+                    texture_id, x1, y1, x2, y2, w, h,
+                    callback_user_data);
+            }
+        }
+    }
+}
+
+void _entity_component_map_draw(
+    EseEntityComponentMap *component,
+    float screen_x, float screen_y,
+    EntityDrawTextureCallback texCallback,
+    void *callback_user_data)
+{
+    if (!component->map) {
+        log_debug("ENTITY_COMP_MAP", "map not set");
+        return;
+    }
+
+    switch(component->map->type)
+    {
+        case MAP_TYPE_GRID:
+            _entity_component_map_draw_grid(component, screen_x, screen_y, texCallback, callback_user_data);
+            break;
+        case MAP_TYPE_HEX_POINT_UP:
+            _entity_component_map_draw_hex_point_up(component, screen_x, screen_y, texCallback, callback_user_data);
+            break;
+        case MAP_TYPE_HEX_FLAT_UP:
+            _entity_component_map_draw_hex_flat_up(component, screen_x, screen_y, texCallback, callback_user_data);
+            break;
+        case MAP_TYPE_ISO:
+            _entity_component_map_draw_iso(component, screen_x, screen_y, texCallback, callback_user_data);
+            break;
+        default:
+            log_debug("ENTITY_COMP_MAP", "map type not supported");
+            break;
     }
 }
 
