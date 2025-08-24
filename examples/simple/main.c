@@ -1,6 +1,5 @@
 // main.c
 #include <execinfo.h>
-#include <mach/mach_time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
@@ -8,6 +7,7 @@
 #include "core/engine.h"
 #include "platform/renderer.h"
 #include "platform/window.h"
+#include "platform/time.h"
 #include "core/memory_manager.h"
 
 void segfault_handler(int signo, siginfo_t *info, void *context) {
@@ -49,16 +49,16 @@ int main(int argc, char *argv[]) {
     engine_start(engine);
 
     // Time setup
-    uint64_t prev_time = mach_absolute_time();
-    mach_timebase_info_data_t timebase;
-    mach_timebase_info(&timebase);
+    uint64_t prev_time = time_now();
+    uint32_t timebase_numer, timebase_denom;
+    time_get_conversion_factor(&timebase_numer, &timebase_denom);
 
     EseInputState input_state;
     while(!window_should_close(window)) {
         // Calculate delta time in seconds
-        uint64_t now = mach_absolute_time();
-        double delta = (double)(now - prev_time) * (double)timebase.numer /
-                        (double)timebase.denom / 1e9;
+        uint64_t now = time_now();
+        double delta = (double)(now - prev_time) * (double)timebase_numer /
+                        (double)timebase_denom / 1e9;
         prev_time = now;
 
         window_process(window, &input_state);

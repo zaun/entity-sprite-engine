@@ -45,6 +45,7 @@ if(PLATFORM STREQUAL "MAC")
         "src/platform/mac/filesystem.m"
         "src/platform/mac/renderer.m"
         "src/platform/mac/renderer_delegate.m"
+        "src/platform/mac/time.m"
     )
 elseif(PLATFORM STREQUAL "LINUX")
     message(STATUS "Building with Linux platform")
@@ -55,6 +56,7 @@ elseif(PLATFORM STREQUAL "LINUX")
         "src/platform/glfw/window.c"
         "src/platform/glfw/filesystem.c"
         "src/platform/glfw/renderer.c"
+        "src/platform/glfw/time.c"
     )
 else()
     # This case should ideally not be reached, but it's good practice to handle it.
