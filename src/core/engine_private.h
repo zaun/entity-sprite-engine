@@ -12,6 +12,7 @@
 #define ESE_ENGINE_PRIVATE_H
 
 #include "core/asset_manager.h"
+#include "core/console.h"
 #include "core/engine.h"
 #include "entity/entity.h"
 #include "scripting/lua_engine.h"
@@ -35,7 +36,10 @@ struct EseEngine {
     EseAssetManager *asset_manager;     /**< Pointer to the engine's asset manager */
     EseLuaEngine *lua_engine;           /**< Pointer to the Lua scripting engine */
 
+    EseConsole *console;                /**< Pointer to the engine's console */
+
     int startup_ref;                    /**< Reference to the startup script in the Lua registry */
+    bool draw_console;                  /**< Whether to draw the console */
 
     bool isRunning;
 };

@@ -13,6 +13,7 @@
 #include "types/camera.h"
 #include "types/display.h"
 #include "types/input_state.h"
+#include "core/console.h"
 
 typedef struct EseEntity EseEntity;
 typedef struct EseEngine EseEngine;
@@ -45,6 +46,17 @@ EseEngine *engine_create(const char *startup_script);
  */
 void engine_destroy(EseEngine *engine);
 
+/**
+ * @brief Sets the renderer for the engine.
+ * 
+ * @details This function assigns a renderer to the engine and sets up the render list.
+ *          If a renderer was previously set, the old asset manager is destroyed and a new one is created.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param renderer A pointer to the renderer to set, or NULL to clear the renderer.
+ * 
+ * @note This function asserts that the `engine` pointer is not NULL.
+ */
 void engine_set_renderer(EseEngine *engine, EseRenderer *renderer);
 
 /**
@@ -88,8 +100,29 @@ void engine_start(EseEngine *engine);
  */
 void engine_update(EseEngine *engine, float delta_time, const EseInputState *state);
 
+/**
+ * @brief Detects collisions between entities and a rectangular area.
+ * 
+ * @details This function checks all active entities in the engine against the specified
+ *          rectangle and returns those that intersect with it.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param rect A pointer to the rectangle to test against.
+ * @param max_count Maximum number of entities to return.
+ * @return Array of entity pointers, NULL-terminated (caller must free).
+ */
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count);
 
+/**
+ * @brief Retrieves a sprite from the engine's asset manager.
+ * 
+ * @details This function looks up a sprite by its ID in the engine's asset manager
+ *          and returns a pointer to it if found.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param sprite_id The ID of the sprite to retrieve.
+ * @return Pointer to the sprite if found, NULL otherwise.
+ */
 EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
 
 /**
@@ -110,5 +143,23 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
  * @return Pointer to the found entity, or NULL if not found
  */
 EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string);
+
+/**
+ * @brief Adds a line to the engine's console.
+ * 
+ * @param engine Pointer to the engine instance.
+ * @param type The type of console line (normal, info, warn, error).
+ * @param prefix The prefix for the console line (max 16 characters).
+ * @param message The message to display.
+ */
+void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const char *prefix, const char *message);
+
+/**
+ * @brief Sets whether the console should be drawn.
+ * 
+ * @param engine Pointer to the engine instance.
+ * @param show True to show the console, false to hide it.
+ */
+void engine_show_console(EseEngine *engine, bool show);
 
 #endif // ESE_ENGINE_H

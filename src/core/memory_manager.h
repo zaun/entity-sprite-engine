@@ -23,6 +23,7 @@ typedef enum {
     MMTAG_HASHMAP,
     MMTAG_GROUP_HASHMAP,
     MMTAG_LINKED_LIST,
+    MMTAG_CONSOLE,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

@@ -891,6 +891,125 @@ EseMap *asset_manager_get_map(
     return (EseMap *)asset->data;
 }
 
+bool asset_manager_create_font_atlas(
+    EseAssetManager *manager,
+    const char *name,
+    const unsigned char *font_data,
+    int total_chars,
+    int char_width,
+    int char_height)
+{
+    log_assert("ASSET_MANAGER", manager, "asset_manager_create_font_atlas called with NULL manager");
+    log_assert("ASSET_MANAGER", name, "asset_manager_create_font_atlas called with NULL name");
+    log_assert("ASSET_MANAGER", font_data, "asset_manager_create_font_atlas called with NULL font_data");
+
+    // Use the passed parameters for character dimensions
+    int chars_per_row = 16;  // 16 characters per row in the font bitmap
+    
+    // Calculate the total dimensions needed for the atlas
+    int atlas_width = chars_per_row * char_width;
+    int atlas_height = (total_chars / chars_per_row) * char_height;
+    
+    // Allocate RGBA buffer (4 bytes per pixel)
+    unsigned char *rgba_data = memory_manager.malloc(atlas_width * atlas_height * 4, MMTAG_ASSET);
+    if (!rgba_data) {
+        log_error("ASSET_MANAGER", "Failed to allocate RGBA buffer for font atlas");
+        return false;
+    }
+    
+    // Convert font bitmap to RGBA
+    for (int char_y = 0; char_y < (total_chars / chars_per_row); char_y++) {
+        for (int char_x = 0; char_x < chars_per_row; char_x++) {
+            int char_index = char_y * chars_per_row + char_x;
+            
+            // Calculate position in the atlas
+            int atlas_x = char_x * char_width;
+            int atlas_y = char_y * char_height;
+            
+            // Get character data from font bitmap
+            const unsigned char *char_data = font_data + (char_index * char_height * 2); // 2 bytes per row
+            
+            // Convert each pixel of the character
+            for (int y = 0; y < char_height; y++) {
+                for (int x = 0; x < char_width; x++) {
+                    int atlas_pixel_x = atlas_x + x;
+                    int atlas_pixel_y = atlas_y + y;
+                    int atlas_pixel_index = (atlas_pixel_y * atlas_width + atlas_pixel_x) * 4;
+                    
+                    // Get bit from font data (10 bits per row, stored in 2 bytes)
+                    int byte_index = x / 8;
+                    int bit_index = 7 - (x % 8); // MSB first
+                    unsigned char byte = char_data[y * 2 + byte_index];
+                    bool pixel_on = (byte & (1 << bit_index)) != 0;
+                    
+                    // Set RGBA values (white text on transparent background)
+                    rgba_data[atlas_pixel_index + 0] = pixel_on ? 255 : 0; // R
+                    rgba_data[atlas_pixel_index + 1] = pixel_on ? 255 : 0; // G
+                    rgba_data[atlas_pixel_index + 2] = pixel_on ? 255 : 0; // B
+                    rgba_data[atlas_pixel_index + 3] = pixel_on ? 255 : 0; // A
+                }
+            }
+        }
+    }
+    
+    // Load the texture using the renderer
+    if (!renderer_load_texture(manager->renderer, name, rgba_data, atlas_width, atlas_height)) {
+        log_error("ASSET_MANAGER", "Failed to load font atlas texture");
+        memory_manager.free(rgba_data);
+        return false;
+    }
+    
+    // Use the name as the texture ID for sprites
+    const char *texture_id = name;
+    
+    // Create texture asset and add to manager
+    _asset_manager_add_group(manager, "fonts");
+    EseAsset *texture_asset = _asset_create();
+    texture_asset->type = ASSET_TEXTURE;
+    
+    EseAssetTexture *texture_data = memory_manager.malloc(sizeof(EseAssetTexture), MMTAG_ASSET);
+    texture_data->width = atlas_width;
+    texture_data->height = atlas_height;
+    texture_asset->data = texture_data;
+    
+    grouped_hashmap_set(manager->textures, "fonts", name, texture_asset);
+    
+    // Create sprites for each glyph
+    for (int char_y = 0; char_y < (total_chars / chars_per_row); char_y++) {
+        for (int char_x = 0; char_x < chars_per_row; char_x++) {
+            int char_index = char_y * chars_per_row + char_x;
+            
+            // Create sprite name: "name_###" where ### is the ASCII code
+            char sprite_name[64];
+            snprintf(sprite_name, sizeof(sprite_name), "%s_%03d", name, char_index);
+            
+            // Calculate UV coordinates for this character
+            float u1 = (float)(char_x * char_width) / atlas_width;
+            float v1 = (float)(char_y * char_height) / atlas_height;
+            float u2 = (float)((char_x + 1) * char_width) / atlas_width;
+            float v2 = (float)((char_y + 1) * char_height) / atlas_height;
+            
+            // Create sprite
+            EseSprite *sprite = sprite_create();
+            if (sprite) {
+                // Add the frame to the sprite
+                sprite_add_frame(sprite, texture_id, u1, v1, u2, v2, char_width, char_height);
+                
+                EseAsset *sprite_asset = _asset_create();
+                sprite_asset->type = ASSET_SPRITE;
+                sprite_asset->data = sprite;
+                grouped_hashmap_set(manager->sprites, "fonts", sprite_name, sprite_asset);
+            }
+        }
+    }
+    
+    // Free the RGBA buffer
+    memory_manager.free(rgba_data);
+    
+    log_debug("ASSET_MANAGER", "Created font atlas '%s' with %d glyphs", name, total_chars);
+    return true;
+}
+
 void asset_manager_remove_group(
     EseAssetManager *manager,
     const char *group)

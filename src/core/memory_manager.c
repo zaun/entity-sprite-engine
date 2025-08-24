@@ -126,7 +126,7 @@ MemoryManager *g_memory_manager = NULL;
 static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "LUA VM ", "RENDER ",
     "MAP    ", "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "HASHMAP", "GRPHASH",
-    "LINKLST", "TEMP   "
+    "LINKLST", "CONSOLE", "TEMP   "
 };
 
 static size_t _align_up(size_t n, size_t align) {

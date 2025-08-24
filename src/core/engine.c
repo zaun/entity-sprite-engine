@@ -10,11 +10,12 @@
 #include "vendor/lua/src/lauxlib.h"
 #include "graphics/render_list.h"
 #include "platform/renderer.h"
+#include "core/console.h"
 #include "core/engine_lua.h"
 #include "core/engine_private.h"
 #include "core/engine.h"
 #include "utility/double_linked_list.h"
-
+#include "graphics/font.h"
  
 EseEngine *engine_create(const char *startup_script) {
     log_init();
@@ -27,6 +28,7 @@ EseEngine *engine_create(const char *startup_script) {
 
     engine->renderer = NULL;
     engine->asset_manager = NULL;
+    engine->console = console_create();
 
     engine->draw_list = draw_list_create();
     engine->render_list_a = render_list_create();
@@ -66,7 +68,7 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_get_map", _lua_asset_get_map);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
     lua_engine_add_function(engine->lua_engine, "detect_collision", _lua_detect_collision);
-
+    
     // Add globals
     engine->input_state = input_state_create(engine->lua_engine);
     lua_engine_add_global(engine->lua_engine, "InputState", engine->input_state->lua_ref);
@@ -79,11 +81,12 @@ EseEngine *engine_create(const char *startup_script) {
 
     // Lock global
     lua_engine_global_lock(engine->lua_engine);
-
+    
     lua_engine_load_script(engine->lua_engine, startup_script, "STARTUP");
     engine->startup_ref = lua_engine_instance_script(engine->lua_engine, startup_script);
 
     engine->active_render_list = true;
+    engine->draw_console = false;
 
     return engine;
 }
@@ -100,6 +103,7 @@ void engine_destroy(EseEngine *engine) {
     input_state_destroy(engine->input_state);
     display_state_destroy(engine->display_state);
     camera_state_destroy(engine->camera_state);
+    console_destroy(engine->console);
 
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
@@ -145,7 +149,11 @@ void engine_set_renderer(EseEngine *engine, EseRenderer *renderer) {
     if (engine->asset_manager) {
         asset_manager_destroy(engine->asset_manager);
     }
+
     engine->asset_manager = asset_manager_create(engine->renderer);
+
+    // Add fonts
+    asset_manager_create_font_atlas(engine->asset_manager, "console_font_10x20", console_font_10x20, 256, 10, 20);
 }
 
 void engine_update(EseEngine *engine, float delta_time, const EseInputState *state) {
@@ -238,6 +246,19 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         );
     }
 	dlist_iter_free(entity_iter);
+
+    // Draw the console
+    if (engine->draw_console) {
+        console_draw(
+            engine->console,
+            engine->asset_manager,
+            view_width,
+            view_height,
+            _engine_add_texture_to_draw_list,
+            _engine_add_rect_to_draw_list,
+            engine->draw_list
+        );
+    }
 
     // Renderer update - Create a batched render list
     // incliding all texture and vertext information
@@ -344,6 +365,20 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
     result[found_count] = NULL;
 
     return result;
+}
+
+void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const char *prefix, const char *message) {
+    log_assert("ENGINE", engine, "engine_add_to_console called with NULL engine");
+    log_assert("ENGINE", prefix, "engine_add_to_console called with NULL prefix");
+    log_assert("ENGINE", message, "engine_add_to_console called with NULL message");
+    
+    console_add_line(engine->console, type, prefix, message);
+}
+
+void engine_show_console(EseEngine *engine, bool show) {
+    log_assert("ENGINE", engine, "engine_show_console called with NULL engine");
+    
+    engine->draw_console = show;
 }
 
 EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
