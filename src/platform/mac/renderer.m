@@ -578,16 +578,17 @@ void renderer_draw(EseRenderer *renderer) {
             // prepare and set small UBO via setFragmentBytes (avoids MTLBuffer reuse races)
             UniformBufferObject ubo;
             if (batch->type == RL_TEXTURE) {
-                ubo.useTexture = 1;
-                ubo.rectColor = simd_make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                ubo.useTexture.x = 1;
+                ubo.rectColor.x = 0.0f;
+                ubo.rectColor.y = 0.0f;
+                ubo.rectColor.z = 0.0f;
+                ubo.rectColor.w = 0.0f;
             } else {
-                ubo.useTexture = 0;
-                ubo.rectColor = simd_make_float4(
-                    (float)batch->shared_state.rect_color.r / 255.0f,
-                    (float)batch->shared_state.rect_color.g / 255.0f,
-                    (float)batch->shared_state.rect_color.b / 255.0f,
-                    (float)batch->shared_state.rect_color.a / 255.0f
-                );
+                ubo.useTexture.x = 0;
+                ubo.rectColor.x = (float)batch->shared_state.rect_color.r / 255.0f;
+                ubo.rectColor.y = (float)batch->shared_state.rect_color.g / 255.0f;
+                ubo.rectColor.z = (float)batch->shared_state.rect_color.b / 255.0f;
+                ubo.rectColor.w = (float)batch->shared_state.rect_color.a / 255.0f;
             }
 
             [encoder setFragmentTexture:(batch->type == RL_TEXTURE ? tex : nil) atIndex:0];

@@ -2,11 +2,25 @@
 #define ESE_RENDERER_PRIVATE_H
 
 #include <stdbool.h>
-#include <simd/simd.h>
+#include <stdint.h>
 
 typedef struct EseRenderList EseRenderList;
 typedef struct EseHashMap EseHashMap;
 typedef struct EseGroupedHashMap EseGroupedHashMap;
+
+/**
+ * @brief Platform-agnostic vector types for rendering.
+ * 
+ * @details These types provide consistent vector operations across
+ *          different platforms and graphics APIs.
+ */
+typedef struct {
+    float x, y, z, w;
+} EseVector4;
+
+typedef struct {
+    int32_t x;
+} EseVector1i;
 
 /**
  * @brief Uniform buffer object for shader parameters.
@@ -16,8 +30,8 @@ typedef struct EseGroupedHashMap EseGroupedHashMap;
  *          information for rendering decisions.
  */
 typedef struct {
-    simd_int1   useTexture;         /**< Flag indicating whether to use texture (1) or color (0) */
-    simd_float4 rectColor;          /**< RGBA color for rectangle rendering */
+    EseVector1i useTexture;         /**< Flag indicating whether to use texture (1) or color (0) */
+    EseVector4  rectColor;          /**< RGBA color for rectangle rendering */
 } UniformBufferObject;
 
 /**
