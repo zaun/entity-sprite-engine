@@ -155,7 +155,6 @@ Removes a tile layer by index (0-based).
 - **0-based indexing** - first layer is at index 0, second at index 1, etc.
 - **Bounds checking** - returns false if index is negative or >= layer_count
 - **Array shifting** - remaining layers are shifted to fill the gap
-
 - **Index validation** - always check return value to ensure removal succeeded
 
 **Example:**
