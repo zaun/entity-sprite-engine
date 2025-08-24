@@ -7,16 +7,15 @@ An entity is a container for **components** (rendering, scripts, colliders, etc.
 
 ## Overview
 
-In Lua, entities are represented as **proxy tables** with the metatable `EntityProxyMeta`.  
+In Lua, entities are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 **Important Notes:**
-- **C-owned by default** - entities created via `Entity.new()` are owned by the engine, not Lua
+- **Engine-managed** - entities created via `Entity.new()` are managed by the engine
 - **Automatic engine registration** - new entities are automatically added to the engine's entity list
 - **Component management** - the `components` property provides a proxy table with array-like access and methods
 - **Custom data storage** - the `data` property is a Lua table for storing arbitrary script data
 - **Position is a Point object** - you cannot assign a new Point, but you can modify the existing one's x and y values
-- **Memory safety** - the engine automatically manages entity lifecycle and prevents access to freed entities
 
 ```lua
 -- Create a new entity
@@ -52,7 +51,7 @@ Creates a new entity and automatically registers it with the engine.
 
 **Notes:**
 - **Automatically registered** - the new entity is immediately added to the engine's entity list
-- **C-owned** - the entity is owned by the engine, not by Lua
+- **Engine-managed** - the entity is managed by the engine
 - **Default values** - entity starts at position (0,0), active=true, draw_order=0
 - **Unique ID** - each entity gets a unique UUID generated automatically
 - **Position object** - a new `Point` object is created and assigned to the entity
@@ -118,7 +117,7 @@ print("Gold:", e.data.inventory.gold)  --> 50
 
 ## Components Proxy
 
-The `components` property is a **proxy table** with its own metatable `ComponentsProxyMeta`. It provides array-like access and management methods for entity components.
+The `components` property is a **proxy table** that provides array-like access and management methods for entity components.
 
 ### Array Access
 You can access components by index (1-based):
@@ -327,7 +326,7 @@ e.id = "new-uuid"
 ```lua
 -- ❌ Invalid - will cause Lua error
 e.position = Point.new(100, 200)
--- Error: "Entity position must be a EsePoint object"
+-- Error: "Entity position must be a Point object"
 
 -- ✅ Correct - modify existing Point's values
 e.position.x = 100
@@ -366,14 +365,9 @@ e.data = {health = 100, name = "Player"}
 - `tostring(entity)` → returns a string representation:  
   `"Entity: 0x... (id=..., active=..., components=N)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the entity (rare), memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- Entities are typically C-owned by the engine, so `__gc` usually doesn't free memory
-- The string format includes memory address, ID, active state, and component count
+- The string format includes ID, active state, and component count
 
 ---
 

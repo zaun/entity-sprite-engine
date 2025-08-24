@@ -7,7 +7,7 @@ A vector is defined by its **x** and **y** floating-point components and support
 
 ## Overview
 
-In Lua, vectors are represented as **proxy tables** with the metatable `VectorProxyMeta`.  
+In Lua, vectors are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 ⚠️ **Important Notes:**
@@ -210,7 +210,7 @@ print(unit.x, unit.y)  --> 1, 0
 ## Metamethods
 
 ### `tostring(vector)`
-Returns a string representation of the vector with its memory address and components.
+Returns a string representation of the vector with its components.
 
 **Format:** `"Vector: 0x... (x=..., y=...)"`
 
@@ -219,9 +219,6 @@ Returns a string representation of the vector with its memory address and compon
 local v = Vector.new(10, 20)
 print(v)  --> Vector: 0x... (x=10.00, y=20.00)
 ```
-
-### Garbage Collection (`__gc`)
-If Lua owns the vector object (created via `Vector.new()` or `Vector.zero()`), memory is automatically freed when the object is garbage collected. C-owned vectors are not freed by Lua's garbage collector.
 
 ---
 

@@ -7,7 +7,7 @@ A rectangle is defined by its **position** `(x, y)`, **dimensions** `(width, hei
 
 ## Overview
 
-In Lua, rectangles are represented as **proxy tables** with the metatable `RectProxyMeta`.  
+In Lua, rectangles are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 ⚠️ **Important Notes:**
@@ -154,8 +154,7 @@ print("Area:", r:area())
 
 - `tostring(rect)` → returns a string representation:  
   `"Rect: (x=..., y=..., w=..., h=..., rot=...deg)"`  
-
-- Garbage collection (`__gc`) → if Lua owns the rect, memory is freed automatically.  
+  
 
 ---
 

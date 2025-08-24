@@ -7,14 +7,13 @@ A map cell can contain multiple **tile layers**, **flags**, and a **dynamic stat
 
 ## Overview
 
-In Lua, map cells are represented as **proxy tables** with the metatable `MapCellProxyMeta`.  
+In Lua, map cells are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 **Important Notes:**
 - **Tile layer management** - each cell can contain multiple stacked tile layers
 - **Dynamic rendering control** - `isDynamic` flag controls whether the map renderer processes the cell
 - **Flag system** - bitfield flags for game logic and cell properties
-- **Memory management** - Lua-created cells are owned by Lua, C-created cells are owned by C
 - **Layer indexing** - tile layers use 0-based indexing for consistency with C arrays
 - **Automatic resizing** - the tile layer array automatically grows as needed
 
@@ -79,7 +78,7 @@ Each `MapCell` object has the following properties:
 
 **Notes:**
 - **isDynamic** - controls whether the map component renders this cell
-- **flags** - 32-bit unsigned integer for storing arbitrary bit flags
+- **flags** - unsigned integer for storing arbitrary bit flags
 - **layer_count** - automatically updated when layers are added/removed
 - **Type validation** - flags must be a number, isDynamic must be a boolean
 - **Rendering behavior** - dynamic cells are typically used for interactive elements
@@ -156,7 +155,7 @@ Removes a tile layer by index (0-based).
 - **0-based indexing** - first layer is at index 0, second at index 1, etc.
 - **Bounds checking** - returns false if index is negative or >= layer_count
 - **Array shifting** - remaining layers are shifted to fill the gap
-- **Memory cleanup** - memory is automatically freed for the removed layer
+
 - **Index validation** - always check return value to ensure removal succeeded
 
 **Example:**
@@ -483,15 +482,9 @@ cell.isDynamic = "true"
 - `tostring(cell)` → returns a string representation:  
   `"MapCell: 0x... (layers=..., flags=..., dynamic=...)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the cell, memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- Lua-created cells (via `MapCell.new()`) are owned by Lua and will be freed by `__gc`
-- C-created cells are owned by C and will not be freed by `__gc`
-- The string format includes memory address, layer count, flags, and dynamic state
+- The string format includes layer count, flags, and dynamic state
 
 ---
 

@@ -1,69 +1,198 @@
 # ESE: Entity Sprite Engine
 
----
+A modern 2D game engine built with C/C++ and Lua scripting, featuring an Entity-Component System (ECS) architecture with cross-platform support for macOS and Linux.
 
-### **Project Summary**
+## 🚀 Features
 
-ESE is a modern 2D game engine built on an **Entity-Component System (ECS)** architecture. This
-design allows for flexible and efficient game development, where each object in your game is an
-**entity** composed of one or more **components**. The engine itself is written in **C** for
-performance, while all game logic and scripting are handled in **Lua**, providing a powerful and
-accessible scripting environment.
+### Core Engine
+- **High Performance C/C++ Core**: Fast, lightweight engine written in C with C++ extensions for graphics
+- **Entity-Component System**: Flexible ECS architecture for modular game object design
+- **Lua Scripting**: Full Lua 5.4 integration for game logic and rapid prototyping
+- **Cross-Platform**: Native support for macOS (Metal) and Linux (OpenGL/GLFW)
 
-### **Target Genres**
+### Graphics & Rendering
+- **Sprite System**: Animated sprites with frame-based animation support
+- **Shader Support**: Custom GLSL shader pipeline for advanced rendering effects
+- **Tilemap Rendering**: Efficient tilemap system with support for multiple map types (grid, hexagonal, isometric)
+- **Camera System**: 2D camera with viewport management
+- **Draw Lists**: Optimized rendering with z-index depth sorting
 
-The Entity Sprite Engine is designed to be versatile, making it ideal for a wide range of classic
-2D game genres. Its flexible architecture is well-suited for:
+### Game Systems
+- **Collision Detection**: Rectangle-based collision system with component integration
+- **Asset Management**: Centralized asset loading for textures, sprites, maps, and scripts
+- **Input Handling**: Cross-platform input state management
+- **Memory Management**: Custom memory allocator with garbage collection for Lua
 
-* **Arcade Games:** Fast-paced action titles like *Breakout*, *Centipede*, *Galaga*, and *Snake*.
-* **Side-Scrollers:** Platformers and shooters in the style of *Commander Keen* or *Duke Nukem*
-* **Top-Down RPGs:** Role-playing games with a top-down perspective, similar to classic Zelda
-titles, *Gauntlet* or *Rogue*.
-* **Card and Puzzle Games:** Everything from matching and sliding puzzle games to logic-based water
-and laser path games.
-* **Point-and-Click Adventures:** Narrative-driven games like *Space Quest*, *Monkey Island*,
-or *Eco Quest*.
+### Platform Support
+- **macOS**: Native Metal rendering with Cocoa window management
+- **Linux**: OpenGL rendering with GLFW window management
+- **Asset Loading**: Platform-agnostic filesystem abstraction
 
-### **Core Concepts**
+## 🏗️ Architecture
 
-* **Entities:** The fundamental objects in your game. An entity is essentially a container for
-components and doesn't have any inherent functionality on its own.
-* **Components:** The building blocks of your entities. Components hold data and define an entity's
-properties and behaviors. Common components include:
-    * **SpriteComponent:** Handles all visual rendering, including texture, position, and animation.
-    * **ScriptComponent:** Links an entity to a Lua script that defines its game logic.
-    * **ColliderComponent:** Manages collision detection and physics interactions.
-* **Systems:** Global managers that process all entities with a certain type of component. For
-example, a `RenderSystem` would iterate through every entity with a `SpriteComponent` and draw it
-to the screen.
+### Entity-Component System
+ESE uses a true ECS architecture where:
 
-### **Features**
+- **Entities**: Simple containers that hold components
+- **Components**: Data structures that define entity properties and behaviors
+- **Systems**: Process entities with specific component combinations
 
-* **High Performance:** Written in C, the engine core is fast and lightweight.
-* **Flexible Scripting:** Use Lua to rapidly prototype and implement all your game logic, from
-character movement to complex AI.
-* **Modular Design:** The ECS allows you to easily add new components and systems without modifying
-existing code.
-* **Cross-Platform (Potential):** Designed with portability in mind.
+### Available Components
+- **SpriteComponent**: Handles visual rendering and animation
+- **ColliderComponent**: Manages collision detection and physics
+- **MapComponent**: Renders tilemaps and world geometry
+- **LuaComponent**: Links entities to Lua scripts for game logic
 
-### **Getting Started** (todo)
+### Core Systems
+- **RenderSystem**: Processes all visual components
+- **CollisionSystem**: Handles collision detection and response
+- **ScriptSystem**: Executes Lua scripts for entity behavior
+- **AssetSystem**: Manages loading and caching of game resources
 
-[Instructions on how to get started, e.g., how to clone the repository, build the engine, and run a
-demo project. This section would include specific commands for building the C engine and setting up
-the Lua scripts.]
+## 📦 Building
 
-### **Example: Creating a Player Entity**
+### Prerequisites
+- CMake 3.16 or higher
+- C/C++ compiler with C99 and C++11 support
+- Lua 5.4 (included in vendor directory)
 
-This is a conceptual example of how you would build a player character.
+### Build Commands
 
-1.  **Create an Entity:** A simple object that will represent your player.
-2.  **Add a `SpriteComponent`:** Give the player a visual representation by attaching a sprite with
-an animation for walking.
-3.  **Add a `ColliderComponent`:** Define a collision box so the player can interact with the game
-world and other entities.
-4.  **Add a `ScriptComponent`:** Attach a Lua script (e.g., `player_script.lua`) that handles input,
-movement logic, and health.
+```bash
+# Clone the repository
+git clone https://github.com/zaun/entity-sprite-engine.git
+cd entity-sprite-engine
 
-The engine would then use its internal systems to process these components. The `RenderSystem` draws
-the player sprite, the `PhysicsSystem` handles collisions, and the `ScriptSystem` executes the
-Lua logic.
+# Create build directory
+mkdir build && cd build
+
+# Configure and build
+cmake ..
+make
+```
+
+### Platform-Specific Builds
+
+#### macOS
+```bash
+# Force macOS build (uses Metal rendering)
+cmake -DFORCE_PLATFORM_MAC=ON ..
+make
+```
+
+#### Linux
+```bash
+# Force Linux build (uses OpenGL/GLFW)
+cmake -DFORCE_PLATFORM_LINUX=ON ..
+make
+```
+
+## 🎮 Getting Started
+
+### Running the Example
+The `examples/simple` directory contains a working demo that showcases:
+
+- Entity creation and component management
+- Sprite rendering and animation
+- Collision detection
+- Tilemap rendering
+- Lua script integration
+
+```bash
+# From the build directory
+cd examples/simple
+./simple_demo
+```
+
+### Basic Entity Creation
+```lua
+-- Create a new entity
+local player = Entity.new()
+
+-- Add a sprite component
+local sprite_comp = EntityComponentSprite.new()
+sprite_comp.sprite = "game:player_idle"
+player.components.add(sprite_comp)
+
+-- Add a collider component
+local collider_comp = EntityComponentCollider.new()
+collider_comp.rects.add(Rect.new(0, 0, 32, 32))
+player.components.add(collider_comp)
+
+-- Add Lua script for behavior
+local script_comp = EntityComponentLua.new()
+script_comp.script = "player.lua"
+player.components.add(script_comp)
+```
+
+### Asset Loading
+```lua
+-- Load sprite atlas
+if asset_load_atlas("game", "player.json", true) then
+    print("Player sprites loaded successfully")
+end
+
+-- Load map data
+if asset_load_map("game", "level.json") then
+    print("Level map loaded successfully")
+end
+
+-- Load and set shaders
+if asset_load_shader("game", "shaders.glsl") then
+    set_pipeline("game:vertexShader", "game:fragmentShader")
+end
+```
+
+## 📁 Project Structure
+
+```
+ese/
+├── src/
+│   ├── core/           # Engine core, asset management
+│   ├── entity/         # ECS implementation
+│   ├── graphics/       # Rendering and sprite systems
+│   ├── platform/       # Platform-specific code (macOS/Linux)
+│   ├── scripting/      # Lua engine integration
+│   ├── types/          # Core data structures
+│   └── utility/        # Helper functions and data structures
+├── examples/
+│   └── simple/         # Working demo application
+├── docs/               # API documentation
+└── CMakeLists.txt      # Build configuration
+```
+
+## 🔧 Development
+
+### Adding New Components
+1. Create component header and implementation files in `src/entity/components/`
+2. Implement required component interface functions
+3. Add Lua bindings in the component's Lua integration file
+4. Register the component type in the Lua engine
+
+### Platform Abstraction
+The engine uses platform-specific implementations for:
+- Window management
+- Rendering (Metal on macOS, OpenGL on Linux)
+- Filesystem operations
+- Time and input handling
+
+### Memory Management
+- C-style memory management for engine core
+- Automatic garbage collection for Lua objects
+- Custom memory allocator with safety checks
+
+## 📚 Documentation
+
+Detailed API documentation is available in the `docs/` directory:
+- `entity.md` - Entity and component system
+- `graphics.md` - Rendering and sprite systems
+- `scripting.md` - Lua integration
+- `platform.md` - Platform-specific features
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request

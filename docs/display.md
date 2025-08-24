@@ -10,7 +10,7 @@ You can inspect its properties, but you cannot modify them directly from Lua.
 
 ## Overview
 
-In Lua, the display is represented as a **proxy table** with the metatable `DisplayProxyMeta`.  
+In Lua, the display is represented as a **proxy table** that behaves like a regular Lua object.  
 It behaves like a read-only object with properties accessible via dot notation.
 
 **Important Notes:**
@@ -18,7 +18,6 @@ It behaves like a read-only object with properties accessible via dot notation.
 - **Global access** - accessed via the global `Display` table (not created by scripts)
 - **Real-time state** - reflects the current display configuration as managed by the engine
 - **Viewport is a nested read-only table** - provides viewport dimensions with its own metatable
-- **Memory ownership** is managed by the engine (C-owned, not Lua-owned)
 
 ```lua
 -- Access display state (global Display table)
@@ -54,7 +53,7 @@ Each `Display` object has the following **read-only** properties:
 - **All properties are read-only** - attempting to modify any property will raise a Lua error
 - **Dimensions are in pixels** - width and height are always positive integers
 - **Aspect ratio is calculated** - automatically computed as `width / height` (e.g., 16/9 = 1.777...)
-- **Viewport is nested** - the viewport table has its own metatable with `__index` and `__newindex` metamethods
+- **Viewport is nested** - the viewport table has its own behavior for read-only access
 - **Real-time updates** - properties reflect the current display state as managed by the engine
 - **No validation needed** - all values are guaranteed to be valid by the C implementation
 
@@ -135,14 +134,9 @@ Display.custom_property = "value"
 - `tostring(Display)` → returns a string representation:  
   `"Display: 0x... (WxH, fullscreen/windowed, viewport: WxH)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the display object, memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- Displays are typically C-owned by the engine, so `__gc` usually doesn't free memory
-- The string format includes memory address, dimensions, fullscreen state, and viewport size
+- The string format includes dimensions, fullscreen state, and viewport size
 
 ---
 

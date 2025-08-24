@@ -71,7 +71,6 @@ The map's title or name.
 **Notes:**
 - **Default value** - starts as "Untitled Map"
 - **String copying** - assigned strings are copied internally
-- **Memory management** - old strings are automatically freed
 
 **Example:**
 ```lua
@@ -87,7 +86,6 @@ The map's author or creator.
 **Notes:**
 - **Default value** - starts as "Unknown"
 - **String copying** - assigned strings are copied internally
-- **Memory management** - old strings are automatically freed
 
 **Example:**
 ```lua
@@ -102,7 +100,7 @@ The map's version number.
 
 **Notes:**
 - **Default value** - starts as 0
-- **Integer storage** - stored as a 32-bit integer
+- **Integer storage** - stored as an integer
 
 **Example:**
 ```lua

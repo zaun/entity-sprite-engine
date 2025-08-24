@@ -7,7 +7,7 @@ A camera has a **position** (`Point`), a **rotation** (in radians), and a **scal
 
 ## Overview
 
-In Lua, cameras are represented as **proxy tables** with the metatable `CameraStateProxyMeta`.  
+In Lua, cameras are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties accessible via dot notation.
 
 **Important Notes:**
@@ -15,7 +15,6 @@ They behave like objects with properties accessible via dot notation.
 - **Rotation is in radians** (0 to 2π, where π/2 = 90°, π = 180°, 3π/2 = 270°)
 - **Scale affects zoom** (1.0 = normal, >1.0 = zoom in, <1.0 = zoom out)
 - **No global constructor** - cameras are created by the engine and accessed via `engine:get_camera()`
-- **Memory ownership** is managed by the engine (C-owned, not Lua-owned)
 
 ```lua
 -- Get camera from engine (from C or engine initialization)
@@ -104,13 +103,8 @@ cam.position.y = new_pos.y
 - `tostring(camera)` → returns a string representation:  
   `"Camera: 0x... (pos=(x,y), rot=..., scale=...)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the camera, memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- Cameras are typically C-owned by the engine, so `__gc` usually doesn't free memory
 
 ---
 

@@ -1,7 +1,7 @@
 # Entity Components Lua API
 
 Entities are composed of **components** that define their behavior and properties.  
-Components are Lua-accessible objects with their own proxy tables and metatables.
+Components are Lua-accessible objects that behave like regular Lua objects.
 
 The following component types are currently supported:
 
@@ -21,7 +21,7 @@ You can add, remove, and query components dynamically.
 - **Component ownership** - components created via `ComponentType.new()` are owned by Lua
 - **Entity attachment** - when added to an entity, ownership transfers to the entity
 - **Automatic lifecycle** - the engine automatically manages component updates and rendering
-- **Type safety** - each component type has its own metatable and validation
+- **Type safety** - each component type has its own validation
 - **Memory management** - Lua-owned components are garbage collected, entity-owned components are managed by the engine
 
 ```lua
@@ -76,7 +76,7 @@ print(first.id)
 
 ## Base Component Properties
 
-All component types inherit from the base `EseEntityComponent` structure and share these common properties:
+All component types share these common properties:
 
 - `id` → unique UUID string (read-only)  
 - `active` → boolean (read/write, controls whether component is processed)  
@@ -146,7 +146,7 @@ Creates a new collider component for collision detection.
 - `rects` → a **proxy collection** of `Rect` objects (read-only reference)  
 
 ### Rects Proxy API
-The `rects` property is a proxy table with array-like access and methods:
+The `rects` property provides array-like access and methods:
 
 - `count` → number of rects (read-only)  
 - `add(rect)` → adds a rect to the collider  
@@ -311,8 +311,6 @@ map_comp.position.y = 24
 **Notes:**
 - **Ownership transfer** - adding to entity transfers ownership, removing returns ownership to Lua
 - **Automatic cleanup** - the engine automatically manages entity-owned component lifecycle
-- **Garbage collection** - Lua-owned components are freed when Lua garbage collection occurs
-- **Memory safety** - prevents double-freeing and memory leaks
 
 ---
 

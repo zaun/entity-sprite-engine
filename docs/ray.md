@@ -7,7 +7,7 @@ A ray is defined by an **origin point** `(x, y)` and a **direction vector** `(dx
 
 ## Overview
 
-In Lua, rays are represented as **proxy tables** with the metatable `RayProxyMeta`.  
+In Lua, rays are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 ⚠️ **Important Notes:**
@@ -238,12 +238,8 @@ print("Unit vector unchanged:", r2.dx, r2.dy)  --> 1, 0
 - `tostring(ray)` → returns a string representation:  
   `"Ray: (x=..., y=..., dx=..., dy=...)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the ray, memory is freed automatically.
-
 **Notes:**
-- The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table  
+- The `tostring` metamethod provides a human-readable representation for debugging  
 
 ---
 

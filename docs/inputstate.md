@@ -10,7 +10,7 @@ You can inspect its properties, but you cannot modify them directly from Lua.
 
 ## Overview
 
-In Lua, the input state is represented as a **proxy table** with the metatable `InputProxyMeta`.  
+In Lua, the input state is represented as a **proxy table** that behaves like a regular Lua object.  
 It behaves like a read-only object with properties accessible via dot notation.
 
 **Important Notes:**
@@ -20,7 +20,6 @@ It behaves like a read-only object with properties accessible via dot notation.
 - **Frame-based input** - `keys_pressed` and `keys_released` are reset each frame
 - **Mouse coordinates** are in screen pixels (0,0 = top-left corner)
 - **Scroll deltas** represent change since last frame (positive = up/right, negative = down/left)
-- **Memory ownership** is managed by the engine (C-owned, not Lua-owned)
 
 ```lua
 -- Access mouse position (global InputState table)
@@ -159,14 +158,9 @@ InputState.custom_property = "value"
 ## Metamethods
 
 - `tostring(InputState)` → returns a string representation of the input state, including mouse position and currently held keys.  
-- Garbage collection (`__gc`) → if Lua owns the input object, memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- InputState objects are typically C-owned by the engine, so `__gc` usually doesn't free memory
-- The string format includes memory address, mouse position, scroll deltas, and visual representation of held keys
+- The string format includes mouse position, scroll deltas, and visual representation of held keys
 
 ---
 

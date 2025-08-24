@@ -80,7 +80,6 @@ Removes a sprite from a tile mapping.
 **Notes:**
 - **Exact match** - sprite string must match exactly
 - **Weight recalculation** - total weight is automatically recalculated
-- **Memory cleanup** - removed sprite strings are freed
 
 **Example:**
 ```lua
@@ -96,7 +95,6 @@ Removes all sprites from a tile mapping.
 
 **Notes:**
 - **Complete removal** - all sprites and weights are removed
-- **Memory cleanup** - all sprite strings are freed
 - **Fast operation** - efficient bulk removal
 
 **Example:**

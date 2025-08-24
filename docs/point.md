@@ -7,11 +7,11 @@ A point is defined by its **x** and **y** floating-point coordinates.
 
 ## Overview
 
-In Lua, points are represented as **proxy tables** with the metatable `PointProxyMeta`.  
+In Lua, points are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties accessible via dot notation.
 
 ⚠️ **Important Notes:**
-- Coordinates are stored as **floating-point numbers** (32-bit float precision)
+- Coordinates are stored as **floating-point numbers**
 - Points are **mutable** - you can modify x and y values directly
 - No validation is performed on coordinate values (can be negative, NaN, or infinite)
 
@@ -125,7 +125,7 @@ print("Trig values:", p.x, p.y)  --> ~0.707, ~0.707
 ## Metamethods
 
 ### `tostring(point)`
-Returns a string representation of the point with its memory address and coordinates.
+Returns a string representation of the point with its coordinates.
 
 **Format:** `"Point: 0x... (x=..., y=...)"`
 
@@ -134,9 +134,6 @@ Returns a string representation of the point with its memory address and coordin
 local p = Point.new(10, 20)
 print(p)  --> Point: 0x... (x=10.00, y=20.00)
 ```
-
-### Garbage Collection (`__gc`)
-If Lua owns the point object (created via `Point.new()` or `Point.zero()`), memory is automatically freed when the object is garbage collected. C-owned points are not freed by Lua's garbage collector.
 
 ---
 

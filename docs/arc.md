@@ -7,7 +7,7 @@ An **arc** is defined by a center point `(x, y)`, a radius, and start/end angles
 
 ## Overview
 
-In Lua, arcs are represented as **proxy tables** with the metatable `ArcProxyMeta`.  
+In Lua, arcs are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like objects with properties and methods accessible via dot notation.
 
 ⚠️ **Important:** All angles are in **radians**, not degrees.
@@ -205,7 +205,7 @@ print("Intersects far square:", a:intersects_rect(r2))  --> false
 ## Metamethods
 
 ### `tostring(arc)`
-Returns a string representation of the arc with its memory address and properties.
+Returns a string representation of the arc with its properties.
 
 **Format:** `"Arc: 0x... (x=..., y=..., radius=..., start=..., end=...)"`
 
@@ -215,8 +215,7 @@ local a = Arc.new(10, 20, 5, 0, math.pi/2)
 print(a)  --> Arc: 0x... (x=10.00, y=20.00, radius=5.00, start=0.00, end=1.57)
 ```
 
-### Garbage Collection (`__gc`)
-If Lua owns the arc object (created via `Arc.new()` or `Arc.zero()`), memory is automatically freed when the object is garbage collected. C-owned arcs are not freed by Lua's garbage collector.
+
 
 ---
 

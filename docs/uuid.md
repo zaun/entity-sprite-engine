@@ -11,7 +11,7 @@ UUIDs are immutable 128-bit values represented as strings in the standard format
 
 ## Overview
 
-In Lua, UUIDs are represented as **proxy tables** with the metatable `UUIDProxyMeta`.  
+In Lua, UUIDs are represented as **proxy tables** that behave like regular Lua objects.  
 They behave like immutable objects with properties and methods accessible via dot notation.
 
 **Important Notes:**
@@ -19,7 +19,7 @@ They behave like immutable objects with properties and methods accessible via do
 - **Version 4 UUIDs** - generated using cryptographically strong random data
 - **Standard format** - follows RFC 4122 format: 8-4-4-4-12 hexadecimal digits
 - **Global constructor** - accessed via the global `UUID` table
-- **Memory ownership** - Lua-created UUIDs are owned by Lua, C-created UUIDs are owned by C
+- **Memory ownership** - Lua-created UUIDs are owned by Lua, engine-created UUIDs are managed by the engine
 - **Unique generation** - each call to `UUID.new()` generates a new random UUID
 
 ```lua
@@ -168,15 +168,9 @@ id.custom_property = "value"
 - `tostring(uuid)` → returns a string representation:  
   `"UUID: 0x... (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)"`  
 
-- Garbage collection (`__gc`) → if Lua owns the UUID, memory is freed automatically.
-
 **Notes:**
 - The `tostring` metamethod provides a human-readable representation for debugging
-- The `__gc` metamethod ensures proper cleanup when Lua garbage collection occurs
-- Memory ownership is determined by the `__is_lua_owned` flag in the proxy table
-- Lua-created UUIDs (via `UUID.new()`) are owned by Lua and will be freed by `__gc`
-- C-created UUIDs are owned by C and will not be freed by `__gc`
-- The string format includes memory address and the UUID value
+- The string format includes the UUID value
 
 ---
 

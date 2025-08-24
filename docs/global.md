@@ -100,12 +100,13 @@ print("All scripts loaded successfully")
 
 ---
 
-### `asset_load_atlas(group, atlasFile)`
+### `asset_load_atlas(group, atlasFile, [indexed])`
 Loads a sprite atlas into the engine's asset manager.  
 
 **Arguments:**
 - `group` → string (group name for organizing assets)
 - `atlasFile` → string (path to atlas file relative to engine working directory)
+- `indexed` → boolean (optional, defaults to false) - whether the atlas is indexed
 
 **Returns:** `true` if loaded successfully, `false` otherwise
 
@@ -124,7 +125,7 @@ if not asset_load_atlas("sprites", "assets/sprites.atlas") then
     return
 end
 
-if not asset_load_atlas("ui", "assets/ui.atlas") then
+if not asset_load_atlas("ui", "assets/ui.atlas", true) then
     print("Failed to load UI atlas")
     return
 end
@@ -179,7 +180,7 @@ Loads a map file into the engine's asset manager.
 **Returns:** `true` if loaded successfully, `false` otherwise
 
 **Notes:**
-- **Map format** - supports standard map formats (TMX, etc.)
+- **Map format** - supports standard map formats
 - **Tile integration** - maps are integrated with the tile rendering system
 - **Memory management** - maps are managed by the engine's asset manager
 - **Entity integration** - maps can be attached to entities via MapComponent
@@ -188,12 +189,12 @@ Loads a map file into the engine's asset manager.
 **Example:**
 ```lua
 -- Load level maps
-if not asset_load_map("maps", "assets/level1.tmx") then
+if not asset_load_map("maps", "assets/level1.json") then
     print("Failed to load level 1")
     return
 end
 
-if not asset_load_map("maps", "assets/level2.tmx") then
+if not asset_load_map("maps", "assets/level2.json") then
     print("Failed to load level 2")
     return
 end
@@ -221,13 +222,13 @@ Retrieves a loaded map from the asset manager.
 **Example:**
 ```lua
 -- Load a map first
-if not asset_load_map("maps", "assets/level1.tmx") then
+if not asset_load_map("maps", "assets/level1.json") then
     print("Failed to load level 1")
     return
 end
 
 -- Retrieve the loaded map
-local level1 = asset_get_map("level1.tmx")
+local level1 = asset_get_map("maps:level1.json")
 if level1 then
     print("Level 1 loaded:", level1.width, "x", level1.height)
     
@@ -262,13 +263,13 @@ Creates and sets a new rendering pipeline.
 **Example:**
 ```lua
 -- Set basic rendering pipeline
-if not set_pipeline("shaders/vertex.glsl", "shaders/fragment.glsl") then
+if not set_pipeline("shaders:vertexShader", "shaders:fragmentShader") then
     print("Failed to set basic pipeline")
     return
 end
 
 -- Set specialized pipeline for effects
-if not set_pipeline("shaders/particle_vertex.glsl", "shaders/particle_fragment.glsl") then
+if not set_pipeline("shaders:particle_vertexShader", "shaders:particle_fragmentShader") then
     print("Failed to set particle pipeline")
     return
 end
@@ -348,19 +349,19 @@ print("Fullscreen:", Display.fullscreen)
 print("Aspect ratio:", Display.aspect_ratio)
 
 print("Mouse position:", InputState.mouse_x, InputState.mouse_y)
-print("Mouse buttons:", InputState.mouse_left, InputState.mouse_right, InputState.mouse_middle)
+print("Mouse buttons:", InputState.mouse_buttons[0], InputState.mouse_buttons[1], InputState.mouse_buttons[2])
 print("Keyboard state:", InputState.keys_down)
 
 print("Camera position:", Camera.position.x, Camera.position.y)
 print("Camera rotation:", Camera.rotation)
-print("Camera scale:", Camera.scale)
+print("Camera.scale:", Camera.scale)
 
 -- Use state for game logic
-if InputState.keys_down["w"] then
+if InputState.keys_down[InputState.KEY.W] then
     print("W key is pressed")
 end
 
-if InputState.mouse_left then
+if InputState.mouse_buttons[InputState.KEY.MOUSE_LEFT] then
     print("Left mouse button is pressed")
 end
 
@@ -433,7 +434,7 @@ if not asset_load_shader("shaders", "shaders/basic.glsl") then
     return
 end
 
-if not asset_load_map("maps", "assets/level1.tmx") then
+if not asset_load_map("maps", "assets/level1.json") then
     print("Failed to load level 1")
     return
 end
@@ -441,7 +442,7 @@ end
 print("All assets loaded successfully")
 
 -- Set rendering pipeline
-if not set_pipeline("shaders/vertex.glsl", "shaders/fragment.glsl") then
+if not set_pipeline("shaders:vertexShader", "shaders:fragmentShader") then
     print("Failed to set rendering pipeline")
     return
 end
