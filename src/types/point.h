@@ -1,6 +1,8 @@
 #ifndef ESE_POINT_H
 #define ESE_POINT_H
 
+#include <stdint.h>
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -11,10 +13,10 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @details This structure stores the x and y coordinates of a point in 2D space.
  */
 typedef struct EsePoint {
-    float x; /**< The x-coordinate of the point */
-    float y; /**< The y-coordinate of the point */
-    lua_State *state; /**< Lua State this EsePoint belongs to */
-    int lua_ref; /**< Lua registry reference to its own proxy table */
+    float x;            /**< The x-coordinate of the point */
+    float y;            /**< The y-coordinate of the point */
+    lua_State *state;   /**< Lua State this EsePoint belongs to */
+    int lua_ref;        /**< Lua registry reference */
 } EsePoint;
 
 /**

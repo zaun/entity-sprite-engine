@@ -6,6 +6,10 @@
 #include "vendor/lua/src/lauxlib.h"
 #include "types/point.h"
 
+// Global weak table for storing Lua-owned Point objects
+// Keys are the Point objects, values are their proxy tables
+static int point_weak_table_ref = LUA_NOREF;
+
 /**
  * @brief Pushes a EsePoint pointer as a Lua userdata object onto the stack.
  * 
@@ -33,16 +37,33 @@ void _point_lua_register(EsePoint *point, bool is_lua_owned) {
     luaL_getmetatable(point->state, "PointProxyMeta");
     lua_setmetatable(point->state, -2);
 
-    // Store a reference to this proxy table in the Lua registry
-    point->lua_ref = luaL_ref(point->state, LUA_REGISTRYINDEX);
+    if (is_lua_owned) {
+        // Lua-owned: no storage needed, proxy table goes directly to Lua
+        point->lua_ref = LUA_NOREF;
+    } else {
+        // C-owned: store hard reference to prevent garbage collection
+        point->lua_ref = luaL_ref(point->state, LUA_REGISTRYINDEX);
+    }
 }
 
 void point_lua_push(EsePoint *point) {
     log_assert("POINT", point, "point_lua_push called with NULL point");
-    log_assert("POINT", point->lua_ref != LUA_NOREF, "point_lua_push point not registered with lua");
 
-    // Push the proxy table back onto the stack for Lua to receive
-    lua_rawgeti(point->state, LUA_REGISTRYINDEX, point->lua_ref);
+    if (point->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(point->state);
+        lua_pushlightuserdata(point->state, point);
+        lua_setfield(point->state, -2, "__ptr");
+        
+        lua_pushboolean(point->state, true);
+        lua_setfield(point->state, -2, "__is_lua_owned");
+        
+        luaL_getmetatable(point->state, "PointProxyMeta");
+        lua_setmetatable(point->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(point->state, LUA_REGISTRYINDEX, point->lua_ref);
+    }
 }
 
 /**
@@ -83,7 +104,8 @@ static int _point_lua_new(lua_State *L) {
     point->lua_ref = LUA_NOREF;
     _point_lua_register(point, true);
 
-    point_lua_push(point);
+    // The proxy table is already on the stack from _point_lua_register
+    // Just return it - no need to call point_lua_push
     return 1;
 }
 
@@ -103,7 +125,8 @@ static int _point_lua_zero(lua_State *L) {
     point->lua_ref = LUA_NOREF;
     _point_lua_register(point, true);
 
-    point_lua_push(point);
+    // The proxy table is already on the stack from _point_lua_register
+    // Just return it - no need to call point_lua_push
     return 1;
 }
 
@@ -183,11 +206,11 @@ static int _point_lua_gc(lua_State *L) {
         lua_pop(L, 1); // Pop the boolean value
 
         if (is_lua_owned) {
-            point_destroy(point); // Free the C memory allocated for this Lua-owned point
-            log_debug("LUA_GC", "Point object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "Point object (C-owned) garbage collected, C memory *not* freed.");
+            // Lua-owned: just free memory, no weak table cleanup needed
+            memory_manager.free(point);
         }
+    } else {
+        log_debug("LUA_GC", "GC called but couldn't get Point pointer");
     }
 
     return 0;
@@ -224,6 +247,14 @@ void point_lua_init(EseLuaEngine *engine) {
     }
     lua_pop(engine->runtime, 1);
     
+    // Create the weak table for storing Lua-owned Point objects
+    // Keys are Point pointers, values are proxy tables
+    lua_newtable(engine->runtime);
+    lua_pushstring(engine->runtime, "__mode");
+    lua_pushstring(engine->runtime, "v"); // Make values weak (proxy tables)
+    lua_rawset(engine->runtime, -3);
+    point_weak_table_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
+    
     // Create global EsePoint table with constructor
     lua_getglobal(engine->runtime, "Point");
     if (lua_isnil(engine->runtime, -1)) {
@@ -253,6 +284,7 @@ EsePoint *point_create(EseLuaEngine *engine) {
 void point_destroy(EsePoint *point) {
     if (point) {
         if (point->lua_ref != LUA_NOREF) {
+            // C-owned: remove hard reference
             luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
         }
         memory_manager.free(point);
