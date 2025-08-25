@@ -89,8 +89,10 @@ typedef struct EseInputState {
     int mouse_scroll_dx;                    /**< The horizontal scroll delta this frame. */
     int mouse_scroll_dy;                    /**< The vertical scroll delta this frame. */
     bool mouse_buttons[MOUSE_BUTTON_COUNT]; /**< State of mouse buttons currently held down. */
+
     lua_State *state;                       /**< A pointer to the Lua state. */
     int lua_ref;                            /**< A reference to the Lua userdata object . */
+    int lua_ref_count;                      /**< Number of times this input state has been referenced in C */
 } EseInputState;
 
 /**
@@ -127,13 +129,12 @@ EseInputState *input_state_create(EseLuaEngine *engine);
  * object. It ensures all data, including key and mouse states, is duplicated.
  * 
  * @param src A pointer to the source `EseInputState` object to copy from.
- * @param engine A pointer to the `EseLuaEngine` for the new object's Lua state.
  * @return A pointer to the new copied `EseInputState`.
  * 
  * @note This function performs a memory allocation and a deep copy of the data.
  * @warning The caller is responsible for freeing the returned memory with `input_state_destroy`.
  */
-EseInputState *input_state_copy(const EseInputState *src, EseLuaEngine *engine);
+EseInputState *input_state_copy(const EseInputState *src);
 
 /**
  * @brief Destroys and frees the memory for an EseInputState object.
@@ -156,5 +157,37 @@ void input_state_destroy(EseInputState *input);
  * @return void
  */
 static void input_state_lua_push(EseInputState *input);
+
+/**
+ * @brief Gets an EseInputState pointer from a Lua object.
+ * 
+ * @param L The Lua state.
+ * @param idx The stack index of the Lua Input object.
+ * @return A pointer to the `EseInputState` object, or `NULL` if the object is invalid.
+ */
+EseInputState *input_state_lua_get(lua_State *L, int idx);
+
+/**
+ * @brief Increments the reference count for an EseInputState object.
+ * 
+ * @details This function creates a Lua proxy table and stores a reference to prevent
+ * garbage collection. Call this when storing the object in C-side data structures.
+ * 
+ * @param input A pointer to the `EseInputState` object to reference.
+ * @return void
+ */
+void input_state_ref(EseInputState *input);
+
+/**
+ * @brief Decrements the reference count for an EseInputState object.
+ * 
+ * @details This function decrements the reference count and removes the Lua registry
+ * reference when the count reaches zero. Call this when removing the object from
+ * C-side data structures.
+ * 
+ * @param input A pointer to the `EseInputState` object to unreference.
+ * @return void
+ */
+void input_state_unref(EseInputState *input);
 
 #endif // ESE_INPUT_STATE_H

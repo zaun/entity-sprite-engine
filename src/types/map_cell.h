@@ -166,6 +166,12 @@ bool mapcell_set_layer(EseMapCell *cell, size_t layer_index, uint8_t tile_id);
  */
 void mapcell_clear_layers(EseMapCell *cell);
 
+/**
+ * @brief Checks if the map cell has any layers.
+ *
+ * @param cell Pointer to the EseMapCell object
+ * @return true if the cell has at least one layer, false otherwise
+ */
 /* ----------------- Flag API ----------------- */
 
 /**

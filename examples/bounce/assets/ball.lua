@@ -29,7 +29,7 @@ function ENTITY:entity_update(delta_time)
         self.data.velocity.y = -self.data.velocity.y
         new_y = math.max(0, math.min(viewport_height, new_y))
     end
-    
+
     -- Update ball position
     self.position = Point.new(new_x, new_y)
 end

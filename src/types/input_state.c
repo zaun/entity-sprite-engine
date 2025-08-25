@@ -34,138 +34,64 @@ static const char *const input_state_key_names[] = {
     "MOUSE_LEFT", "MOUSE_RIGHT", "MOUSE_MIDDLE", "MOUSE_X1", "MOUSE_X2"
 };
 
-/**
- * @private
- * @brief An error function for the Lua metatable's `__newindex` event.
- * 
- * @details This function is used to ensure that Lua scripts cannot modify read-only tables
- * like the keys or mouse button state arrays.
- * 
- * @param L The Lua state.
- * @return An error with a message indicating the table is read-only.
- */
-static int _input_state_readonly_error(lua_State *L) {
-    return luaL_error(L, "Input tables are read-only");
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
+
+// Core helpers
+static EseInputState *_input_state_make(void);
+
+// Lua metamethods
+static int _input_state_lua_gc(lua_State *L);
+static int _input_state_lua_index(lua_State *L);
+static int _input_state_lua_newindex(lua_State *L);
+static int _input_state_lua_tostring(lua_State *L);
+
+// Lua helpers
+static int _input_state_keys_index(lua_State *L);
+static int _input_state_mouse_buttons_index(lua_State *L);
+static int _input_state_readonly_error(lua_State *L);
+
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
+
+// Core helpers
+static EseInputState *_input_state_make() {
+    EseInputState *input = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_GENERAL);
+    memset(input->keys_down, 0, sizeof(input->keys_down));
+    memset(input->keys_pressed, 0, sizeof(input->keys_pressed));
+    memset(input->keys_released, 0, sizeof(input->keys_released));
+    memset(input->mouse_buttons, 0, sizeof(input->mouse_buttons));
+
+    input->mouse_x = 0;
+    input->mouse_y = 0;
+    input->mouse_scroll_dx = 0;
+    input->mouse_scroll_dy = 0;
+    input->state = NULL;
+    input->lua_ref = LUA_NOREF;
+    input->lua_ref_count = 0;
+    return input;
 }
 
-/**
- * @private
- * @brief A closure to get key state by index for Lua.
- * 
- * @details This closure is bound to the `keys_down`, `keys_pressed`, and `keys_released` tables
- * in Lua, providing a read-only indexer to access the C arrays.
- * 
- * @param L The Lua state.
- * @return A boolean value on the Lua stack.
- * 
- * @note The key array is passed as an upvalue to this function.
- */
-static int _input_state_keys_index(lua_State *L) {
-    bool *arr = (bool *)lua_touserdata(L, lua_upvalueindex(1));
-    int key_idx = (int)luaL_checkinteger(L, 2);
-    log_assert("INPUT_STATE", (key_idx >= 0 && key_idx < InputKey_MAX), "Invalid key index");
-    lua_pushboolean(L, arr[key_idx]);
-    return 1;
-}
+// Lua metamethods
+static int _input_state_lua_gc(lua_State *L) {
+    EseInputState *input = input_state_lua_get(L, 1);
 
-/**
- * @private
- * @brief A closure to get mouse button state by index for Lua.
- * 
- * @details This closure is bound to the `mouse_buttons` table in Lua, providing a read-only
- * indexer to access the C array.
- * 
- * @param L The Lua state.
- * @return A boolean value on the Lua stack.
- * 
- * @note The `EseInputState` pointer is passed as an upvalue to this function.
- */
-static int _input_state_mouse_buttons_index(lua_State *L) {
-    EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
-    int btn = (int)luaL_checkinteger(L, 2);
-    if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
-        return luaL_error(L, "Invalid mouse button index");
+    if (input) {
+        // If lua_ref == LUA_NOREF, there are no more references to this input, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this input was referenced from C and should not be freed.
+        if (input->lua_ref == LUA_NOREF) {
+            input_state_destroy(input);
+        }
     }
-    lua_pushboolean(L, input->mouse_buttons[btn]);
-    return 1;
+
+    return 0;
 }
 
-/**
- * @private
- * @brief Registers a EseInputState object with LUA.
- * 
- * @param input A pointer to the `EseInputState` object to be pushed.
- * @param is_lua_owned A boolean flag indicating if Lua owns the memory for this object.
- * @return void
- * 
- * @note This function handles the creation of a Lua reference to avoid memory leaks.
- */
-static void _input_state_lua_register(EseInputState *input, bool is_lua_owned) {
-    log_assert("INPUT_STATE", input, "_input_state_lua_register called with NULL input");
-    log_assert("INPUT_STATE", input->lua_ref == LUA_NOREF, "_input_state_lua_register input is already registered");
-
-    lua_newtable(input->state);
-    lua_pushlightuserdata(input->state, input);
-    lua_setfield(input->state, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(input->state, is_lua_owned);
-    lua_setfield(input->state, -2, "__is_lua_owned");
-
-    luaL_getmetatable(input->state, "InputProxyMeta");
-    lua_setmetatable(input->state, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    input->lua_ref = luaL_ref(input->state, LUA_REGISTRYINDEX);
-}
-
-/**
- * @private
- * @brief Extracts an EseInputState pointer from a Lua userdata object.
- * 
- * @details This function validates that the Lua object at a given stack index is a valid
- * `EseInputState` proxy and returns the underlying C pointer.
- * 
- * @param L A pointer to the Lua state.
- * @param idx The stack index of the Lua Input object.
- * @return A pointer to the `EseInputState` object, or `NULL` if the object is invalid.
- * 
- * @note This function should be used to safely retrieve the C object from a Lua context.
- */
-static EseInputState *_input_state_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-
-    if (!lua_getmetatable(L, idx)) return NULL;
-
-    luaL_getmetatable(L, "InputProxyMeta");
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
-    }
-    lua_pop(L, 2);
-
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
-    }
-    void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    return (EseInputState *)ptr;
-}
-
-/**
- * @private
- * @brief A metatable `__index` function for the EseInputState Lua proxy.
- * 
- * @details This function handles access to the members of the `EseInputState` C object from Lua.
- * It returns sub-tables for key and button states, and integer values for mouse coordinates.
- * 
- * @param L The Lua state.
- * @return The value of the requested member.
- */
 static int _input_state_lua_index(lua_State *L) {
-    EseInputState *input = _input_state_lua_get(L, 1);
+    EseInputState *input = input_state_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!input || !key) return 0;
 
@@ -253,62 +179,12 @@ static int _input_state_lua_index(lua_State *L) {
     return 0;
 }
 
-/**
- * @private
- * @brief A metatable `__newindex` function for the EseInputState Lua proxy.
- * 
- * @details This function prevents any modification of the `EseInputState` object from Lua,
- * ensuring it remains a read-only representation of the current input.
- * 
- * @param L The Lua state.
- * @return An error with a message indicating the object is read-only.
- */
 static int _input_state_lua_newindex(lua_State *L) {
     return luaL_error(L, "Input object is read-only");
 }
 
-/**
- * @private
- * @brief A metatable `__gc` (garbage collection) function for the EseInputState Lua proxy.
- * 
- * @details This function is responsible for correctly handling the memory of the
- * `EseInputState` C object when its Lua proxy is garbage collected. It only frees the
- * C memory if the `is_lua_owned` flag is true.
- * 
- * @param L The Lua state.
- * @return The number of results pushed onto the stack (0).
- */
-static int _input_state_lua_gc(lua_State *L) {
-    EseInputState *state = _input_state_lua_get(L, 1);
-
-    if (state) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
-            input_state_destroy(state);
-            log_debug("LUA_GC", "InputState object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "InputState object (C-owned) garbage collected, C memory *not* freed.");
-        }
-    }
-
-    return 0;
-}
-
-/**
- * @private
- * @brief A metatable `__tostring` function for the EseInputState Lua proxy.
- * 
- * @details This function provides a string representation of the `EseInputState` object
- * for easy debugging and printing in Lua.
- * 
- * @param L The Lua state.
- * @return A string representation of the `EseInputState`.
- */
 static int _input_state_lua_tostring(lua_State *L) {
-    EseInputState *input = _input_state_lua_get(L, 1);
+    EseInputState *input = input_state_lua_get(L, 1);
     if (!input) {
         lua_pushstring(L, "Input: (invalid)");
         return 1;
@@ -363,59 +239,47 @@ static int _input_state_lua_tostring(lua_State *L) {
     return 1;
 }
 
-void input_state_lua_init(EseLuaEngine *engine) {
-    log_assert("INPUT_STATE", engine, "input_state_lua_init called with NULL engine");
-    log_assert("INPUT_STATE", engine->runtime, "input_state_lua_init called with NULL engine->runtime");
-
-    if (luaL_newmetatable(engine->runtime, "InputProxyMeta")) {
-        log_debug("LUA", "Adding entity InputProxyMeta to engine");
-        lua_pushcfunction(engine->runtime, _input_state_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _input_state_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _input_state_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _input_state_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+// Lua helpers
+static int _input_state_keys_index(lua_State *L) {
+    bool *arr = (bool *)lua_touserdata(L, lua_upvalueindex(1));
+    int key_idx = (int)luaL_checkinteger(L, 2);
+    log_assert("INPUT_STATE", (key_idx >= 0 && key_idx < InputKey_MAX), "Invalid key index");
+    lua_pushboolean(L, arr[key_idx]);
+    return 1;
 }
 
+static int _input_state_mouse_buttons_index(lua_State *L) {
+    EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
+    int btn = (int)luaL_checkinteger(L, 2);
+    if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
+        return luaL_error(L, "Invalid mouse button index");
+    }
+    lua_pushboolean(L, input->mouse_buttons[btn]);
+    return 1;
+}
+
+static int _input_state_readonly_error(lua_State *L) {
+    return luaL_error(L, "Input tables are read-only");
+}
+
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
+// Core lifecycle
+// We support a NULL engine. 
 EseInputState *input_state_create(EseLuaEngine *engine) {
-    log_assert("INPUT_STATE", memory_manager.malloc, "memory_manager.malloc is NULL");
 
-    EseInputState *input = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_GENERAL);
-    log_assert("INPUT_STATE", input, "input_state_create failed to allocate memory");
-
-    memset(input->keys_down, 0, sizeof(input->keys_down));
-    memset(input->keys_pressed, 0, sizeof(input->keys_pressed));
-    memset(input->keys_released, 0, sizeof(input->keys_released));
-    memset(input->mouse_buttons, 0, sizeof(input->mouse_buttons));
-
-    input->mouse_x = 0;
-    input->mouse_y = 0;
-    input->mouse_scroll_dx = 0;
-    input->mouse_scroll_dy = 0;
-
+    EseInputState *input = _input_state_make();
     if (engine) {
         input->state = engine->runtime;
-        input->lua_ref = LUA_NOREF;
-
-        _input_state_lua_register(input, false);
-    } else {
-        input->state = NULL;
-        input->lua_ref = LUA_NOREF;
-
     }
 
     return input;
 }
 
-EseInputState *input_state_copy(const EseInputState *src, EseLuaEngine *engine) {
+EseInputState *input_state_copy(const EseInputState *src) {
     log_assert("INPUT_STATE", src, "input_state_copy called with NULL src");
-    log_assert("INPUT_STATE", engine, "input_state_copy called with NULL engine");
     log_assert("INPUT_STATE", memory_manager.malloc, "memory_manager.malloc is NULL");
 
     EseInputState *copy = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_GENERAL);
@@ -431,26 +295,128 @@ EseInputState *input_state_copy(const EseInputState *src, EseLuaEngine *engine) 
     copy->mouse_scroll_dx = src->mouse_scroll_dx;
     copy->mouse_scroll_dy = src->mouse_scroll_dy;
 
-    copy->state = engine->runtime;
+    copy->state = src->state;
     copy->lua_ref = LUA_NOREF;
-
-    _input_state_lua_register(copy, false);
+    copy->lua_ref_count = 0;
 
     return copy;
 }
 
 void input_state_destroy(EseInputState *input) {
-    if (input) {
-        if (input->lua_ref != LUA_NOREF) {
-            luaL_unref(input->state, LUA_REGISTRYINDEX, input->lua_ref);
-        }
+    if (!input) return;
+    
+    if (input->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
         memory_manager.free(input);
+    } else {
+        // Has Lua references, decrement counter
+        if (input->lua_ref_count > 0) {
+            input->lua_ref_count--;
+            
+            if (input->lua_ref_count == 0) {
+                // No more C references - remove from registry
+                luaL_unref(input->state, LUA_REGISTRYINDEX, input->lua_ref);
+                input->lua_ref = LUA_NOREF;
+            }
+        }
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
     }
 }
 
-static void input_state_lua_push(EseInputState *input) {
-    log_assert("INPUT_STATE", input, "input_state_lua_push called with NULL input");
-    log_assert("INPUT_STATE", input->lua_ref -= LUA_NOREF, "input_state_lua_push input not registered with lua");
+// Lua integration
+void input_state_lua_init(EseLuaEngine *engine) {
+    log_assert("INPUT_STATE", engine, "input_state_lua_init called with NULL engine");
+    log_assert("INPUT_STATE", engine->runtime, "input_state_lua_init called with NULL engine->runtime");
 
-    lua_rawgeti(input->state, LUA_REGISTRYINDEX, input->lua_ref);
+    if (luaL_newmetatable(engine->runtime, "InputProxyMeta")) {
+        log_debug("LUA", "Adding InputProxyMeta to engine");
+        lua_pushcfunction(engine->runtime, _input_state_lua_index);
+        lua_setfield(engine->runtime, -2, "__index");
+        lua_pushcfunction(engine->runtime, _input_state_lua_newindex);
+        lua_setfield(engine->runtime, -2, "__newindex");
+        lua_pushcfunction(engine->runtime, _input_state_lua_gc);
+        lua_setfield(engine->runtime, -2, "__gc");
+        lua_pushcfunction(engine->runtime, _input_state_lua_tostring);
+        lua_setfield(engine->runtime, -2, "__tostring");
+        lua_pushstring(engine->runtime, "locked");
+        lua_setfield(engine->runtime, -2, "__metatable");
+    }
+    lua_pop(engine->runtime, 1);
+}
+
+void input_state_lua_push(EseInputState *input) {
+    log_assert("INPUT_STATE", input, "input_state_lua_push called with NULL input");
+
+    if (input->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(input->state);
+        lua_pushlightuserdata(input->state, input);
+        lua_setfield(input->state, -2, "__ptr");
+        
+        luaL_getmetatable(input->state, "InputProxyMeta");
+        lua_setmetatable(input->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(input->state, LUA_REGISTRYINDEX, input->lua_ref);
+    }
+}
+
+EseInputState *input_state_lua_get(lua_State *L, int idx) {
+    if (!lua_istable(L, idx)) return NULL;
+
+    if (!lua_getmetatable(L, idx)) return NULL;
+
+    luaL_getmetatable(L, "InputProxyMeta");
+    if (!lua_rawequal(L, -1, -2)) {
+        lua_pop(L, 2);
+        return NULL;
+    }
+    lua_pop(L, 2);
+
+    lua_getfield(L, idx, "__ptr");
+    if (!lua_islightuserdata(L, -1)) {
+        lua_pop(L, 1);
+        return NULL;
+    }
+    void *ptr = lua_touserdata(L, -1);
+    lua_pop(L, 1);
+    return (EseInputState *)ptr;
+}
+
+void input_state_ref(EseInputState *input) {
+    log_assert("INPUT_STATE", input, "input_state_ref called with NULL input");
+    log_assert("INPUT_STATE", input->state, "input_state_ref called with C only input");
+    
+    if (input->lua_ref == LUA_NOREF) {
+        // First time referencing - create proxy table and store reference
+        lua_newtable(input->state);
+        lua_pushlightuserdata(input->state, input);
+        lua_setfield(input->state, -2, "__ptr");
+
+        luaL_getmetatable(input->state, "InputProxyMeta");
+        lua_setmetatable(input->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        input->lua_ref = luaL_ref(input->state, LUA_REGISTRYINDEX);
+        input->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        input->lua_ref_count++;
+    }
+}
+
+void input_state_unref(EseInputState *input) {
+    if (!input) return;
+    log_assert("INPUT_STATE", input->state, "input_state_unref called with C only input");
+    
+    if (input->lua_ref != LUA_NOREF && input->lua_ref_count > 0) {
+        input->lua_ref_count--;
+        
+        if (input->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(input->state, LUA_REGISTRYINDEX, input->lua_ref);
+            input->lua_ref = LUA_NOREF;
+        }
+    }
 }

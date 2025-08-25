@@ -71,12 +71,15 @@ EseEngine *engine_create(const char *startup_script) {
     
     // Add globals
     engine->input_state = input_state_create(engine->lua_engine);
+    input_state_ref(engine->input_state);
     lua_engine_add_global(engine->lua_engine, "InputState", engine->input_state->lua_ref);
 
     engine->display_state = display_state_create(engine->lua_engine);
+    display_state_ref(engine->display_state);
     lua_engine_add_global(engine->lua_engine, "Display", engine->display_state->lua_ref);
 
     engine->camera_state = camera_state_create(engine->lua_engine);
+    camera_state_ref(engine->camera_state);
     lua_engine_add_global(engine->lua_engine, "Camera", engine->camera_state->lua_ref);
 
     // Lock global

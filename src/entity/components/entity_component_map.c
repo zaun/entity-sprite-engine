@@ -38,12 +38,14 @@ static EseEntityComponent *_entity_component_map_make(EseLuaEngine *engine)
     component->base.data = component;
     component->base.active = true;
     component->base.id = uuid_create(engine);
+    uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_MAP;
 
     component->map = NULL;
     component->map_pos = point_create(engine);
+    point_ref(component->map_pos);
     component->size = 128;
     component->seed = 1000;
 
@@ -60,12 +62,14 @@ EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
     copy->base.data = copy;
     copy->base.active = true;
     copy->base.id = uuid_create(src->base.lua);
+    uuid_ref(copy->base.id);
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_MAP;
 
     copy->map = src->map;
     copy->map_pos = point_create(src->base.lua);
+    point_ref(copy->map_pos);
     copy->map_pos->x = src->map_pos->x;
     copy->map_pos->y = src->map_pos->y;
 

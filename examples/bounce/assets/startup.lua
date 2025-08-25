@@ -26,6 +26,9 @@ function STARTUP:startup()
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 
+    -- os isn't available
+    -- math.randomseed(os.time()) -- seed random generator
+
     print("Startup done")
     return true
 end

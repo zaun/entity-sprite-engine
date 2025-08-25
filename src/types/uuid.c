@@ -7,96 +7,55 @@
 #include "utility/log.h"
 #include "types/uuid.h"
 
-/**
- * @brief Pushes a EseUUID pointer as a Lua userdata object onto the stack.
- * 
- * @details Creates a new Lua table that acts as a proxy for the EseUUID object,
- *          storing the C pointer as light userdata in the "__ptr" field and
- *          setting the UUIDProxyMeta metatable for property access.
- * 
- * @param uuid Pointer to the EseUUID object to wrap for Lua access
- * @param is_lua_owned True if LUA will handle freeing
- * 
- * @warning The EseUUID object must remain valid for the lifetime of the Lua object
- */
-void _uuid_lua_register(EseUUID *uuid, bool is_lua_owned) {
-    log_assert("UUID", uuid, "_uuid_lua_register called with NULL uuid");
-    log_assert("UUID", uuid->lua_ref == LUA_NOREF, "_uuid_lua_register uuid is already registered");
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
 
-    lua_newtable(uuid->state);
-    lua_pushlightuserdata(uuid->state, uuid);
-    lua_setfield(uuid->state, -2, "__ptr");
+// Core helpers
+static EseUUID *_uuid_make(void);
 
-    // Store the ownership flag
-    lua_pushboolean(uuid->state, is_lua_owned);
-    lua_setfield(uuid->state, -2, "__is_lua_owned");
+// Lua metamethods
+static int _uuid_lua_gc(lua_State *L);
+static int _uuid_lua_index(lua_State *L);
+static int _uuid_lua_newindex(lua_State *L);
+static int _uuid_lua_tostring(lua_State *L);
 
-    luaL_getmetatable(uuid->state, "UUIDProxyMeta");
-    lua_setmetatable(uuid->state, -2);
+// Lua constructors
+static int _uuid_lua_new(lua_State *L);
 
-    // Store a reference to this proxy table in the Lua registry
-    uuid->lua_ref = luaL_ref(uuid->state, LUA_REGISTRYINDEX);
-}
+// Lua methods
+static int _uuid_lua_reset_method(lua_State *L);
 
-void uuid_lua_push(EseUUID *uuid) {
-    log_assert("UUID", uuid, "uuid_lua_push called with NULL uuid");
-    log_assert("UUID", uuid->lua_ref != LUA_NOREF, "uuid_lua_push uuid not registered with lua");
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
 
-    // Push the proxy table back onto the stack for Lua to receive
-    lua_rawgeti(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
-}
-
-/**
- * @brief Lua function to create a new EseUUID object.
- * 
- * @details Callable from Lua as EseUUID.new(). Creates a new EseUUID with a
- *          randomly generated value and pushes it onto the Lua stack.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the new EseUUID object)
- * 
- * @warning Items created in Lua are owned by Lua
- */
-static int _uuid_lua_new(lua_State *L) {
+// Core helpers
+static EseUUID *_uuid_make() {
     EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_GENERAL);
-    uuid->state = L;
+    uuid->state = NULL;
     uuid->lua_ref = LUA_NOREF;
+    uuid->lua_ref_count = 0;
     uuid_generate(uuid);
-
-    _uuid_lua_register(uuid, true);
-    uuid_lua_push(uuid);
-    return 1;
+    return uuid;
 }
 
-/**
- * @brief Lua method to reset a EseUUID instance.
- * 
- * @details Callable as uuid:reset(). Generates a new EseUUID value for
- *          the existing EseUUID object.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 0)
- */
-static int _uuid_lua_reset_method(lua_State *L) {
-    // Get the EseUUID from the closure's upvalue
-    EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!uuid) {
-        return luaL_error(L, "Invalid EseUUID object in reset method");
+// Lua metamethods
+static int _uuid_lua_gc(lua_State *L) {
+    EseUUID *uuid = uuid_lua_get(L, 1);
+
+    if (uuid) {
+        // If lua_ref == LUA_NOREF, there are no more references to this uuid, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this uuid was referenced from C and should not be freed.
+        if (uuid->lua_ref == LUA_NOREF) {
+            uuid_destroy(uuid);
+        }
     }
-    
-    uuid_generate(uuid);
+
     return 0;
 }
 
-/**
- * @brief Lua __index metamethod for EseUUID objects (getter).
- * 
- * @details Handles property access for EseUUID objects from Lua. Currently
- *          supports reading the EseUUID as a string value.
- * 
- * @param L Lua state pointer
- * @return Number of return values pushed to Lua stack
- */
 static int _uuid_lua_index(lua_State *L) {
     EseUUID *uuid = uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -115,51 +74,12 @@ static int _uuid_lua_index(lua_State *L) {
     return 0;
 }
 
-/**
- * @brief Lua __newindex metamethod for EseUUID objects (setter).
- * 
- * @details Handles property assignment for EseUUID objects from Lua. UUIDs are
- *          typically immutable, so this function prevents modification.
- * 
- * @param L Lua state pointer
- * @return Always returns 0 or throws Lua error for modification attempts
- */
 static int _uuid_lua_newindex(lua_State *L) {
     EseUUID *uuid = uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!uuid || !key) return 0;
 
     return luaL_error(L, "UUID objects are immutable - cannot set property '%s'", key);
-}
-
-/**
- * @brief Lua __gc metamethod for EseUUID objects.
- *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseUUID's memory was allocated by Lua and should be freed.
- * If false, the EseUUID's memory is managed externally (by C) and is not freed here.
- *
- * @param L Lua state pointer
- * @return Always 0 (no return values)
- */
-static int _uuid_lua_gc(lua_State *L) {
-    EseUUID *uuid = uuid_lua_get(L, 1);
-
-    if (uuid) {
-        // Get the __is_lua_owned flag from the proxy table itself
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
-            uuid_destroy(uuid);
-            log_debug("LUA_GC", "UUID object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "UUID object (C-owned) garbage collected, C memory *not* freed.");
-        }
-    }
-
-    return 0;
 }
 
 static int _uuid_lua_tostring(lua_State *L) {
@@ -177,6 +97,83 @@ static int _uuid_lua_tostring(lua_State *L) {
     return 1;
 }
 
+// Lua constructors
+static int _uuid_lua_new(lua_State *L) {
+    // Create the uuid using the standard creation function
+    EseUUID *uuid = _uuid_make();
+    uuid->state = L;
+    
+    // Create proxy table for Lua-owned uuid
+    lua_newtable(L);
+    lua_pushlightuserdata(L, uuid);
+    lua_setfield(L, -2, "__ptr");
+
+    luaL_getmetatable(L, "UUIDProxyMeta");
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+// Lua methods
+static int _uuid_lua_reset_method(lua_State *L) {
+    // Get the EseUUID from the closure's upvalue
+    EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!uuid) {
+        return luaL_error(L, "Invalid EseUUID object in reset method");
+    }
+    
+    uuid_generate(uuid);
+    return 0;
+}
+
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
+// Core lifecycle
+EseUUID *uuid_create(EseLuaEngine *engine) {
+    EseUUID *uuid = _uuid_make();
+    uuid->state = engine->runtime;
+    return uuid;
+}
+
+EseUUID *uuid_copy(const EseUUID *source) {
+    if (source == NULL) {
+        return NULL;
+    }
+
+    EseUUID *copy = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_GENERAL);
+    strcpy(copy->value, source->value);
+    copy->state = source->state;
+    copy->lua_ref = LUA_NOREF;
+    copy->lua_ref_count = 0;
+    return copy;
+}
+
+void uuid_destroy(EseUUID *uuid) {
+    if (!uuid) return;
+    
+    if (uuid->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
+        memory_manager.free(uuid);
+    } else {
+        // Has Lua references, decrement counter
+        if (uuid->lua_ref_count > 0) {
+            uuid->lua_ref_count--;
+            
+            if (uuid->lua_ref_count == 0) {
+                // No more C references, unref from Lua registry
+                // Let Lua's GC handle the final cleanup
+                luaL_unref(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
+                uuid->lua_ref = LUA_NOREF;
+            }
+        }
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
+    }
+}
+
+// Lua integration
 void uuid_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "UUIDProxyMeta")) {
         log_debug("LUA", "Adding entity UUIDProxyMeta to engine");
@@ -204,6 +201,23 @@ void uuid_lua_init(EseLuaEngine *engine) {
         lua_setglobal(engine->runtime, "UUID");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing EseUUID table
+    }
+}
+
+void uuid_lua_push(EseUUID *uuid) {
+    log_assert("UUID", uuid, "uuid_lua_push called with NULL uuid");
+
+    if (uuid->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(uuid->state);
+        lua_pushlightuserdata(uuid->state, uuid);
+        lua_setfield(uuid->state, -2, "__ptr");
+        
+        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        lua_setmetatable(uuid->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
     }
 }
 
@@ -245,24 +259,42 @@ EseUUID *uuid_lua_get(lua_State *L, int idx) {
     return (EseUUID *)uuid;
 }
 
-EseUUID *uuid_create(EseLuaEngine *engine) {
-    EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_GENERAL);
-    uuid->state = engine->runtime;
-    uuid->lua_ref = LUA_NOREF;
-    uuid_generate(uuid);
-    _uuid_lua_register(uuid, false);
-    return uuid;
-}
+void uuid_ref(EseUUID *uuid) {
+    log_assert("UUID", uuid, "uuid_ref called with NULL uuid");
+    
+    if (uuid->lua_ref == LUA_NOREF) {
+        // First time referencing - create proxy table and store reference
+        lua_newtable(uuid->state);
+        lua_pushlightuserdata(uuid->state, uuid);
+        lua_setfield(uuid->state, -2, "__ptr");
 
-void uuid_destroy(EseUUID *uuid) {
-    if (uuid) {
-        if (uuid->lua_ref != LUA_NOREF) {
-            luaL_unref(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
-        }
-        memory_manager.free(uuid);
+        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        lua_setmetatable(uuid->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        uuid->lua_ref = luaL_ref(uuid->state, LUA_REGISTRYINDEX);
+        uuid->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        uuid->lua_ref_count++;
     }
 }
 
+void uuid_unref(EseUUID *uuid) {
+    if (!uuid) return;
+    
+    if (uuid->lua_ref != LUA_NOREF && uuid->lua_ref_count > 0) {
+        uuid->lua_ref_count--;
+        
+        if (uuid->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
+            uuid->lua_ref = LUA_NOREF;
+        }
+    }
+}
+
+// Utility functions
 void uuid_generate(EseUUID *uuid) {
     log_assert("ENGINE", uuid, "uuid_generate called with NULL uuid");
 

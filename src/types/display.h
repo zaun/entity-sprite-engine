@@ -14,6 +14,7 @@
 
 // Forward declarations
 typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
 
 /**
  * @brief A structure to define a viewport rectangle.
@@ -32,28 +33,23 @@ typedef struct {
     int height;             /**< The height of the display in pixels. */
     float aspect_ratio;     /**< The aspect ratio of the display (width/height). */
     EseViewport viewport;      /**< The current viewport configuration. */
+
     lua_State *state;       /**< A pointer to the Lua state. */
     int lua_ref;            /**< A reference to the Lua userdata object. */
+    int lua_ref_count;      /**< Number of times this display has been referenced in C */
 } EseDisplay;
 
-/**
- * @brief Initializes the Display userdata type in the Lua state.
- * 
- * @details This function registers the 'DisplayProxyMeta' metatable in the Lua registry,
- * which defines how the `EseDisplay` C object interacts with Lua scripts.
- * 
- * @param engine A pointer to the `EseLuaEngine` where the Display type will be registered.
- * @return void
- * 
- * @note This function should be called once during engine initialization.
- */
-void display_state_lua_init(EseLuaEngine *engine);
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
 
+// Core lifecycle
 /**
  * @brief Creates a new EseDisplay object with default values.
  * 
  * @details This function allocates memory for a new `EseDisplay` object and initializes
- * it with default display configuration. It also sets up a Lua proxy for the new object.
+ * it with default display configuration. The display is created without Lua references
+ * and must be explicitly referenced with display_state_ref() if Lua access is desired.
  * 
  * @param engine A pointer to the `EseLuaEngine` for the Lua state.
  * @return A pointer to the newly allocated `EseDisplay` object.
@@ -67,21 +63,27 @@ EseDisplay *display_state_create(EseLuaEngine *engine);
  * 
  * @details This function allocates new memory and copies the state from a source `EseDisplay`
  * object. It ensures all data, including viewport configuration, is duplicated.
+ * The copy is created without Lua references and must be explicitly referenced
+ * with display_state_ref() if Lua access is desired.
  * 
  * @param src A pointer to the source `EseDisplay` object to copy from.
- * @param engine A pointer to the `EseLuaEngine` for the new object's Lua state.
  * @return A pointer to the new copied `EseDisplay`.
  * 
  * @note This function performs a memory allocation and a deep copy of the data.
  * @warning The caller is responsible for freeing the returned memory with `display_state_destroy`.
  */
-EseDisplay *display_state_copy(const EseDisplay *src, EseLuaEngine *engine);
+EseDisplay *display_state_copy(const EseDisplay *src);
 
 /**
- * @brief Destroys and frees the memory for a EseDisplay object.
+ * @brief Destroys a EseDisplay object, managing memory based on Lua references.
  * 
- * @details This function releases any associated Lua references and deallocates the
- * memory for the `EseDisplay` C object.
+ * @details If the display has no Lua references (lua_ref == LUA_NOREF), frees memory immediately.
+ *          If the display has Lua references, decrements the reference counter.
+ *          When the counter reaches 0, removes the Lua reference and lets
+ *          Lua's garbage collector handle final cleanup.
+ * 
+ * @note If the display is Lua-owned, memory may not be freed immediately.
+ *       Lua's garbage collector will finalize it once no references remain.
  * 
  * @param display A pointer to the `EseDisplay` object to be destroyed.
  * @return void
@@ -90,6 +92,71 @@ EseDisplay *display_state_copy(const EseDisplay *src, EseLuaEngine *engine);
  */
 void display_state_destroy(EseDisplay *display);
 
+// Lua integration
+/**
+ * @brief Initializes the Display userdata type in the Lua state.
+ * 
+ * @details This function registers the 'DisplayProxyMeta' metatable in the Lua registry,
+ * which defines how the `EseDisplay` C object interacts with Lua scripts.
+ * Also creates the global "Display" table with "new" constructor.
+ * 
+ * @param engine A pointer to the `EseLuaEngine` where the Display type will be registered.
+ * @return void
+ * 
+ * @note This function should be called once during engine initialization.
+ */
+void display_state_lua_init(EseLuaEngine *engine);
+
+/**
+ * @brief Pushes a EseDisplay object to the Lua stack.
+ * 
+ * @details If the display has no Lua references (lua_ref == LUA_NOREF), creates a new
+ *          proxy table. If the display has Lua references, retrieves the existing
+ *          proxy table from the registry.
+ * 
+ * @param display Pointer to the EseDisplay object to push to Lua
+ */
+void display_state_lua_push(EseDisplay *display);
+
+/**
+ * @brief Extracts a EseDisplay pointer from a Lua userdata object with type safety.
+ * 
+ * @details Retrieves the C EseDisplay pointer from the "__ptr" field of a Lua
+ *          table that was created by display_state_lua_push(). Performs
+ *          type checking to ensure the object is a valid EseDisplay proxy table
+ *          with the correct metatable and userdata pointer.
+ * 
+ * @param L Lua state pointer
+ * @param idx Stack index of the Lua EseDisplay object
+ * @return Pointer to the EseDisplay object, or NULL if extraction fails or type check fails
+ * 
+ * @warning Returns NULL for invalid objects - always check return value before use
+ */
+EseDisplay *display_state_lua_get(lua_State *L, int idx);
+
+/**
+ * @brief References a EseDisplay object for Lua access with reference counting.
+ * 
+ * @details If display->lua_ref is LUA_NOREF, pushes the display to Lua and references it,
+ *          setting lua_ref_count to 1. If display->lua_ref is already set, increments
+ *          the reference count by 1. This prevents the display from being garbage
+ *          collected while C code holds references to it.
+ * 
+ * @param display Pointer to the EseDisplay object to reference
+ */
+void display_state_ref(EseDisplay *display);
+
+/**
+ * @brief Unreferences a EseDisplay object, decrementing the reference count.
+ * 
+ * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua reference
+ *          is removed from the registry. This function does NOT free memory.
+ * 
+ * @param display Pointer to the EseDisplay object to unreference
+ */
+void display_state_unref(EseDisplay *display);
+
+// State management
 /**
  * @brief Updates the display dimensions and recalculates dependent values.
  * 

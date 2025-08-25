@@ -36,7 +36,7 @@ function STARTUP:startup()
     end
 
     if asset_load_atlas("grassland", "grassland.json") == false then
-        print("Tileset atless failed")
+        print("Tileset atlas failed")
         return
     end
 
@@ -77,6 +77,10 @@ function STARTUP:startup()
     print(horse_collider.rects)
     horse_collider.rects.add(Rect.new(0, 0, 144, 144))
     horse.components.add(horse_collider)
+
+    local horse_text = EntityComponentText.new()
+    horse_text.text = "Da Horse"
+    horse.components.add(horse_text)
 
     STARTUP:makeskull()
     STARTUP:makeskull()

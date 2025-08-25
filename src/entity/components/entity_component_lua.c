@@ -34,6 +34,7 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->base.data = component;
     component->base.active = true;
     component->base.id = uuid_create(engine);
+    uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_LUA;

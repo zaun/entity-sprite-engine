@@ -1,144 +1,59 @@
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
-#include "vendor/lua/src/lauxlib.h"
 #include "types/point.h"
 
-// Global weak table for storing Lua-owned Point objects
-// Keys are the Point objects, values are their proxy tables
-static int point_weak_table_ref = LUA_NOREF;
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
 
-/**
- * @brief Pushes a EsePoint pointer as a Lua userdata object onto the stack.
- * 
- * @details Creates a new Lua table that acts as a proxy for the EsePoint object,
- *          storing the C pointer as light userdata in the "__ptr" field and
- *          setting the PointProxyMeta metatable for property access.
- * 
- * @param point Pointer to the EsePoint object to wrap for Lua access
- * @param is_lua_owned True if LUA will handle freeing
- * 
- * @warning The EsePoint object must remain valid for the lifetime of the Lua object
- */
-void _point_lua_register(EsePoint *point, bool is_lua_owned) {
-    log_assert("POINT", point, "_point_lua_register called with NULL point");
-    log_assert("POINT", point->lua_ref == LUA_NOREF, "_point_lua_register point is already registered");
+// Core helpers
+static EsePoint *_point_make(void);
 
-    lua_newtable(point->state);
-    lua_pushlightuserdata(point->state, point);
-    lua_setfield(point->state, -2, "__ptr");
+// Lua metamethods
+static int _point_lua_gc(lua_State *L);
+static int _point_lua_index(lua_State *L);
+static int _point_lua_newindex(lua_State *L);
+static int _point_lua_tostring(lua_State *L);
 
-    // Store the ownership flag
-    lua_pushboolean(point->state, is_lua_owned);
-    lua_setfield(point->state, -2, "__is_lua_owned");
+// Lua constructors
+static int _point_lua_new(lua_State *L);
+static int _point_lua_zero(lua_State *L);
 
-    luaL_getmetatable(point->state, "PointProxyMeta");
-    lua_setmetatable(point->state, -2);
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
 
-    if (is_lua_owned) {
-        // Lua-owned: no storage needed, proxy table goes directly to Lua
-        point->lua_ref = LUA_NOREF;
-    } else {
-        // C-owned: store hard reference to prevent garbage collection
-        point->lua_ref = luaL_ref(point->state, LUA_REGISTRYINDEX);
-    }
-}
-
-void point_lua_push(EsePoint *point) {
-    log_assert("POINT", point, "point_lua_push called with NULL point");
-
-    if (point->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(point->state);
-        lua_pushlightuserdata(point->state, point);
-        lua_setfield(point->state, -2, "__ptr");
-        
-        lua_pushboolean(point->state, true);
-        lua_setfield(point->state, -2, "__is_lua_owned");
-        
-        luaL_getmetatable(point->state, "PointProxyMeta");
-        lua_setmetatable(point->state, -2);
-    } else {
-        // C-owned: get from registry
-        lua_rawgeti(point->state, LUA_REGISTRYINDEX, point->lua_ref);
-    }
-}
-
-/**
- * @brief Lua function to create a new EsePoint object.
- * 
- * @details Callable from Lua as EsePoint.new(). Creates a new EsePoint.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the new point object)
- * 
- * @warning Items created in Lua are owned by Lua
- */
-static int _point_lua_new(lua_State *L) {
-    float x = 0.0f;
-    float y = 0.0f;
-
-    // Check for optional x and y arguments
-    int n_args = lua_gettop(L);
-    if (n_args != 2) {
-        return luaL_error(L, "new(x, y) takes 2 arguments");
-    }
-
-    if (lua_isnumber(L, 1)) {
-        x = (float)lua_tonumber(L, 1);
-    } else {
-        return luaL_error(L, "x must be a number");
-    }
-    if (lua_isnumber(L, 2)) {
-        y = (float)lua_tonumber(L, 2);
-    } else {
-        return luaL_error(L, "y must be a number");
-    }
-
-    EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
-    point->x = x;
-    point->y = y;
-    point->state = L;
-    point->lua_ref = LUA_NOREF;
-    _point_lua_register(point, true);
-
-    // The proxy table is already on the stack from _point_lua_register
-    // Just return it - no need to call point_lua_push
-    return 1;
-}
-
-/**
- * @brief Lua function to create a new EsePoint object.
- * 
- * @details Callable from Lua as point.zero(). Creates a new EsePoint.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the new point object)
- */
-static int _point_lua_zero(lua_State *L) {
+// Core helpers
+static EsePoint *_point_make() {
     EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
     point->x = 0.0f;
     point->y = 0.0f;
-    point->state = L;
+    point->state = NULL;
     point->lua_ref = LUA_NOREF;
-    _point_lua_register(point, true);
-
-    // The proxy table is already on the stack from _point_lua_register
-    // Just return it - no need to call point_lua_push
-    return 1;
+    point->lua_ref_count = 0;
+    return point;
 }
 
-/**
- * @brief Lua __index metamethod for EsePoint objects (getter).
- * 
- * @details Handles property access for EsePoint objects from Lua. Currently supports
- *          'x' and 'y' properties, returning their float values as Lua numbers.
- * 
- * @param L Lua state pointer
- * @return Number of return values pushed to Lua stack (1 for valid properties, 0 otherwise)
- */
+// Lua metamethods
+static int _point_lua_gc(lua_State *L) {
+    EsePoint *point = point_lua_get(L, 1);
+
+    if (point) {
+        // If lua_ref == LUA_NOREF, there are no more references to this point, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this point was referenced from C and should not be freed.
+        if (point->lua_ref == LUA_NOREF) {
+            point_destroy(point);
+        }
+    }
+
+    return 0;
+}
+
 static int _point_lua_index(lua_State *L) {
     EsePoint *point = point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -154,15 +69,6 @@ static int _point_lua_index(lua_State *L) {
     return 0;
 }
 
-/**
- * @brief Lua __newindex metamethod for EsePoint objects (setter).
- * 
- * @details Handles property assignment for EsePoint objects from Lua. Currently supports
- *          'x' and 'y' properties, validating that assigned values are numbers.
- * 
- * @param L Lua state pointer
- * @return Always returns 0 (no return values) or throws Lua error for invalid operations
- */
 static int _point_lua_newindex(lua_State *L) {
     EsePoint *point = point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -184,38 +90,6 @@ static int _point_lua_newindex(lua_State *L) {
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
-/**
- * @brief Lua __gc metamethod for EsePoint objects.
- *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EsePoint's memory was allocated by Lua and should be freed.
- * If false, the EsePoint's memory is managed externally (by C) and is not freed here.
- *
- * @param L Lua state pointer
- * @return Always 0 (no return values)
- */
-static int _point_lua_gc(lua_State *L) {
-    // The proxy table is at index 1
-    // Get the EsePoint pointer
-    EsePoint *point = point_lua_get(L, 1);
-
-    if (point) {
-        // Get the __is_lua_owned flag from the proxy table itself
-        lua_getfield(L, 1, "__is_lua_owned"); // Proxy table at index 1, get field "__is_lua_owned"
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1); // Pop the boolean value
-
-        if (is_lua_owned) {
-            // Lua-owned: just free memory, no weak table cleanup needed
-            memory_manager.free(point);
-        }
-    } else {
-        log_debug("LUA_GC", "GC called but couldn't get Point pointer");
-    }
-
-    return 0;
-}
-
 static int _point_lua_tostring(lua_State *L) {
     EsePoint *point = point_lua_get(L, 1);
 
@@ -231,6 +105,110 @@ static int _point_lua_tostring(lua_State *L) {
     return 1;
 }
 
+// Lua constructors
+static int _point_lua_new(lua_State *L) {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    // Check for optional x and y arguments
+    int n_args = lua_gettop(L);
+    if (n_args != 2) {
+        return luaL_error(L, "new(x, y) takes 2 arguments");
+    }
+
+    if (lua_isnumber(L, 1)) {
+        x = (float)lua_tonumber(L, 1);
+    } else {
+        return luaL_error(L, "x must be a number");
+    }
+    if (lua_isnumber(L, 2)) {
+        y = (float)lua_tonumber(L, 2);
+    } else {
+        return luaL_error(L, "y must be a number");
+    }
+
+    // Create the point using the standard creation function
+    EsePoint *point = _point_make();
+    point->x = x;
+    point->y = y;
+    point->state = L;
+    
+    // Create proxy table for Lua-owned point
+    lua_newtable(L);
+    lua_pushlightuserdata(L, point);
+    lua_setfield(L, -2, "__ptr");
+
+    luaL_getmetatable(L, "PointProxyMeta");
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+static int _point_lua_zero(lua_State *L) {
+    // Create the point using the standard creation function
+    EsePoint *point = _point_make();  // We'll set the state manually
+    point->state = L;
+    
+    // Create proxy table for Lua-owned point
+    lua_newtable(L);
+    lua_pushlightuserdata(L, point);
+    lua_setfield(L, -2, "__ptr");
+
+    luaL_getmetatable(L, "PointProxyMeta");
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
+// Core lifecycle
+EsePoint *point_create(EseLuaEngine *engine) {
+    EsePoint *point = _point_make();
+    point->state = engine->runtime;
+    return point;
+}
+
+EsePoint *point_copy(const EsePoint *source) {
+    if (source == NULL) {
+        return NULL;
+    }
+
+    EsePoint *copy = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
+    copy->x = source->x;
+    copy->y = source->y;
+    copy->state = source->state;
+    copy->lua_ref = LUA_NOREF;
+    copy->lua_ref_count = 0;
+    return copy;
+}
+
+void point_destroy(EsePoint *point) {
+    if (!point) return;
+    
+    if (point->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
+        memory_manager.free(point);
+    } else {
+        // Has Lua references, decrement counter
+        if (point->lua_ref_count > 0) {
+            point->lua_ref_count--;
+            
+            if (point->lua_ref_count == 0) {
+                // No more C references, unref from Lua registry
+                // Let Lua's GC handle the final cleanup
+                luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
+                point->lua_ref = LUA_NOREF;
+            }
+        }
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
+    }
+}
+
+// Lua integration
 void point_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "PointProxyMeta")) {
         log_debug("LUA", "Adding entity PointProxyMeta to engine");
@@ -246,14 +224,6 @@ void point_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "__metatable");
     }
     lua_pop(engine->runtime, 1);
-    
-    // Create the weak table for storing Lua-owned Point objects
-    // Keys are Point pointers, values are proxy tables
-    lua_newtable(engine->runtime);
-    lua_pushstring(engine->runtime, "__mode");
-    lua_pushstring(engine->runtime, "v"); // Make values weak (proxy tables)
-    lua_rawset(engine->runtime, -3);
-    point_weak_table_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
     
     // Create global EsePoint table with constructor
     lua_getglobal(engine->runtime, "Point");
@@ -271,23 +241,20 @@ void point_lua_init(EseLuaEngine *engine) {
     }
 }
 
-EsePoint *point_create(EseLuaEngine *engine) {
-    EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
-    point->x = 0.0f;
-    point->y = 0.0f;
-    point->state = engine->runtime;
-    point->lua_ref = LUA_NOREF;
-    _point_lua_register(point, false);
-    return point;
-}
+void point_lua_push(EsePoint *point) {
+    log_assert("POINT", point, "point_lua_push called with NULL point");
 
-void point_destroy(EsePoint *point) {
-    if (point) {
-        if (point->lua_ref != LUA_NOREF) {
-            // C-owned: remove hard reference
-            luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
-        }
-        memory_manager.free(point);
+    if (point->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(point->state);
+        lua_pushlightuserdata(point->state, point);
+        lua_setfield(point->state, -2, "__ptr");
+        
+        luaL_getmetatable(point->state, "PointProxyMeta");
+        lua_setmetatable(point->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(point->state, LUA_REGISTRYINDEX, point->lua_ref);
     }
 }
 
@@ -327,4 +294,56 @@ EsePoint *point_lua_get(lua_State *L, int idx) {
     lua_pop(L, 1); // Pop the __ptr value
     
     return (EsePoint *)pos;
+}
+
+void point_ref(EsePoint *point) {
+    log_assert("POINT", point, "point_ref called with NULL point");
+    
+    if (point->lua_ref == LUA_NOREF) {
+        // First time referencing - create proxy table and store reference
+        lua_newtable(point->state);
+        lua_pushlightuserdata(point->state, point);
+        lua_setfield(point->state, -2, "__ptr");
+
+        luaL_getmetatable(point->state, "PointProxyMeta");
+        lua_setmetatable(point->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        point->lua_ref = luaL_ref(point->state, LUA_REGISTRYINDEX);
+        point->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        point->lua_ref_count++;
+    }
+}
+
+void point_unref(EsePoint *point) {
+    if (!point) return;
+    
+    if (point->lua_ref != LUA_NOREF && point->lua_ref_count > 0) {
+        point->lua_ref_count--;
+        
+        if (point->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
+            point->lua_ref = LUA_NOREF;
+        }
+    }
+}
+
+// Mathematical operations
+float point_distance(const EsePoint *point1, const EsePoint *point2) {
+    if (!point1 || !point2) return 0.0f;
+    
+    float dx = point2->x - point1->x;
+    float dy = point2->y - point1->y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
+    if (!point1 || !point2) return 0.0f;
+    
+    float dx = point2->x - point1->x;
+    float dy = point2->y - point1->y;
+    return dx * dx + dy * dy;
 }

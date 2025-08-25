@@ -6,161 +6,59 @@
 #include "utility/log.h"
 #include "types/vector.h"
 
-/**
- * @brief Pushes a EseVector pointer as a Lua userdata object onto the stack.
- * 
- * @details Creates a new Lua table that acts as a proxy for the EseVector object,
- *          storing the C pointer as light userdata in the "__ptr" field and
- *          setting the VectorProxyMeta metatable for property access.
- * 
- * @param vector Pointer to the EseVector object to wrap for Lua access
- * @param is_lua_owned True if LUA will handle freeing
- * 
- * @warning The EseVector object must remain valid for the lifetime of the Lua object
- */
-void _vector_lua_register(EseVector *vector, bool is_lua_owned) {
-    log_assert("VECTOR", vector, "_vector_lua_register called with NULL vector");
-    log_assert("VECTOR", vector->lua_ref == LUA_NOREF, "_vector_lua_register vector is already registered");
-    
-    lua_newtable(vector->state);
-    lua_pushlightuserdata(vector->state, vector);
-    lua_setfield(vector->state, -2, "__ptr");
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
 
-    // Store the ownership flag
-    lua_pushboolean(vector->state, is_lua_owned);
-    lua_setfield(vector->state, -2, "__is_lua_owned");
+// Core helpers
+static EseVector *_vector_make(void);
 
-    luaL_getmetatable(vector->state, "VectorProxyMeta");
-    lua_setmetatable(vector->state, -2);
+// Lua metamethods
+static int _vector_lua_gc(lua_State *L);
+static int _vector_lua_index(lua_State *L);
+static int _vector_lua_newindex(lua_State *L);
+static int _vector_lua_tostring(lua_State *L);
 
-    // Store a reference to this proxy table in the Lua registry
-    vector->lua_ref = luaL_ref(vector->state, LUA_REGISTRYINDEX);
-}
+// Lua constructors
+static int _vector_lua_new(lua_State *L);
+static int _vector_lua_zero(lua_State *L);
 
-void vector_lua_push(EseVector *vector) {
-    log_assert("VECTOR", vector, "vector_lua_push called with NULL vector");
-    log_assert("VECTOR", vector->lua_ref != LUA_NOREF, "vector_lua_push vector not registered with lua");
+// Lua methods
+static int _vector_lua_set_direction(lua_State *L);
+static int _vector_lua_magnitude(lua_State *L);
+static int _vector_lua_normalize(lua_State *L);
 
-    // Push the proxy table back onto the stack for Lua to receive
-    lua_rawgeti(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
-}
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
 
-/**
- * @brief Lua function to create a new EseVector object.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the new vector object)
- */
-static int _vector_lua_new(lua_State *L) {
-    float x = 0.0f;
-    float y = 0.0f;
-
-    int n_args = lua_gettop(L);
-    if (n_args == 2) {
-        if (lua_isnumber(L, 1)) {
-            x = (float)lua_tonumber(L, 1);
-        } else {
-            return luaL_error(L, "x must be a number");
-        }
-        if (lua_isnumber(L, 2)) {
-            y = (float)lua_tonumber(L, 2);
-        } else {
-            return luaL_error(L, "y must be a number");
-        }
-    } else if (n_args != 0) {
-        return luaL_error(L, "new() takes 0 or 2 arguments");
-    }
-
-    EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
-    vector->x = x;
-    vector->y = y;
-    vector->state = L;
-    vector->lua_ref = LUA_NOREF;
-    _vector_lua_register(vector, true);
-
-    vector_lua_push(vector);
-    return 1;
-}
-
-/**
- * @brief Lua function to create a zero vector.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the new vector object)
- */
-static int _vector_lua_zero(lua_State *L) {
+// Core helpers
+static EseVector *_vector_make() {
     EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
     vector->x = 0.0f;
     vector->y = 0.0f;
-    vector->state = L;
+    vector->state = NULL;
     vector->lua_ref = LUA_NOREF;
-    _vector_lua_register(vector, true);
-
-    vector_lua_push(vector);
-    return 1;
+    vector->lua_ref_count = 0;
+    return vector;
 }
 
-/**
- * @brief Lua method to set vector direction.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 0)
- */
-static int _vector_lua_set_direction(lua_State *L) {
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in set_direction method");
+// Lua metamethods
+static int _vector_lua_gc(lua_State *L) {
+    EseVector *vector = vector_lua_get(L, 1);
+
+    if (vector) {
+        // If lua_ref == LUA_NOREF, there are no more references to this vector, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this vector was referenced from C and should not be freed.
+        if (vector->lua_ref == LUA_NOREF) {
+            vector_destroy(vector);
+        }
     }
-    
-    if (!lua_isstring(L, 1) || !lua_isnumber(L, 2)) {
-        return luaL_error(L, "set_direction(direction, magnitude) requires string and number");
-    }
-    
-    const char *direction = lua_tostring(L, 1);
-    float magnitude = (float)lua_tonumber(L, 2);
-    
-    vector_set_direction(vector, direction, magnitude);
+
     return 0;
 }
 
-/**
- * @brief Lua method to get vector magnitude.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 1 - the magnitude)
- */
-static int _vector_lua_magnitude(lua_State *L) {
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in magnitude method");
-    }
-    
-    lua_pushnumber(L, vector_magnitude(vector));
-    return 1;
-}
-
-/**
- * @brief Lua method to normalize vector.
- * 
- * @param L Lua state pointer
- * @return Number of return values (always 0)
- */
-static int _vector_lua_normalize(lua_State *L) {
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in normalize method");
-    }
-    
-    vector_normalize(vector);
-    return 0;
-}
-
-/**
- * @brief Lua __index metamethod for EseVector objects (getter).
- * 
- * @param L Lua state pointer
- * @return Number of return values pushed to Lua stack
- */
 static int _vector_lua_index(lua_State *L) {
     EseVector *vector = vector_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -188,12 +86,6 @@ static int _vector_lua_index(lua_State *L) {
     return 0;
 }
 
-/**
- * @brief Lua __newindex metamethod for EseVector objects (setter).
- * 
- * @param L Lua state pointer
- * @return Always returns 0 or throws Lua error for invalid operations
- */
 static int _vector_lua_newindex(lua_State *L) {
     EseVector *vector = vector_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -215,31 +107,6 @@ static int _vector_lua_newindex(lua_State *L) {
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
-/**
- * @brief Lua __gc metamethod for EseVector objects.
- * 
- * @param L Lua state pointer
- * @return Always 0 (no return values)
- */
-static int _vector_lua_gc(lua_State *L) {
-    EseVector *vector = vector_lua_get(L, 1);
-
-    if (vector) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
-            vector_destroy(vector);
-            log_debug("LUA_GC", "Vector object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "Vector object (C-owned) garbage collected, C memory *not* freed.");
-        }
-    }
-
-    return 0;
-}
-
 static int _vector_lua_tostring(lua_State *L) {
     EseVector *vector = vector_lua_get(L, 1);
 
@@ -255,7 +122,150 @@ static int _vector_lua_tostring(lua_State *L) {
     return 1;
 }
 
+// Lua constructors
+static int _vector_lua_new(lua_State *L) {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    int n_args = lua_gettop(L);
+    if (n_args == 2) {
+        if (lua_isnumber(L, 1)) {
+            x = (float)lua_tonumber(L, 1);
+        } else {
+            return luaL_error(L, "x must be a number");
+        }
+        if (lua_isnumber(L, 2)) {
+            y = (float)lua_tonumber(L, 2);
+        } else {
+            return luaL_error(L, "y must be a number");
+        }
+    } else if (n_args != 0) {
+        return luaL_error(L, "new() takes 0 or 2 arguments");
+    }
+
+    // Create the vector using the standard creation function
+    EseVector *vector = _vector_make();
+    vector->x = x;
+    vector->y = y;
+    vector->state = L;
+    
+    // Create proxy table for Lua-owned vector
+    lua_newtable(L);
+    lua_pushlightuserdata(L, vector);
+    lua_setfield(L, -2, "__ptr");
+
+    luaL_getmetatable(L, "VectorProxyMeta");
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+static int _vector_lua_zero(lua_State *L) {
+    // Create the vector using the standard creation function
+    EseVector *vector = _vector_make();  // We'll set the state manually
+    vector->state = L;
+    
+    // Create proxy table for Lua-owned vector
+    lua_newtable(L);
+    lua_pushlightuserdata(L, vector);
+    lua_setfield(L, -2, "__ptr");
+
+    luaL_getmetatable(L, "VectorProxyMeta");
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+// Lua methods
+static int _vector_lua_set_direction(lua_State *L) {
+    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!vector) {
+        return luaL_error(L, "Invalid EseVector object in set_direction method");
+    }
+    
+    if (!lua_isstring(L, 1) || !lua_isnumber(L, 2)) {
+        return luaL_error(L, "set_direction(direction, magnitude) requires string and number");
+    }
+    
+    const char *direction = lua_tostring(L, 1);
+    float magnitude = (float)lua_tonumber(L, 2);
+    
+    vector_set_direction(vector, direction, magnitude);
+    return 0;
+}
+
+static int _vector_lua_magnitude(lua_State *L) {
+    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!vector) {
+        return luaL_error(L, "Invalid EseVector object in magnitude method");
+    }
+    
+    lua_pushnumber(L, vector_magnitude(vector));
+    return 1;
+}
+
+static int _vector_lua_normalize(lua_State *L) {
+    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!vector) {
+        return luaL_error(L, "Invalid EseVector object in normalize method");
+    }
+    
+    vector_normalize(vector);
+    return 0;
+}
+
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
+// Core lifecycle
+EseVector *vector_create(EseLuaEngine *engine) {
+    EseVector *vector = _vector_make();
+    vector->state = engine->runtime;
+    return vector;
+}
+
+EseVector *vector_copy(const EseVector *source) {
+    if (source == NULL) {
+        return NULL;
+    }
+
+    EseVector *copy = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
+    copy->x = source->x;
+    copy->y = source->y;
+    copy->state = source->state;
+    copy->lua_ref = LUA_NOREF;
+    copy->lua_ref_count = 0;
+    return copy;
+}
+
+void vector_destroy(EseVector *vector) {
+    if (!vector) return;
+    
+    if (vector->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
+        memory_manager.free(vector);
+    } else {
+        // Has Lua references, decrement counter
+        if (vector->lua_ref_count > 0) {
+            vector->lua_ref_count--;
+            
+            if (vector->lua_ref_count == 0) {
+                // No more C references, unref from Lua registry
+                // Let Lua's GC handle the final cleanup
+                luaL_unref(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
+                vector->lua_ref = LUA_NOREF;
+            }
+        }
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
+    }
+}
+
+// Lua integration
 void vector_lua_init(EseLuaEngine *engine) {
+    log_assert("VECTOR", engine, "vector_lua_init called with NULL engine");
+
     if (luaL_newmetatable(engine->runtime, "VectorProxyMeta")) {
         log_debug("LUA", "Adding entity VectorProxyMeta to engine");
         lua_pushcfunction(engine->runtime, _vector_lua_index);
@@ -287,22 +297,20 @@ void vector_lua_init(EseLuaEngine *engine) {
     }
 }
 
-EseVector *vector_create(EseLuaEngine *engine) {
-    EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
-    vector->x = 0.0f;
-    vector->y = 0.0f;
-    vector->state = engine->runtime;
-    vector->lua_ref = LUA_NOREF;
-    _vector_lua_register(vector, false);
-    return vector;
-}
+void vector_lua_push(EseVector *vector) {
+    log_assert("VECTOR", vector, "vector_lua_push called with NULL vector");
 
-void vector_destroy(EseVector *vector) {
-    if (vector) {
-        if (vector->lua_ref != LUA_NOREF) {
-            luaL_unref(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
-        }
-        memory_manager.free(vector);
+    if (vector->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(vector->state);
+        lua_pushlightuserdata(vector->state, vector);
+        lua_setfield(vector->state, -2, "__ptr");
+        
+        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        lua_setmetatable(vector->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
     }
 }
 
@@ -337,6 +345,42 @@ EseVector *vector_lua_get(lua_State *L, int idx) {
     return (EseVector *)vector;
 }
 
+void vector_ref(EseVector *vector) {
+    log_assert("VECTOR", vector, "vector_ref called with NULL vector");
+    
+    if (vector->lua_ref == LUA_NOREF) {
+        // First time referencing - create proxy table and store reference
+        lua_newtable(vector->state);
+        lua_pushlightuserdata(vector->state, vector);
+        lua_setfield(vector->state, -2, "__ptr");
+
+        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        lua_setmetatable(vector->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        vector->lua_ref = luaL_ref(vector->state, LUA_REGISTRYINDEX);
+        vector->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        vector->lua_ref_count++;
+    }
+}
+
+void vector_unref(EseVector *vector) {
+    if (!vector) return;
+    
+    if (vector->lua_ref != LUA_NOREF && vector->lua_ref_count > 0) {
+        vector->lua_ref_count--;
+        
+        if (vector->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
+            vector->lua_ref = LUA_NOREF;
+        }
+    }
+}
+
+// Mathematical operations
 void vector_set_direction(EseVector *vector, const char *direction, float magnitude) {
     if (!vector || !direction) return;
 

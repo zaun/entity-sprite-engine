@@ -20,8 +20,10 @@
 EseEntity *_entity_make(EseLuaEngine *engine) {
     EseEntity *entity = memory_manager.malloc(sizeof(EseEntity), MMTAG_ENTITY);
     entity->position = point_create(engine);
+    point_ref(entity->position);
 
     entity->id = uuid_create(engine);
+    uuid_ref(entity->id);
     entity->active = true;
     entity->position->x = 0.0f;
     entity->position->y = 0.0f;

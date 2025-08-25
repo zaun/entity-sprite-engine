@@ -42,16 +42,33 @@ static void _tileset_lua_register(EseTileSet *tiles, bool is_lua_owned) {
     luaL_getmetatable(L, "TilesProxyMeta");
     lua_setmetatable(L, -2);
 
-    // Store registry reference
-    tiles->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    if (is_lua_owned) {
+        // Lua-owned: no storage needed, proxy table goes directly to Lua
+        tiles->lua_ref = LUA_NOREF;
+    } else {
+        // C-owned: store hard reference to prevent garbage collection
+        tiles->lua_ref = luaL_ref(tiles->state, LUA_REGISTRYINDEX);
+    }
 }
 
 void tileset_lua_push(EseTileSet *tiles) {
     log_assert("TILESET", tiles, "tileset_lua_push called with NULL tiles");
-    log_assert("TILESET", tiles->lua_ref != LUA_NOREF,
-               "tileset_lua_push tiles not registered with lua");
 
-    lua_rawgeti(tiles->state, LUA_REGISTRYINDEX, tiles->lua_ref);
+    if (tiles->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(tiles->state);
+        lua_pushlightuserdata(tiles->state, tiles);
+        lua_setfield(tiles->state, -2, "__ptr");
+        
+        lua_pushboolean(tiles->state, true);
+        lua_setfield(tiles->state, -2, "__is_lua_owned");
+        
+        luaL_getmetatable(tiles->state, "TilesProxyMeta");
+        lua_setmetatable(tiles->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(tiles->state, LUA_REGISTRYINDEX, tiles->lua_ref);
+    }
 }
 
 /* ----------------- Lua Methods ----------------- */
@@ -195,9 +212,6 @@ static int _tileset_lua_gc(lua_State *L) {
 
         if (is_lua_owned) {
             tileset_destroy(tiles);
-            log_debug("LUA_GC", "Tileset (Lua-owned) freed.");
-        } else {
-            log_debug("LUA_GC", "Tileset (C-owned) collected, not freed.");
         }
     }
     return 0;
@@ -237,7 +251,9 @@ static int _tileset_lua_new(lua_State *L) {
     tiles->lua_ref = LUA_NOREF;
 
     _tileset_lua_register(tiles, true);
-    tileset_lua_push(tiles);
+
+    // The proxy table is already on the stack from _tileset_lua_register
+    // Just return it - no need to call tileset_lua_push
     return 1;
 }
 

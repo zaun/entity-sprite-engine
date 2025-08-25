@@ -121,11 +121,11 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
     EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
 
     for (size_t i = 0; i < colliderA->rects_count; i++) {
-        EseRect *rect_a = rect_copy(colliderA->rects[i], true);
+        EseRect *rect_a = rect_copy(colliderA->rects[i]);
         rect_a->x += a->entity->position->x;
         rect_a->y += a->entity->position->y;
         for (size_t j = 0; j < colliderB->rects_count; j++) {
-            EseRect *rect_b = rect_copy(colliderB->rects[j], true);
+            EseRect *rect_b = rect_copy(colliderB->rects[j]);
             rect_b->x += b->entity->position->x;
             rect_b->y += b->entity->position->y;
             if (rect_intersects(rect_a, rect_b)) {
@@ -146,7 +146,7 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
 
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
-        EseRect *colliderRect = rect_copy(collider->rects[i], true);
+        EseRect *colliderRect = rect_copy(collider->rects[i]);
         colliderRect->x += component->entity->position->x;
         colliderRect->y += component->entity->position->y;
         if (rect_intersects(colliderRect, rect)) {

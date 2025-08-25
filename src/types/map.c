@@ -96,14 +96,33 @@ static void _map_lua_register(EseMap *map, bool is_lua_owned) {
     luaL_getmetatable(L, "MapProxyMeta");
     lua_setmetatable(L, -2);
 
-    map->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    if (is_lua_owned) {
+        // Lua-owned: no storage needed, proxy table goes directly to Lua
+        map->lua_ref = LUA_NOREF;
+    } else {
+        // C-owned: store hard reference to prevent garbage collection
+        map->lua_ref = luaL_ref(map->state, LUA_REGISTRYINDEX);
+    }
 }
 
 void map_lua_push(EseMap *map) {
     log_assert("MAP", map, "map_lua_push called with NULL map");
-    log_assert("MAP", map->lua_ref != LUA_NOREF,
-               "map_lua_push map not registered with lua");
-    lua_rawgeti(map->state, LUA_REGISTRYINDEX, map->lua_ref);
+
+    if (map->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(map->state);
+        lua_pushlightuserdata(map->state, map);
+        lua_setfield(map->state, -2, "__ptr");
+        
+        lua_pushboolean(map->state, true);
+        lua_setfield(map->state, -2, "__is_lua_owned");
+        
+        luaL_getmetatable(map->state, "MapProxyMeta");
+        lua_setmetatable(map->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(map->state, LUA_REGISTRYINDEX, map->lua_ref);
+    }
 }
 
 /* ----------------- Lua Methods ----------------- */
@@ -254,9 +273,6 @@ static int _map_lua_gc(lua_State *L) {
 
         if (is_lua_owned) {
             map_destroy(map);
-            log_debug("LUA_GC", "Map (Lua-owned) freed.");
-        } else {
-            log_debug("LUA_GC", "Map (C-owned) collected, not freed.");
         }
     }
     return 0;
@@ -293,11 +309,11 @@ static int _map_lua_new(lua_State *L) {
         type = map_type_from_string(lua_tostring(L, 3));
     }
 
-    EseMap *map = map_create((EseLuaEngine *)lua_getextraspace(L), width, height, type, true);
-    if (!map) return luaL_error(L, "Failed to create map");
-
+    EseMap *map = map_create((EseLuaEngine *)lua_getextraspace(L), width, height, type, false);
     _map_lua_register(map, true);
-    map_lua_push(map);
+
+    // The proxy table is already on the stack from _map_lua_register
+    // Just return it - no need to call map_lua_push
     return 1;
 }
 

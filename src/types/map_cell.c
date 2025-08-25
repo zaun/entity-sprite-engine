@@ -34,8 +34,13 @@ static void _mapcell_lua_register(EseMapCell *cell, bool is_lua_owned) {
     luaL_getmetatable(L, "MapCellProxyMeta");
     lua_setmetatable(L, -2);
 
-    // Store registry reference
-    cell->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    if (is_lua_owned) {
+        // Lua-owned: no storage needed, proxy table goes directly to Lua
+        cell->lua_ref = LUA_NOREF;
+    } else {
+        // C-owned: store hard reference to prevent garbage collection
+        cell->lua_ref = luaL_ref(cell->state, LUA_REGISTRYINDEX);
+    }
 }
 
 /**
@@ -43,10 +48,22 @@ static void _mapcell_lua_register(EseMapCell *cell, bool is_lua_owned) {
  */
 void mapcell_lua_push(EseMapCell *cell) {
     log_assert("MAPCELL", cell, "mapcell_lua_push called with NULL cell");
-    log_assert("MAPCELL", cell->lua_ref != LUA_NOREF,
-               "mapcell_lua_push cell not registered with lua");
 
-    lua_rawgeti(cell->state, LUA_REGISTRYINDEX, cell->lua_ref);
+    if (cell->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(cell->state);
+        lua_pushlightuserdata(cell->state, cell);
+        lua_setfield(cell->state, -2, "__ptr");
+        
+        lua_pushboolean(cell->state, true);
+        lua_setfield(cell->state, -2, "__is_lua_owned");
+        
+        luaL_getmetatable(cell->state, "MapCellProxyMeta");
+        lua_setmetatable(cell->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(cell->state, LUA_REGISTRYINDEX, cell->lua_ref);
+    }
 }
 
 /**
@@ -69,7 +86,9 @@ static int _mapcell_lua_new(lua_State *L) {
     cell->lua_ref = LUA_NOREF;
 
     _mapcell_lua_register(cell, true);
-    mapcell_lua_push(cell);
+
+    // The proxy table is already on the stack from _mapcell_lua_register
+    // Just return it - no need to call mapcell_lua_push
     return 1;
 }
 
@@ -240,9 +259,6 @@ static int _mapcell_lua_gc(lua_State *L) {
 
         if (is_lua_owned) {
             mapcell_destroy(cell);
-            log_debug("LUA_GC", "MapCell (Lua-owned) freed.");
-        } else {
-            log_debug("LUA_GC", "MapCell (C-owned) collected, not freed.");
         }
     }
     return 0;

@@ -4,54 +4,62 @@
 #include "utility/log.h"
 #include "types/types.h"
 
-/**
- * @brief Pushes a EseCamera pointer as a Lua userdata object onto the stack.
- * 
- * @details Creates a new Lua table that acts as a proxy for the EseCamera object,
- *          storing the C pointer as light userdata in the "__ptr" field and
- *          setting the CameraStateProxyMeta metatable for property access.
- * 
- * @param camera_state Pointer to the EseCamera object to wrap for Lua access
- * @param is_lua_owned True if LUA will handle freeing
- * 
- * @warning The EseCamera object must remain valid for the lifetime of the Lua object
- */
-void _camera_state_lua_register(EseCamera *camera_state, bool is_lua_owned) {
-    log_assert("CAMERA", camera_state, "_camera_state_lua_register called with NULL camera_state");
-    log_assert("CAMERA", camera_state->lua_ref == LUA_NOREF, "_camera_state_lua_register camera_state is already registered");
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
 
-    lua_newtable(camera_state->state);
-    lua_pushlightuserdata(camera_state->state, camera_state);
-    lua_setfield(camera_state->state, -2, "__ptr");
+// Core helpers
+static EseCamera *_camera_state_make(void);
 
-    // Store the ownership flag
-    lua_pushboolean(camera_state->state, is_lua_owned);
-    lua_setfield(camera_state->state, -2, "__is_lua_owned");
+// Lua metamethods
+static int _camera_state_lua_gc(lua_State *L);
+static int _camera_state_lua_index(lua_State *L);
+static int _camera_state_lua_newindex(lua_State *L);
+static int _camera_state_lua_tostring(lua_State *L);
 
-    luaL_getmetatable(camera_state->state, "CameraStateProxyMeta");
-    lua_setmetatable(camera_state->state, -2);
+// Lua constructors
+// static int _camera_state_lua_new(lua_State *L); // REMOVED
 
-    // Store a reference to this proxy table in the Lua registry
-    camera_state->lua_ref = luaL_ref(camera_state->state, LUA_REGISTRYINDEX);
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
+
+// Core helpers
+static EseCamera *_camera_state_make() {
+    EseCamera *camera_state = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_GENERAL);
+    camera_state->position = NULL;
+    camera_state->rotation = 0.0f;
+    camera_state->scale = 1.0f;
+    camera_state->state = NULL;
+    camera_state->lua_ref = LUA_NOREF;
+    camera_state->lua_ref_count = 0;
+    return camera_state;
 }
 
-void camera_state_lua_push(EseCamera *camera_state) {
-    log_assert("VECTOR", camera_state, "camera_state_lua_push called with NULL camera_state");
-    log_assert("VECTOR", camera_state->lua_ref != LUA_NOREF, "camera_state_lua_push camera_state not registered with lua");
+// Lua metamethods
+static int _camera_state_lua_gc(lua_State *L) {
+    EseCamera *camera_state = camera_state_lua_get(L, 1);
 
-    // Push the proxy table back onto the stack for Lua to receive
-    lua_rawgeti(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
+    if (camera_state) {
+        // If lua_ref == LUA_NOREF, there are no more references to this camera, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this camera was referenced from C and should not be freed.
+        if (camera_state->lua_ref == LUA_NOREF) {
+            camera_state_destroy(camera_state);
+        }
+    }
+
+    return 0;
 }
 
 /**
  * @brief Lua __index metamethod for EseCamera objects (getter).
  * 
  * @details Handles property access for EseCamera objects from Lua. Supports
- *          'position', 'rotation', and 'scale' properties. The position property
- *          returns the EsePoint object directly.
+ *          'position', 'rotation', and 'scale' properties.
  * 
  * @param L Lua state pointer
- * @return Number of return values pushed to Lua stack (1 for valid properties, 0 otherwise)
+ * @return Always returns 0 (no return values) or throws Lua error for invalid operations
  */
 static int _camera_state_lua_index(lua_State *L) {
     EseCamera *camera_state = camera_state_lua_get(L, 1);
@@ -59,11 +67,11 @@ static int _camera_state_lua_index(lua_State *L) {
     if (!camera_state || !key) return 0;
 
     if (strcmp(key, "position") == 0) {
-        // Push the EsePoint object's Lua proxy table onto the stack
-        if (camera_state->position->lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, camera_state->position->lua_ref);
-        } else {
+        if (camera_state->position == NULL) {
             lua_pushnil(L);
+            return 1;
+        } else {
+            point_lua_push(camera_state->position);
         }
         return 1;
     } else if (strcmp(key, "rotation") == 0) {
@@ -111,40 +119,9 @@ static int _camera_state_lua_newindex(lua_State *L) {
         // Copy values, don't copy reference (ownership safety)
         camera_state->position->x = new_position_point->x;
         camera_state->position->y = new_position_point->y;
+        return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
-}
-
-/**
- * @brief Lua __gc metamethod for EseCamera objects.
- *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseCamera's memory was allocated by Lua and should be freed.
- * If false, the EseCamera's memory is managed externally (by C) and is not freed here.
- *
- * @param L Lua state pointer
- * @return Always 0 (no return values)
- */
-static int _camera_state_lua_gc(lua_State *L) {
-    // The proxy table is at index 1
-    // Get the EseCamera pointer
-    EseCamera *camera_state = camera_state_lua_get(L, 1);
-
-    if (camera_state) {
-        // Get the __is_lua_owned flag from the proxy table itself
-        lua_getfield(L, 1, "__is_lua_owned"); // Proxy table at index 1, get field "__is_lua_owned"
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1); // Pop the boolean value
-
-        if (is_lua_owned) {
-            camera_state_destroy(camera_state); // Free the C memory allocated for this Lua-owned camera state
-            log_debug("LUA_GC", "Camera object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "Camera object (C-owned) garbage collected, C memory *not* freed.");
-        }
-    }
-
-    return 0;
 }
 
 static int _camera_state_lua_tostring(lua_State *L) {
@@ -164,49 +141,108 @@ static int _camera_state_lua_tostring(lua_State *L) {
     return 1;
 }
 
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
+// Core lifecycle
+EseCamera *camera_state_create(EseLuaEngine *engine) {
+    log_debug("CAMERA", "Creating camera state");
+    EseCamera *camera_state = _camera_state_make();
+    camera_state->state = engine->runtime;
+
+    log_debug("CAMERA", "Creating position point");
+    camera_state->position = point_create(engine);
+    if (camera_state->position == NULL) {
+        log_error("CAMERA", "Failed to create position point");
+        return NULL;
+    }
+    log_debug("CAMERA", "Position point created at %p", (void*)camera_state->position);
+    
+    log_debug("CAMERA", "Referencing position point");
+    point_ref(camera_state->position);
+    log_debug("CAMERA", "Position point referenced, lua_ref=%d", camera_state->position->lua_ref);
+
+    return camera_state;
+}
+
+EseCamera *camera_state_copy(const EseCamera *source) {
+    if (source == NULL) {
+        return NULL;
+    }
+
+    EseCamera *copy = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_GENERAL);
+    copy->position = point_copy(source->position);
+    point_ref(copy->position); // Reference the copied point
+    copy->rotation = source->rotation;
+    copy->scale = source->scale;
+    copy->state = source->state;
+    copy->lua_ref = LUA_NOREF;
+    copy->lua_ref_count = 0;
+    return copy;
+}
+
+void camera_state_destroy(EseCamera *camera_state) {
+    if (!camera_state) return;
+    
+    if (camera_state->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
+        if (camera_state->position) {
+            point_destroy(camera_state->position);
+        }
+        memory_manager.free(camera_state);
+    } else {
+        // Has Lua references, decrement counter
+        if (camera_state->lua_ref_count > 0) {
+            camera_state->lua_ref_count--;
+            
+            if (camera_state->lua_ref_count == 0) {
+                // No more C references, unref from Lua registry
+                // Let Lua's GC handle the final cleanup
+                luaL_unref(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
+                camera_state->lua_ref = LUA_NOREF;
+            }
+        }
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
+    }
+}
+
+// Lua integration
 void camera_state_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "CameraStateProxyMeta")) {
-        log_debug("LUA", "Adding entity CameraStateProxyMeta to engine");
+    log_assert("CAMERA_STATE", engine, "camera_state_lua_init called with NULL engine");
+    log_assert("CAMERA_STATE", engine->runtime, "camera_state_lua_init called with NULL engine->runtime");
+
+    if (luaL_newmetatable(engine->runtime, "CameraProxyMeta")) {
+        log_debug("LUA", "Adding CameraProxyMeta to engine");
         lua_pushcfunction(engine->runtime, _camera_state_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
+        lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _camera_state_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
+        lua_setfield(engine->runtime, -2, "__newindex");
         lua_pushcfunction(engine->runtime, _camera_state_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
+        lua_setfield(engine->runtime, -2, "__gc");
         lua_pushcfunction(engine->runtime, _camera_state_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
+        lua_setfield(engine->runtime, -2, "__tostring");
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
     }
     lua_pop(engine->runtime, 1);
 }
 
-EseCamera *camera_state_create(EseLuaEngine *engine) {
-    EseCamera *camera_state = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_GENERAL);
-    
-    // Create a C-owned EsePoint for the position
-    camera_state->position = point_create(engine);
-    
-    camera_state->rotation = 0.0f;
-    camera_state->scale = 1.0f;
-    camera_state->state = engine->runtime;
-    camera_state->lua_ref = LUA_NOREF;
-    _camera_state_lua_register(camera_state, false);
-    return camera_state;
-}
+void camera_state_lua_push(EseCamera *camera_state) {
+    log_assert("CAMERA", camera_state, "camera_state_lua_push called with NULL camera_state");
 
-void camera_state_destroy(EseCamera *camera_state) {
-    if (camera_state) {
-        if (camera_state->lua_ref != LUA_NOREF) {
-            luaL_unref(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
-        }
+    if (camera_state->lua_ref == LUA_NOREF) {
+        // Lua-owned: create a new proxy table since we don't store them
+        lua_newtable(camera_state->state);
+        lua_pushlightuserdata(camera_state->state, camera_state);
+        lua_setfield(camera_state->state, -2, "__ptr");
         
-        // Destroy the position EsePoint
-        if (camera_state->position) {
-            point_destroy(camera_state->position);
-        }
-        
-        memory_manager.free(camera_state);
+        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
+        lua_setmetatable(camera_state->state, -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
     }
 }
 
@@ -222,7 +258,7 @@ EseCamera *camera_state_lua_get(lua_State *L, int idx) {
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, "CameraStateProxyMeta");
+    luaL_getmetatable(L, "CameraProxyMeta");
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -246,4 +282,39 @@ EseCamera *camera_state_lua_get(lua_State *L, int idx) {
     lua_pop(L, 1); // Pop the __ptr value
     
     return (EseCamera *)pos;
+}
+
+void camera_state_ref(EseCamera *camera_state) {
+    log_assert("CAMERA", camera_state, "camera_state_ref called with NULL camera_state");
+    
+    if (camera_state->lua_ref == LUA_NOREF) {
+        // First time referencing - create proxy table and store reference
+        lua_newtable(camera_state->state);
+        lua_pushlightuserdata(camera_state->state, camera_state);
+        lua_setfield(camera_state->state, -2, "__ptr");
+
+        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
+        lua_setmetatable(camera_state->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        camera_state->lua_ref = luaL_ref(camera_state->state, LUA_REGISTRYINDEX);
+        camera_state->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        camera_state->lua_ref_count++;
+    }
+}
+
+void camera_state_unref(EseCamera *camera_state) {
+    if (!camera_state) return;
+    
+    if (camera_state->lua_ref != LUA_NOREF && camera_state->lua_ref_count > 0) {
+        camera_state->lua_ref_count--;
+        
+        if (camera_state->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
+            camera_state->lua_ref = LUA_NOREF;
+        }
+    }
 }

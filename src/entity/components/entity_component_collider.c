@@ -39,6 +39,7 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->base.data = component;
     component->base.active = true;
     component->base.id = uuid_create(engine);
+    uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_COLLIDER;
@@ -60,6 +61,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->base.data = copy;
     copy->base.active = true;
     copy->base.id = uuid_create(src->base.lua);
+    uuid_ref(copy->base.id);
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_COLLIDER;
@@ -72,7 +74,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
 
     for (size_t i = 0; i < copy->rects_count; ++i) {
         EseRect *src_comp = src->rects[i];
-        EseRect *dst_comp = rect_copy(src_comp, false);        
+        EseRect *dst_comp = rect_copy(src_comp);        
         copy->rects[i] = dst_comp;
     }
 
@@ -195,6 +197,7 @@ static int _entity_component_collider_rects_add(lua_State *L) {
         return luaL_argerror(L, 1, "Expected a Rect argument.");
     }
 
+    // Add the rect to the collider
     entity_component_collider_rects_add(collider, rect);
 
     // Mark the rect as no longer owned by Lua
@@ -239,6 +242,8 @@ static int _entity_component_collider_rects_remove(lua_State *L) {
         lua_pushboolean(L, false);
         return 1;
     }
+
+    rect_unref(rect_to_remove);
     
     // Shift elements to remove the component
     for (size_t i = idx; i < collider->rects_count - 1; ++i) {
@@ -297,6 +302,7 @@ static int _entity_component_collider_rects_insert(lua_State *L) {
     
     collider->rects[index] = rect;
     collider->rects_count++;
+    rect_ref(rect);
     
     lua_pushstring(L, "__is_lua_owned");
     lua_pushboolean(L, false);
@@ -321,6 +327,8 @@ static int _entity_component_collider_rects_pop(lua_State *L) {
     }
     
     EseRect *rect = collider->rects[collider->rects_count - 1];
+    rect_unref(rect);
+
     collider->rects[collider->rects_count - 1] = NULL;
     collider->rects_count--;
     
@@ -348,7 +356,8 @@ static int _entity_component_collider_rects_shift(lua_State *L) {
     }
     
     EseRect *rect = collider->rects[0];
-    
+    rect_unref(rect);
+
     // Shift all elements
     for (size_t i = 0; i < collider->rects_count - 1; ++i) {
         collider->rects[i] = collider->rects[i + 1];
@@ -356,6 +365,7 @@ static int _entity_component_collider_rects_shift(lua_State *L) {
     
     collider->rects_count--;
     collider->rects[collider->rects_count] = NULL;
+
     
     // Get the existing Lua proxy for the rect from its Lua reference
     lua_rawgeti(L, LUA_REGISTRYINDEX, rect->lua_ref);    
@@ -650,4 +660,5 @@ void entity_component_collider_rects_add(EseEntityComponentCollider *collider, E
     }
 
     collider->rects[collider->rects_count++] = rect;
+    rect_ref(rect);
 }
