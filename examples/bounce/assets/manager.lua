@@ -1,4 +1,10 @@
 function ENTITY:entity_init()
+    self.data.ups = EntityComponentText.new("Updates Per Second: ?")
+    local ups_display = Entity.new()
+    ups_display.components.add(self.data.ups)
+    ups_display.position.x = 10
+    ups_display.position.y = 10
+    
     ENTITY:add_ball()
 end
 
@@ -8,6 +14,8 @@ function ENTITY:entity_update(delta_time)
     if space then
         ENTITY:add_ball()
     end
+
+    self.data.ups.text = "Updates Per Second: " .. string.format("%.2f", 1 / delta_time) .. " | Entities: " .. tostring(Entity.count())
 end
 
 function ENTITY:entity_collision_enter(entity) 

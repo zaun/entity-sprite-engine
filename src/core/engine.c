@@ -16,6 +16,7 @@
 #include "core/engine.h"
 #include "utility/double_linked_list.h"
 #include "graphics/font.h"
+#include <time.h> // Required for clock()
  
 EseEngine *engine_create(const char *startup_script) {
     log_init();
@@ -90,6 +91,14 @@ EseEngine *engine_create(const char *startup_script) {
 
     engine->active_render_list = true;
     engine->draw_console = false;
+
+    // Initialize stats to 0
+    engine->stats.updates_per_second = 0.0f;
+    engine->stats.entity_count_average = 0.0f;
+    engine->stats.entity_update_average_time = 0.0f;
+    engine->stats.entity_collision_average_time = 0.0f;
+    engine->stats.entity_draw_average_time = 0.0f;
+    engine->stats.lua_gc_average_time = 0.0f;
 
     return engine;
 }
@@ -182,6 +191,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     engine->input_state->mouse_scroll_dy = state->mouse_scroll_dy;
 
     // Entity PASS ONE - Update each active entity.
+    clock_t update_start_time = clock();
 	void* value;
     EseDListIter* entity_iter = dlist_iter_create(engine->entities);
 	while (dlist_iter_next(entity_iter, &value)) {
@@ -194,8 +204,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         entity_update(entity, delta_time);
 	}
 	dlist_iter_free(entity_iter);
+    clock_t update_end_time = clock();
+    float entity_update_time = ((float)(update_end_time - update_start_time)) / CLOCKS_PER_SEC;
 
     // Entity PASS TWO - Check for collisions
+    clock_t collision_start_time = clock();
     void* entity_a_value;
     EseDListIter* iter_a = dlist_iter_create(engine->entities);
     while (dlist_iter_next(iter_a, &entity_a_value)) {
@@ -221,6 +234,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         dlist_iter_free(iter_b);
     }
     dlist_iter_free(iter_a);
+    clock_t collision_end_time = clock();
+    float entity_collision_time = ((float)(collision_end_time - collision_start_time)) / CLOCKS_PER_SEC;
 
     // Camera's view rectangle (centered)
     float view_left   = engine->camera_state->position->x - view_width  / 2.0f;
@@ -233,6 +248,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // function is responsible for performing visibility culling based on the 
     // camera position and view dimensions passed to it. Each visible entity 
     // may contribute multiple draw calls to the list.
+    clock_t draw_start_time = clock();
     draw_list_clear(engine->draw_list);
     entity_iter = dlist_iter_create(engine->entities);
 	while (dlist_iter_next(entity_iter, &value)) {
@@ -249,6 +265,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         );
     }
 	dlist_iter_free(entity_iter);
+    clock_t draw_end_time = clock();
+    float entity_draw_time = ((float)(draw_end_time - draw_start_time)) / CLOCKS_PER_SEC;
 
     // Draw the console
     if (engine->draw_console) {
@@ -273,8 +291,26 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Flip the updated render list to be active
     _engine_render_flip(engine);
 
-    // Forec Lua the GC each frame
+    // Force Lua GC each frame
+    clock_t gc_start_time = clock();
     lua_engine_gc(engine->lua_engine);
+    clock_t gc_end_time = clock();
+    float lua_gc_time = ((float)(gc_end_time - gc_start_time)) / CLOCKS_PER_SEC;
+    
+    // Update stats with proper averaging (simple moving average)
+    const float alpha = 0.1f; // Smoothing factor for averaging
+    
+    engine->stats.updates_per_second = 1.0f / delta_time;
+    
+    // Calculate moving average of entity count
+    float current_entity_count = (float)dlist_size(engine->entities);
+    engine->stats.entity_count_average = engine->stats.entity_count_average * (1.0f - alpha) + current_entity_count * alpha;
+    
+    // Update averages
+    engine->stats.entity_update_average_time = engine->stats.entity_update_average_time * (1.0f - alpha) + entity_update_time * alpha;
+    engine->stats.entity_collision_average_time = engine->stats.entity_collision_average_time * (1.0f - alpha) + entity_collision_time * alpha;
+    engine->stats.entity_draw_average_time = engine->stats.entity_draw_average_time * (1.0f - alpha) + entity_draw_time * alpha;
+    engine->stats.lua_gc_average_time = engine->stats.lua_gc_average_time * (1.0f - alpha) + lua_gc_time * alpha;
 }
 
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count) {
@@ -401,4 +437,24 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 
     dlist_iter_free(iter);
     return NULL;
+}
+
+int engine_get_entity_count(EseEngine *engine) {
+    return dlist_size(engine->entities);
+}
+
+void engine_print_stats(EseEngine *engine) {
+    log_assert("ENGINE", engine, "engine_print_stats called with NULL engine");
+    
+    // Update entity count before printing
+    engine->stats.entity_count_average = (float)dlist_size(engine->entities);
+    
+    log_debug("ENGINE", "=== Engine Statistics ===");
+    log_debug("ENGINE", "Entity Count Average: %.2f", engine->stats.entity_count_average);
+    log_debug("ENGINE", "Updates Per Second: %.2f", engine->stats.updates_per_second);
+    log_debug("ENGINE", "Entity Update Avg Time: %.4f ms", engine->stats.entity_update_average_time * 1000.0f);
+    log_debug("ENGINE", "Entity Collision Avg Time: %.4f ms", engine->stats.entity_collision_average_time * 1000.0f);
+    log_debug("ENGINE", "Entity Draw Avg Time: %.4f ms", engine->stats.entity_draw_average_time * 1000.0f);
+    log_debug("ENGINE", "Lua GC Avg Time: %.4f ms", engine->stats.lua_gc_average_time * 1000.0f);
+    log_debug("ENGINE", "========================");
 }

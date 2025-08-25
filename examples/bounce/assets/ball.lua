@@ -17,17 +17,24 @@ function ENTITY:entity_update(delta_time)
     -- Check screen boundaries and bounce
     local viewport_width = Display.viewport.width
     local viewport_height = Display.viewport.height
+    local ball_size = self.data.size
     
     -- Bounce off left and right walls
-    if new_x <= 0 or new_x >= viewport_width - self.data.size then
+    if new_x <= 0 then
         self.data.velocity.x = -self.data.velocity.x
-        new_x = math.max(0, math.min(viewport_width, new_x))
+        new_x = 0
+    elseif new_x >= viewport_width - ball_size then
+        self.data.velocity.x = -self.data.velocity.x
+        new_x = viewport_width - ball_size
     end
     
     -- Bounce off top and bottom walls
-    if new_y <= 0 or new_y >= viewport_height - self.data.size then
+    if new_y <= 0 then
         self.data.velocity.y = -self.data.velocity.y
-        new_y = math.max(0, math.min(viewport_height, new_y))
+        new_y = 0
+    elseif new_y >= viewport_height - ball_size then
+        self.data.velocity.y = -self.data.velocity.y
+        new_y = viewport_height - ball_size
     end
 
     -- Update ball position

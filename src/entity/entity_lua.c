@@ -945,6 +945,18 @@ static void _lua_value_to_stack(lua_State *L, EseLuaValue *value) {
     }
 }
 
+/**
+ * @brief Gets the number of entities in the engine.
+ */
+static int _entity_lua_get_count(lua_State *L) {
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+    lua_pushinteger(L, engine_get_entity_count(engine));
+    return 1;
+}
+
 void entity_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "EntityProxyMeta")) {
         log_debug("LUA", "Adding entity EntityProxyMeta to engine");
@@ -986,6 +998,9 @@ void entity_lua_init(EseLuaEngine *engine) {
         
         lua_pushcfunction(engine->runtime, _entity_lua_find_by_id);
         lua_setfield(engine->runtime, -2, "find_by_id");
+        
+        lua_pushcfunction(engine->runtime, _entity_lua_get_count);
+        lua_setfield(engine->runtime, -2, "count");
         
         lua_setglobal(engine->runtime, "Entity");
     } else {

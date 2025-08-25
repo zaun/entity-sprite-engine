@@ -145,6 +145,14 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
 EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string);
 
 /**
+ * @brief Gets the number of entities in the engine.
+ * 
+ * @param engine Pointer to the EseEngine
+ * @return Number of entities in the engine
+ */
+int engine_get_entity_count(EseEngine *engine);
+
+/**
  * @brief Adds a line to the engine's console.
  * 
  * @param engine Pointer to the engine instance.
@@ -161,5 +169,12 @@ void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const cha
  * @param show True to show the console, false to hide it.
  */
 void engine_show_console(EseEngine *engine, bool show);
+
+/**
+ * @brief Prints the current engine statistics to the console.
+ * 
+ * @param engine Pointer to the engine instance.
+ */
+void engine_print_stats(EseEngine *engine);
 
 #endif // ESE_ENGINE_H
