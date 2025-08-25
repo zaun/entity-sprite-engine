@@ -122,9 +122,9 @@ void entity_run_function_with_args(
     }
 }
 
-void entity_process_collision(EseEntity *entity, EseEntity *test) {
-    log_assert("ENTITY", entity, "entity_process_collision called with NULL entity");
-    log_assert("ENTITY", test, "entity_process_collision called with NULL test");
+int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
+    log_assert("ENTITY", entity, "entity_check_collision_state called with NULL entity");
+    log_assert("ENTITY", test, "entity_check_collision_state called with NULL test");
 
     // Get the key.
     const char* canonical_key = _get_collision_key(entity->id, test->id);
@@ -135,27 +135,56 @@ void entity_process_collision(EseEntity *entity, EseEntity *test) {
 
     bool currently_colliding = _entity_test_collision(entity, test);
 
+    // Determine collision state: 0=none, 1=enter, 2=stay, 3=exit
     if (currently_colliding && (!was_colliding_a || !was_colliding_b)) {
-        // Collision Enter
-        entity_run_function_with_args(entity, "entity_collision_enter", 1, test->lua_val_ref);
-        entity_run_function_with_args(test, "entity_collision_enter", 1, entity->lua_val_ref);
+        return 1; // ENTER
     } else if (currently_colliding && was_colliding_a && was_colliding_b) {
-        // Collision Stay
-        entity_run_function_with_args(entity, "entity_collision_stay", 1, test->lua_val_ref);
-        entity_run_function_with_args(test, "entity_collision_stay", 1, entity->lua_val_ref);
+        return 2; // STAY
     } else if (!currently_colliding && (was_colliding_a || was_colliding_b)) {
-        // Collision Exit
-        entity_run_function_with_args(entity, "entity_collision_exit", 1, test->lua_val_ref);
-        entity_run_function_with_args(test, "entity_collision_exit", 1, entity->lua_val_ref);
-    }
-
-
-    if (currently_colliding) {
-        hashmap_set(entity->current_collisions, canonical_key, (void*)1);
-        hashmap_set(test->current_collisions, canonical_key, (void*)1);
+        return 3; // EXIT
     } else {
-        hashmap_remove(entity->current_collisions, canonical_key);
-        hashmap_remove(test->current_collisions, canonical_key);
+        return 0; // NONE
+    }
+}
+
+void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state) {
+    log_assert("ENTITY", entity_a, "entity_process_collision_callbacks called with NULL entity_a");
+    log_assert("ENTITY", entity_b, "entity_process_collision_callbacks called with NULL entity_b");
+
+    // Get the key for updating collision state
+    const char* canonical_key = _get_collision_key(entity_a->id, entity_b->id);
+
+    switch (state) {
+        case 1: // ENTER
+            // Collision Enter
+            entity_run_function_with_args(entity_a, "entity_collision_enter", 1, entity_b->lua_val_ref);
+            entity_run_function_with_args(entity_b, "entity_collision_enter", 1, entity_a->lua_val_ref);
+            
+            // Update collision state
+            hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
+            hashmap_set(entity_b->current_collisions, canonical_key, (void*)1);
+            break;
+            
+        case 2: // STAY
+            // Collision Stay
+            entity_run_function_with_args(entity_a, "entity_collision_stay", 1, entity_b->lua_val_ref);
+            entity_run_function_with_args(entity_b, "entity_collision_stay", 1, entity_a->lua_val_ref);
+            break;
+            
+        case 3: // EXIT
+            // Collision Exit
+            entity_run_function_with_args(entity_a, "entity_collision_exit", 1, entity_b->lua_val_ref);
+            entity_run_function_with_args(entity_b, "entity_collision_exit", 1, entity_a->lua_val_ref);
+            
+            // Update collision state
+            hashmap_remove(entity_a->current_collisions, canonical_key);
+            hashmap_remove(entity_b->current_collisions, canonical_key);
+            break;
+            
+        case 0: // NONE
+        default:
+            // No collision, nothing to do
+            break;
     }
 }
 

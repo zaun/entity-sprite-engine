@@ -80,12 +80,22 @@ void entity_run_function_with_args(
 );
 
 /**
- * @brief Check for a collision between entitiy and test.
+ * @brief Check for a collision between entity and test, returning collision state.
  * 
- * @param entity Pointer to the primanry EseEntity to check
- * @param test Pointer to the secondary EseEntity to test
+ * @param entity Pointer to the primary EseEntity to check
+ * @param test Pointer to the secondary EseEntity to check
+ * @return int indicating the collision state (0=none, 1=enter, 2=stay, 3=exit)
  */
-void entity_process_collision(EseEntity *entity, EseEntity *test);
+int entity_check_collision_state(EseEntity *entity, EseEntity *test);
+
+/**
+ * @brief Process collision callbacks for a collision pair with known state.
+ * 
+ * @param entity_a Pointer to the first EseEntity
+ * @param entity_b Pointer to the second EseEntity  
+ * @param state The collision state to process (0=none, 1=enter, 2=stay, 3=exit)
+ */
+void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state);
 
 /**
  * @brief Check for a collision between entitiy and a rect.

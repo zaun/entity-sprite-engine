@@ -25,11 +25,12 @@ typedef struct EseDoubleLinkedList EseDoubleLinkedList;
 /**
  * @brief Statistics tracking structure for the engine performance metrics.
  */
- typedef struct EseEngineStats {
+typedef struct EseEngineStats {
     float updates_per_second;            /**< Average updates per second */
     float entity_count_average;          /**< Current number of entities in the engine */
     float entity_update_average_time;    /**< Average time spent updating entities per frame */
-    float entity_collision_average_time; /**< Average time spent on collision detection per frame */
+    float entity_collision_detect_average_time; /**< Average time spent on collision detection per frame */
+    float entity_collision_callback_average_time; /**< Average time spent on collision callbacks per frame */
     float entity_draw_average_time;      /**< Average time spent drawing entities per frame */
     float lua_gc_average_time;           /**< Average time spent on Lua garbage collection per frame */
 } EseEngineStats;
