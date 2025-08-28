@@ -117,8 +117,8 @@ static int _camera_state_lua_newindex(lua_State *L) {
             return luaL_error(L, "position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        camera_state->position->x = new_position_point->x;
-        camera_state->position->y = new_position_point->y;
+        point_set_x(camera_state->position, point_get_x(new_position_point));
+        point_set_y(camera_state->position, point_get_y(new_position_point));
         return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -134,7 +134,7 @@ static int _camera_state_lua_tostring(lua_State *L) {
 
     char buf[128];
     snprintf(buf, sizeof(buf), "Camera: %p (pos=(%.2f, %.2f), rot=%.2f, scale=%.2f)", 
-             (void*)camera_state, camera_state->position->x, camera_state->position->y, 
+             (void*)camera_state, point_get_x(camera_state->position), point_get_y(camera_state->position), 
              camera_state->rotation, camera_state->scale);
     lua_pushstring(L, buf);
 
@@ -161,7 +161,7 @@ EseCamera *camera_state_create(EseLuaEngine *engine) {
     
     log_debug("CAMERA", "Referencing position point");
     point_ref(camera_state->position);
-    log_debug("CAMERA", "Position point referenced, lua_ref=%d", camera_state->position->lua_ref);
+    log_debug("CAMERA", "Position point referenced, lua_ref=%d", point_get_lua_ref(camera_state->position));
 
     return camera_state;
 }
@@ -215,6 +215,8 @@ void camera_state_lua_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "CameraProxyMeta")) {
         log_debug("LUA", "Adding CameraProxyMeta to engine");
+        lua_pushstring(engine->runtime, "CameraProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _camera_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _camera_state_lua_newindex);

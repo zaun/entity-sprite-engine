@@ -89,7 +89,8 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
 
     switch (component->type) {
         case ENTITY_COMPONENT_COLLIDER:
-            _entity_component_collider_update((EseEntityComponentCollider*)component->data, entity, delta_time);
+            // Update world bounds in case entity position changed
+            entity_component_collider_update_world_bounds_only((EseEntityComponentCollider*)component->data);
             break;
         case ENTITY_COMPONENT_LUA:
             _entity_component_lua_update((EseEntityComponentLua*)component->data, entity, delta_time);
@@ -122,12 +123,12 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
 
     for (size_t i = 0; i < colliderA->rects_count; i++) {
         EseRect *rect_a = rect_copy(colliderA->rects[i]);
-        rect_a->x += a->entity->position->x;
-        rect_a->y += a->entity->position->y;
+        rect_set_x(rect_a, rect_get_x(rect_a) + point_get_x(a->entity->position));
+        rect_set_y(rect_a, rect_get_y(rect_a) + point_get_y(a->entity->position));
         for (size_t j = 0; j < colliderB->rects_count; j++) {
             EseRect *rect_b = rect_copy(colliderB->rects[j]);
-            rect_b->x += b->entity->position->x;
-            rect_b->y += b->entity->position->y;
+            rect_set_x(rect_b, rect_get_x(rect_b) + point_get_x(b->entity->position));
+            rect_set_y(rect_b, rect_get_y(rect_b) + point_get_y(b->entity->position));
             if (rect_intersects(rect_a, rect_b)) {
                 rect_destroy(rect_a);
                 rect_destroy(rect_b);
@@ -147,13 +148,13 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *colliderRect = rect_copy(collider->rects[i]);
-        colliderRect->x += component->entity->position->x;
-        colliderRect->y += component->entity->position->y;
+        rect_set_x(colliderRect, rect_get_x(colliderRect) + point_get_x(component->entity->position));
+        rect_set_y(colliderRect, rect_get_y(colliderRect) + point_get_y(component->entity->position));
         if (rect_intersects(colliderRect, rect)) {
-            memory_manager.free(colliderRect);
+            rect_destroy(colliderRect);
             return true;
         }
-        memory_manager.free(colliderRect);
+        rect_destroy(colliderRect);
     }
     return false;
 }
@@ -166,8 +167,8 @@ void entity_component_draw(
     EntityDrawRectCallback rectCallback,
     void *callback_user_data
 ) {
-    float entity_x = component->entity->position->x;
-    float entity_y = component->entity->position->y;
+    float entity_x = point_get_x(component->entity->position);
+    float entity_y = point_get_y(component->entity->position);
 
     float view_left   = camera_x - view_width  / 2.0f;
     float view_top    = camera_y - view_height / 2.0f;
@@ -212,26 +213,25 @@ void entity_component_draw(
 
 }
 
-void entity_component_run_function_with_args(
+
+
+bool entity_component_run_function(
     EseEntityComponent *component,
+    EseEntity *entity,
     const char *func_name,
     int argc,
     EseLuaValue *argv
 ) {
-    log_assert("ENTITY_COMP", component, "entity_component_run_function_with_args called with NULL component");
+    log_assert("ENTITY_COMP", component, "entity_component_run_function called with NULL component");
+    log_assert("ENTITY_COMP", entity, "entity_component_run_function called with NULL entity");
 
-    if (component->type != ENTITY_COMPONENT_LUA) {
-        return;
+    switch (component->type) {
+        case ENTITY_COMPONENT_LUA:
+            return entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
+        default:
+            // Other component types don't support function execution
+            return false;
     }
-
-    EseEntityComponentLua *comp = (EseEntityComponentLua *)component;
-
-    lua_engine_instance_run_function_with_args(
-        comp->engine,
-        comp->instance_ref,
-        comp->base.entity->lua_ref,
-        func_name, argc, argv
-    );
 }
 
 EseEntityComponent *entity_component_get(lua_State *L) {

@@ -220,7 +220,7 @@ int _lua_detect_collision(lua_State *L) {
         return 1;
     }
 
-    if (!lua_isinteger(L, 2)) {
+    if (!lua_isinteger_lj(L, 2)) {
         log_warn("ENGINE", "detect_collision(rect, number max_results) 2nd argumant to be an integer");
         lua_newtable(L);
         return 1;

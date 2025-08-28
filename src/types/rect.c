@@ -10,9 +10,24 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
-/* conversions */
-static inline float deg_to_rad(float d) { return d * (M_PI / 180.0f); }
-static inline float rad_to_deg(float r) { return r * (180.0f / M_PI); }
+// The actual EseRect struct definition (private to this file)
+typedef struct EseRect {
+    float x;            /**< The x-coordinate of the rectangle's top-left corner */
+    float y;            /**< The y-coordinate of the rectangle's top-left corner */
+    float width;        /**< The width of the rectangle */
+    float height;       /**< The height of the rectangle */
+    float rotation;     /**< The rotation of the rect around the center point in radians */
+
+    lua_State *state;   /**< Lua State this EseRect belongs to */
+    int lua_ref;        /**< Lua registry reference to its own proxy table */
+    int lua_ref_count;  /**< Number of times this rect has been referenced in C */
+    
+    // Watcher system
+    EseRectWatcherCallback *watchers;     /**< Array of watcher callbacks */
+    void **watcher_userdata;              /**< Array of userdata for each watcher */
+    size_t watcher_count;                 /**< Number of registered watchers */
+    size_t watcher_capacity;              /**< Capacity of the watcher arrays */
+} EseRect;
 
 /**
  * @brief Simple 2D vector structure for mathematical operations.
@@ -21,7 +36,6 @@ static inline float rad_to_deg(float r) { return r * (180.0f / M_PI); }
  *          for use in collision detection and geometric calculations.
  */
 typedef struct { float x, y; } Vec2;
-static inline float dotf(Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
 
 /**
  * @brief Oriented bounding box structure for collision detection.
@@ -35,6 +49,13 @@ typedef struct {
     Vec2 axis[2];                   /**< Normalized local axes in world space */
     float ext[2];                   /**< Half-widths along each axis */
 } OBB;
+
+
+/* mini helpers */
+static inline float deg_to_rad(float d) { return d * (M_PI / 180.0f); }
+static inline float rad_to_deg(float r) { return r * (180.0f / M_PI); }
+static inline float dotf(Vec2 a, Vec2 b) { return a.x*b.x + a.y*b.y; }
+
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
@@ -62,6 +83,9 @@ static int _rect_lua_area(lua_State *L);
 static int _rect_lua_contains_point(lua_State *L);
 static int _rect_lua_intersects(lua_State *L);
 
+// Watcher system
+static void _rect_notify_watchers(EseRect *rect);
+
 // ========================================
 // PRIVATE FUNCTIONS
 // ========================================
@@ -77,6 +101,10 @@ static EseRect *_rect_make() {
     rect->state = NULL;
     rect->lua_ref = LUA_NOREF;
     rect->lua_ref_count = 0;
+    rect->watchers = NULL;
+    rect->watcher_userdata = NULL;
+    rect->watcher_count = 0;
+    rect->watcher_capacity = 0;
     return rect;
 }
 
@@ -185,24 +213,28 @@ static int _rect_lua_newindex(lua_State *L) {
             return luaL_error(L, "rect.x must be a number");
         }
         rect->x = (float)lua_tonumber(L, 3);
+        _rect_notify_watchers(rect);
         return 0;
     } else if (strcmp(key, "y") == 0) {
         if (!lua_isnumber(L, 3)) {
             return luaL_error(L, "rect.y must be a number");
         }
         rect->y = (float)lua_tonumber(L, 3);
+        _rect_notify_watchers(rect);
         return 0;
     } else if (strcmp(key, "width") == 0) {
         if (!lua_isnumber(L, 3)) {
             return luaL_error(L, "rect.width must be a number");
         }
         rect->width = (float)lua_tonumber(L, 3);
+        _rect_notify_watchers(rect);
         return 0;
     } else if (strcmp(key, "height") == 0) {
         if (!lua_isnumber(L, 3)) {
             return luaL_error(L, "rect.height must be a number");
         }
         rect->height = (float)lua_tonumber(L, 3);
+        _rect_notify_watchers(rect);
         return 0;
     }  else if (strcmp(key, "rotation") == 0) {
         if (!lua_isnumber(L, 3)) {
@@ -210,6 +242,7 @@ static int _rect_lua_newindex(lua_State *L) {
         }
         float deg = (float)lua_tonumber(L, 3);
         rect->rotation = deg_to_rad(deg);
+        _rect_notify_watchers(rect);
         return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -356,11 +389,27 @@ EseRect *rect_copy(const EseRect *source) {
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     copy->lua_ref_count = 0;
+    copy->watchers = NULL;
+    copy->watcher_userdata = NULL;
+    copy->watcher_count = 0;
+    copy->watcher_capacity = 0;
     return copy;
 }
 
 void rect_destroy(EseRect *rect) {
     if (!rect) return;
+    
+    // Free watcher arrays if they exist
+    if (rect->watchers) {
+        memory_manager.free(rect->watchers);
+        rect->watchers = NULL;
+    }
+    if (rect->watcher_userdata) {
+        memory_manager.free(rect->watcher_userdata);
+        rect->watcher_userdata = NULL;
+    }
+    rect->watcher_count = 0;
+    rect->watcher_capacity = 0;
     
     if (rect->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
@@ -382,10 +431,16 @@ void rect_destroy(EseRect *rect) {
     }
 }
 
+size_t rect_sizeof(void) {
+    return sizeof(EseRect);
+}
+
 // Lua integration
 void rect_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "RectProxyMeta")) {
         log_debug("LUA", "Adding entity RectProxyMeta to engine");
+        lua_pushstring(engine->runtime, "RectProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _rect_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _rect_lua_newindex);
@@ -552,9 +607,142 @@ float rect_area(const EseRect *rect) {
 void rect_set_rotation(EseRect *rect, float radians) {
     if (!rect) return;
     rect->rotation = radians;
+    _rect_notify_watchers(rect);
 }
 
 float rect_get_rotation(const EseRect *rect) {
     if (!rect) return 0.0f;
     return rect->rotation;
 }
+
+void rect_set_x(EseRect *rect, float x) {
+    if (!rect) return;
+    rect->x = x;
+    _rect_notify_watchers(rect);
+}
+
+float rect_get_x(const EseRect *rect) {
+    if (!rect) return 0.0f;
+    return rect->x;
+}
+
+void rect_set_y(EseRect *rect, float y) {
+    if (!rect) return;
+    rect->y = y;
+    _rect_notify_watchers(rect);
+}
+
+float rect_get_y(const EseRect *rect) {
+    if (!rect) return 0.0f;
+    return rect->y;
+}
+
+void rect_set_width(EseRect *rect, float width) {
+    if (!rect) return;
+    rect->width = width;
+    _rect_notify_watchers(rect);
+}
+
+float rect_get_width(const EseRect *rect) {
+    if (!rect) return 0.0f;
+    return rect->width;
+}
+
+void rect_set_height(EseRect *rect, float height) {
+    if (!rect) return;
+    rect->height = height;
+    _rect_notify_watchers(rect);
+}
+
+float rect_get_height(const EseRect *rect) {
+    if (!rect) return 0.0f;
+    return rect->height;
+}
+
+// Lua-related access
+lua_State *rect_get_state(const EseRect *rect) {
+    if (!rect) return NULL;
+    return rect->state;
+}
+
+int rect_get_lua_ref(const EseRect *rect) {
+    if (!rect) return LUA_NOREF;
+    return rect->lua_ref;
+}
+
+int rect_get_lua_ref_count(const EseRect *rect) {
+    if (!rect) return 0;
+    return rect->lua_ref_count;
+}
+
+// Watcher system
+bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata) {
+    if (!rect || !callback) return false;
+    
+    // Initialize watcher arrays if this is the first watcher
+    if (rect->watcher_count == 0) {
+        rect->watcher_capacity = 4; // Start with capacity for 4 watchers
+        rect->watchers = memory_manager.malloc(sizeof(EseRectWatcherCallback) * rect->watcher_capacity, MMTAG_GENERAL);
+        rect->watcher_userdata = memory_manager.malloc(sizeof(void*) * rect->watcher_capacity, MMTAG_GENERAL);
+        rect->watcher_count = 0;
+    }
+    
+    // Expand arrays if needed
+    if (rect->watcher_count >= rect->watcher_capacity) {
+        size_t new_capacity = rect->watcher_capacity * 2;
+        EseRectWatcherCallback *new_watchers = memory_manager.realloc(
+            rect->watchers, 
+            sizeof(EseRectWatcherCallback) * new_capacity, 
+            MMTAG_GENERAL
+        );
+        void **new_userdata = memory_manager.realloc(
+            rect->watcher_userdata, 
+            sizeof(void*) * new_capacity, 
+            MMTAG_GENERAL
+        );
+        
+        if (!new_watchers || !new_userdata) return false;
+        
+        rect->watchers = new_watchers;
+        rect->watcher_userdata = new_userdata;
+        rect->watcher_capacity = new_capacity;
+    }
+    
+    // Add the new watcher
+    rect->watchers[rect->watcher_count] = callback;
+    rect->watcher_userdata[rect->watcher_count] = userdata;
+    rect->watcher_count++;
+    
+    return true;
+}
+
+bool rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata) {
+    if (!rect || !callback) return false;
+    
+    for (size_t i = 0; i < rect->watcher_count; i++) {
+        if (rect->watchers[i] == callback && rect->watcher_userdata[i] == userdata) {
+            // Remove this watcher by shifting remaining ones
+            for (size_t j = i; j < rect->watcher_count - 1; j++) {
+                rect->watchers[j] = rect->watchers[j + 1];
+                rect->watcher_userdata[j] = rect->watcher_userdata[j + 1];
+            }
+            rect->watcher_count--;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Helper function to notify all watchers
+static void _rect_notify_watchers(EseRect *rect) {
+    if (!rect || rect->watcher_count == 0) return;
+    
+    for (size_t i = 0; i < rect->watcher_count; i++) {
+        if (rect->watchers[i]) {
+            rect->watchers[i](rect, rect->watcher_userdata[i]);
+        }
+    }
+}
+
+// Lua integration

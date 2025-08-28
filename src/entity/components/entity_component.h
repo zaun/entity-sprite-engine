@@ -31,8 +31,25 @@ void entity_component_draw(
     void *callback_user_data
 );
 
-void entity_component_run_function_with_args(
+
+
+/**
+ * @brief Runs a function on a component using component-specific logic.
+ * 
+ * @details This is the new entry point for running functions on components.
+ *          It delegates to component-specific run functions for better performance.
+ * 
+ * @param component Pointer to the component.
+ * @param entity Pointer to the entity (for getting the correct Lua self reference).
+ * @param func_name Name of the function to execute.
+ * @param argc Number of arguments to pass.
+ * @param argv Array of arguments to pass to the function.
+ * 
+ * @return true if the function executed successfully, false otherwise.
+ */
+bool entity_component_run_function(
     EseEntityComponent *component,
+    EseEntity *entity,
     const char *func_name,
     int argc,
     EseLuaValue *argv

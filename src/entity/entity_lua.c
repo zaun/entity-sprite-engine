@@ -207,7 +207,7 @@ static int _entity_lua_components_insert(lua_State *L) {
     EseEntity *entity = _entity_lua_components_get_entity(L, 1);
     
     if (!entity) {
-        lua_warning(L, "Invalid entity object.", false);
+        log_warn("ENTITY", "Invalid entity object.");
         lua_pushboolean(L, false);
         // Stack: [entity, component, index, false]
         return 1;
@@ -224,7 +224,7 @@ static int _entity_lua_components_insert(lua_State *L) {
     int index = (int)luaL_checkinteger(L, 3) - 1; // Lua is 1-based
     
     if (index < 0 || index > (int)entity->component_count) {
-        lua_warning(L, "Index out of bounds.", false);
+        log_warn("ENTITY", "Index out of bounds.");
         lua_pushboolean(L, false);
         // Stack: [entity, component, index, false]
         return 1;
@@ -743,8 +743,8 @@ static int _entity_lua_index(lua_State *L) {
         lua_pushinteger(L, entity->draw_order);
         return 1;
     } else if (strcmp(key, "position") == 0) {
-        if (entity->position != NULL && entity->position->lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, entity->position->lua_ref);
+        if (entity->position != NULL && point_get_lua_ref(entity->position) != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, point_get_lua_ref(entity->position));
             return 1;
         } else {
             lua_pushnil(L);
@@ -820,7 +820,7 @@ static int _entity_lua_newindex(lua_State *L) {
         entity->active = lua_toboolean(L, 3);
         return 0;
     } else if (strcmp(key, "draw_order") == 0) {
-        if (!lua_isinteger(L, 3)) {
+        if (!lua_isinteger_lj(L, 3)) {
             return luaL_error(L, "Entity draw_order must be an integer");
         }
         entity->draw_order = (int)lua_tointeger(L, 3);
@@ -831,8 +831,8 @@ static int _entity_lua_newindex(lua_State *L) {
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        entity->position->x = new_position_point->x;
-        entity->position->y = new_position_point->y;
+        point_set_x(entity->position, point_get_x(new_position_point));
+        point_set_y(entity->position, point_get_y(new_position_point));
         return 0;
     } else if (strcmp(key, "components") == 0) {
         return luaL_error(L, "Entity components is not assignable");
@@ -960,6 +960,8 @@ static int _entity_lua_get_count(lua_State *L) {
 void entity_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "EntityProxyMeta")) {
         log_debug("LUA", "Adding entity EntityProxyMeta to engine");
+        lua_pushstring(engine->runtime, "EntityProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _entity_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _entity_lua_newindex);
@@ -975,6 +977,8 @@ void entity_lua_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "ComponentsProxyMeta")) {
         log_debug("LUA", "Adding entity ComponentsProxyMeta to engine");
+        lua_pushstring(engine->runtime, "ComponentsProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _entity_lua_components_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushstring(engine->runtime, "locked");

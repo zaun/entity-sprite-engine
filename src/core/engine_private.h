@@ -21,6 +21,8 @@ typedef struct EseDrawList EseDrawList;
 typedef struct EseRenderList EseRenderList;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseDoubleLinkedList EseDoubleLinkedList;
+typedef struct EseSpatialBin EseSpatialBin;
+typedef struct EseArray EseArray;
 
 /**
  * @brief Statistics tracking structure for the engine performance metrics.
@@ -33,6 +35,11 @@ typedef struct EseEngineStats {
     float entity_collision_callback_average_time; /**< Average time spent on collision callbacks per frame */
     float entity_draw_average_time;      /**< Average time spent drawing entities per frame */
     float lua_gc_average_time;           /**< Average time spent on Lua garbage collection per frame */
+    float input_state_update_average_time; /**< Average time spent updating input state per frame */
+    float display_camera_update_average_time; /**< Average time spent updating display and camera per frame */
+    float console_draw_average_time;     /**< Average time spent drawing console per frame */
+    float renderer_update_average_time;  /**< Average time spent on renderer operations per frame */
+    float stats_update_average_time;     /**< Average time spent updating statistics per frame */
 } EseEngineStats;
 
 struct EseEngine {
@@ -43,6 +50,9 @@ struct EseEngine {
     bool active_render_list;            /**< Flag to indicate which render list is currently active */
 
     EseDoubleLinkedList *entities;      /**< A doubly-linked list containing all active entities */
+    EseSpatialBin *collision_bin;       /**< Spatial bin for collision detection */
+    EseArray *collision_pairs;          /**< Array of collision pairs */
+
     EseInputState *input_state;         /**< The current input state of the application */
     EseDisplay *display_state;          /**< The current display state of the application */
     EseCamera *camera_state;            /**M The current camera state of the application */

@@ -282,6 +282,8 @@ static int _mapcell_lua_tostring(lua_State *L) {
 void mapcell_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "MapCellProxyMeta")) {
         log_debug("LUA", "Adding MapCellProxyMeta");
+        lua_pushstring(engine->runtime, "MapCellProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _mapcell_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _mapcell_lua_newindex);

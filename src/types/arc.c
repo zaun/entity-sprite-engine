@@ -345,6 +345,8 @@ void arc_destroy(EseArc *arc) {
 void arc_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "ArcProxyMeta")) {
         log_debug("LUA", "Adding entity ArcProxyMeta to engine");
+        lua_pushstring(engine->runtime, "ArcProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _arc_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _arc_lua_newindex);
@@ -535,10 +537,10 @@ bool arc_intersects_rect(const EseArc *arc, const EseRect *rect) {
     float arc_top = arc->y - arc->radius;
     float arc_bottom = arc->y + arc->radius;
     
-    float rect_left = rect->x;
-    float rect_right = rect->x + rect->width;
-    float rect_top = rect->y;
-    float rect_bottom = rect->y + rect->height;
+    float rect_left = rect_get_x(rect);
+    float rect_right = rect_get_x(rect) + rect_get_width(rect);
+    float rect_top = rect_get_y(rect);
+    float rect_bottom = rect_get_y(rect) + rect_get_height(rect);
     
     return !(arc_right < rect_left || arc_left > rect_right ||
              arc_bottom < rect_top || arc_top > rect_bottom);

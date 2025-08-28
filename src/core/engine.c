@@ -1,6 +1,7 @@
+#include <limits.h>
 #include <stdbool.h>
 #include <string.h>
-#include "utility/log.h"
+#include <time.h>
 #include "core/memory_manager.h"
 #include "entity/entity.h"
 #include "types/types.h"
@@ -16,8 +17,24 @@
 #include "core/engine.h"
 #include "utility/double_linked_list.h"
 #include "graphics/font.h"
-#include <time.h> // Required for clock()
+#include "utility/log.h"
+#include "utility/array.h"
+#include "utility/hashmap.h"
+#include "utility/double_linked_list.h"
+#include "utility/spatial_bin.h"
  
+typedef struct CollisionPair {
+    EseEntity *entity_a;
+    EseEntity *entity_b;
+    int state; // 0=none, 1=enter, 2=stay, 3=exit
+} CollisionPair;
+
+static void _free_collision_pair(void *ptr) {
+    if (ptr) {
+        memory_manager.free(ptr);
+    }
+}
+
 EseEngine *engine_create(const char *startup_script) {
     log_init();
 
@@ -36,6 +53,9 @@ EseEngine *engine_create(const char *startup_script) {
     engine->render_list_b = render_list_create();
 
     engine->entities = dlist_create((DListFreeFn)entity_destroy);
+    engine->collision_bin = spatial_bin_create();
+    engine->collision_pairs = array_create(128, _free_collision_pair);
+
     engine->lua_engine = lua_engine_create();
 
     // Add lookups
@@ -100,6 +120,11 @@ EseEngine *engine_create(const char *startup_script) {
     engine->stats.entity_collision_callback_average_time = 0.0f;
     engine->stats.entity_draw_average_time = 0.0f;
     engine->stats.lua_gc_average_time = 0.0f;
+    engine->stats.input_state_update_average_time = 0.0f;
+    engine->stats.display_camera_update_average_time = 0.0f;
+    engine->stats.console_draw_average_time = 0.0f;
+    engine->stats.renderer_update_average_time = 0.0f;
+    engine->stats.stats_update_average_time = 0.0f;
 
     return engine;
 }
@@ -117,6 +142,8 @@ void engine_destroy(EseEngine *engine) {
     display_state_destroy(engine->display_state);
     camera_state_destroy(engine->camera_state);
     console_destroy(engine->console);
+    spatial_bin_destroy(engine->collision_bin);
+    array_destroy(engine->collision_pairs);
 
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
@@ -135,7 +162,6 @@ void engine_add_entity(EseEngine *engine, EseEntity *entity) {
 
 void engine_start(EseEngine *engine) {
     log_assert("ENGINE", engine, "engine_start called with NULL engine");
-    log_debug("ENGINE", "start");
 
     // Update the display state
     int view_width, view_height;
@@ -144,7 +170,8 @@ void engine_start(EseEngine *engine) {
     display_state_set_dimensions(engine->display_state, view_width, view_height);
     display_state_set_viewport(engine->display_state, view_width, view_height);
 
-    lua_engine_instance_run_function(engine->lua_engine, engine->startup_ref, LUA_NOREF, "startup");
+    // Run startup script using the new function reference system
+    lua_engine_run_function(engine->lua_engine, engine->startup_ref, LUA_NOREF, "startup", 0, NULL);
 
     engine->isRunning = true;
 }
@@ -173,7 +200,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     log_assert("ENGINE", engine, "engine_update called with NULL engine");
     log_assert("ENGINE", state, "engine_update called with NULL state");
 
-    // Update the display state
+    // Update the input state
+    clock_t input_start_time = clock();
     int view_width, view_height;
     renderer_get_size(engine->renderer, &view_width, &view_height);
 
@@ -190,6 +218,18 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     engine->input_state->mouse_y = state->mouse_y;
     engine->input_state->mouse_scroll_dx = state->mouse_scroll_dx;
     engine->input_state->mouse_scroll_dy = state->mouse_scroll_dy;
+    clock_t input_end_time = clock();
+    float input_state_update_time = ((float)(input_end_time - input_start_time)) / CLOCKS_PER_SEC;
+
+    // Display and camera updates
+    clock_t display_camera_start_time = clock();
+    // Camera's view rectangle (centered)
+    float view_left   = point_get_x(engine->camera_state->position) - view_width  / 2.0f;
+    float view_right  = point_get_x(engine->camera_state->position) + view_width  / 2.0f;
+    float view_top    = point_get_y(engine->camera_state->position) - view_height / 2.0f;
+    float view_bottom = point_get_y(engine->camera_state->position) + view_height / 2.0f;
+    clock_t display_camera_end_time = clock();
+    float display_camera_update_time = ((float)(display_camera_end_time - display_camera_start_time)) / CLOCKS_PER_SEC;
 
     // Entity PASS ONE - Update each active entity.
     clock_t update_start_time = clock();
@@ -211,73 +251,119 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Entity PASS TWO - Check for collisions
     clock_t collision_start_time = clock();
     
-    // Step 1: Collect collision pairs and determine states
-    typedef struct CollisionPair {
-        EseEntity *entity_a;
-        EseEntity *entity_b;
-        int state; // 0=none, 1=enter, 2=stay, 3=exit
-    } CollisionPair;
-    
-    // Pre-allocate collision pair array (worst case: n*(n-1)/2 pairs)
-    size_t max_pairs = (dlist_size(engine->entities) * (dlist_size(engine->entities) - 1)) / 2;
-    CollisionPair *collision_pairs = memory_manager.malloc(sizeof(CollisionPair) * max_pairs, MMTAG_ENGINE);
-    size_t pair_count = 0;
-    
-    void* entity_a_value;
-    EseDListIter* iter_a = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(iter_a, &entity_a_value)) {
-        EseEntity *entity_a = (EseEntity*)entity_a_value;
-        // Skip inactive entities
-        if (!entity_a->active) {
-            continue;
-        }
+    // Entity PASS TWO Step 1: Collect collision pairs using spatial bin
+    spatial_bin_clear(engine->collision_bin);
+    array_clear(engine->collision_pairs);
 
-        void* entity_b_value;
-        // Create a new iterator starting from the current position to avoid redundant checks
-        EseDListIter* iter_b = dlist_iter_create_from(iter_a);
-        while (dlist_iter_next(iter_b, &entity_b_value)) {
-            EseEntity *entity_b = (EseEntity*)entity_b_value;
-            // Skip inactive entities, entities without colliders, and the entity itself
-            if (!entity_b->active || entity_a == entity_b) {
-                continue;
-            }
-
-            // Check collision state without calling Lua functions
-            int state = entity_check_collision_state(entity_a, entity_b);
-            
-            // Only store pairs with actual collision events
-            if (state != 0) {
-                collision_pairs[pair_count].entity_a = entity_a;
-                collision_pairs[pair_count].entity_b = entity_b;
-                collision_pairs[pair_count].state = state;
-                pair_count++;
-            }
-        }
-        dlist_iter_free(iter_b);
+    // Insert active entities
+    void* entity_value;
+    EseDListIter* insert_iter = dlist_iter_create(engine->entities);
+    while (dlist_iter_next(insert_iter, &entity_value)) {
+        EseEntity *entity = (EseEntity*)entity_value;
+        if (!entity->active) continue;
+        spatial_bin_insert(engine->collision_bin, entity);
     }
-    dlist_iter_free(iter_a);
-    
+    dlist_iter_free(insert_iter);
+
+    // Collect pairs
+    EseHashMapIter *bin_iter = hashmap_iter_create(engine->collision_bin->bins);
+    const char *bin_key_str;
+    void *bin_value;
+    while (hashmap_iter_next(bin_iter, &bin_key_str, &bin_value)) {
+        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList *)bin_value;
+        if (dlist_size(cell_list) < 2) continue;
+
+        // Check within cell using nested iterators
+        void *a_value;
+        EseDListIter *outer = dlist_iter_create(cell_list);
+        while (dlist_iter_next(outer, &a_value)) {
+            EseEntity *a = (EseEntity *)a_value;
+
+            EseDListIter *inner = dlist_iter_create_from(outer);
+            void *b_value;
+            while (dlist_iter_next(inner, &b_value)) {
+                EseEntity *b = (EseEntity *)b_value;
+                int state = entity_check_collision_state(a, b);
+                if (state != 0) {
+                    // Create heap-allocated collision pair and add to array
+                    CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
+                    pair->entity_a = a;
+                    pair->entity_b = b;
+                    pair->state = state;
+                    if (!array_push(engine->collision_pairs, pair)) {
+                        log_warn("ENGINE", "Failed to add collision pair to array");
+                        memory_manager.free(pair);
+                    }
+                }
+            }
+            dlist_iter_free(inner);
+        }
+        dlist_iter_free(outer);
+
+        // Neighbor checks
+        // Extract cell_x, cell_y from bin_key_str (format is "%llu" from EseSpatialBinKey)
+        // We need to reverse the key computation to get x,y coordinates
+        EseSpatialBinKey key_val;
+        if (sscanf(bin_key_str, "%llu", (unsigned long long*)&key_val) == 1) {
+            // Reverse the key computation: key = ((x + INT_MAX) << 32) | (y + INT_MAX)
+            int cell_x = (int)((key_val >> 32) - INT_MAX);
+            int cell_y = (int)((key_val & 0xFFFFFFFF) - INT_MAX);
+            
+            EseDoubleLinkedList *neighbors[8];
+            size_t neighbor_count = 0;
+            spatial_bin_get_neighbors(engine->collision_bin, cell_x, cell_y, neighbors, &neighbor_count);
+
+            for (size_t n = 0; n < neighbor_count; n++) {
+                EseDoubleLinkedList *neighbor_list = neighbors[n];
+
+                // Check pairs between current cell and neighbor cell
+                EseDListIter *cell_iter = dlist_iter_create(cell_list);
+                void *c_value;
+                while (dlist_iter_next(cell_iter, &c_value)) {
+                    EseEntity *c = (EseEntity *)c_value;
+                    EseDListIter *neigh_iter = dlist_iter_create(neighbor_list);
+                    void *n_value;
+                    while (dlist_iter_next(neigh_iter, &n_value)) {
+                        EseEntity *n = (EseEntity *)n_value;
+                        int state = entity_check_collision_state(c, n);
+                        if (state != 0) {
+                            // Create heap-allocated collision pair and add to array
+                            CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
+                            pair->entity_a = c;
+                            pair->entity_b = n;
+                            pair->state = state;
+                            if (!array_push(engine->collision_pairs, pair)) {
+                                log_warn("ENGINE", "Failed to add collision pair to array");
+                                memory_manager.free(pair);
+                            }
+                        }
+                    }
+                    dlist_iter_free(neigh_iter);
+                }
+                dlist_iter_free(cell_iter);
+            }
+        }
+    }
+
+    hashmap_iter_free(bin_iter);
+
+    // Time the collision detection phase
     clock_t collision_detect_end_time = clock();
     float entity_collision_detect_time = ((float)(collision_detect_end_time - collision_start_time)) / CLOCKS_PER_SEC;
-    
-    // Step 2: Process collision callbacks for all pairs
+
+    // Entity PASS TWO Step 2: Process collision callbacks for all pairs
     clock_t collision_callback_start_time = clock();
+    size_t pair_count = array_size(engine->collision_pairs);
     for (size_t i = 0; i < pair_count; i++) {
-        CollisionPair *pair = &collision_pairs[i];
-        entity_process_collision_callbacks(pair->entity_a, pair->entity_b, pair->state);
+        CollisionPair *pair = (CollisionPair *)array_get(engine->collision_pairs, i);
+        if (pair) {
+            entity_process_collision_callbacks(pair->entity_a, pair->entity_b, pair->state);
+        }
     }
-    
-    // Clean up collision pair array
-    memory_manager.free(collision_pairs);
-    
+        
     clock_t collision_callback_end_time = clock();
     float entity_collision_callback_time = ((float)(collision_callback_end_time - collision_callback_start_time)) / CLOCKS_PER_SEC;
 
-    // Camera's view rectangle (centered)
-    float view_left   = engine->camera_state->position->x - view_width  / 2.0f;
-    float view_right  = engine->camera_state->position->x + view_width  / 2.0f;
-    float view_top    = engine->camera_state->position->y - view_height / 2.0f;
-    float view_bottom = engine->camera_state->position->y + view_height / 2.0f;
 
     // Entity PASS THREE - Create draw calls for each active entity
     // This creates a flat list of draw calls from all entities. The entity_draw() 
@@ -292,8 +378,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
         entity_draw(
             entity,
-            engine->camera_state->position->x,
-            engine->camera_state->position->y,
+            point_get_x(engine->camera_state->position),
+            point_get_y(engine->camera_state->position),
             view_width, view_height,
             _engine_add_texture_to_draw_list,
             _engine_add_rect_to_draw_list,
@@ -305,6 +391,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     float entity_draw_time = ((float)(draw_end_time - draw_start_time)) / CLOCKS_PER_SEC;
 
     // Draw the console
+    clock_t console_start_time = clock();
     if (engine->draw_console) {
         console_draw(
             engine->console,
@@ -316,9 +403,12 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
             engine->draw_list
         );
     }
+    clock_t console_end_time = clock();
+    float console_draw_time = ((float)(console_end_time - console_start_time)) / CLOCKS_PER_SEC;
 
     // Renderer update - Create a batched render list
     // incliding all texture and vertext information
+    clock_t renderer_start_time = clock();
     EseRenderList *render_list = _engine_get_render_list(engine);
     render_list_clear(render_list);
     render_list_set_size(render_list, view_width, view_height);
@@ -326,14 +416,21 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
     // Flip the updated render list to be active
     _engine_render_flip(engine);
+    clock_t renderer_end_time = clock();
+    float renderer_update_time = ((float)(renderer_end_time - renderer_start_time)) / CLOCKS_PER_SEC;
 
     // Force Lua GC each frame
     clock_t gc_start_time = clock();
-    lua_engine_gc(engine->lua_engine);
+    // lua_engine_gc(engine->lua_engine);
     clock_t gc_end_time = clock();
     float lua_gc_time = ((float)(gc_end_time - gc_start_time)) / CLOCKS_PER_SEC;
     
+    // ------------------------------------------------------------
+    // Update stats
+    // ------------------------------------------------------------
+
     // Update stats with proper averaging (simple moving average)
+    clock_t stats_start_time = clock();
     const float alpha = 0.1f; // Smoothing factor for averaging
     
     engine->stats.updates_per_second = 1.0f / delta_time;
@@ -348,6 +445,50 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     engine->stats.entity_collision_callback_average_time = engine->stats.entity_collision_callback_average_time * (1.0f - alpha) + entity_collision_callback_time * alpha;
     engine->stats.entity_draw_average_time = engine->stats.entity_draw_average_time * (1.0f - alpha) + entity_draw_time * alpha;
     engine->stats.lua_gc_average_time = engine->stats.lua_gc_average_time * (1.0f - alpha) + lua_gc_time * alpha;
+    engine->stats.input_state_update_average_time = engine->stats.input_state_update_average_time * (1.0f - alpha) + input_state_update_time * alpha;
+    engine->stats.display_camera_update_average_time = engine->stats.display_camera_update_average_time * (1.0f - alpha) + display_camera_update_time * alpha;
+    engine->stats.console_draw_average_time = engine->stats.console_draw_average_time * (1.0f - alpha) + console_draw_time * alpha;
+    engine->stats.renderer_update_average_time = engine->stats.renderer_update_average_time * (1.0f - alpha) + renderer_update_time * alpha;
+    clock_t stats_end_time = clock();
+    float stats_update_time = ((float)(stats_end_time - stats_start_time)) / CLOCKS_PER_SEC;
+    engine->stats.stats_update_average_time = engine->stats.stats_update_average_time * (1.0f - alpha) + stats_update_time * alpha;
+
+    float test = engine->stats.entity_collision_detect_average_time;
+    if (test > 0.003f) {
+        log_debug("ENGINE", "Entity Collision Detect Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.entity_collision_callback_average_time;
+    if (test > 0.003f) {
+        log_debug("ENGINE", "Entity Collision Callback Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.entity_update_average_time;
+    if (test > 0.003f) {
+        log_debug("ENGINE", "Entity Update Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.entity_draw_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Entity Draw Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.input_state_update_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Input State Update Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.display_camera_update_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Display Camera Update Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.console_draw_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Console Draw Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.renderer_update_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Renderer Update Avg Time: %.4f ms", test * 1000.0f);
+    }
+    test = engine->stats.stats_update_average_time;
+    if (test > 0.001f) {
+        log_debug("ENGINE", "Stats Update Avg Time: %.4f ms", test * 1000.0f);
+    }
 }
 
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count) {
@@ -494,5 +635,10 @@ void engine_print_stats(EseEngine *engine) {
     log_debug("ENGINE", "Entity Collision Callback Avg Time: %.4f ms", engine->stats.entity_collision_callback_average_time * 1000.0f);
     log_debug("ENGINE", "Entity Draw Avg Time: %.4f ms", engine->stats.entity_draw_average_time * 1000.0f);
     log_debug("ENGINE", "Lua GC Avg Time: %.4f ms", engine->stats.lua_gc_average_time * 1000.0f);
+    log_debug("ENGINE", "Input State Update Avg Time: %.4f ms", engine->stats.input_state_update_average_time * 1000.0f);
+    log_debug("ENGINE", "Display Camera Update Avg Time: %.4f ms", engine->stats.display_camera_update_average_time * 1000.0f);
+    log_debug("ENGINE", "Console Draw Avg Time: %.4f ms", engine->stats.console_draw_average_time * 1000.0f);
+    log_debug("ENGINE", "Renderer Update Avg Time: %.4f ms", engine->stats.renderer_update_average_time * 1000.0f);
+    log_debug("ENGINE", "Stats Update Avg Time: %.4f ms", engine->stats.stats_update_average_time * 1000.0f);
     log_debug("ENGINE", "========================");
 }

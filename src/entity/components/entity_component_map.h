@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_MAP_H
 
 #include <string.h>
+#include <stdint.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
 #define MAP_PROXY_META "EntityComponentMapProxyMeta"

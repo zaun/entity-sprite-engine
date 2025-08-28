@@ -331,6 +331,8 @@ void input_state_lua_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "InputProxyMeta")) {
         log_debug("LUA", "Adding InputProxyMeta to engine");
+        lua_pushstring(engine->runtime, "InputProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _input_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _input_state_lua_newindex);
@@ -409,7 +411,7 @@ void input_state_ref(EseInputState *input) {
 void input_state_unref(EseInputState *input) {
     if (!input) return;
     log_assert("INPUT_STATE", input->state, "input_state_unref called with C only input");
-    
+
     if (input->lua_ref != LUA_NOREF && input->lua_ref_count > 0) {
         input->lua_ref_count--;
         

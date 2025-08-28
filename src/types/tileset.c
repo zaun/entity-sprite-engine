@@ -260,6 +260,8 @@ static int _tileset_lua_new(lua_State *L) {
 void tileset_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "TilesProxyMeta")) {
         log_debug("LUA", "Adding TilesProxyMeta");
+        lua_pushstring(engine->runtime, "TilesProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _tileset_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _tileset_lua_newindex);

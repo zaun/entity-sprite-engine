@@ -2,6 +2,7 @@
 #define ESE_RECT_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -9,21 +10,16 @@ typedef struct EseLuaEngine EseLuaEngine;
 
 /**
  * @brief Represents a rectangle with floating-point coordinates and dimensions.
- * 
- * @details This structure stores the position and size of a rectangle in 2D space.
- *          The rotation is stored in radians around the center point.
  */
-typedef struct EseRect {
-    float x;            /**< The x-coordinate of the rectangle's top-left corner */
-    float y;            /**< The y-coordinate of the rectangle's top-left corner */
-    float width;        /**< The width of the rectangle */
-    float height;       /**< The height of the rectangle */
-    float rotation;     /**< The rotation of the rect around the center point in radians */
+typedef struct EseRect EseRect;
 
-    lua_State *state;   /**< Lua State this EseRect belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this rect has been referenced in C */
-} EseRect;
+/**
+ * @brief Callback function type for rect property change notifications.
+ * 
+ * @param rect Pointer to the EseRect that changed
+ * @param userdata User-provided data passed when registering the watcher
+ */
+typedef void (*EseRectWatcherCallback)(EseRect *rect, void *userdata);
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -54,7 +50,7 @@ EseRect *rect_create(EseLuaEngine *engine);
  * @param source Pointer to the source EseRect to copy.
  * @return A new, distinct EseRect object that is a copy of the source.
  * 
- * @warning The returned EseRect must be freed with rect_destroy() to prevent memory leaks.
+ * @warning The returned EseRect must be freed with rect_destroy() to prevent memory leaks
  */
 EseRect *rect_copy(const EseRect *source);
 
@@ -72,6 +68,150 @@ EseRect *rect_copy(const EseRect *source);
  * @param rect Pointer to the EseRect object to destroy
  */
 void rect_destroy(EseRect *rect);
+
+/**
+ * @brief Gets the size of the EseRect structure in bytes.
+ * 
+ * @return The size of the EseRect structure in bytes
+ */
+size_t rect_sizeof(void);
+
+// Property access
+/**
+ * @brief Sets the x-coordinate of the rectangle's top-left corner.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param x The x-coordinate value
+ */
+void rect_set_x(EseRect *rect, float x);
+
+/**
+ * @brief Gets the x-coordinate of the rectangle's top-left corner.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The x-coordinate value
+ */
+float rect_get_x(const EseRect *rect);
+
+/**
+ * @brief Sets the y-coordinate of the rectangle's top-left corner.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param y The y-coordinate value
+ */
+void rect_set_y(EseRect *rect, float y);
+
+/**
+ * @brief Gets the y-coordinate of the rectangle's top-left corner.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The y-coordinate value
+ */
+float rect_get_y(const EseRect *rect);
+
+/**
+ * @brief Sets the width of the rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param width The width value
+ */
+void rect_set_width(EseRect *rect, float width);
+
+/**
+ * @brief Gets the width of the rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The width value
+ */
+float rect_get_width(const EseRect *rect);
+
+/**
+ * @brief Sets the height of the rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param height The height value
+ */
+void rect_set_height(EseRect *rect, float height);
+
+/**
+ * @brief Gets the height of the rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The height value
+ */
+float rect_get_height(const EseRect *rect);
+
+// Lua-related access
+/**
+ * @brief Gets the Lua state associated with this rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *rect_get_state(const EseRect *rect);
+
+/**
+ * @brief Gets the Lua registry reference for this rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The Lua registry reference value
+ */
+int rect_get_lua_ref(const EseRect *rect);
+
+/**
+ * @brief Gets the Lua reference count for this rectangle.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return The current reference count
+ */
+int rect_get_lua_ref_count(const EseRect *rect);
+
+/**
+ * @brief Adds a watcher callback to be notified when any rect property changes.
+ * 
+ * @details The callback will be called whenever any property (x, y, width, height, rotation)
+ *          of the rect is modified. Multiple watchers can be registered on the same rect.
+ * 
+ * @param rect Pointer to the EseRect object to watch
+ * @param callback Function to call when properties change
+ * @param userdata User-provided data to pass to the callback
+ * @return true if watcher was added successfully, false otherwise
+ */
+bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Removes a previously registered watcher callback.
+ * 
+ * @details Removes the first occurrence of the callback with matching userdata.
+ *          If the same callback is registered multiple times with different userdata,
+ *          only the first match will be removed.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param callback Function to remove
+ * @param userdata User data that was used when registering
+ * @return true if watcher was removed, false if not found
+ */
+bool rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Sets the rotation of the rectangle.
+ * 
+ * @details Sets the rotation in radians. Positive values rotate counterclockwise.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @param radians Rotation angle in radians
+ */
+void rect_set_rotation(EseRect *rect, float radians);
+
+/**
+ * @brief Gets the rotation of the rectangle.
+ * 
+ * @details Returns the rotation in radians.
+ * 
+ * @param rect Pointer to the EseRect object
+ * @return Rotation angle in radians
+ */
+float rect_get_rotation(const EseRect *rect);
 
 // Lua integration
 /**
@@ -172,26 +312,5 @@ bool rect_intersects(const EseRect *rect1, const EseRect *rect2);
  * @return The area of the rectangle (width × height)
  */
 float rect_area(const EseRect *rect);
-
-// Property access
-/**
- * @brief Sets the rotation of the rectangle.
- * 
- * @details Sets the rotation in radians. Positive values rotate counterclockwise.
- * 
- * @param rect Pointer to the EseRect object
- * @param radians Rotation angle in radians
- */
-void rect_set_rotation(EseRect *rect, float radians);
-
-/**
- * @brief Gets the rotation of the rectangle.
- * 
- * @details Returns the rotation in radians.
- * 
- * @param rect Pointer to the EseRect object
- * @return Rotation angle in radians
- */
-float rect_get_rotation(const EseRect *rect);
 
 #endif // ESE_RECT_H

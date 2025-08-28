@@ -232,6 +232,8 @@ void display_state_lua_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "DisplayProxyMeta")) {
         log_debug("LUA", "Adding DisplayProxyMeta to engine");
+        lua_pushstring(engine->runtime, "DisplayProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _display_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _display_state_lua_newindex);

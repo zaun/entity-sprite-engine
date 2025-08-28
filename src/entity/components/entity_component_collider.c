@@ -1,4 +1,5 @@
 #include <string.h>
+#include <math.h>
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
@@ -14,6 +15,8 @@
 #include "entity/components/entity_component_lua.h"
 
 #define COLLIDER_RECT_CAPACITY 5
+
+static void _entity_component_collider_rect_changed(EseRect *rect, void *userdata);
 
 static void _entity_component_collider_register(EseEntityComponentCollider *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_collider_push called with NULL component");
@@ -87,6 +90,8 @@ void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
     uuid_destroy(component->base.id);
 
     for (size_t i = 0; i < component->rects_count; ++i) {
+        // Remove watcher before destroying rect
+        rect_remove_watcher(component->rects[i], _entity_component_collider_rect_changed, component);
         rect_destroy(component->rects[i]);
     }
     memory_manager.free(component->rects);
@@ -94,10 +99,6 @@ void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
     memory_manager.free(component);
 }
 
-void _entity_component_collider_update(EseEntityComponentCollider *component, EseEntity *entity, float delta_time) {
-    log_assert("ENTITY_COMP", component, "entity_component_lua_update called with NULL component");
-    log_assert("ENTITY_COMP", entity, "entity_component_lua_update called with NULL src");
-}
 
 /**
  * @brief Lua function to create a new EseEntityComponentCollider object.
@@ -243,6 +244,8 @@ static int _entity_component_collider_rects_remove(lua_State *L) {
         return 1;
     }
 
+    // Remove the watcher before removing the rect
+    rect_remove_watcher(rect_to_remove, _entity_component_collider_rect_changed, collider);
     rect_unref(rect_to_remove);
     
     // Shift elements to remove the component
@@ -252,6 +255,9 @@ static int _entity_component_collider_rects_remove(lua_State *L) {
     
     collider->rects_count--;
     collider->rects[collider->rects_count] = NULL;
+
+    // Update entity's collision bounds after removing rect
+    entity_component_collider_update_bounds(collider);
 
     // C no longer owns the memory
     lua_pushstring(L, "__is_lua_owned");
@@ -304,6 +310,12 @@ static int _entity_component_collider_rects_insert(lua_State *L) {
     collider->rects_count++;
     rect_ref(rect);
     
+    // Register a watcher to automatically update bounds when rect properties change
+    rect_add_watcher(rect, _entity_component_collider_rect_changed, collider);
+    
+    // Update entity's collision bounds after inserting rect
+    entity_component_collider_update_bounds(collider);
+    
     lua_pushstring(L, "__is_lua_owned");
     lua_pushboolean(L, false);
     lua_settable(L, 2);
@@ -327,13 +339,19 @@ static int _entity_component_collider_rects_pop(lua_State *L) {
     }
     
     EseRect *rect = collider->rects[collider->rects_count - 1];
+    
+    // Remove the watcher before removing the rect
+    rect_remove_watcher(rect, _entity_component_collider_rect_changed, collider);
     rect_unref(rect);
 
     collider->rects[collider->rects_count - 1] = NULL;
     collider->rects_count--;
     
+    // Update entity's collision bounds after removing rect
+    entity_component_collider_update_bounds(collider);
+    
     // Get the existing Lua proxy for the rect from its Lua reference
-    lua_rawgeti(L, LUA_REGISTRYINDEX, rect->lua_ref);    
+    lua_rawgeti(L, LUA_REGISTRYINDEX, rect_get_lua_ref(rect));    
     lua_pushboolean(L, true);
     lua_setfield(L, -2, "__is_lua_owned");
 
@@ -356,6 +374,9 @@ static int _entity_component_collider_rects_shift(lua_State *L) {
     }
     
     EseRect *rect = collider->rects[0];
+    
+    // Remove the watcher before removing the rect
+    rect_remove_watcher(rect, _entity_component_collider_rect_changed, collider);
     rect_unref(rect);
 
     // Shift all elements
@@ -366,9 +387,11 @@ static int _entity_component_collider_rects_shift(lua_State *L) {
     collider->rects_count--;
     collider->rects[collider->rects_count] = NULL;
 
+    // Update entity's collision bounds after removing rect
+    entity_component_collider_update_bounds(collider);
     
     // Get the existing Lua proxy for the rect from its Lua reference
-    lua_rawgeti(L, LUA_REGISTRYINDEX, rect->lua_ref);    
+    lua_rawgeti(L, LUA_REGISTRYINDEX, rect_get_lua_ref(rect));    
     lua_pushboolean(L, true);
     lua_setfield(L, -2, "__is_lua_owned");
     
@@ -491,7 +514,7 @@ static int _entity_component_collider_rects_rects_index(lua_State *L) {
             EseRect *rect = component->rects[index];
             
             // Get the existing Lua proxy for the component from its Lua reference
-            lua_rawgeti(L, LUA_REGISTRYINDEX, rect->lua_ref);
+            lua_rawgeti(L, LUA_REGISTRYINDEX, rect_get_lua_ref(rect));
             return 1;
         } else {
             lua_pushnil(L);
@@ -583,6 +606,8 @@ void _entity_component_collider_init(EseLuaEngine *engine) {
     // Register EseEntityComponentCollider metatable
     if (luaL_newmetatable(L, COLLIDER_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentColliderProxyMeta to engine");
+        lua_pushstring(L, COLLIDER_PROXY_META);
+        lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_collider_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_collider_newindex);
@@ -609,6 +634,8 @@ void _entity_component_collider_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "ColliderRectsProxyMeta")) {
         log_debug("LUA", "Adding entity ColliderRectsProxyMeta to engine");
+        lua_pushstring(engine->runtime, "ColliderRectsProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _entity_component_collider_rects_rects_index);
         lua_setfield(engine->runtime, -2, "__index");
     }
@@ -626,7 +653,7 @@ void _entity_component_collider_draw(EseEntityComponentCollider *collider, float
         EseRect *rect = collider->rects[i];
         rectCallback(
             screen_x, screen_y, collider->base.entity->draw_order,
-            rect->width, rect->height, rect->rotation, false,
+            rect_get_width(rect), rect_get_height(rect), rect_get_rotation(rect), false,
             0, 0, 255, 255,
             callback_user_data
         );
@@ -642,6 +669,13 @@ EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine) {
     _entity_component_collider_register((EseEntityComponentCollider *)component->data, false);
 
     return component;
+}
+
+static void _entity_component_collider_rect_changed(EseRect *rect, void *userdata) {
+    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)userdata;
+    if (collider) {
+        entity_component_collider_update_bounds(collider);
+    }
 }
 
 void entity_component_collider_rects_add(EseEntityComponentCollider *collider, EseRect *rect) {
@@ -661,4 +695,119 @@ void entity_component_collider_rects_add(EseEntityComponentCollider *collider, E
 
     collider->rects[collider->rects_count++] = rect;
     rect_ref(rect);
+    
+    // Register a watcher to automatically update bounds when rect properties change
+    rect_add_watcher(rect, _entity_component_collider_rect_changed, collider);
+    
+    // Update entity's collision bounds after adding rect
+    entity_component_collider_update_bounds(collider);
+}
+
+void entity_component_collider_update_bounds(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY", collider, "entity_component_collider_update_bounds called with NULL collider");
+    
+    // If component isn't attached to an entity yet, skip bounds update
+    if (!collider->base.entity) {
+        return;
+    }
+    
+    if (collider->rects_count == 0) {
+        // No rects, clear both collision bounds
+        if (collider->base.entity->collision_bounds) {
+            rect_destroy(collider->base.entity->collision_bounds);
+            collider->base.entity->collision_bounds = NULL;
+        }
+        if (collider->base.entity->collision_world_bounds) {
+            rect_destroy(collider->base.entity->collision_world_bounds);
+            collider->base.entity->collision_world_bounds = NULL;
+        }
+        return;
+    }
+    
+    // Compute bounds from all rects in this collider (relative to entity)
+    float min_x = INFINITY, min_y = INFINITY, max_x = -INFINITY, max_y = -INFINITY;
+    
+    for (size_t i = 0; i < collider->rects_count; i++) {
+        EseRect *r = collider->rects[i];
+        if (!r) continue;
+        
+        // Use rect coordinates directly (they're already relative to entity)
+        float rx = rect_get_x(r);
+        float ry = rect_get_y(r);
+        float rw = rect_get_width(r);
+        float rh = rect_get_height(r);
+        
+        // Update min/max bounds
+        min_x = fminf(min_x, rx);
+        min_y = fminf(min_y, ry);
+        max_x = fmaxf(max_x, rx + rw);
+        max_y = fmaxf(max_y, ry + rh);
+    }
+    
+    // Create or update the collision bounds (relative to entity)
+    if (!collider->base.entity->collision_bounds) {
+        collider->base.entity->collision_bounds = rect_create(collider->base.lua);
+    }
+    
+    EseRect *bounds = collider->base.entity->collision_bounds;
+    rect_set_x(bounds, min_x);
+    rect_set_y(bounds, min_y);
+    rect_set_width(bounds, max_x - min_x);
+    rect_set_height(bounds, max_y - min_y);
+    rect_set_rotation(bounds, 0.0f); // Collision bounds are axis-aligned
+    
+    // Create or update the collision world bounds
+    if (!collider->base.entity->collision_world_bounds) {
+        collider->base.entity->collision_world_bounds = rect_create(collider->base.lua);
+    }
+    
+    EseRect *world_bounds = collider->base.entity->collision_world_bounds;
+    rect_set_x(world_bounds, min_x + point_get_x(collider->base.entity->position));
+    rect_set_y(world_bounds, min_y + point_get_y(collider->base.entity->position));
+    rect_set_width(world_bounds, max_x - min_x);
+    rect_set_height(world_bounds, max_y - min_y);
+    rect_set_rotation(world_bounds, 0.0f); // Collision bounds are axis-aligned
+}
+
+void entity_component_collider_rect_updated(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY", collider, "entity_component_collider_rect_updated called with NULL collider");
+    
+    // Simply call the bounds update function
+    entity_component_collider_update_bounds(collider);
+}
+
+void entity_component_collider_position_changed(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY", collider, "entity_component_collider_position_changed called with NULL collider");
+    
+    // Update bounds since entity position affects all rect world positions
+    entity_component_collider_update_bounds(collider);
+}
+
+void entity_component_collider_update_world_bounds_only(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY", collider, "entity_component_collider_update_world_bounds_only called with NULL collider");
+    
+    // If component isn't attached to an entity yet, skip bounds update
+    if (!collider->base.entity) {
+        return;
+    }
+    
+    // If no entity bounds exist, can't update world bounds
+    if (!collider->base.entity->collision_bounds) {
+        return;
+    }
+    
+    // Update ONLY the world bounds based on current entity position and entity bounds
+    if (!collider->base.entity->collision_world_bounds) {
+        collider->base.entity->collision_world_bounds = rect_create(collider->base.lua);
+    }
+    
+    EseRect *entity_bounds = collider->base.entity->collision_bounds;
+    EseRect *world_bounds = collider->base.entity->collision_world_bounds;
+    
+    // Copy entity bounds to world bounds and add entity position offset
+    rect_set_x(world_bounds, rect_get_x(entity_bounds) + point_get_x(collider->base.entity->position));
+    rect_set_y(world_bounds, rect_get_y(entity_bounds) + point_get_y(collider->base.entity->position));
+    rect_set_width(world_bounds, rect_get_width(entity_bounds));
+    rect_set_height(world_bounds, rect_get_height(entity_bounds));
+    rect_set_rotation(world_bounds, rect_get_rotation(entity_bounds));
 }

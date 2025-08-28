@@ -16,6 +16,27 @@
 #include "utility/grouped_hashmap.h"
 #include "platform/filesystem.h"
 
+// Forward declarations
+static void _gl_free_texture(void *value);
+static void _gl_free_shader(void *value);
+
+// Internal helper to free GLTexture objects
+static void _gl_free_texture(void *value) {
+    if (value) {
+        GLTexture *tex_data = (GLTexture *)value;
+        glDeleteTextures(1, &tex_data->id);
+        memory_manager.free(tex_data);
+    }
+}
+
+// Internal helper to free shader objects
+static void _gl_free_shader(void *value) {
+    if (value) {
+        GLuint *shader_id = (GLuint *)value;
+        glDeleteShader(*shader_id);
+        memory_manager.free(shader_id);
+    }
+}
 
 #define MAX_BATCH_VERTICES 100000
 
@@ -78,11 +99,6 @@ void _split_library_func(const char *input, char **group, char **name) {
     }
 }
 
-void _gl_free_shader(void *item) {
-    GLuint *shaderId = (GLuint *)item;
-    glDeleteShader(*shaderId);
-}
-
 EseRenderer* renderer_create(bool hiDPI) {
     log_debug("RENDERER", "Initializing OpenGL Renderer...");
 
@@ -91,7 +107,7 @@ EseRenderer* renderer_create(bool hiDPI) {
     EseGLRenderer *internal = (EseGLRenderer *)memory_manager.malloc(sizeof(EseGLRenderer), MMTAG_RENDERER);
 
     renderer->internal = (void *) internal;
-    renderer->textures = hashmap_create();
+    renderer->textures = hashmap_create((EseHashMapFreeFn)_gl_free_texture);
     renderer->shaders = grouped_hashmap_create((EseGroupedHashMapFreeFn)_gl_free_shader);
     renderer->shadersSources = grouped_hashmap_create((EseGroupedHashMapFreeFn)memory_manager.free);
     renderer->hiDPI = hiDPI;
@@ -165,18 +181,7 @@ void renderer_destroy(EseRenderer *renderer) {
     }
     memory_manager.free(renderer->internal);
 
-    // Clean up textures
-    EseHashMapIter *iter = hashmap_iter_create(renderer->textures);
-    void *value_ptr;
-    while (hashmap_iter_next(iter, NULL, &value_ptr) == 1) {
-        if (value_ptr) {
-            GLTexture *tex_data = (GLTexture *)value_ptr;
-            glDeleteTextures(1, &tex_data->id);
-            memory_manager.free(tex_data);
-        }
-    }
-    hashmap_iter_free(iter);
-
+    // Hashmaps will automatically free their values using the free functions
     hashmap_free(renderer->textures);
     grouped_hashmap_free(renderer->shaders);
     grouped_hashmap_free(renderer->shadersSources);

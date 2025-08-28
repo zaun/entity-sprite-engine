@@ -177,6 +177,8 @@ void uuid_destroy(EseUUID *uuid) {
 void uuid_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "UUIDProxyMeta")) {
         log_debug("LUA", "Adding entity UUIDProxyMeta to engine");
+        lua_pushstring(engine->runtime, "UUIDProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _uuid_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
         lua_pushcfunction(engine->runtime, _uuid_lua_newindex);

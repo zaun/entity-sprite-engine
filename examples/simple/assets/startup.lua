@@ -24,6 +24,7 @@ function STARTUP:makeskull()
 end
 
 function STARTUP:startup()
+    print("simple startup script started")
 
     if asset_load_shader("game", "shaders.glsl") == false then
         print("Shaders failed")
@@ -92,4 +93,6 @@ function STARTUP:startup()
 
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
+
+    print("simple startup script done")
 end

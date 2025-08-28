@@ -29,6 +29,7 @@ typedef struct EseHashMap {
     EseHashNode** buckets;          /**< Array of bucket pointers */
     size_t capacity;                /**< Number of buckets in the hash map */
     size_t size;                    /**< Number of key-value pairs stored */
+    EseHashMapFreeFn free_fn;       /**< Function to free stored values */
 } EseHashMap;
 
 /**
@@ -64,9 +65,9 @@ static EseHashNode* create_node(const char* key, void* value) {
     return node;
 }
 
-static void free_node(EseHashNode* node) {
+static void free_node(EseHashNode* node, EseHashMapFreeFn free_fn) {
     if (!node) return;
-
+    if (free_fn) free_fn(node->value);
     memory_manager.free(node->key);
     memory_manager.free(node);
 }
@@ -92,10 +93,11 @@ static void hashmap_resize(EseHashMap* map) {
     map->capacity = new_capacity;
 }
 
-EseHashMap* hashmap_create(void) {
+EseHashMap* hashmap_create(EseHashMapFreeFn free_fn) {
     EseHashMap* map = memory_manager.malloc(sizeof(EseHashMap), MMTAG_HASHMAP);
     map->capacity = INITIAL_CAPACITY;
     map->size = 0;
+    map->free_fn = free_fn;
     map->buckets = memory_manager.calloc(map->capacity, sizeof(EseHashNode*), MMTAG_HASHMAP);
     return map;
 }
@@ -107,12 +109,27 @@ void hashmap_free(EseHashMap* map) {
         EseHashNode* node = map->buckets[i];
         while (node) {
             EseHashNode* next = node->next;
-            free_node(node);
+            free_node(node, map->free_fn);
             node = next;
         }
     }
     memory_manager.free(map->buckets);
     memory_manager.free(map);
+}
+
+void hashmap_clear(EseHashMap* map) {
+    if (!map) return;
+
+    for (size_t i = 0; i < map->capacity; i++) {
+        EseHashNode* node = map->buckets[i];
+        while (node) {
+            EseHashNode* next = node->next;
+            free_node(node, map->free_fn);
+            node = next;
+        }
+        map->buckets[i] = NULL;
+    }
+    map->size = 0;
 }
 
 void hashmap_set(EseHashMap* map, const char* key, void* value) {
@@ -164,7 +181,9 @@ void* hashmap_remove(EseHashMap* map, const char* key) {
                 map->buckets[idx] = node->next;
             }
             void* value = node->value;
-            free_node(node);
+            // Don't call free_fn here since we're returning the value
+            memory_manager.free(node->key);
+            memory_manager.free(node);
             map->size--;
             return value;
         }

@@ -12,7 +12,7 @@ typedef struct lua_Debug lua_Debug;
 
 static const char hook_key_sentinel = 0;
 #define LUA_HOOK_KEY ((void*)&hook_key_sentinel)
-#define LUA_HOOK_FRQ 100
+#define LUA_HOOK_FRQ 1000
 #define LUA_MAX_ALLOC 1024 * 1024 * 5
 
 /**

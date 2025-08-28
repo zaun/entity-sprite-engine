@@ -254,7 +254,7 @@ EseRenderer* renderer_create(bool hiDPI) {
 
     internal->uboBuffer = nil;
     internal->vertexBufferCapacity = 0;
-    renderer->textures = hashmap_create();
+    renderer->textures = hashmap_create((EseHashMapFreeFn)_free_hash_item);
     renderer->shaders = grouped_hashmap_create((EseGroupedHashMapFreeFn)_free_hash_item);
     renderer->shadersSources = grouped_hashmap_create((EseGroupedHashMapFreeFn)_free_hash_item);
     renderer->render_list = NULL;
@@ -325,15 +325,6 @@ EseRenderer* renderer_create(bool hiDPI) {
 
 void renderer_destroy(EseRenderer* renderer) {
     log_assert("METAL_RENDERER", renderer, "renderer_destroy called with NULL renderer");
-
-#if !__has_feature(objc_arc)
-    EseHashMapIter* iter = hashmap_iter_create(renderer->textures);
-    void* value = NULL;
-    while (hashmap_iter_next(iter, NULL, &value)) {
-        [(id)value release];
-    }
-    hashmap_iter_free(iter);
-#endif
 
     hashmap_free(renderer->textures);
     grouped_hashmap_free(renderer->shaders);

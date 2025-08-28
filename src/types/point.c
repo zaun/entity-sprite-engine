@@ -1,10 +1,27 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <stddef.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "types/point.h"
+
+// The actual EsePoint struct definition (private to this file)
+typedef struct EsePoint {
+    float x;            /**< The x-coordinate of the point */
+    float y;            /**< The y-coordinate of the point */
+
+    lua_State *state;   /**< Lua State this EsePoint belongs to */
+    int lua_ref;        /**< Lua registry reference to its own proxy table */
+    int lua_ref_count;  /**< Number of times this point has been referenced in C */
+    
+    // Watcher system
+    EsePointWatcherCallback *watchers;     /**< Array of watcher callbacks */
+    void **watcher_userdata;               /**< Array of userdata for each watcher */
+    size_t watcher_count;                  /**< Number of registered watchers */
+    size_t watcher_capacity;               /**< Capacity of the watcher arrays */
+} EsePoint;
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
@@ -12,6 +29,9 @@
 
 // Core helpers
 static EsePoint *_point_make(void);
+
+// Watcher system
+static void _point_notify_watchers(EsePoint *point);
 
 // Lua metamethods
 static int _point_lua_gc(lua_State *L);
@@ -35,7 +55,22 @@ static EsePoint *_point_make() {
     point->state = NULL;
     point->lua_ref = LUA_NOREF;
     point->lua_ref_count = 0;
+    point->watchers = NULL;
+    point->watcher_userdata = NULL;
+    point->watcher_count = 0;
+    point->watcher_capacity = 0;
     return point;
+}
+
+// Watcher system
+static void _point_notify_watchers(EsePoint *point) {
+    if (!point || point->watcher_count == 0) return;
+    
+    for (size_t i = 0; i < point->watcher_count; i++) {
+        if (point->watchers[i]) {
+            point->watchers[i](point, point->watcher_userdata[i]);
+        }
+    }
 }
 
 // Lua metamethods
@@ -79,12 +114,14 @@ static int _point_lua_newindex(lua_State *L) {
             return luaL_error(L, "point.x must be a number");
         }
         point->x = (float)lua_tonumber(L, 3);
+        _point_notify_watchers(point);
         return 0;
     } else if (strcmp(key, "y") == 0) {
         if (!lua_isnumber(L, 3)) {
             return luaL_error(L, "point.y must be a number");
         }
         point->y = (float)lua_tonumber(L, 3);
+        _point_notify_watchers(point);
         return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -182,11 +219,27 @@ EsePoint *point_copy(const EsePoint *source) {
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     copy->lua_ref_count = 0;
+    copy->watchers = NULL;
+    copy->watcher_userdata = NULL;
+    copy->watcher_count = 0;
+    copy->watcher_capacity = 0;
     return copy;
 }
 
 void point_destroy(EsePoint *point) {
     if (!point) return;
+    
+    // Free watcher arrays if they exist
+    if (point->watchers) {
+        memory_manager.free(point->watchers);
+        point->watchers = NULL;
+    }
+    if (point->watcher_userdata) {
+        memory_manager.free(point->watcher_userdata);
+        point->watcher_userdata = NULL;
+    }
+    point->watcher_count = 0;
+    point->watcher_capacity = 0;
     
     if (point->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
@@ -212,6 +265,8 @@ void point_destroy(EsePoint *point) {
 void point_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "PointProxyMeta")) {
         log_debug("LUA", "Adding entity PointProxyMeta to engine");
+        lua_pushstring(engine->runtime, "PointProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _point_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
         lua_pushcfunction(engine->runtime, _point_lua_newindex);
@@ -346,4 +401,106 @@ float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
     float dx = point2->x - point1->x;
     float dy = point2->y - point1->y;
     return dx * dx + dy * dy;
+}
+
+// Property access
+void point_set_x(EsePoint *point, float x) {
+    if (!point) return;
+    point->x = x;
+    _point_notify_watchers(point);
+}
+
+float point_get_x(const EsePoint *point) {
+    if (!point) return 0.0f;
+    return point->x;
+}
+
+void point_set_y(EsePoint *point, float y) {
+    if (!point) return;
+    point->y = y;
+    _point_notify_watchers(point);
+}
+
+float point_get_y(const EsePoint *point) {
+    if (!point) return 0.0f;
+    return point->y;
+}
+
+// Lua-related access
+lua_State *point_get_state(const EsePoint *point) {
+    if (!point) return NULL;
+    return point->state;
+}
+
+int point_get_lua_ref(const EsePoint *point) {
+    if (!point) return LUA_NOREF;
+    return point->lua_ref;
+}
+
+int point_get_lua_ref_count(const EsePoint *point) {
+    if (!point) return 0;
+    return point->lua_ref_count;
+}
+
+// Watcher system
+bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
+    if (!point || !callback) return false;
+    
+    // Initialize watcher arrays if this is the first watcher
+    if (point->watcher_count == 0) {
+        point->watcher_capacity = 4; // Start with capacity for 4 watchers
+        point->watchers = memory_manager.malloc(sizeof(EsePointWatcherCallback) * point->watcher_capacity, MMTAG_GENERAL);
+        point->watcher_userdata = memory_manager.malloc(sizeof(void*) * point->watcher_capacity, MMTAG_GENERAL);
+        point->watcher_count = 0;
+    }
+    
+    // Expand arrays if needed
+    if (point->watcher_count >= point->watcher_capacity) {
+        size_t new_capacity = point->watcher_capacity * 2;
+        EsePointWatcherCallback *new_watchers = memory_manager.realloc(
+            point->watchers, 
+            sizeof(EsePointWatcherCallback) * new_capacity, 
+            MMTAG_GENERAL
+        );
+        void **new_userdata = memory_manager.realloc(
+            point->watcher_userdata, 
+            sizeof(void*) * new_capacity, 
+            MMTAG_GENERAL
+        );
+        
+        if (!new_watchers || !new_userdata) return false;
+        
+        point->watchers = new_watchers;
+        point->watcher_userdata = new_userdata;
+        point->watcher_capacity = new_capacity;
+    }
+    
+    // Add the new watcher
+    point->watchers[point->watcher_count] = callback;
+    point->watcher_userdata[point->watcher_count] = userdata;
+    point->watcher_count++;
+    
+    return true;
+}
+
+bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
+    if (!point || !callback) return false;
+    
+    for (size_t i = 0; i < point->watcher_count; i++) {
+        if (point->watchers[i] == callback && point->watcher_userdata[i] == userdata) {
+            // Remove this watcher by shifting remaining ones
+            for (size_t j = i; j < point->watcher_count - 1; j++) {
+                point->watchers[j] = point->watchers[j + 1];
+                point->watcher_userdata[j] = point->watcher_userdata[j + 1];
+            }
+            point->watcher_count--;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+size_t point_sizeof(void) {
+    return sizeof(EsePoint);
 }

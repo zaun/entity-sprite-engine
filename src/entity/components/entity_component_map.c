@@ -70,8 +70,8 @@ EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
     copy->map = src->map;
     copy->map_pos = point_create(src->base.lua);
     point_ref(copy->map_pos);
-    copy->map_pos->x = src->map_pos->x;
-    copy->map_pos->y = src->map_pos->y;
+    point_set_x(copy->map_pos, point_get_x(src->map_pos));
+    point_set_y(copy->map_pos, point_get_y(src->map_pos));
 
     size_t cells = copy->map->width * copy->map->height;
     copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
@@ -225,7 +225,7 @@ static int _entity_component_map_index(lua_State *L)
     }
     else if (strcmp(key, "position") == 0)
     {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, component->map_pos->lua_ref);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, point_get_lua_ref(component->map_pos));
         return 1;
     }
     else if (strcmp(key, "size") == 0)
@@ -300,13 +300,13 @@ static int _entity_component_map_newindex(lua_State *L)
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        component->map_pos->x = new_position_point->x;
-        component->map_pos->y = new_position_point->y;
+        point_set_x(component->map_pos, point_get_x(new_position_point));
+        point_set_y(component->map_pos, point_get_y(new_position_point));
         return 0;
     }
     else if (strcmp(key, "size") == 0)
     {
-        if (!lua_isinteger(L, 3))
+        if (!lua_isinteger_lj(L, 3))
         {
             return luaL_error(L, "size must be a number");
         }
@@ -403,6 +403,8 @@ void _entity_component_map_init(EseLuaEngine *engine)
     if (luaL_newmetatable(L, MAP_PROXY_META))
     {
         log_debug("LUA", "Adding %s to engine", MAP_PROXY_META);
+        lua_pushstring(L, MAP_PROXY_META);
+        lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_map_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_map_newindex);
@@ -445,8 +447,8 @@ void _entity_component_map_draw_grid(
     const int tw = component->size, th = component->size;
 
     // center cell
-    float cx = component->map_pos->x;
-    float cy = component->map_pos->y;
+    float cx = point_get_x(component->map_pos);
+    float cy = point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -506,8 +508,8 @@ void _entity_component_map_draw_hex_point_up(
     const int tw = (int)(th * 0.866025f); // sqrt(3) / 2 ≈ 0.866025
 
     // center cell
-    float cx = component->map_pos->x;
-    float cy = component->map_pos->y;
+    float cx = point_get_x(component->map_pos);
+    float cy = point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -574,8 +576,8 @@ void _entity_component_map_draw_hex_flat_up(
     const int tw = (int)(th * 1.154701f); // 2 / sqrt(3) ≈ 1.154701
 
     // center cell
-    float cx = component->map_pos->x;
-    float cy = component->map_pos->y;
+    float cx = point_get_x(component->map_pos);
+    float cy = point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -642,8 +644,8 @@ void _entity_component_map_draw_iso(
     const int tw = th * 2;
 
     // center cell
-    float cx = component->map_pos->x;
-    float cy = component->map_pos->y;
+    float cx = point_get_x(component->map_pos);
+    float cy = point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {

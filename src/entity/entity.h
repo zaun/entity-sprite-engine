@@ -190,6 +190,15 @@ bool entity_remove_tag(EseEntity *entity, const char *tag);
  */
 bool entity_has_tag(EseEntity *entity, const char *tag);
 
+/**
+ * @brief Gets the entity's collision bounds.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @param to_world_coords If true, returns bounds in world coordinates. If false, returns bounds relative to entity.
+ * @return Pointer to a copy of the collision bounds rect (caller must free), or NULL if no collider component exists
+ */
+EseRect *entity_get_collision_bounds(EseEntity *entity, bool to_world_coords);
+
 int entity_get_lua_ref(EseEntity *entity);
 
 #endif // ESE_ENTITY_H

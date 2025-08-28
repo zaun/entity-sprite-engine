@@ -1,5 +1,6 @@
 #include <string.h>
 #include "utility/log.h"
+#include "utility/hashmap.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "entity/entity.h"
@@ -7,6 +8,16 @@
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
+
+// Standard entity function names
+static const char *STANDARD_FUNCTIONS[] = {
+    "entity_init",
+    "entity_update", 
+    "entity_collision_enter",
+    "entity_collision_stay",
+    "entity_collision_exit"
+};
+static const size_t STANDARD_FUNCTIONS_COUNT = sizeof(STANDARD_FUNCTIONS) / sizeof(STANDARD_FUNCTIONS[0]);
 
 static void _entity_component_lua_register(EseEntityComponentLua *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_lua_register called with NULL component");
@@ -48,6 +59,7 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->instance_ref = LUA_NOREF;
     component->engine = engine;
     component->arg = lua_value_create_number("argument count", 0);
+    component->function_cache = hashmap_create(NULL); // No free function needed for CachedLuaFunction
 
     return &component->base;
 }
@@ -65,6 +77,12 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
 
     if (component->instance_ref != LUA_NOREF && component->engine) {
         lua_engine_instance_remove(component->engine, component->instance_ref);
+    }
+
+    // Clear and free the function cache
+    if (component->function_cache) {
+        _entity_component_lua_clear_cache(component);
+        hashmap_free(component->function_cache);
     }
 
     memory_manager.free(component->script);
@@ -90,13 +108,16 @@ void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *e
             return;
         }
 
+        // Cache all standard functions
+        _entity_component_lua_cache_functions(component);
+
         // Run the init function (once)
-        lua_engine_instance_run_function(component->engine, component->instance_ref, entity_get_lua_ref(entity), "entity_init");
+        entity_component_lua_run(component, entity, "entity_init", 0, NULL);
     }
 
-    // run the update function
+    // Run the update function
     lua_value_set_number(component->arg, delta_time);
-    lua_engine_instance_run_function_with_args(component->engine, component->instance_ref, entity_get_lua_ref(entity), "entity_update", 1, component->arg);
+    entity_component_lua_run(component, entity, "entity_update", 1, component->arg);
 }
 
 /**
@@ -132,6 +153,146 @@ static int _entity_component_lua_new(lua_State *L) {
     entity_component_push(component);
     
     return 1;
+}
+
+void _entity_component_lua_cache_functions(EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_lua_cache_functions called with NULL component");
+    
+    if (!component->engine || component->instance_ref == LUA_NOREF) {
+        return;
+    }
+    
+    lua_State *L = component->engine->runtime;
+    
+    // Clear existing cache first
+    _entity_component_lua_clear_cache(component);
+    
+    // Push the instance table onto the stack
+    lua_rawgeti(L, LUA_REGISTRYINDEX, component->instance_ref);
+    
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        return;
+    }
+    
+    // Cache each standard function
+    for (size_t i = 0; i < STANDARD_FUNCTIONS_COUNT; ++i) {
+        const char *func_name = STANDARD_FUNCTIONS[i];
+        
+        // Try to get the function from the instance table
+        lua_getfield(L, -1, func_name);
+        
+        if (lua_isfunction(L, -1)) {
+            // Function exists, cache the reference
+            int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY);
+            cached->function_ref = ref;
+            cached->exists = true;
+            hashmap_set(component->function_cache, func_name, cached);
+        } else {
+            // Function doesn't exist, cache as LUA_NOREF
+            lua_pop(L, 1); // pop nil
+            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY);
+            cached->function_ref = LUA_NOREF;
+            cached->exists = false;
+            hashmap_set(component->function_cache, func_name, cached);
+        }
+    }
+    
+    // Pop the instance table
+    lua_pop(L, 1);
+}
+
+void _entity_component_lua_clear_cache(EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_lua_clear_cache called with NULL component");
+    
+    if (!component->function_cache) {
+        return;
+    }
+    
+    // Iterate through cache and free all CachedLuaFunction entries
+    EseHashMapIter *iter = hashmap_iter_create(component->function_cache);
+    if (iter) {
+        const char *key;
+        void *value;
+        
+        while (hashmap_iter_next(iter, &key, &value)) {
+            CachedLuaFunction *cached = (CachedLuaFunction *)value;
+            
+            // Unreference the function from Lua registry if it exists
+            if (cached->exists && cached->function_ref != LUA_NOREF && component->engine) {
+                luaL_unref(component->engine->runtime, LUA_REGISTRYINDEX, cached->function_ref);
+            }
+            
+            // Free the cached function structure
+            memory_manager.free(cached);
+        }
+        
+        hashmap_iter_free(iter);
+    }
+    
+    // Clear the hashmap
+    hashmap_clear(component->function_cache);
+}
+
+bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv) {
+    log_assert("ENTITY_COMP", component, "entity_component_lua_run called with NULL component");
+    log_assert("ENTITY_COMP", entity, "entity_component_lua_run called with NULL entity");
+    log_assert("ENTITY_COMP", func_name, "entity_component_lua_run called with NULL func_name");
+    
+    if (!component->function_cache || !component->engine) {
+        return false;
+    }
+    
+    // Get cached function
+    CachedLuaFunction *cached = hashmap_get(component->function_cache, func_name);
+    if (!cached) {
+        // Function not cached, look it up and cache it
+        lua_State *L = component->engine->runtime;
+        
+        if (component->instance_ref == LUA_NOREF) {
+            return false;
+        }
+        
+        // Push the instance table onto the stack
+        lua_rawgeti(L, LUA_REGISTRYINDEX, component->instance_ref);
+        
+        if (!lua_istable(L, -1)) {
+            lua_pop(L, 1);
+            return false;
+        }
+        
+        // Try to get the function
+        lua_getfield(L, -1, func_name);
+        
+        if (lua_isfunction(L, -1)) {
+            // Function exists, cache it
+            int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY);
+            cached->function_ref = ref;
+            cached->exists = true;
+            hashmap_set(component->function_cache, func_name, cached);
+        } else {
+            // Function doesn't exist, cache as LUA_NOREF
+            lua_pop(L, 1); // pop nil
+            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY);
+            cached->function_ref = LUA_NOREF;
+            cached->exists = false;
+            hashmap_set(component->function_cache, func_name, cached);
+        }
+        
+        // Pop the instance table
+        lua_pop(L, 1);
+    }
+    
+    // If function doesn't exist, ignore
+    if (!cached->exists) {
+        return false;
+    }
+    
+    // Run the function using the cached reference and the entity's Lua reference
+    return lua_engine_run_function_ref(component->engine, cached->function_ref, entity_get_lua_ref(entity), argc, argv);
 }
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx) {
@@ -244,6 +405,11 @@ static int _entity_component_lua_newindex(lua_State *L) {
             component->instance_ref = LUA_NOREF;
         }
 
+        // Clear the function cache when script changes
+        if (component->function_cache) {
+            _entity_component_lua_clear_cache(component);
+        }
+
         if (component->script != NULL) {
             memory_manager.free(component->script);
             component->script = NULL;
@@ -316,6 +482,8 @@ void _entity_component_lua_init(EseLuaEngine *engine) {
     // Register EseEntityComponentLua metatable
     if (luaL_newmetatable(L, LUA_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentLuaProxyMeta to engine");
+        lua_pushstring(L, "EntityComponentLuaProxyMeta");
+        lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_lua_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_lua_newindex);

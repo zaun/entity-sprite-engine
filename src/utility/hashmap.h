@@ -7,12 +7,17 @@
 typedef struct EseHashMap EseHashMap;
 typedef struct EseHashMapIter EseHashMapIter;
 
+// Value free function type
+typedef void (*EseHashMapFreeFn)(void *value);
+
 /**
  * @brief Create a new, empty hash map.
  *
+ * @param free_fn Optional function to free values when they are removed or the map is cleared/freed.
+ *                Pass NULL if values should not be freed automatically.
  * @return Pointer to a new EseHashMap, or NULL on allocation failure.
  */
-EseHashMap* hashmap_create(void);
+EseHashMap* hashmap_create(EseHashMapFreeFn free_fn);
 
 /**
  * @brief Free the hash map and all its nodes.
@@ -22,6 +27,16 @@ EseHashMap* hashmap_create(void);
  * @param map Pointer to the EseHashMap to free.
  */
 void hashmap_free(EseHashMap* map);
+
+/**
+ * @brief Clear all key-value pairs from the hash map.
+ *
+ * Removes all entries but preserves the bucket structure and capacity.
+ * Does not free the values pointed to by the map.
+ *
+ * @param map Pointer to the EseHashMap to clear.
+ */
+void hashmap_clear(EseHashMap* map);
 
 /**
  * @brief Insert or update a key-value pair in the hash map.

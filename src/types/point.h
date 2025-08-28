@@ -2,6 +2,7 @@
 #define ESE_POINT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -12,14 +13,15 @@ typedef struct EseLuaEngine EseLuaEngine;
  * 
  * @details This structure stores the x and y coordinates of a point in 2D space.
  */
-typedef struct EsePoint {
-    float x;            /**< The x-coordinate of the point */
-    float y;            /**< The y-coordinate of the point */
+typedef struct EsePoint EsePoint;
 
-    lua_State *state;   /**< Lua State this EsePoint belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this point has been referenced in C */
-} EsePoint;
+/**
+ * @brief Callback function type for point property change notifications.
+ * 
+ * @param point Pointer to the EsePoint that changed
+ * @param userdata User-provided data passed when registering the watcher
+ */
+typedef void (*EsePointWatcherCallback)(EsePoint *point, void *userdata);
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -68,6 +70,98 @@ EsePoint *point_copy(const EsePoint *source);
  * @param point Pointer to the EsePoint object to destroy
  */
 void point_destroy(EsePoint *point);
+
+/**
+ * @brief Gets the size of the EsePoint structure in bytes.
+ * 
+ * @return The size of the EsePoint structure in bytes
+ */
+size_t point_sizeof(void);
+
+// Property access
+/**
+ * @brief Sets the x-coordinate of the point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @param x The x-coordinate value
+ */
+void point_set_x(EsePoint *point, float x);
+
+/**
+ * @brief Gets the x-coordinate of the point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @return The x-coordinate value
+ */
+float point_get_x(const EsePoint *point);
+
+/**
+ * @brief Sets the y-coordinate of the point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @param y The y-coordinate value
+ */
+void point_set_y(EsePoint *point, float y);
+
+/**
+ * @brief Gets the y-coordinate of the point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @return The y-coordinate value
+ */
+float point_get_y(const EsePoint *point);
+
+// Lua-related access
+/**
+ * @brief Gets the Lua state associated with this point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *point_get_state(const EsePoint *point);
+
+/**
+ * @brief Gets the Lua registry reference for this point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @return The Lua registry reference value
+ */
+int point_get_lua_ref(const EsePoint *point);
+
+/**
+ * @brief Gets the Lua reference count for this point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @return The current reference count
+ */
+int point_get_lua_ref_count(const EsePoint *point);
+
+/**
+ * @brief Adds a watcher callback to be notified when any point property changes.
+ * 
+ * @details The callback will be called whenever any property (x, y) of the point is modified.
+ *          Multiple watchers can be registered on the same point.
+ * 
+ * @param point Pointer to the EsePoint object to watch
+ * @param callback Function to call when properties change
+ * @param userdata User-provided data to pass to the callback
+ * @return true if watcher was added successfully, false otherwise
+ */
+bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Removes a previously registered watcher callback.
+ * 
+ * @details Removes the first occurrence of the callback with matching userdata.
+ *          If the same callback is registered multiple times with different userdata,
+ *          only the first match will be removed.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @param callback Function to remove
+ * @param userdata User data that was used when registering
+ * @return true if watcher was removed, false if not found
+ */
+bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**

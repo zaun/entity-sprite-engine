@@ -268,6 +268,8 @@ void vector_lua_init(EseLuaEngine *engine) {
 
     if (luaL_newmetatable(engine->runtime, "VectorProxyMeta")) {
         log_debug("LUA", "Adding entity VectorProxyMeta to engine");
+        lua_pushstring(engine->runtime, "VectorProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _vector_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _vector_lua_newindex);

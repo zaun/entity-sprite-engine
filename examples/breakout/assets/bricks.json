@@ -1,0 +1,372 @@
+{
+    "image": "bricks",
+    "sprites": [
+        {
+            "name": "green large",
+            "speed": 1,
+            "frames": [
+                "Colored_Green-128x32"
+            ]
+        },
+        {
+            "name": "green small",
+            "speed": 1,
+            "frames": [
+                "Colored_Green-64x32"
+            ]
+        },
+        {
+            "name": "blue large",
+            "speed": 1,
+            "frames": [
+                "Colored_Blue-128x32"
+            ]
+        },
+        {
+            "name": "blue small",
+            "speed": 1,
+            "frames": [
+                "Colored_Blue-64x32"
+            ]
+        },
+        {
+            "name": "orange large",
+            "speed": 1,
+            "frames": [
+                "Colored_Orange-128x32"
+            ]
+        },
+        {
+            "name": "orange small",
+            "speed": 1,
+            "frames": [
+                "Colored_Orange-64x32"
+            ]
+        },
+        {
+            "name": "purple large",
+            "speed": 1,
+            "frames": [
+                "Colored_Purple-128x32"
+            ]
+        },
+        {
+            "name": "purple small",
+            "speed": 1,
+            "frames": [
+                "Colored_Purple-64x32"
+            ]
+        },
+        {
+            "name": "red large",
+            "speed": 1,
+            "frames": [
+                "Colored_Red-128x32"
+            ]
+        },
+        {
+            "name": "red small",
+            "speed": 1,
+            "frames": [
+                "Colored_Red-64x32"
+            ]
+        },
+        {
+            "name": "yellow large",
+            "speed": 1,
+            "frames": [
+                "Colored_Yellow-128x32"
+            ]
+        }
+    ],
+    "frames": [
+        {
+            "name": "Colored_Green-128x32",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Bump Large",
+            "x": 128,
+            "y": 0,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Colored_Blue-128x32",
+            "x": 0,
+            "y": 32,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Colored_Orange-128x32",
+            "x": 128,
+            "y": 32,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Colored_Purple-128x32",
+            "x": 0,
+            "y": 64,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Colored_Red-128x32",
+            "x": 128,
+            "y": 64,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Colored_Yellow-128x32",
+            "x": 0,
+            "y": 96,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_01-128x32",
+            "x": 128,
+            "y": 96,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_02-128x32",
+            "x": 0,
+            "y": 128,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_03-128x32",
+            "x": 128,
+            "y": 128,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_04-128x32",
+            "x": 0,
+            "y": 160,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_01-128x32",
+            "x": 128,
+            "y": 160,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_02-128x32",
+            "x": 0,
+            "y": 192,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_03-128x32",
+            "x": 128,
+            "y": 192,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_04-128x32",
+            "x": 0,
+            "y": 224,
+            "rotation": 0,
+            "width": 128,
+            "height": 32
+        },
+        {
+            "name": "Bump Small",
+            "x": 256,
+            "y": 0,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Blue_Block-64x32",
+            "x": 256,
+            "y": 32,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Blue-64x32",
+            "x": 256,
+            "y": 64,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Green_Block-64x32",
+            "x": 256,
+            "y": 96,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Green-64x32",
+            "x": 256,
+            "y": 128,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Orange_Block-64x32",
+            "x": 256,
+            "y": 160,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Orange-64x32",
+            "x": 256,
+            "y": 192,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Purple_Block-64x32",
+            "x": 128,
+            "y": 224,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Purple-64x32",
+            "x": 192,
+            "y": 224,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Red_Block-64x32",
+            "x": 256,
+            "y": 224,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Red-64x32",
+            "x": 0,
+            "y": 256,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Yellow_Block-64x32",
+            "x": 64,
+            "y": 256,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Colored_Yellow-64x32",
+            "x": 128,
+            "y": 256,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_01-64x32",
+            "x": 192,
+            "y": 256,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_02-64x32",
+            "x": 256,
+            "y": 256,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_03-64x32",
+            "x": 0,
+            "y": 288,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Brick_04-64x32",
+            "x": 64,
+            "y": 288,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_01-64x32",
+            "x": 128,
+            "y": 288,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_02-64x32",
+            "x": 192,
+            "y": 288,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_03-64x32",
+            "x": 256,
+            "y": 288,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        },
+        {
+            "name": "Textured_Stone_04-64x32",
+            "x": 0,
+            "y": 320,
+            "rotation": 0,
+            "width": 64,
+            "height": 32
+        }
+    ]
+}

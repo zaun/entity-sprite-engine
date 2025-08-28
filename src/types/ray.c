@@ -163,8 +163,8 @@ static int _ray_lua_new(lua_State *L) {
         if (!p || !v) {
             return luaL_error(L, "all arguments must be numbers");
         }
-        x = p->x;
-        y = p->y;
+        x = point_get_x(p);
+        y = point_get_y(p);
         dx = v->x;
         dy = v->y;
     } else if (n_args != 0) {
@@ -305,6 +305,8 @@ void ray_destroy(EseRay *ray) {
 void ray_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "RayProxyMeta")) {
         log_debug("LUA", "Adding entity RayProxyMeta to engine");
+        lua_pushstring(engine->runtime, "RayProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _ray_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _ray_lua_newindex);
@@ -427,8 +429,8 @@ bool ray_intersects_rect(const EseRay *ray, const EseRect *rect) {
     float t_far = INFINITY;
 
     if (ray->dx != 0.0f) {
-        float t1 = (rect->x - ray->x) / ray->dx;
-        float t2 = (rect->x + rect->width - ray->x) / ray->dx;
+        float t1 = (rect_get_x(rect) - ray->x) / ray->dx;
+        float t2 = (rect_get_x(rect) + rect_get_width(rect) - ray->x) / ray->dx;
         if (t1 > t2) {
             float temp = t1;
             t1 = t2;
@@ -436,13 +438,13 @@ bool ray_intersects_rect(const EseRay *ray, const EseRect *rect) {
         }
         if (t1 > t_near) t_near = t1;
         if (t2 < t_far) t_far = t2;
-    } else if (ray->x < rect->x || ray->x > rect->x + rect->width) {
+    } else if (ray->x < rect_get_x(rect) || ray->x > rect_get_x(rect) + rect_get_width(rect)) {
         return false;
     }
 
     if (ray->dy != 0.0f) {
-        float t1 = (rect->y - ray->y) / ray->dy;
-        float t2 = (rect->y + rect->height - ray->y) / ray->dy;
+        float t1 = (rect_get_y(rect) - ray->y) / ray->dy;
+        float t2 = (rect_get_y(rect) + rect_get_height(rect) - ray->y) / ray->dy;
         if (t1 > t2) {
             float temp = t1;
             t1 = t2;
@@ -450,7 +452,7 @@ bool ray_intersects_rect(const EseRay *ray, const EseRect *rect) {
         }
         if (t1 > t_near) t_near = t1;
         if (t2 < t_far) t_far = t2;
-    } else if (ray->y < rect->y || ray->y > rect->y + rect->height) {
+    } else if (ray->y < rect_get_y(rect) || ray->y > rect_get_y(rect) + rect_get_height(rect)) {
         return false;
     }
 

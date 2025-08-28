@@ -25,7 +25,9 @@ struct EseEntity {
     size_t component_count;                 /**< Number of components */
     size_t component_capacity;              /**< Capacity of component array */
 
-    EseHashMap* current_collisions;
+    EseHashMap* current_collisions;         /**< Hashmap of current collisions */   
+    EseRect *collision_bounds;              /**< Bounds of the entity for collision detection */
+    EseRect *collision_world_bounds;        /**< Bounds of the entity for collision detection in world coordinates */
 
     EseLuaEngine *lua;                      /**< Lua engine reference */
     EseDoubleLinkedList *default_props;     /**< Lua default props added to self.data */

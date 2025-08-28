@@ -157,52 +157,51 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *filename);
 void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref);
 
 /**
- * @brief Executes a method on a Lua script instance with no additional arguments.
+ * @brief Executes a Lua function by its registry reference.
  * 
- * @details Locates the specified function in the instance's class table hierarchy,
- *          pushes the proxy instance as the 'self' parameter, sets up execution
- *          limits and timeout hooks, calls the function with instruction counting
- *          and time monitoring, and cleans up the execution environment.
- * 
- * @param engine Pointer to the EseLuaEngine instance.
- * @param instance_ref Registry reference ID of the instance.
- * @param instance_ref Registry reference ID of the function self.
- * @param func_name Name of the method to execute.
- * 
- * @return true if the function executed successfully without errors, false on error
- *         or if function was not found.
- * 
- * @warning Function execution is subject to time and instruction count limits.
- * @warning Lua errors in the called function will be logged but not propagated.
- */
-bool lua_engine_instance_run_function(
-    EseLuaEngine *engine,
-    int instance_ref,
-    int self_ref,
-    const char *func_name
-);
-
-/**
- * @brief Executes a method on a Lua script instance with provided arguments.
- * 
- * @details Locates the function, pushes the proxy instance as 'self', converts
- *          and pushes each EseLuaValue argument to the Lua stack, sets up execution
- *          monitoring with timeout and instruction counting, calls the function,
- *          and handles any execution errors or timeouts.
+ * @details Executes a Lua function using its registry reference. This is faster than
+ *          the old instance_run_function functions as it avoids repeated function lookups.
+ *          Hook setup is still performed for security.
  * 
  * @param engine Pointer to the EseLuaEngine instance.
- * @param instance_ref Registry reference ID of the instance.
+ * @param function_ref Registry reference ID of the function to execute.
  * @param self_ref Registry reference ID of the function self.
- * @param func_name Name of the method to execute.
  * @param argc Number of arguments to pass (length of argv array).
  * @param argv Array of EseLuaValue structures to pass as function arguments.
  * 
  * @return true if the function executed successfully, false on error or timeout.
  * 
- * @warning Arguments are converted to Lua types; complex nested structures may cause stack overflow.
- * @warning Function execution is limited by engine timeout and instruction count settings.
+ * @warning Function execution is subject to time and instruction count limits.
+ * @warning Lua errors in the called function will be logged but not propagated.
  */
-bool lua_engine_instance_run_function_with_args(
+bool lua_engine_run_function_ref(
+    EseLuaEngine *engine,
+    int function_ref,
+    int self_ref,
+    int argc,
+    EseLuaValue *argv
+);
+
+/**
+ * @brief Executes a Lua function by name from a script instance.
+ * 
+ * @details Executes a Lua function by looking it up by name in the script instance.
+ *          This is slower than lua_engine_run_function_ref as it requires function lookup,
+ *          but more convenient when you don't have a cached function reference.
+ * 
+ * @param engine Pointer to the EseLuaEngine instance.
+ * @param instance_ref Registry reference ID of the script instance.
+ * @param self_ref Registry reference ID of the function self.
+ * @param func_name Name of the function to execute.
+ * @param argc Number of arguments to pass (length of argv array).
+ * @param argv Array of EseLuaValue structures to pass as function arguments.
+ * 
+ * @return true if the function executed successfully, false on error or timeout.
+ * 
+ * @warning Function execution is subject to time and instruction count limits.
+ * @warning Lua errors in the called function will be logged but not propagated.
+ */
+bool lua_engine_run_function(
     EseLuaEngine *engine,
     int instance_ref,
     int self_ref,
@@ -211,4 +210,7 @@ bool lua_engine_instance_run_function_with_args(
     EseLuaValue *argv
 );
 
-#endif // LUA_ENGINE_H
+int lua_isinteger_lj(lua_State *L, int idx);
+void *lua_getextraspace_lj(lua_State *L);
+
+#endif // ESE_LUA_ENGINE_H

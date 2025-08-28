@@ -25,11 +25,14 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->id = uuid_create(engine);
     uuid_ref(entity->id);
     entity->active = true;
-    entity->position->x = 0.0f;
-    entity->position->y = 0.0f;
+    point_set_x(entity->position, 0.0f);
+    point_set_y(entity->position, 0.0f);
     entity->draw_order = 0;
 
-    entity->current_collisions = hashmap_create();
+    // Not storing any values, so no free function needed
+    entity->current_collisions = hashmap_create(NULL);
+    entity->collision_bounds = NULL;
+    entity->collision_world_bounds = NULL;
 
     entity->components = memory_manager.malloc(sizeof(EseEntityComponent*) * ENTITY_INITIAL_CAPACITY, MMTAG_ENTITY);
     entity->component_capacity = ENTITY_INITIAL_CAPACITY;

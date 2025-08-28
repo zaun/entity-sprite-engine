@@ -309,7 +309,7 @@ static int _map_lua_new(lua_State *L) {
         type = map_type_from_string(lua_tostring(L, 3));
     }
 
-    EseMap *map = map_create((EseLuaEngine *)lua_getextraspace(L), width, height, type, false);
+    EseMap *map = map_create((EseLuaEngine *)lua_getextraspace_lj(L), width, height, type, false);
     _map_lua_register(map, true);
 
     // The proxy table is already on the stack from _map_lua_register
@@ -320,6 +320,8 @@ static int _map_lua_new(lua_State *L) {
 void map_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "MapProxyMeta")) {
         log_debug("LUA", "Adding MapProxyMeta");
+        lua_pushstring(engine->runtime, "MapProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _map_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
         lua_pushcfunction(engine->runtime, _map_lua_newindex);

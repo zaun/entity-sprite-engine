@@ -88,11 +88,19 @@ file(GLOB ENGINE_CORE_SOURCES
 set(ENGINE_SOURCES ${ENGINE_CORE_SOURCES} ${PLATFORM_SOURCES})
 
 # Create a custom target to build the Lua library.
-add_custom_target(build_lua
-    COMMAND ${CMAKE_COMMAND} -E chdir "${PROJECT_SOURCE_DIR}/src/vendor/lua/src" make macosx
-    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/src/vendor/lua/src"
-    COMMENT "Building Lua library with its native Makefile..."
-)
+if(PLATFORM STREQUAL "MAC")
+    add_custom_target(build_lua
+        COMMAND ${CMAKE_COMMAND} -E env MACOSX_DEPLOYMENT_TARGET=15.0 make
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/src/vendor/lua/src"
+        COMMENT "Building Lua library with its native Makefile..."
+    )
+else()
+    add_custom_target(build_lua
+        COMMAND ${CMAKE_COMMAND} -E chdir "${PROJECT_SOURCE_DIR}/src/vendor/lua/src" make
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/src/vendor/lua/src"
+        COMMENT "Building Lua library with its native Makefile..."
+    )
+endif()
 
 # Add the static library target for the engine.
 add_library(entityspriteengine STATIC ${ENGINE_SOURCES})
@@ -119,7 +127,7 @@ target_include_directories(entityspriteengine PUBLIC
 
 # Link the engine library to the Lua static library and other system libraries.
 target_link_libraries(entityspriteengine PRIVATE
-    "${PROJECT_SOURCE_DIR}/src/vendor/lua/src/liblua.a"
+    "${PROJECT_SOURCE_DIR}/src/vendor/lua/src/libluajit.a"
 )
 
 # Conditionally link platform-specific frameworks and libraries
@@ -210,3 +218,6 @@ target_link_libraries(entityspriteengine PRIVATE glslang spirv-cross-c)
 
 # Add the examples subdirectory.
 add_subdirectory(examples)
+
+# Add the tests subdirectory.
+add_subdirectory(tests)

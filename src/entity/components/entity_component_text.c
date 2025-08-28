@@ -78,8 +78,8 @@ EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *sr
     text_copy->align = src->align;
     
     // Copy offset
-    text_copy->offset->x = src->offset->x;
-    text_copy->offset->y = src->offset->y;
+    point_set_x(text_copy->offset, point_get_x(src->offset));
+    point_set_y(text_copy->offset, point_get_y(src->offset));
 
     return copy;
 }
@@ -155,14 +155,14 @@ static int _entity_component_text_newindex(lua_State *L) {
             component->text = memory_manager.strdup(new_text, MMTAG_ENTITY);
         }
     } else if (strcmp(key, "justify") == 0) {
-        if (lua_isinteger(L, 3)) {
+        if (lua_isinteger_lj(L, 3)) {
             int justify_val = (int)lua_tointeger(L, 3);
             if (justify_val >= 0 && justify_val <= 2) {
                 component->justify = (EseTextJustify)justify_val;
             }
         }
     } else if (strcmp(key, "align") == 0) {
-        if (lua_isinteger(L, 3)) {
+        if (lua_isinteger_lj(L, 3)) {
             int align_val = (int)lua_tointeger(L, 3);
             if (align_val >= 0 && align_val <= 2) {
                 component->align = (EseTextAlign)align_val;
@@ -175,8 +175,8 @@ static int _entity_component_text_newindex(lua_State *L) {
             if (lua_islightuserdata(L, -1)) {
                 EsePoint *new_offset = (EsePoint *)lua_touserdata(L, -1);
                 if (new_offset) {
-                    component->offset->x = new_offset->x;
-                    component->offset->y = new_offset->y;
+                    point_set_x(component->offset, point_get_x(new_offset));
+                    point_set_y(component->offset, point_get_y(new_offset));
                 }
             }
             lua_pop(L, 1);
@@ -281,7 +281,9 @@ void _entity_component_text_init(EseLuaEngine *engine) {
     
     // Register EntityComponentText metatable
     if (luaL_newmetatable(L, TEXT_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentTextProxyMeta to engine");
+        log_debug("LUA", "Adding EntityComponentTextProxyMeta to engine");  
+        lua_pushstring(L, TEXT_PROXY_META);
+        lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_text_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_text_newindex);
@@ -319,8 +321,8 @@ void _entity_component_text_draw(EseEntityComponentText *component, float screen
     int text_height = FONT_CHAR_HEIGHT;
 
     // Apply offset
-    float final_x = screen_x + component->offset->x;
-    float final_y = screen_y + component->offset->y;
+    float final_x = screen_x + point_get_x(component->offset);
+    float final_y = screen_y + point_get_y(component->offset);
 
     // Apply justification (horizontal alignment)
     switch (component->justify) {

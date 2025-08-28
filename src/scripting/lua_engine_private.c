@@ -1,4 +1,7 @@
 #include <string.h>
+#include <stdint.h>
+#include <limits.h>
+#include <stdlib.h>
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine_private.h"

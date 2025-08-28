@@ -317,6 +317,8 @@ void _entity_component_sprite_init(EseLuaEngine *engine) {
     // Register EntityComponentSprite metatable
     if (luaL_newmetatable(L, SPRITE_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentSpriteProxyMeta to engine");
+        lua_pushstring(L, SPRITE_PROXY_META);
+        lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_sprite_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, _entity_component_sprite_newindex);

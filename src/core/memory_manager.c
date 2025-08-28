@@ -8,14 +8,6 @@
 #include "core/memory_manager.h"
 #include "utility/log.h"
 
-// Remove C11 alignof requirement with a fallback
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-  #include <stdalign.h>
-  #define MM_ALIGN alignof(max_align_t)
-#else
-  // C99 or earlier: safe fallback
-  #define MM_ALIGN sizeof(void*)
-#endif
 
 #define MEM_MAGIC_HEADER 0xDEADC0DECAFEBABEULL
 #define MEM_MAGIC_FOOTER 0xBEEFCAFE12345678ULL
@@ -141,12 +133,16 @@ static size_t _get_bucket(size_t size) {
 }
 
 static void _set_footer(MemHeader *header) {
-    MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    // MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    size_t padded_size = _align_up(header->size, 16);
+    MemFooter *footer = (MemFooter *)((char *)(header + 1) + padded_size);
     footer->magic = MEM_MAGIC_FOOTER;
 }
 
 static int _check_footer(MemHeader *header) {
-    MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    // MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    size_t padded_size = _align_up(header->size, 16);
+    MemFooter *footer = (MemFooter *)((char *)(header + 1) + padded_size);
     return footer->magic == MEM_MAGIC_FOOTER;
 }
 
@@ -166,7 +162,7 @@ static void _debug_print_free_list(MemoryManager *manager, size_t bucket, const 
 
 static void _debug_check_allocation_integrity(void *ptr, const char *context) {
     if (!ptr) return;
-    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
+    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), 16));
     DEBUG_PRINTF("INTEGRITY_CHECK [%s]: ptr=%p, header=%p, magic=0x%llx, size=%zu\n",
            context, ptr, (void*)header, (unsigned long long)header->magic, header->size);
 
@@ -175,7 +171,9 @@ static void _debug_check_allocation_integrity(void *ptr, const char *context) {
         abort();
     }
 
-    MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    // MemFooter *footer = (MemFooter *)((char *)(header + 1) + header->size);
+    size_t padded_size = _align_up(header->size, 16);
+    MemFooter *footer = (MemFooter *)((char *)(header + 1) + padded_size);
     DEBUG_PRINTF("INTEGRITY_CHECK [%s]: footer=%p, footer_magic=0x%llx\n",
            context, (void*)footer, (unsigned long long)footer->magic);
 
@@ -260,7 +258,7 @@ static void _abort_with_report(MemoryManager *manager, const char *msg) {
         int leak_count = 1;
         MemHeader *current = manager->allocated_list;
         while (current) {
-            char *user_ptr = (char *)current + _align_up(sizeof(MemHeader), MM_ALIGN);
+            char *user_ptr = (char *)current + _align_up(sizeof(MemHeader), 16);
             fprintf(stderr, "%d) %zu Bytes ", leak_count, current->size);
             _print_hex_dump(user_ptr, current->size, stderr);
             current = current->next;
@@ -422,7 +420,7 @@ static void _add_block(MemoryManager *manager, size_t bucket, size_t min_size) {
     DEBUG_PRINTF("ADD_BLOCK: min_size=%zu\n", min_size);
     fflush(stdout);
 
-    size_t block_size = (min_size > MM_BLOCK_SIZE) ? _align_up(min_size, MM_ALIGN) : MM_BLOCK_SIZE;
+    size_t block_size = (min_size > MM_BLOCK_SIZE) ? _align_up(min_size, 16) : MM_BLOCK_SIZE;
     Block *block = (Block *)malloc(sizeof(Block) + block_size);
     if (!block) {
         _abort_with_report(manager, "Out of memory (system malloc failed)");
@@ -465,7 +463,8 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     fflush(stdout);
 
     MemoryManager *manager = _get_manager();
-    size_t total = _align_up(sizeof(MemHeader), MM_ALIGN) + size + sizeof(MemFooter);
+    // size_t total = _align_up(sizeof(MemHeader), 16) + size + sizeof(MemFooter);
+    size_t total = _align_up(sizeof(MemHeader), 16) + _align_up(size, 16) + sizeof(MemFooter);
 
     DEBUG_PRINTF("MALLOC: total_with_headers=%zu\n", total);
     fflush(stdout);
@@ -505,7 +504,8 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     
     _set_footer(header);
 
-    void *user_ptr = (void *)((char *)header + _align_up(sizeof(MemHeader), MM_ALIGN));
+    // void *user_ptr = (void *)((char *)header + _align_up(sizeof(MemHeader), 16));
+    void *user_ptr = (void *)((char *)header + _align_up(sizeof(MemHeader), 16));
 
     // Update stats (unchanged)
     manager->global.current_usage += size;
@@ -528,7 +528,7 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     DEBUG_PRINTF("MALLOC: returning user_ptr=%p\n", user_ptr);
     fflush(stdout);
 
-    size_t clear_size = _align_up(sizeof(MemHeader), MM_ALIGN);
+    size_t clear_size = _align_up(sizeof(MemHeader), 16);
     if (clear_size < sizeof(FreeChunk)) {
         // Zero out any remaining FreeChunk metadata
         char *clear_start = (char*)header + sizeof(MemHeader);
@@ -561,11 +561,14 @@ static void _mm_free(void *ptr) {
     fflush(stdout);
 
     MemoryManager *manager = _get_manager();
-    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
+    MemHeader *header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), 16));
     
     // Calculate the same total size used in allocation
-    size_t total = _align_up(sizeof(MemHeader), MM_ALIGN) + header->size + sizeof(MemFooter);
+    size_t padded_size = _align_up(header->size, 16);
+    size_t total = _align_up(sizeof(MemHeader), 16) + padded_size + sizeof(MemFooter);
     size_t bucket = _get_bucket(total);
+    // size_t total = _align_up(sizeof(MemHeader), 16) + header->size + sizeof(MemFooter);
+    // size_t bucket = _get_bucket(total);
 
     DEBUG_PRINTF("FREE: header=%p, checking integrity\n", (void*)header);
     fflush(stdout);
@@ -604,12 +607,13 @@ static void _mm_free(void *ptr) {
 
     // Clear magic FIRST
     header->magic = 0;
-    MemFooter *footer = (MemFooter *)((char *)(header + 1) + size);
+    MemFooter *footer = (MemFooter *)((char *)(header + 1) + padded_size);
+    // MemFooter *footer = (MemFooter *)((char *)(header + 1) + size);
     footer->magic = 0;
 
     // THEN create the FreeChunk
     FreeChunk *chunk = (FreeChunk *)header;
-    chunk->size = _align_up(sizeof(MemHeader), MM_ALIGN) + size + sizeof(MemFooter);
+    chunk->size = _align_up(sizeof(MemHeader), 16) + size + sizeof(MemFooter);
     chunk->next = manager->free_lists[bucket];
     manager->free_lists[bucket] = chunk;
 
@@ -626,7 +630,7 @@ static void *_mm_realloc(void *ptr, size_t size, MemTag tag) {
     if (!ptr) return _mm_malloc(size, tag);
 
     MemoryManager *manager = _get_manager();
-    MemHeader *old_header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), MM_ALIGN));
+    MemHeader *old_header = (MemHeader *)((char *)ptr - _align_up(sizeof(MemHeader), 16));
     if (old_header->magic != MEM_MAGIC_HEADER) {
         _abort_with_report(manager, "Header corruption detected in realloc");
     }

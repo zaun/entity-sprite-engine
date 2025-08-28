@@ -34,8 +34,6 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
 
 void _entity_component_collider_destroy(EseEntityComponentCollider *component);
 
-void _entity_component_collider_update(EseEntityComponentCollider *component, EseEntity *entity, float delta_time);
-
 EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx);
 
 void _entity_component_collider_init(EseLuaEngine *engine);
@@ -45,5 +43,13 @@ void _entity_component_collider_draw(EseEntityComponentCollider *collider, float
 EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine);
 
 void entity_component_collider_rects_add(EseEntityComponentCollider *collider, EseRect *rect);
+
+void entity_component_collider_update_bounds(EseEntityComponentCollider *collider);
+
+void entity_component_collider_rect_updated(EseEntityComponentCollider *collider);
+
+void entity_component_collider_position_changed(EseEntityComponentCollider *collider);
+
+void entity_component_collider_update_world_bounds_only(EseEntityComponentCollider *collider);
 
 #endif // ESE_ENTITY_COMPONENT_COLLIDER_H

@@ -13,6 +13,7 @@
 #include "entity/entity_private.h"
 #include "entity/entity_lua.h"
 #include "entity/entity.h"
+#include "entity/components/entity_component_collider.h"
 
 EseEntity *entity_create(EseLuaEngine *engine) {
     log_assert("ENTITY", engine, "entity_create called with NULL engine");
@@ -30,8 +31,8 @@ EseEntity *entity_copy(EseEntity *entity) {
 
     // Copy all fields
     copy->active = entity->active;
-    copy->position->x = entity->position->x;
-    copy->position->y = entity->position->y;
+    point_set_x(copy->position, point_get_x(entity->position));
+    point_set_y(copy->position, point_get_y(entity->position));
     copy->draw_order = entity->draw_order;
 
     // Copy components
@@ -73,6 +74,12 @@ void entity_destroy(EseEntity *entity) {
     point_destroy(entity->position);
 
     hashmap_free(entity->current_collisions);
+    if (entity->collision_bounds) {
+        rect_destroy(entity->collision_bounds);
+    }
+    if (entity->collision_world_bounds) {
+        rect_destroy(entity->collision_world_bounds);
+    }
 
     for (size_t i = 0; i < entity->component_count; ++i) {
         entity_component_destroy(entity->components[i]);
@@ -118,7 +125,7 @@ void entity_run_function_with_args(
         if (!entity->components[i]->active || entity->components[i]->type != ENTITY_COMPONENT_LUA) {
             continue;
         }
-        entity_component_run_function_with_args(entity->components[i], func_name, argc, argv);
+        entity_component_run_function(entity->components[i], entity, func_name, argc, argv);
     }
 }
 
@@ -247,6 +254,11 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
 
     entity->components[entity->component_count++] = comp;
     comp->entity = entity;
+
+    // If this is a collider, initialize bounds now that the entity pointer is set
+    if (comp->type == ENTITY_COMPONENT_COLLIDER) {
+        entity_component_collider_update_bounds((EseEntityComponentCollider *)comp->data);
+    }
 
     return comp->id->value;
 }
@@ -388,4 +400,31 @@ bool entity_has_tag(EseEntity *entity, const char *tag) {
     }
 
     return false;
+}
+
+EseRect *entity_get_collision_bounds(EseEntity *entity, bool to_world_coords) {
+    log_assert("ENTITY", entity, "entity_get_collision_bounds called with NULL entity");
+    
+    // If no collision bounds exist, return NULL
+    if (!entity->collision_bounds) {
+        return NULL;
+    }
+    
+    if (to_world_coords) {
+        // Use the pre-computed world bounds if available
+        if (entity->collision_world_bounds) {
+            return rect_copy(entity->collision_world_bounds);
+        } else {
+            // Fallback: create a copy of the bounds in world coordinates
+            EseRect *world_bounds = rect_copy(entity->collision_bounds);
+            if (world_bounds) {
+                rect_set_x(world_bounds, rect_get_x(world_bounds) + point_get_x(entity->position));
+                rect_set_y(world_bounds, rect_get_y(world_bounds) + point_get_y(entity->position));
+            }
+            return world_bounds;
+        }
+    } else {
+        // Always return a copy for consistency - caller must free both cases
+        return rect_copy(entity->collision_bounds);
+    }
 }
