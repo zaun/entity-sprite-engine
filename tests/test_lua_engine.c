@@ -47,24 +47,33 @@ static const char* test_lua_script =
 // Helper function to create a temporary test Lua file
 static char* create_test_lua_file() {
     char* temp_filename = malloc(256);
-    snprintf(temp_filename, 256, "/tmp/test_lua_engine_%d.lua", getpid());
+    snprintf(temp_filename, 256, "test_lua_engine_%d.lua", getpid());
     
-    FILE* file = fopen(temp_filename, "w");
+    // Create the file in tests/resources directory
+    char* full_path = malloc(512);
+    snprintf(full_path, 512, "tests/resources/%s", temp_filename);
+    
+    FILE* file = fopen(full_path, "w");
     if (!file) {
         free(temp_filename);
+        free(full_path);
         return NULL;
     }
     
     fwrite(test_lua_script, 1, strlen(test_lua_script), file);
     fclose(file);
     
-    return temp_filename;
+    free(full_path);
+    return temp_filename; // Return just the filename without path
 }
 
 // Helper function to remove temporary test file
 static void cleanup_test_lua_file(const char* filename) {
     if (filename) {
-        unlink(filename);
+        char* full_path = malloc(512);
+        snprintf(full_path, 512, "tests/resources/%s", filename);
+        unlink(full_path);
+        free(full_path);
         free((void*)filename);
     }
 }
@@ -135,7 +144,7 @@ static void test_jit_functionality() {
         const char* os = lua_tostring(L, -1);
         printf("✓ PASS: JIT OS: %s\n", os);
     }
-    lua_pop(L, -1);
+    lua_pop(L, 1);
     
     // Test JIT architecture (safe to access)
     lua_getfield(L, -1, "arch");
@@ -144,7 +153,7 @@ static void test_jit_functionality() {
         const char* arch = lua_tostring(L, -1);
         printf("✓ PASS: JIT Architecture: %s\n", arch);
     }
-    lua_pop(L, -1);
+    lua_pop(L, 1);
     
     // Skip the problematic JIT status function call for now
     printf("ℹ INFO: Skipping JIT status function call due to known issue in engine\n");
@@ -254,43 +263,39 @@ static void test_basic_lua_functionality() {
     lua_getglobal(L, "math");
     TEST_ASSERT(lua_istable(L, -1), "Math library should be available as a table");
     
-    lua_getfield(L, -1, "add");
-    TEST_ASSERT(lua_isfunction(L, -1), "math.add function should be available");
+    lua_getfield(L, -1, "sin");
+    TEST_ASSERT(lua_isfunction(L, -1), "math.sin function should be available");
     
-    lua_pushnumber(L, 5.0);
-    lua_pushnumber(L, 3.0);
-    int result = lua_pcall(L, 2, 1, 0);
+    lua_pushnumber(L, 0.0);
+    int result = lua_pcall(L, 1, 1, 0);
     TEST_ASSERT(result == LUA_OK, "Basic math operation should succeed");
     
     if (result == LUA_OK) {
         double value = lua_tonumber(L, -1);
-        TEST_ASSERT_EQUAL(8.0, value, "5 + 3 should equal 8");
+        TEST_ASSERT_EQUAL(0.0, value, "sin(0) should equal 0");
         lua_pop(L, 1);
     }
     
-    lua_pop(L, 1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // pop math table
     
     // Test string operations
     lua_getglobal(L, "string");
     TEST_ASSERT(lua_istable(L, -1), "String library should be available as a table");
     
-    lua_getfield(L, -1, "concat");
-    TEST_ASSERT(lua_isfunction(L, -1), "string.concat function should be available");
+    lua_getfield(L, -1, "upper");
+    TEST_ASSERT(lua_isfunction(L, -1), "string.upper function should be available");
     
-    lua_pushstring(L, "Hello");
-    lua_pushstring(L, "World");
-    int string_result = lua_pcall(L, 2, 1, 0);
-    TEST_ASSERT(string_result == LUA_OK, "String concatenation should succeed");
+    lua_pushstring(L, "hello");
+    int string_result = lua_pcall(L, 1, 1, 0);
+    TEST_ASSERT(string_result == LUA_OK, "String operation should succeed");
     
     if (string_result == LUA_OK) {
         const char* value = lua_tostring(L, -1);
-        TEST_ASSERT_STRING_EQUAL("HelloWorld", value, "String concatenation should work");
+        TEST_ASSERT_STRING_EQUAL("HELLO", value, "String upper should work");
         lua_pop(L, 1);
     }
     
-    lua_pop(L, 1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // pop string table
     
     lua_engine_destroy(engine);
     

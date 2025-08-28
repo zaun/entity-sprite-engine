@@ -61,12 +61,21 @@ EseLuaEngine *lua_engine_create() {
     if (lua_istable(engine->runtime, -1)) {
         lua_getfield(engine->runtime, -1, "on");
         if (lua_isfunction(engine->runtime, -1)) {
-            lua_call(engine->runtime, 0, 0);  // Call jit.on() to enable JIT
-            log_debug("LUA_ENGINE", "JIT compiler enabled");
+            // Use pcall to safely enable JIT
+            int call_result = lua_pcall(engine->runtime, 0, 0, 0);
+            if (call_result == LUA_OK) {
+                log_debug("LUA_ENGINE", "JIT compiler enabled");
+            } else {
+                const char* error_msg = lua_tostring(engine->runtime, -1);
+                log_debug("LUA_ENGINE", "Failed to enable JIT: %s", error_msg ? error_msg : "unknown error");
+                lua_pop(engine->runtime, 1);
+            }
         } else {
             log_debug("LUA_ENGINE", "JIT on function not available");
+            lua_pop(engine->runtime, 1);
         }
-        lua_pop(engine->runtime, 1);
+    } else {
+        log_debug("LUA_ENGINE", "JIT table not available");
     }
     lua_pop(engine->runtime, 1);
     
@@ -75,21 +84,14 @@ EseLuaEngine *lua_engine_create() {
     if (lua_istable(engine->runtime, -1)) {
         log_debug("LUA_ENGINE", "JIT library loaded successfully");
         
-        // Check JIT status
+        // Check JIT status (simple check - just verify the function exists)
         lua_getfield(engine->runtime, -1, "status");
         if (lua_isfunction(engine->runtime, -1)) {
-            lua_call(engine->runtime, 0, 1);
-            const char* status = lua_tostring(engine->runtime, -1);
-            if (status) {
-                log_debug("LUA_ENGINE", "JIT Status: %s", status);
-            } else {
-                log_debug("LUA_ENGINE", "JIT Status returned nil");
-            }
-            lua_pop(engine->runtime, 1);
+            log_debug("LUA_ENGINE", "JIT Status: available");
         } else {
             log_debug("LUA_ENGINE", "JIT status field is not a function");
-            lua_pop(engine->runtime, 1);
         }
+        lua_pop(engine->runtime, 1);
         
         // Check additional JIT info
         lua_getfield(engine->runtime, -1, "version");
