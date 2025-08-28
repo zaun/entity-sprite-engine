@@ -456,7 +456,71 @@ void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref) {
     luaL_unref(L, LUA_REGISTRYINDEX, instance_ref);
 }
 
-bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv) {
+/**
+ * @brief Converts a Lua value on the stack to an EseLuaValue structure.
+ * 
+ * @details This function converts the Lua value at the specified stack index
+ *          to an EseLuaValue structure. It handles all basic Lua types including
+ *          nil, boolean, number, string, table, and userdata.
+ * 
+ * @param L Lua state pointer
+ * @param idx Stack index of the Lua value to convert
+ * @param out_result Pointer to EseLuaValue to store the converted result
+ * 
+ * @warning The caller is responsible for freeing the out_result when done.
+ */
+static void _lua_engine_convert_stack_to_luavalue(lua_State *L, int idx, EseLuaValue *out_result) {
+    if (!out_result) return;
+    
+    // Reset the output value
+    lua_value_set_nil(out_result);
+    
+    // Handle negative indices by converting to positive
+    int abs_idx = idx;
+    if (idx < 0) {
+        abs_idx = lua_gettop(L) + idx + 1;
+    }
+    
+    if (lua_isnil(L, abs_idx)) {
+        lua_value_set_nil(out_result);
+    } else if (lua_isboolean(L, abs_idx)) {
+        lua_value_set_bool(out_result, lua_toboolean(L, abs_idx));
+    } else if (lua_isnumber(L, abs_idx)) {
+        lua_value_set_number(out_result, lua_tonumber(L, abs_idx));
+    } else if (lua_isstring(L, abs_idx)) {
+        lua_value_set_string(out_result, lua_tostring(L, abs_idx));
+    } else if (lua_istable(L, abs_idx)) {
+        lua_value_set_table(out_result);
+        
+        // Get table size using lua_objlen (Lua 5.1) or lua_rawlen (Lua 5.2+)
+        size_t table_size = 0;
+        #if LUA_VERSION_NUM >= 502
+            table_size = lua_rawlen(L, abs_idx);
+        #else
+            table_size = lua_objlen(L, abs_idx);
+        #endif
+        
+        // Iterate through table and add items
+        lua_pushnil(L); // First key
+        while (lua_next(L, abs_idx) != 0) {
+            // Key is at index -2, value at index -1
+            EseLuaValue *item = lua_value_create_nil(NULL);
+            _lua_engine_convert_stack_to_luavalue(L, -1, item);
+            
+            // Add to table
+            lua_value_push(out_result, item, false); // false = take ownership
+            
+            lua_pop(L, 1); // Remove value, keep key for next iteration
+        }
+    } else if (lua_isuserdata(L, abs_idx)) {
+        lua_value_set_userdata(out_result, lua_touserdata(L, abs_idx));
+    } else {
+        // For other types (function, thread, etc.), just set as nil
+        lua_value_set_nil(out_result);
+    }
+}
+
+bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv, EseLuaValue *out_result) {
     log_assert("LUA_ENGINE", engine, "lua_engine_run_function_ref called with NULL engine");
 
     // Check if function reference is valid
@@ -495,10 +559,15 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
 
     bool ok = true;
-    if (lua_pcall(L, n_args, 0, 0) != LUA_OK) {
+    int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
+    if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
         log_error("LUA_ENGINE", "Error running function by reference: %s", lua_tostring(L, -1));
         lua_pop(L, 1); // error message
         ok = false;
+    } else if (out_result) {
+        // Convert the result to EseLuaValue
+        _lua_engine_convert_stack_to_luavalue(L, -1, out_result);
+        lua_pop(L, 1); // pop the result
     }
 
     // Remove the hook
@@ -510,7 +579,7 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     return ok;
 }
 
-bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_ref, const char *func_name, int argc, EseLuaValue *argv) {
+bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_ref, const char *func_name, int argc, EseLuaValue *argv, EseLuaValue *out_result) {
     log_assert("LUA_ENGINE", engine, "lua_engine_run_function called with NULL engine");
     log_assert("LUA_ENGINE", func_name, "lua_engine_run_function called with NULL func_name");
 
@@ -549,10 +618,15 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
 
     bool ok = true;
-    if (lua_pcall(L, n_args, 0, 0) != LUA_OK) {
+    int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
+    if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
         log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, lua_tostring(L, -1));
         lua_pop(L, 1); // error message
         ok = false;
+    } else if (out_result) {
+        // Convert the result to EseLuaValue
+        _lua_engine_convert_stack_to_luavalue(L, -1, out_result);
+        lua_pop(L, 1); // pop the result
     }
 
     // Remove the hook

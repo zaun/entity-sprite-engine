@@ -292,7 +292,7 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
     }
     
     // Run the function using the cached reference and the entity's Lua reference
-    return lua_engine_run_function_ref(component->engine, cached->function_ref, entity_get_lua_ref(entity), argc, argv);
+    return lua_engine_run_function_ref(component->engine, cached->function_ref, entity_get_lua_ref(entity), argc, argv, NULL);
 }
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx) {

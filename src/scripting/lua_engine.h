@@ -187,18 +187,21 @@ void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref);
  * @param self_ref Registry reference ID of the function self.
  * @param argc Number of arguments to pass (length of argv array).
  * @param argv Array of EseLuaValue structures to pass as function arguments.
+ * @param out_result Pointer to EseLuaValue to store the function result, or NULL if no result needed.
  * 
  * @return true if the function executed successfully, false on error or timeout.
  * 
  * @warning Function execution is subject to time and instruction count limits.
  * @warning Lua errors in the called function will be logged but not propagated.
+ * @warning If out_result is provided, the caller is responsible for freeing the result.
  */
 bool lua_engine_run_function_ref(
     EseLuaEngine *engine,
     int function_ref,
     int self_ref,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv,
+    EseLuaValue *out_result
 );
 
 /**
@@ -214,11 +217,13 @@ bool lua_engine_run_function_ref(
  * @param func_name Name of the function to execute.
  * @param argc Number of arguments to pass (length of argv array).
  * @param argv Array of EseLuaValue structures to pass as function arguments.
+ * @param out_result Pointer to EseLuaValue to store the function result, or NULL if no result needed.
  * 
  * @return true if the function executed successfully, false on error or timeout.
  * 
  * @warning Function execution is subject to time and instruction count limits.
  * @warning Lua errors in the called function will be logged but not propagated.
+ * @warning If out_result is provided, the caller is responsible for freeing the result.
  */
 bool lua_engine_run_function(
     EseLuaEngine *engine,
@@ -226,7 +231,8 @@ bool lua_engine_run_function(
     int self_ref,
     const char *func_name,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv,
+    EseLuaValue *out_result
 );
 
 int lua_isinteger_lj(lua_State *L, int idx);

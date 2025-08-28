@@ -20,6 +20,7 @@ static int test_suite_skipped = 0;
 // Test macros
 #define TEST_ASSERT(condition, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -39,6 +40,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_EQUAL(expected, actual, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -58,6 +60,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_POINTER_EQUAL(expected, actual, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -77,6 +80,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_FLOAT_EQUAL(expected, actual, tolerance, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -98,6 +102,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_STRING_EQUAL(expected, actual, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -117,6 +122,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_NOT_NULL(ptr, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -136,6 +142,7 @@ static int test_suite_skipped = 0;
 
 #define TEST_ASSERT_NULL(ptr, message) do { \
     test_count++; \
+    test_suite_count++; \
     if (test_skip) { \
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
@@ -197,14 +204,24 @@ static void test_suite_end(const char *suite_name) {
     }
 }
 
+static void test_skip_on() {
+    test_skip = true;
+}
+
+static void test_skip_off() {
+    test_skip = false;
+}
+
 // Mock Lua engine for testing
 typedef struct MockLuaEngine {
     void *runtime;
+    void *state;  // Add state field for testing
 } MockLuaEngine;
 
 static MockLuaEngine* mock_lua_engine_create() {
     MockLuaEngine *engine = malloc(sizeof(MockLuaEngine));
     engine->runtime = NULL; // Mock runtime
+    engine->state = engine; // Use engine pointer as state for testing
     return engine;
 }
 

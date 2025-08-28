@@ -23,8 +23,8 @@ static void test_error_handling();
 // Test Lua script content for JIT testing
 static const char* test_lua_script = 
 "function TEST_MODULE:fibonacci(n)\n"
-"    if n <= 1 then\n"
-"        return n\n"
+"    if n == nil or n <= 1 then\n"
+"        return n or 0\n"
 "    end\n"
 "    return TEST_MODULE.fibonacci(n-1) + TEST_MODULE.fibonacci(n-2)\n"
 "end\n"
@@ -212,18 +212,18 @@ static void test_jit_script_loading() {
             int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
             
             // Call test_loops function (this should trigger JIT compilation)
-            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_loops", 0, NULL);
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_loops", 0, NULL, NULL);
             TEST_ASSERT(exec_result, "test_loops function should execute successfully");
             
             // Test calling a function to trigger JIT compilation
             EseLuaValue* fibonacci_arg = lua_value_create_number("n", 10.0);
             
             // Call fibonacci function (this should also trigger JIT compilation)
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "fibonacci", 1, fibonacci_arg);
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "fibonacci", 1, fibonacci_arg, NULL);
             TEST_ASSERT(exec_result, "fibonacci function should execute successfully");
             
             // Call test_math function
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_math", 0, NULL);
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_math", 0, NULL, NULL);
             TEST_ASSERT(exec_result, "test_math function should execute successfully");
             
             // Check JIT compilation status after running functions

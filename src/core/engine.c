@@ -171,7 +171,7 @@ void engine_start(EseEngine *engine) {
     display_state_set_viewport(engine->display_state, view_width, view_height);
 
     // Run startup script using the new function reference system
-    lua_engine_run_function(engine->lua_engine, engine->startup_ref, LUA_NOREF, "startup", 0, NULL);
+    lua_engine_run_function(engine->lua_engine, engine->startup_ref, LUA_NOREF, "startup", 0, NULL, NULL);
 
     engine->isRunning = true;
 }
