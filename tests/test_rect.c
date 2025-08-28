@@ -22,6 +22,7 @@ static void test_rect_collision_detection();
 static void test_rect_watcher_system();
 static void test_rect_lua_integration();
 static void test_rect_lua_script_api();
+static void test_rect_null_pointer_aborts();
 
 // Test Lua script content for Rect testing
 static const char* test_rect_lua_script = 
@@ -122,6 +123,7 @@ int main() {
     test_rect_watcher_system();
     test_rect_lua_integration();
     test_rect_lua_script_api();
+    test_rect_null_pointer_aborts();
     
     test_suite_end("🎯 EseRect Test Suite");
         
@@ -306,10 +308,6 @@ static void test_rect_mathematical_operations() {
         area = rect_area(rect);
         TEST_ASSERT_FLOAT_EQUAL(0.0f, area, 0.001f, "Area of 0x0 rect should be 0.0");
         
-        // Test area with NULL rect
-        float null_area = rect_area(NULL);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, null_area, 0.001f, "Area of NULL rect should return 0.0");
-        
         rect_destroy(rect);
     }
     
@@ -372,16 +370,6 @@ static void test_rect_collision_detection() {
         
         bool edge_contains2 = rect_contains_point(rect1, 10.0f, 10.0f);
         TEST_ASSERT(edge_contains2, "Point (10,10) on edge should be inside rect1");
-        
-        // Test with NULL pointers
-        bool null_intersects = rect_intersects(NULL, rect1);
-        TEST_ASSERT(!null_intersects, "Intersection with NULL first rect should return false");
-        
-        null_intersects = rect_intersects(rect1, NULL);
-        TEST_ASSERT(!null_intersects, "Intersection with NULL second rect should return false");
-        
-        bool null_contains = rect_contains_point(NULL, 5.0f, 5.0f);
-        TEST_ASSERT(!null_contains, "Contains point with NULL rect should return false");
         
         rect_destroy(rect1);
         rect_destroy(rect2);
@@ -475,18 +463,6 @@ static void test_rect_watcher_system() {
         bool remove_fake_result = rect_remove_watcher(rect, test_rect_watcher_callback, (void*)0x99999999);
         TEST_ASSERT(!remove_fake_result, "rect_remove_watcher should return false for non-existent watcher");
         
-        // Test removing with NULL callback
-        bool remove_null_result = rect_remove_watcher(rect, NULL, test_userdata2);
-        TEST_ASSERT(!remove_null_result, "rect_remove_watcher should return false for NULL callback");
-        
-        // Test adding watcher to NULL rect
-        bool add_null_result = rect_add_watcher(NULL, test_rect_watcher_callback, test_userdata);
-        TEST_ASSERT(!add_null_result, "rect_add_watcher should return false for NULL rect");
-        
-        // Test adding NULL callback
-        bool add_null_callback_result = rect_add_watcher(rect, NULL, test_userdata);
-        TEST_ASSERT(!add_null_callback_result, "rect_add_watcher should return false for NULL callback");
-        
         rect_destroy(rect);
     }
     
@@ -579,4 +555,62 @@ static void test_rect_lua_script_api() {
     }
 
     test_end("Rect Lua Script API Tests");
+}
+
+static void test_rect_null_pointer_aborts() {
+    test_begin("Rect NULL Pointer Abort Tests");
+    
+    EseLuaEngine *mock_engine = lua_engine_create();
+    EseRect *rect = rect_create(mock_engine);
+    
+    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for NULL pointer abort tests");
+    
+    if (rect) {
+        // Test that creation functions abort with NULL pointers
+        TEST_ASSERT_ABORT(rect_create(NULL), "rect_create should abort with NULL engine");
+        TEST_ASSERT_ABORT(rect_copy(NULL), "rect_copy should abort with NULL source");
+        TEST_ASSERT_ABORT(rect_lua_init(NULL), "rect_lua_init should abort with NULL engine");
+        
+        // Test that mathematical operations abort with NULL pointers
+        TEST_ASSERT_ABORT(rect_area(NULL), "rect_area should abort with NULL rect");
+        
+        // Test that collision detection aborts with NULL pointers
+        TEST_ASSERT_ABORT(rect_contains_point(NULL, 1.0f, 1.0f), "rect_contains_point should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_intersects(NULL, rect), "rect_intersects should abort with NULL first rect");
+        TEST_ASSERT_ABORT(rect_intersects(rect, NULL), "rect_intersects should abort with NULL second rect");
+        
+        // Test that property access aborts with NULL pointers
+        TEST_ASSERT_ABORT(rect_get_x(NULL), "rect_get_x should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_y(NULL), "rect_get_y should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_width(NULL), "rect_get_width should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_height(NULL), "rect_get_height should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_rotation(NULL), "rect_get_rotation should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_set_x(NULL, 1.0f), "rect_set_x should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_set_y(NULL, 1.0f), "rect_set_y should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_set_width(NULL, 1.0f), "rect_set_width should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_set_height(NULL, 1.0f), "rect_set_height should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_set_rotation(NULL, 1.0f), "rect_set_rotation should abort with NULL rect");
+        
+        // Test that Lua-related access aborts with NULL pointers
+        TEST_ASSERT_ABORT(rect_get_state(NULL), "rect_get_state should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_lua_ref(NULL), "rect_get_lua_ref should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_get_lua_ref_count(NULL), "rect_get_lua_ref_count should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_lua_get(NULL, 1), "rect_lua_get should abort with NULL Lua state");
+        
+        // Test that watcher system aborts with NULL pointers
+        TEST_ASSERT_ABORT(rect_add_watcher(NULL, test_rect_watcher_callback, (void*)0x123), "rect_add_watcher should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_add_watcher(rect, NULL, (void*)0x123), "rect_add_watcher should abort with NULL callback");
+        TEST_ASSERT_ABORT(rect_remove_watcher(NULL, test_rect_watcher_callback, (void*)0x123), "rect_remove_watcher should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_remove_watcher(rect, NULL, (void*)0x123), "rect_remove_watcher should abort with NULL callback");
+        
+        // Test that Lua integration aborts with NULL pointers
+        TEST_ASSERT_ABORT(rect_lua_push(NULL), "rect_lua_push should abort with NULL rect");
+        TEST_ASSERT_ABORT(rect_ref(NULL), "rect_ref should abort with NULL rect");
+        
+        rect_destroy(rect);
+    }
+    
+    lua_engine_destroy(mock_engine);
+    
+    test_end("Rect NULL Pointer Abort Tests");
 }

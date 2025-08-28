@@ -21,6 +21,7 @@ static void test_point_mathematical_operations();
 static void test_point_watcher_system();
 static void test_point_lua_integration();
 static void test_point_lua_script_api();
+static void test_point_null_pointer_aborts();
 
 // Test Lua script content for Point testing
 static const char* test_point_lua_script = 
@@ -114,6 +115,7 @@ int main() {
     test_point_watcher_system();
     test_point_lua_integration();
     test_point_lua_script_api();
+    test_point_null_pointer_aborts();
     
     test_suite_end("🎯 EsePoint Test Suite");
         
@@ -268,16 +270,6 @@ static void test_point_mathematical_operations() {
         float distance_between = point_distance(point2, point3);
         TEST_ASSERT_FLOAT_EQUAL(10.0f, distance_between, 0.001f, "Distance between (3,4) and (-3,-4) should be 10.0");
         
-        // Test with NULL pointers (should return 0.0f)
-        float null_distance = point_distance(NULL, point1);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, null_distance, 0.001f, "Distance with NULL first point should return 0.0");
-        
-        null_distance = point_distance(point1, NULL);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, null_distance, 0.001f, "Distance with NULL second point should return 0.0");
-        
-        null_distance = point_distance(NULL, NULL);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, null_distance, 0.001f, "Distance with both NULL points should return 0.0");
-        
         point_destroy(point1);
         point_destroy(point2);
         point_destroy(point3);
@@ -336,18 +328,6 @@ static void test_point_watcher_system() {
         // Test removing non-existent watcher
         bool remove_fake_result = point_remove_watcher(point, test_watcher_callback, (void*)0x99999999);
         TEST_ASSERT(!remove_fake_result, "point_remove_watcher should return false for non-existent watcher");
-        
-        // Test removing with NULL callback
-        bool remove_null_result = point_remove_watcher(point, NULL, test_userdata2);
-        TEST_ASSERT(!remove_null_result, "point_remove_watcher should return false for NULL callback");
-        
-        // Test adding watcher to NULL point
-        bool add_null_result = point_add_watcher(NULL, test_watcher_callback, test_userdata);
-        TEST_ASSERT(!add_null_result, "point_add_watcher should return false for NULL point");
-        
-        // Test adding NULL callback
-        bool add_null_callback_result = point_add_watcher(point, NULL, test_userdata);
-        TEST_ASSERT(!add_null_callback_result, "point_add_watcher should return false for NULL callback");
         
         point_destroy(point);
     }
@@ -440,4 +420,54 @@ static void test_point_lua_script_api() {
     }
 
     test_end("Point Lua Script API Tests");
+}
+
+static void test_point_null_pointer_aborts() {
+    test_begin("Point NULL Pointer Abort Tests");
+    
+    EseLuaEngine *mock_engine = lua_engine_create();
+    EsePoint *point = point_create(mock_engine);
+    
+    TEST_ASSERT_NOT_NULL(point, "Point should be created for NULL pointer abort tests");
+    
+    if (point) {
+        // Test that creation functions abort with NULL pointers
+        TEST_ASSERT_ABORT(point_create(NULL), "point_create should abort with NULL engine");
+        TEST_ASSERT_ABORT(point_copy(NULL), "point_copy should abort with NULL source");
+        TEST_ASSERT_ABORT(point_lua_init(NULL), "point_lua_init should abort with NULL engine");
+        
+        // Test that mathematical operations abort with NULL pointers
+        TEST_ASSERT_ABORT(point_distance(NULL, point), "point_distance should abort with NULL first point");
+        TEST_ASSERT_ABORT(point_distance(point, NULL), "point_distance should abort with NULL second point");
+        TEST_ASSERT_ABORT(point_distance_squared(NULL, point), "point_distance_squared should abort with NULL first point");
+        TEST_ASSERT_ABORT(point_distance_squared(point, NULL), "point_distance_squared should abort with NULL second point");
+        
+        // Test that property access aborts with NULL pointers
+        TEST_ASSERT_ABORT(point_get_x(NULL), "point_get_x should abort with NULL point");
+        TEST_ASSERT_ABORT(point_get_y(NULL), "point_get_y should abort with NULL point");
+        TEST_ASSERT_ABORT(point_set_x(NULL, 1.0f), "point_set_x should abort with NULL point");
+        TEST_ASSERT_ABORT(point_set_y(NULL, 1.0f), "point_set_y should abort with NULL point");
+        
+        // Test that Lua-related access aborts with NULL pointers
+        TEST_ASSERT_ABORT(point_get_state(NULL), "point_get_state should abort with NULL point");
+        TEST_ASSERT_ABORT(point_get_lua_ref(NULL), "point_get_lua_ref should abort with NULL point");
+        TEST_ASSERT_ABORT(point_get_lua_ref_count(NULL), "point_get_lua_ref_count should abort with NULL point");
+        TEST_ASSERT_ABORT(point_lua_get(NULL, 1), "point_lua_get should abort with NULL Lua state");
+        
+        // Test that watcher system aborts with NULL pointers
+        TEST_ASSERT_ABORT(point_add_watcher(NULL, test_watcher_callback, (void*)0x123), "point_add_watcher should abort with NULL point");
+        TEST_ASSERT_ABORT(point_add_watcher(point, NULL, (void*)0x123), "point_add_watcher should abort with NULL callback");
+        TEST_ASSERT_ABORT(point_remove_watcher(NULL, test_watcher_callback, (void*)0x123), "point_remove_watcher should abort with NULL point");
+        TEST_ASSERT_ABORT(point_remove_watcher(point, NULL, (void*)0x123), "point_remove_watcher should abort with NULL callback");
+        
+        // Test that Lua integration aborts with NULL pointers
+        TEST_ASSERT_ABORT(point_lua_push(NULL), "point_lua_push should abort with NULL point");
+        TEST_ASSERT_ABORT(point_ref(NULL), "point_ref should abort with NULL point");
+        
+        point_destroy(point);
+    }
+    
+    lua_engine_destroy(mock_engine);
+    
+    test_end("Point NULL Pointer Abort Tests");
 }

@@ -69,9 +69,32 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
             if (src->value.table.count > 0) {
                 copy->value.table.items = memory_manager.malloc(src->value.table.count * sizeof(EseLuaValue*), MMTAG_LUA_VALUE);
                 copy->value.table.count = src->value.table.count;
+                copy->value.table.capacity = src->value.table.count; // Initialize capacity
+                
                 for (size_t i = 0; i < src->value.table.count; i++) {
-                    copy->value.table.items[i] = lua_value_copy(src->value.table.items[i]);
+                    if (src->value.table.items[i]) {
+                        copy->value.table.items[i] = lua_value_copy(src->value.table.items[i]);
+                        if (!copy->value.table.items[i]) {
+                            // If copying an item fails, we need to clean up
+                            for (size_t j = 0; j < i; j++) {
+                                if (copy->value.table.items[j]) {
+                                    lua_value_free(copy->value.table.items[j]);
+                                }
+                            }
+                            memory_manager.free(copy->value.table.items);
+                            copy->value.table.items = NULL;
+                            copy->value.table.count = 0;
+                            copy->value.table.capacity = 0;
+                            break;
+                        }
+                    } else {
+                        copy->value.table.items[i] = NULL;
+                    }
                 }
+            } else {
+                copy->value.table.items = NULL;
+                copy->value.table.count = 0;
+                copy->value.table.capacity = 0;
             }
             break;
         default:
@@ -133,7 +156,7 @@ EseLuaValue *lua_value_create_table(const char *name) {
 }
 
 EseLuaValue *lua_value_create_ref(const char *name, int value) {
-    log_assert("LUA", name, "lua_value_create_number called with NULL name");
+    log_assert("LUA", name, "lua_value_create_ref called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_REF;
@@ -172,7 +195,8 @@ void lua_value_push(EseLuaValue *val, EseLuaValue *item, bool copy) {
 
     if (copy) {
         // Deep copy the item
-        val->value.table.items[val->value.table.count] = lua_value_copy(item);
+        EseLuaValue* copied_item = lua_value_copy(item);
+        val->value.table.items[val->value.table.count] = copied_item;
     } else {
         // Take ownership of the pointer
         val->value.table.items[val->value.table.count] = item;  // ← Store the POINTER
@@ -217,7 +241,7 @@ void lua_value_set_string(EseLuaValue *val, const char *value) {
 }
 
 void lua_value_set_table(EseLuaValue *val) {
-    if (!val) return;
+    log_assert("LUA", val, "lua_value_set_table called with NULL val");
 
     _lua_value_reset(val, true);
 
@@ -234,7 +258,7 @@ void lua_value_set_ref(EseLuaValue *val, int value) {
 }
 
 void lua_value_set_userdata(EseLuaValue *val, void* value) {
-    log_assert("LUA", val, "lua_value_set_ref called with NULL val");
+    log_assert("LUA", val, "lua_value_set_userdata called with NULL val");
 
     _lua_value_reset(val, true);
 
@@ -287,7 +311,7 @@ void *lua_value_get_userdata(EseLuaValue *val) {
 }
 
 void lua_value_free(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_free called with NULL val");
+    if (!val) return;
 
     _lua_value_reset(val, false);
     memory_manager.free(val);

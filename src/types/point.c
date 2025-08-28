@@ -203,16 +203,15 @@ static int _point_lua_zero(lua_State *L) {
 
 // Core lifecycle
 EsePoint *point_create(EseLuaEngine *engine) {
+    log_assert("POINT", engine, "point_create called with NULL engine");
     EsePoint *point = _point_make();
     point->state = engine->runtime;
     return point;
 }
 
 EsePoint *point_copy(const EsePoint *source) {
-    if (source == NULL) {
-        return NULL;
-    }
-
+    log_assert("POINT", source, "point_copy called with NULL source");
+    
     EsePoint *copy = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
     copy->x = source->x;
     copy->y = source->y;
@@ -263,6 +262,7 @@ void point_destroy(EsePoint *point) {
 
 // Lua integration
 void point_lua_init(EseLuaEngine *engine) {
+    log_assert("POINT", engine, "point_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, "PointProxyMeta")) {
         log_debug("LUA", "Adding entity PointProxyMeta to engine");
         lua_pushstring(engine->runtime, "PointProxyMeta");
@@ -314,6 +314,8 @@ void point_lua_push(EsePoint *point) {
 }
 
 EsePoint *point_lua_get(lua_State *L, int idx) {
+    log_assert("POINT", L, "point_lua_get called with NULL Lua state");
+    
     // Check if the value at idx is a table
     if (!lua_istable(L, idx)) {
         return NULL;
@@ -388,7 +390,8 @@ void point_unref(EsePoint *point) {
 
 // Mathematical operations
 float point_distance(const EsePoint *point1, const EsePoint *point2) {
-    if (!point1 || !point2) return 0.0f;
+    log_assert("POINT", point1, "point_distance called with NULL first point");
+    log_assert("POINT", point2, "point_distance called with NULL second point");
     
     float dx = point2->x - point1->x;
     float dy = point2->y - point1->y;
@@ -396,7 +399,8 @@ float point_distance(const EsePoint *point1, const EsePoint *point2) {
 }
 
 float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
-    if (!point1 || !point2) return 0.0f;
+    log_assert("POINT", point1, "point_distance_squared called with NULL first point");
+    log_assert("POINT", point2, "point_distance_squared called with NULL second point");
     
     float dx = point2->x - point1->x;
     float dy = point2->y - point1->y;
@@ -405,46 +409,47 @@ float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
 
 // Property access
 void point_set_x(EsePoint *point, float x) {
-    if (!point) return;
+    log_assert("POINT", point, "point_set_x called with NULL point");
     point->x = x;
     _point_notify_watchers(point);
 }
 
 float point_get_x(const EsePoint *point) {
-    if (!point) return 0.0f;
+    log_assert("POINT", point, "point_get_x called with NULL point");
     return point->x;
 }
 
 void point_set_y(EsePoint *point, float y) {
-    if (!point) return;
+    log_assert("POINT", point, "point_set_y called with NULL point");
     point->y = y;
     _point_notify_watchers(point);
 }
 
 float point_get_y(const EsePoint *point) {
-    if (!point) return 0.0f;
+    log_assert("POINT", point, "point_get_y called with NULL point");
     return point->y;
 }
 
 // Lua-related access
 lua_State *point_get_state(const EsePoint *point) {
-    if (!point) return NULL;
+    log_assert("POINT", point, "point_get_state called with NULL point");
     return point->state;
 }
 
 int point_get_lua_ref(const EsePoint *point) {
-    if (!point) return LUA_NOREF;
+    log_assert("POINT", point, "point_get_lua_ref called with NULL point");
     return point->lua_ref;
 }
 
 int point_get_lua_ref_count(const EsePoint *point) {
-    if (!point) return 0;
+    log_assert("POINT", point, "point_get_lua_ref_count called with NULL point");
     return point->lua_ref_count;
 }
 
 // Watcher system
 bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
-    if (!point || !callback) return false;
+    log_assert("POINT", point, "point_add_watcher called with NULL point");
+    log_assert("POINT", callback, "point_add_watcher called with NULL callback");
     
     // Initialize watcher arrays if this is the first watcher
     if (point->watcher_count == 0) {
@@ -484,7 +489,8 @@ bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *
 }
 
 bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
-    if (!point || !callback) return false;
+    log_assert("POINT", point, "point_remove_watcher called with NULL point");
+    log_assert("POINT", callback, "point_remove_watcher called with NULL callback");
     
     for (size_t i = 0; i < point->watcher_count; i++) {
         if (point->watchers[i] == callback && point->watcher_userdata[i] == userdata) {

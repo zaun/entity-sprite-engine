@@ -183,8 +183,41 @@ static void test_jit_functionality() {
     }
     lua_pop(L, 1);
     
-    // Skip the problematic JIT status function call for now
-    printf("ℹ INFO: Skipping JIT status function call due to known issue in engine\n");
+    // Test JIT status function (with proper error handling)
+    lua_getfield(L, -1, "status");
+    if (lua_isfunction(L, -1)) {
+        int call_result = lua_pcall(L, 0, 1, 0);
+        if (call_result == LUA_OK) {
+            if (lua_isstring(L, -1)) {
+                const char* status = lua_tostring(L, -1);
+                printf("✓ PASS: JIT Status: %s\n", status);
+                
+                // Check if JIT compiled any traces
+                if (strstr(status, "TRACE") || strstr(status, "trace")) {
+                    printf("✓ PASS: JIT compilation detected in status\n");
+                }
+            } else if (lua_isboolean(L, -1)) {
+                bool status_bool = lua_toboolean(L, -1);
+                printf("✓ PASS: JIT Status: %s (boolean)\n", status_bool ? "true" : "false");
+                
+                if (status_bool) {
+                    printf("✓ PASS: JIT is enabled and active\n");
+                } else {
+                    printf("ℹ INFO: JIT is disabled or inactive\n");
+                }
+            } else {
+                printf("ℹ INFO: JIT Status returned unexpected type: %s\n", lua_typename(L, lua_type(L, -1)));
+            }
+            lua_pop(L, 1);
+        } else {
+            const char* error_msg = lua_tostring(L, -1);
+            printf("ℹ INFO: JIT Status function call failed: %s\n", error_msg ? error_msg : "unknown error");
+            lua_pop(L, 1);
+        }
+    } else {
+        printf("ℹ INFO: JIT status field is not a function (type: %s)\n", lua_typename(L, lua_type(L, -1)));
+    }
+    lua_pop(L, 1); // Pop status field
     
     lua_pop(L, 1); // Pop JIT table
     

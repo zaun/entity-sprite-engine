@@ -370,16 +370,15 @@ static int _rect_lua_intersects(lua_State *L) {
 
 // Core lifecycle
 EseRect *rect_create(EseLuaEngine *engine) {
+    log_assert("RECT", engine, "rect_create called with NULL engine");
     EseRect *rect = _rect_make();
     rect->state = engine->runtime;
     return rect;
 }
 
 EseRect *rect_copy(const EseRect *source) {
-    if (source == NULL) {
-        return NULL;
-    }
-
+    log_assert("RECT", source, "rect_copy called with NULL source");
+    
     EseRect *copy = (EseRect *)memory_manager.malloc(sizeof(EseRect), MMTAG_GENERAL);
     copy->x = source->x;
     copy->y = source->y;
@@ -437,6 +436,7 @@ size_t rect_sizeof(void) {
 
 // Lua integration
 void rect_lua_init(EseLuaEngine *engine) {
+    log_assert("RECT", engine, "rect_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, "RectProxyMeta")) {
         log_debug("LUA", "Adding entity RectProxyMeta to engine");
         lua_pushstring(engine->runtime, "RectProxyMeta");
@@ -488,6 +488,8 @@ void rect_lua_push(EseRect *rect) {
 }
 
 EseRect *rect_lua_get(lua_State *L, int idx) {
+    log_assert("RECT", L, "rect_lua_get called with NULL Lua state");
+    
     if (!lua_istable(L, idx)) {
         return NULL;
     }
@@ -555,7 +557,7 @@ void rect_unref(EseRect *rect) {
 
 // Mathematical operations
 bool rect_contains_point(const EseRect *rect, float x, float y) {
-    if (!rect) return false;
+    log_assert("RECT", rect, "rect_contains_point called with NULL rect");
 
     /* fast AABB path */
     if (fabsf(rect->rotation) < 1e-6f) {
@@ -582,7 +584,8 @@ bool rect_contains_point(const EseRect *rect, float x, float y) {
 }
 
 bool rect_intersects(const EseRect *rect1, const EseRect *rect2) {
-    if (!rect1 || !rect2) return false;
+    log_assert("RECT", rect1, "rect_intersects called with NULL first rect");
+    log_assert("RECT", rect2, "rect_intersects called with NULL second rect");
 
     /* fast AABB path if both rotations are effectively zero */
     if (fabsf(rect1->rotation) < 1e-6f && fabsf(rect2->rotation) < 1e-6f) {
@@ -599,85 +602,86 @@ bool rect_intersects(const EseRect *rect1, const EseRect *rect2) {
 }
 
 float rect_area(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_area called with NULL rect");
     return rect->width * rect->height;
 }
 
 // Property access
 void rect_set_rotation(EseRect *rect, float radians) {
-    if (!rect) return;
+    log_assert("RECT", rect, "rect_set_rotation called with NULL rect");
     rect->rotation = radians;
     _rect_notify_watchers(rect);
 }
 
 float rect_get_rotation(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_get_rotation called with NULL rect");
     return rect->rotation;
 }
 
 void rect_set_x(EseRect *rect, float x) {
-    if (!rect) return;
+    log_assert("RECT", rect, "rect_set_x called with NULL rect");
     rect->x = x;
     _rect_notify_watchers(rect);
 }
 
 float rect_get_x(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_get_x called with NULL rect");
     return rect->x;
 }
 
 void rect_set_y(EseRect *rect, float y) {
-    if (!rect) return;
+    log_assert("RECT", rect, "rect_set_y called with NULL rect");
     rect->y = y;
     _rect_notify_watchers(rect);
 }
 
 float rect_get_y(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_get_y called with NULL rect");
     return rect->y;
 }
 
 void rect_set_width(EseRect *rect, float width) {
-    if (!rect) return;
+    log_assert("RECT", rect, "rect_set_width called with NULL rect");
     rect->width = width;
     _rect_notify_watchers(rect);
 }
 
 float rect_get_width(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_get_width called with NULL rect");
     return rect->width;
 }
 
 void rect_set_height(EseRect *rect, float height) {
-    if (!rect) return;
+    log_assert("RECT", rect, "rect_set_height called with NULL rect");
     rect->height = height;
     _rect_notify_watchers(rect);
 }
 
 float rect_get_height(const EseRect *rect) {
-    if (!rect) return 0.0f;
+    log_assert("RECT", rect, "rect_get_height called with NULL rect");
     return rect->height;
 }
 
 // Lua-related access
 lua_State *rect_get_state(const EseRect *rect) {
-    if (!rect) return NULL;
+    log_assert("RECT", rect, "rect_get_state called with NULL rect");
     return rect->state;
 }
 
 int rect_get_lua_ref(const EseRect *rect) {
-    if (!rect) return LUA_NOREF;
+    log_assert("RECT", rect, "rect_get_lua_ref called with NULL rect");
     return rect->lua_ref;
 }
 
 int rect_get_lua_ref_count(const EseRect *rect) {
-    if (!rect) return 0;
+    log_assert("RECT", rect, "rect_get_lua_ref_count called with NULL rect");
     return rect->lua_ref_count;
 }
 
 // Watcher system
 bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata) {
-    if (!rect || !callback) return false;
+    log_assert("RECT", rect, "rect_add_watcher called with NULL rect");
+    log_assert("RECT", callback, "rect_add_watcher called with NULL callback");
     
     // Initialize watcher arrays if this is the first watcher
     if (rect->watcher_count == 0) {
@@ -717,7 +721,8 @@ bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *user
 }
 
 bool rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata) {
-    if (!rect || !callback) return false;
+    log_assert("RECT", rect, "rect_remove_watcher called with NULL rect");
+    log_assert("RECT", callback, "rect_remove_watcher called with NULL callback");
     
     for (size_t i = 0; i < rect->watcher_count; i++) {
         if (rect->watchers[i] == callback && rect->watcher_userdata[i] == userdata) {

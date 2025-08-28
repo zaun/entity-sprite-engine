@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 // Test skip flag
 static bool test_skip = false;
@@ -157,6 +159,46 @@ static int test_suite_skipped = 0;
         test_failed++; \
         test_suite_failed++; \
         printf("✗ FAIL: %s (pointer is not NULL)\n", message); \
+    } \
+} while(0)
+
+#define TEST_ASSERT_ABORT(func, message) do { \
+    test_count++; \
+    test_suite_count++; \
+    if (test_skip) { \
+        printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
+        test_skipped++; \
+        test_skipped++; \
+        return; \
+    } \
+    pid_t pid = fork(); \
+    if (pid == 0) { \
+        /* Child process - run the function that should abort */ \
+        func; \
+        /* If we get here, the function didn't abort */ \
+        exit(0); \
+    } else if (pid > 0) { \
+        /* Parent process - wait for child */ \
+        int status; \
+        waitpid(pid, &status, 0); \
+        if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGABRT || WTERMSIG(status) == SIGSEGV)) { \
+            test_passed++; \
+            test_suite_passed++; \
+            printf("✓ PASS: %s (function aborted as expected)\n", message); \
+        } else if (WIFEXITED(status) && WEXITSTATUS(status) == 0) { \
+            test_failed++; \
+            test_suite_failed++; \
+            printf("✗ FAIL: %s (function did not abort)\n", message); \
+        } else { \
+            test_failed++; \
+            test_suite_failed++; \
+            printf("✗ FAIL: %s (function exited with unexpected status)\n", message); \
+        } \
+    } else { \
+        /* Fork failed */ \
+        test_failed++; \
+        test_suite_failed++; \
+        printf("✗ FAIL: %s (fork failed)\n", message); \
     } \
 } while(0)
 
