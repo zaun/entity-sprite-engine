@@ -121,6 +121,24 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
  * @warning The script must return a table or loading will fail.
  */
 bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name);
+
+/**
+ * @brief Loads and compiles a Lua script from a string into the engine's function registry.
+ * 
+ * @details Validates the script string is not empty, compiles it using luaL_loadstring,
+ *          executes it expecting a table return value, and stores a registry
+ *          reference in the engine's EseHashMap. The script is expected to return
+ *          a class table that can be instantiated later.
+ * 
+ * @param engine Pointer to the EseLuaEngine instance.
+ * @param script String containing the Lua script to load.
+ * @param name Name of the script (used for error messages and lookup).
+ * @param module_name Name of the module to load).
+ * 
+ * @return true if the script was successfully loaded and compiled, false on any error.
+ * 
+ * @warning The script must return a table or loading will fail.
+ */
 bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script, const char* name, const char* module_name);
 
 /**

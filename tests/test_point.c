@@ -2,6 +2,8 @@
 #include "types/point.h"
 #include "core/memory_manager.h"
 #include <math.h>
+#include <execinfo.h>
+#include <signal.h>
 
 // Define LUA_NOREF if not already defined
 #ifndef LUA_NOREF
@@ -27,8 +29,38 @@ static void test_watcher_callback(EsePoint *point, void *userdata) {
     last_watcher_userdata = userdata;
 }
 
+void segfault_handler(int signo, siginfo_t *info, void *context) {
+    void *buffer[32];
+    int nptrs = backtrace(buffer, 32);
+    char **strings = backtrace_symbols(buffer, nptrs);
+    if (strings) {
+        fprintf(stderr, "---- BACKTRACE START ----\n");
+        for (int i = 0; i < nptrs; i++) {
+            fprintf(stderr, "%s\n", strings[i]);
+        }
+        fprintf(stderr, "---- BACKTRACE  END  ----\n");
+        free(strings);
+    }
+
+    signal(signo, SIG_DFL);
+    raise(signo);
+}
+
 int main() {
-    printf("🧪 Starting EsePoint Unit Tests\n");
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_sigaction = segfault_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, SIGINT);
+
+    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
+        perror("Error setting SIGSEGV handler");
+        return EXIT_FAILURE;
+    }
+    
+    test_suite_begin("🧪 EsePoint Test Suite");
     
     test_point_creation();
     test_point_properties();
@@ -37,13 +69,13 @@ int main() {
     test_point_watcher_system();
     test_point_lua_integration();
     
-    printf("\n🎯 All EsePoint test suites completed!\n");
-    
+    test_suite_end("🎯 EsePoint Test Suite");
+        
     return 0;
 }
 
 static void test_point_creation() {
-    test_suite_begin("Point Creation Tests");
+    test_begin("Point Creation Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     
@@ -66,11 +98,11 @@ static void test_point_creation() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Creation Tests");
+    test_end("Point Creation Tests");
 }
 
 static void test_point_properties() {
-    test_suite_begin("Point Properties Tests");
+    test_begin("Point Properties Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EsePoint *point = point_create((EseLuaEngine*)mock_engine);
@@ -103,11 +135,11 @@ static void test_point_properties() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Properties Tests");
+    test_end("Point Properties Tests");
 }
 
 static void test_point_copy() {
-    test_suite_begin("Point Copy Tests");
+    test_begin("Point Copy Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EsePoint *original = point_create((EseLuaEngine*)mock_engine);
@@ -146,11 +178,11 @@ static void test_point_copy() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Copy Tests");
+    test_end("Point Copy Tests");
 }
 
 static void test_point_mathematical_operations() {
-    test_suite_begin("Point Mathematical Operations Tests");
+    test_begin("Point Mathematical Operations Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     
@@ -204,11 +236,11 @@ static void test_point_mathematical_operations() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Mathematical Operations Tests");
+    test_end("Point Mathematical Operations Tests");
 }
 
 static void test_point_watcher_system() {
-    test_suite_begin("Point Watcher System Tests");
+    test_begin("Point Watcher System Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EsePoint *point = point_create((EseLuaEngine*)mock_engine);
@@ -273,11 +305,11 @@ static void test_point_watcher_system() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Watcher System Tests");
+    test_end("Point Watcher System Tests");
 }
 
 static void test_point_lua_integration() {
-    test_suite_begin("Point Lua Integration Tests");
+    test_begin("Point Lua Integration Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EsePoint *point = point_create((EseLuaEngine*)mock_engine);
@@ -300,5 +332,5 @@ static void test_point_lua_integration() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Point Lua Integration Tests");
+    test_end("Point Lua Integration Tests");
 }

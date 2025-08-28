@@ -2,6 +2,8 @@
 #include "types/rect.h"
 #include "core/memory_manager.h"
 #include <math.h>
+#include <execinfo.h>
+#include <signal.h>
 
 // Define LUA_NOREF if not already defined
 #ifndef LUA_NOREF
@@ -28,8 +30,38 @@ static void test_rect_watcher_callback(EseRect *rect, void *userdata) {
     last_rect_watcher_userdata = userdata;
 }
 
+void segfault_handler(int signo, siginfo_t *info, void *context) {
+    void *buffer[32];
+    int nptrs = backtrace(buffer, 32);
+    char **strings = backtrace_symbols(buffer, nptrs);
+    if (strings) {
+        fprintf(stderr, "---- BACKTRACE START ----\n");
+        for (int i = 0; i < nptrs; i++) {
+            fprintf(stderr, "%s\n", strings[i]);
+        }
+        fprintf(stderr, "---- BACKTRACE  END  ----\n");
+        free(strings);
+    }
+
+    signal(signo, SIG_DFL);
+    raise(signo);
+}
+
 int main() {
-    printf("🧪 Starting EseRect Unit Tests\n");
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_sigaction = segfault_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, SIGINT);
+
+    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
+        perror("Error setting SIGSEGV handler");
+        return EXIT_FAILURE;
+    }
+
+    test_suite_begin("🧪 EseRect Test Suite");
     
     test_rect_creation();
     test_rect_properties();
@@ -39,13 +71,13 @@ int main() {
     test_rect_watcher_system();
     test_rect_lua_integration();
     
-    printf("\n🎯 All EseRect test suites completed!\n");
-    
+    test_suite_end("🎯 EseRect Test Suite");
+        
     return 0;
 }
 
 static void test_rect_creation() {
-    test_suite_begin("Rect Creation Tests");
+    test_begin("Rect Creation Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     
@@ -71,11 +103,11 @@ static void test_rect_creation() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Creation Tests");
+    test_end("Rect Creation Tests");
 }
 
 static void test_rect_properties() {
-    test_suite_begin("Rect Properties Tests");
+    test_begin("Rect Properties Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EseRect *rect = rect_create((EseLuaEngine*)mock_engine);
@@ -132,11 +164,11 @@ static void test_rect_properties() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Properties Tests");
+    test_end("Rect Properties Tests");
 }
 
 static void test_rect_copy() {
-    test_suite_begin("Rect Copy Tests");
+    test_begin("Rect Copy Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EseRect *original = rect_create((EseLuaEngine*)mock_engine);
@@ -181,11 +213,11 @@ static void test_rect_copy() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Copy Tests");
+    test_end("Rect Copy Tests");
 }
 
 static void test_rect_mathematical_operations() {
-    test_suite_begin("Rect Mathematical Operations Tests");
+    test_begin("Rect Mathematical Operations Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EseRect *rect = rect_create((EseLuaEngine*)mock_engine);
@@ -223,11 +255,11 @@ static void test_rect_mathematical_operations() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Mathematical Operations Tests");
+    test_end("Rect Mathematical Operations Tests");
 }
 
 static void test_rect_collision_detection() {
-    test_suite_begin("Rect Collision Detection Tests");
+    test_begin("Rect Collision Detection Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     
@@ -298,11 +330,11 @@ static void test_rect_collision_detection() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Collision Detection Tests");
+    test_end("Rect Collision Detection Tests");
 }
 
 static void test_rect_watcher_system() {
-    test_suite_begin("Rect Watcher System Tests");
+    test_begin("Rect Watcher System Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EseRect *rect = rect_create((EseLuaEngine*)mock_engine);
@@ -400,11 +432,11 @@ static void test_rect_watcher_system() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Watcher System Tests");
+    test_end("Rect Watcher System Tests");
 }
 
 static void test_rect_lua_integration() {
-    test_suite_begin("Rect Lua Integration Tests");
+    test_begin("Rect Lua Integration Tests");
     
     MockLuaEngine *mock_engine = mock_lua_engine_create();
     EseRect *rect = rect_create((EseLuaEngine*)mock_engine);
@@ -427,5 +459,5 @@ static void test_rect_lua_integration() {
     
     mock_lua_engine_destroy(mock_engine);
     
-    test_suite_end("Rect Lua Integration Tests");
+    test_end("Rect Lua Integration Tests");
 }
