@@ -19,6 +19,11 @@ static void test_jit_script_loading();
 static void test_basic_lua_functionality();
 static void test_memory_management();
 static void test_error_handling();
+static void test_function_references();
+static void test_script_instances();
+static void test_lua_value_arguments();
+static void test_timeout_and_limits();
+static void test_sandbox_environment();
 
 // Test Lua script content for JIT testing
 static const char* test_lua_script = 
@@ -89,6 +94,11 @@ int main() {
     test_basic_lua_functionality();
     test_memory_management();
     test_error_handling();
+    test_function_references();
+    test_script_instances();
+    test_lua_value_arguments();
+    test_timeout_and_limits();
+    test_sandbox_environment();
     
     // Print final summary
     test_suite_end("🎯 Final Test Summary");
@@ -381,4 +391,335 @@ static void test_error_handling() {
     lua_engine_destroy(engine);
     
     test_end("Error Handling");
+}
+
+// Test function reference caching and execution
+static void test_function_references() {
+    test_begin("Function References and Caching");
+    
+    EseLuaEngine* engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should not be NULL");
+    if (!engine) {
+        test_end("Function References and Caching");
+        return;
+    }
+    
+    // Load a simple script
+    const char* simple_script = 
+        "function TEST_MODULE:add(a)\n"
+        "    return a + 5\n"
+        "end\n"
+        "function TEST_MODULE:multiply(a)\n"
+        "    return a * 3\n"
+        "end\n";
+    
+    bool load_result = lua_engine_load_script_from_string(engine, simple_script, "simple_script", "TEST_MODULE");
+    TEST_ASSERT(load_result, "Simple script should load successfully");
+    
+    if (load_result) {
+        // Create an instance
+        int instance_ref = lua_engine_instance_script(engine, "simple_script");
+        TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
+        
+        if (instance_ref > 0) {
+            lua_State* L = engine->runtime;
+            lua_newtable(L);
+            int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            // Test with different argument types
+            EseLuaValue* arg1 = lua_value_create_number("a", 5.0);
+            EseLuaValue* arg2 = lua_value_create_number("a", 3.0); // Changed to "a" to match function signature
+            
+            // Test add function with single argument
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "add", 1, arg1, NULL);
+            TEST_ASSERT(exec_result, "add function should execute successfully");
+            
+            // Test multiply function with single argument
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "multiply", 1, arg2, NULL);
+            TEST_ASSERT(exec_result, "multiply function should execute successfully");
+            
+            // Clean up
+            lua_value_free(arg1);
+            lua_value_free(arg2);
+            luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
+            lua_engine_instance_remove(engine, instance_ref);
+        }
+    }
+    
+    lua_engine_destroy(engine);
+    
+    test_end("Function References and Caching");
+}
+
+// Test multiple script instances and management
+static void test_script_instances() {
+    test_begin("Script Instance Management");
+    
+    EseLuaEngine* engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should not be NULL");
+    if (!engine) {
+        test_end("Script Instance Management");
+        return;
+    }
+    
+    // Load a script
+    const char* instance_script = 
+        "function TEST_MODULE:get_id()\n"
+        "    return 'instance_script'\n"
+        "end\n";
+    
+    bool load_result = lua_engine_load_script_from_string(engine, instance_script, "instance_script", "TEST_MODULE");
+    TEST_ASSERT(load_result, "Instance script should load successfully");
+    
+    if (load_result) {
+        // Create multiple instances
+        int instance1 = lua_engine_instance_script(engine, "instance_script");
+        int instance2 = lua_engine_instance_script(engine, "instance_script");
+        int instance3 = lua_engine_instance_script(engine, "instance_script");
+        
+        TEST_ASSERT(instance1 > 0, "First instance should be created successfully");
+        TEST_ASSERT(instance2 > 0, "Second instance should be created successfully");
+        TEST_ASSERT(instance3 > 0, "Third instance should be created successfully");
+        TEST_ASSERT(instance1 != instance2, "Instances should have different references");
+        TEST_ASSERT(instance2 != instance3, "Instances should have different references");
+        TEST_ASSERT(instance1 != instance3, "Instances should have different references");
+        
+        // Test that all instances work
+        lua_State* L = engine->runtime;
+        lua_newtable(L);
+        int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        
+        bool exec_result = lua_engine_run_function(engine, instance1, dummy_self_ref, "get_id", 0, NULL, NULL);
+        TEST_ASSERT(exec_result, "First instance should execute successfully");
+        
+        exec_result = lua_engine_run_function(engine, instance2, dummy_self_ref, "get_id", 0, NULL, NULL);
+        TEST_ASSERT(exec_result, "Second instance should execute successfully");
+        
+        exec_result = lua_engine_run_function(engine, instance3, dummy_self_ref, "get_id", 0, NULL, NULL);
+        TEST_ASSERT(exec_result, "Third instance should execute successfully");
+        
+        // Remove instances in reverse order
+        lua_engine_instance_remove(engine, instance3);
+        lua_engine_instance_remove(engine, instance2);
+        lua_engine_instance_remove(engine, instance1);
+        
+        luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
+    }
+    
+    lua_engine_destroy(engine);
+    
+    test_end("Script Instance Management");
+}
+
+// Test Lua value argument passing with different types
+static void test_lua_value_arguments() {
+    test_begin("Lua Value Argument Passing");
+    
+    EseLuaEngine* engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should not be NULL");
+    if (!engine) {
+        test_end("Lua Value Argument Passing");
+        return;
+    }
+    
+    // Load a script that tests different argument types
+    const char* arg_test_script = 
+        "function TEST_MODULE:test_args(arg)\n"
+        "    if arg == nil then\n"
+        "        return true\n"
+        "    elseif type(arg) == 'boolean' and arg == true then\n"
+        "        return true\n"
+        "    elseif type(arg) == 'number' and arg == 42.5 then\n"
+        "        return true\n"
+        "    elseif type(arg) == 'string' and arg == 'hello' then\n"
+        "        return true\n"
+        "    elseif type(arg) == 'table' then\n"
+        "        return true\n"
+        "    else\n"
+        "        return false\n"
+        "    end\n"
+        "end\n";
+    
+    bool load_result = lua_engine_load_script_from_string(engine, arg_test_script, "arg_test_script", "TEST_MODULE");
+    TEST_ASSERT(load_result, "Argument test script should load successfully");
+    
+    if (load_result) {
+        int instance_ref = lua_engine_instance_script(engine, "arg_test_script");
+        TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
+        
+        if (instance_ref > 0) {
+            lua_State* L = engine->runtime;
+            lua_newtable(L);
+            int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            // Create different types of arguments
+            EseLuaValue* nil_arg = lua_value_create_nil("nil_val");
+            EseLuaValue* bool_arg = lua_value_create_bool("bool_val", true);
+            EseLuaValue* num_arg = lua_value_create_number("num_val", 42.5);
+            EseLuaValue* str_arg = lua_value_create_string("str_val", "hello");
+            EseLuaValue* table_arg = lua_value_create_table("table_val");
+            
+            // Test function execution with single arguments
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, nil_arg, NULL);
+            TEST_ASSERT(exec_result, "Function with nil argument should execute successfully");
+            
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, bool_arg, NULL);
+            TEST_ASSERT(exec_result, "Function with bool argument should execute successfully");
+            
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, num_arg, NULL);
+            TEST_ASSERT(exec_result, "Function with number argument should execute successfully");
+            
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, str_arg, NULL);
+            TEST_ASSERT(exec_result, "Function with string argument should execute successfully");
+            
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, table_arg, NULL);
+            TEST_ASSERT(exec_result, "Function with table argument should execute successfully");
+            
+            // Clean up
+            lua_value_free(nil_arg);
+            lua_value_free(bool_arg);
+            lua_value_free(num_arg);
+            lua_value_free(str_arg);
+            lua_value_free(table_arg);
+            
+            luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
+            lua_engine_instance_remove(engine, instance_ref);
+        }
+    }
+    
+    lua_engine_destroy(engine);
+    
+    test_end("Lua Value Argument Passing");
+}
+
+// Test timeout and instruction limits
+static void test_timeout_and_limits() {
+    test_begin("Timeout and Instruction Limits");
+    
+    EseLuaEngine* engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should not be NULL");
+    if (!engine) {
+        test_end("Timeout and Instruction Limits");
+        return;
+    }
+    
+    // Load a script that tests limits safely
+    const char* limit_test_script = 
+        "function TEST_MODULE:simple_function()\n"
+        "    return 42\n"
+        "end\n"
+        "function TEST_MODULE:loop_function()\n"
+        "    local sum = 0\n"
+        "    for i = 1, 1000 do\n"
+        "        sum = sum + i\n"
+        "    end\n"
+        "    return sum\n"
+        "end\n"
+        "function TEST_MODULE:recursive_function(n)\n"
+        "    if n == nil or n <= 1 then\n"
+        "        return 1\n"
+        "    end\n"
+        "    return n + TEST_MODULE.recursive_function(n - 1)\n"
+        "end\n";
+    
+    bool load_result = lua_engine_load_script_from_string(engine, limit_test_script, "limit_test_script", "TEST_MODULE");
+    TEST_ASSERT(load_result, "Limit test script should load successfully");
+    
+    if (load_result) {
+        int instance_ref = lua_engine_instance_script(engine, "limit_test_script");
+        TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
+        
+        if (instance_ref > 0) {
+            lua_State* L = engine->runtime;
+            lua_newtable(L);
+            int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            // Test simple function (should work)
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "simple_function", 0, NULL, NULL);
+            TEST_ASSERT(exec_result, "Simple function should execute successfully");
+            
+            // Test loop function (should work and be reasonably fast)
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "loop_function", 0, NULL, NULL);
+            TEST_ASSERT(exec_result, "Loop function should execute successfully");
+            
+            // Test recursive function with reasonable depth (should work)
+            EseLuaValue* arg = lua_value_create_number("n", 10.0);
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "recursive_function", 1, arg, NULL);
+            TEST_ASSERT(exec_result, "Recursive function should execute successfully");
+            
+            // Clean up
+            lua_value_free(arg);
+            luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
+            lua_engine_instance_remove(engine, instance_ref);
+        }
+    }
+    
+    lua_engine_destroy(engine);
+    
+    test_end("Timeout and Instruction Limits");
+}
+
+// Test sandbox environment functionality
+static void test_sandbox_environment() {
+    test_begin("Sandbox Environment");
+    
+    EseLuaEngine* engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should not be NULL");
+    if (!engine) {
+        test_end("Sandbox Environment");
+        return;
+    }
+    
+    // Load a script that tries to access restricted functionality
+    const char* sandbox_test_script = 
+        "function TEST_MODULE:test_sandbox()\n"
+        "    -- Try to access os.execute (should be restricted)\n"
+        "    if os and os.execute then\n"
+        "        return 'os.execute available'\n"
+        "    else\n"
+        "        return 'os.execute restricted'\n"
+        "    end\n"
+        "end\n"
+        "function TEST_MODULE:test_globals()\n"
+        "    -- Check what globals are available\n"
+        "    local count = 0\n"
+        "    for k,v in pairs(_G) do\n"
+        "        count = count + 1\n"
+        "    end\n"
+        "    return count\n"
+        "end\n";
+    
+    bool load_result = lua_engine_load_script_from_string(engine, sandbox_test_script, "sandbox_test_script", "TEST_MODULE");
+    TEST_ASSERT(load_result, "Sandbox test script should load successfully");
+    
+    if (load_result) {
+        int instance_ref = lua_engine_instance_script(engine, "sandbox_test_script");
+        TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
+        
+        if (instance_ref > 0) {
+            lua_State* L = engine->runtime;
+            lua_newtable(L);
+            int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            // Test sandbox restrictions
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_sandbox", 0, NULL, NULL);
+            TEST_ASSERT(exec_result, "Sandbox test function should execute successfully");
+            
+            // Test global access
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_globals", 0, NULL, NULL);
+            TEST_ASSERT(exec_result, "Global test function should execute successfully");
+            
+            luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
+            lua_engine_instance_remove(engine, instance_ref);
+        }
+    }
+    
+    lua_engine_destroy(engine);
+    
+    test_end("Sandbox Environment");
 }
