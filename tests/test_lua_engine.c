@@ -14,14 +14,14 @@
 
 // Test Lua script content for JIT testing
 static const char* test_lua_script = 
-    "local function fibonacci(n)\n"
+    "function TEST_MODULE:fibonacci(n)\n"
     "    if n <= 1 then\n"
     "        return n\n"
     "    end\n"
     "    return fibonacci(n-1) + fibonacci(n-2)\n"
     "end\n"
     "\n"
-    "local function test_math()\n"
+    "function TEST_MODULE:test_math()\n"
     "    local sum = 0\n"
     "    for i = 1, 1000 do\n"
     "        sum = sum + math.sin(i) * math.cos(i)\n"
@@ -29,54 +29,14 @@ static const char* test_lua_script =
     "    return sum\n"
     "end\n"
     "\n"
-    "local function test_loops()\n"
+    "function TEST_MODULE:test_loops()\n"
     "    local result = 0\n"
     "    for i = 1, 10000 do\n"
     "        result = result + i\n"
     "    end\n"
     "    return result\n"
     "end\n"
-    "\n"
-    "return {\n"
-    "    fibonacci = fibonacci,\n"
-    "    test_math = test_math,\n"
-    "    test_loops = test_loops,\n"
-    "    version = \"1.0.0\"\n"
-    "}\n";
-
-// Helper function to create a temporary test Lua file
-static char* create_test_lua_file() {
-    char* temp_filename = malloc(256);
-    snprintf(temp_filename, 256, "test_lua_engine_%d.lua", getpid());
-    
-    // Create the file in tests/resources directory
-    char* full_path = malloc(512);
-    snprintf(full_path, 512, "tests/resources/%s", temp_filename);
-    
-    FILE* file = fopen(full_path, "w");
-    if (!file) {
-        free(temp_filename);
-        free(full_path);
-        return NULL;
-    }
-    
-    fwrite(test_lua_script, 1, strlen(test_lua_script), file);
-    fclose(file);
-    
-    free(full_path);
-    return temp_filename; // Return just the filename without path
-}
-
-// Helper function to remove temporary test file
-static void cleanup_test_lua_file(const char* filename) {
-    if (filename) {
-        char* full_path = malloc(512);
-        snprintf(full_path, 512, "tests/resources/%s", filename);
-        unlink(full_path);
-        free(full_path);
-        free((void*)filename);
-    }
-}
+    "\n";
 
 // Test basic engine creation and destruction
 static void test_engine_creation() {
@@ -178,17 +138,13 @@ static void test_jit_script_loading() {
         return;
     }
     
-    // Create temporary test Lua file
-    char* test_filename = create_test_lua_file();
-    TEST_ASSERT_NOT_NULL(test_filename, "Test Lua file should be created");
-    
     // Load the script
-    bool load_result = lua_engine_load_script(engine, test_filename, "test_module");
+    bool load_result = lua_engine_load_script_from_string(engine, test_lua_script, "test_lua_script", "TEST_MODULE");
     TEST_ASSERT(load_result, "Script should load successfully");
     
     if (load_result) {
         // Create an instance of the script
-        int instance_ref = lua_engine_instance_script(engine, test_filename);
+        int instance_ref = lua_engine_instance_script(engine, "test_lua_script");
         TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
         
         if (instance_ref > 0) {
@@ -239,7 +195,6 @@ static void test_jit_script_loading() {
     }
     
     // Clean up
-    cleanup_test_lua_file(test_filename);
     lua_engine_destroy(engine);
     
     test_suite_end("JIT Script Loading and Execution");

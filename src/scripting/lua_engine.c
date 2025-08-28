@@ -331,6 +331,15 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
     }
     script[file_size] = '\0';
 
+    bool status = lua_engine_load_script_from_string(engine, script, filename, module_name);
+    memory_manager.free(script);
+    memory_manager.free(full_path);
+    return status;
+}
+
+
+bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script, const char* name, const char* module_name) {
+
     // Build environment
     _lua_engine_build_env_from_master(engine->runtime, engine->internal->sandbox_master_ref);
     int env_idx = lua_gettop(engine->runtime);
@@ -364,7 +373,7 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
 
     // Load chunk
     char chunkname[512];
-    snprintf(chunkname, sizeof(chunkname), "@%s", filename ? filename : "unnamed");
+    snprintf(chunkname, sizeof(chunkname), "@%s", name ? name : "unnamed");
 
     if (luaL_loadbuffer(engine->runtime, wrapped, strlen(wrapped), chunkname) == LUA_OK) {
         // Push module table as argument
@@ -375,41 +384,37 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
                 int script_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
                 int *ref = memory_manager.malloc(sizeof(int), MMTAG_LUA);
                 *ref = script_ref;
-                hashmap_set(engine->internal->functions, filename, ref);
+                hashmap_set(engine->internal->functions, name, ref);
 
-                memory_manager.free(full_path);
-                memory_manager.free(script);
                 memory_manager.free(wrapped);
                 return true;
             } else {
-                log_error("LUA_ENGINE", "Script '%s' did not return a table", filename);
+                log_error("LUA_ENGINE", "Script '%s' did not return a table", name);
                 lua_pop(engine->runtime, 1);
             }
         } else {
             log_error("LUA_ENGINE", "Error executing script '%s': %s",
-                      filename, lua_tostring(engine->runtime, -1));
+                name, lua_tostring(engine->runtime, -1));
             lua_pop(engine->runtime, 1);
         }
     } else {
         log_error("LUA_ENGINE", "Error loading script '%s': %s",
-                  filename, lua_tostring(engine->runtime, -1));
+            name, lua_tostring(engine->runtime, -1));
         lua_pop(engine->runtime, 1);
     }
 
     lua_pop(engine->runtime, 1); // pop env
-    memory_manager.free(full_path);
-    memory_manager.free(script);
     memory_manager.free(wrapped);
     return false;
 }
 
-int lua_engine_instance_script(EseLuaEngine *engine, const char *filename) {
+int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
     log_assert("LUA_ENGINE", engine, "lua_engine_instance_script called with NULL engine");
-    log_assert("LUA_ENGINE", filename, "lua_engine_instance_script called with NULL filename");
+    log_assert("LUA_ENGINE", name, "lua_engine_instance_script called with NULL name");
 
-    int *script_ref = hashmap_get(engine->internal->functions, filename);
+    int *script_ref = hashmap_get(engine->internal->functions, name);
     if (!script_ref) {
-        log_error("LUA_ENGINE", "Script '%s' not found", filename);
+        log_error("LUA_ENGINE", "Script '%s' not found", name);
         return -1;
     }
 

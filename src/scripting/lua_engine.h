@@ -121,6 +121,7 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
  * @warning The script must return a table or loading will fail.
  */
 bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name);
+bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script, const char* name, const char* module_name);
 
 /**
  * @brief Creates a new proxy-wrapped instance from a loaded Lua script class.
