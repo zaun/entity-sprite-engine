@@ -49,7 +49,6 @@ EseLuaEngine *lua_engine_create() {
     lua_atpanic(engine->runtime, my_panic);
     if (setjmp(g_lua_panic_jmp) != 0) {
         log_error("LUA_ENGINE", "Recovered from Lua panic");
-        exit(1);
         return NULL;
     }
 
@@ -201,6 +200,8 @@ void lua_engine_destroy(EseLuaEngine *engine) {
 }
 
 void lua_engine_global_lock(EseLuaEngine *engine) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_global_lock called with NULL engine");
+    
     lua_State *L = engine->runtime;
 
     // Prevent global writes (lock global)
@@ -225,6 +226,8 @@ void lua_engine_global_lock(EseLuaEngine *engine) {
 }
 
 void lua_engine_gc(EseLuaEngine *engine) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_gc called with NULL engine");
+    
     lua_gc(engine->runtime, LUA_GCSTEP, 0);
 }
 
@@ -283,6 +286,7 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
 bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name) {
     log_assert("LUA_ENGINE", engine, "lua_engine_load_script called with NULL engine");
     log_assert("LUA_ENGINE", filename, "lua_engine_load_script called with NULL filename");
+    log_assert("LUA_ENGINE", module_name, "lua_engine_load_script called with NULL module_name");
     log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_engine_load_script engine->internal->sandbox_master_ref is LUA_NOREF");
 
     if (!filesystem_check_file(filename, ".lua")) {
@@ -339,6 +343,10 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
 
 
 bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script, const char* name, const char* module_name) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_load_script_from_string called with NULL engine");
+    log_assert("LUA_ENGINE", script, "lua_engine_load_script_from_string called with NULL script");
+    log_assert("LUA_ENGINE", name, "lua_engine_load_script_from_string called with NULL name");
+    log_assert("LUA_ENGINE", module_name, "lua_engine_load_script_from_string called with NULL module_name");
 
     // Build environment
     _lua_engine_build_env_from_master(engine->runtime, engine->internal->sandbox_master_ref);
@@ -640,6 +648,8 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
 
 
 int lua_isinteger_lj(lua_State *L, int idx) {
+    log_assert("LUA_ENGINE", L, "lua_isinteger_lj called with NULL Lua state");
+    
     if (!lua_isnumber(L, idx)) return 0;
     lua_Number n = lua_tonumber(L, idx);
     lua_Integer i = (lua_Integer)n;
@@ -649,6 +659,8 @@ int lua_isinteger_lj(lua_State *L, int idx) {
 // Unique key for registry storage
 static const char *LUA_EXTRASPACE_KEY = "lua_extraspace_lj";
 void *lua_getextraspace_lj(lua_State *L) {
+    log_assert("LUA_ENGINE", L, "lua_getextraspace_lj called with NULL Lua state");
+    
     void *p;
 
     // Check if already allocated

@@ -59,6 +59,8 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->instance_ref = LUA_NOREF;
     component->engine = engine;
     component->arg = lua_value_create_number("argument count", 0);
+    component->props = NULL; // Will be allocated when first property is added
+    component->props_count = 0;
     component->function_cache = hashmap_create(NULL); // No free function needed for CachedLuaFunction
 
     return &component->base;

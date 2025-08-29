@@ -24,6 +24,7 @@ static void test_script_instances();
 static void test_lua_value_arguments();
 static void test_timeout_and_limits();
 static void test_sandbox_environment();
+static void test_null_pointer_aborts();
 
 // Test Lua script content for JIT testing
 static const char* test_lua_script = 
@@ -99,6 +100,7 @@ int main() {
     test_lua_value_arguments();
     test_timeout_and_limits();
     test_sandbox_environment();
+    test_null_pointer_aborts();
     
     // Print final summary
     test_suite_end("🎯 Final Test Summary");
@@ -755,4 +757,72 @@ static void test_sandbox_environment() {
     lua_engine_destroy(engine);
     
     test_end("Sandbox Environment");
+}
+
+static void test_null_pointer_aborts() {
+    test_begin("NULL Pointer Abort Tests");
+    
+    EseLuaEngine *engine = lua_engine_create();
+    
+    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for NULL pointer abort tests");
+    
+    if (engine) {
+        // Test that engine destruction aborts with NULL
+        TEST_ASSERT_ABORT(lua_engine_destroy(NULL), "lua_engine_destroy should abort with NULL engine");
+        
+        // Test that global lock aborts with NULL
+        TEST_ASSERT_ABORT(lua_engine_global_lock(NULL), "lua_engine_global_lock should abort with NULL engine");
+        
+        // Test that garbage collection aborts with NULL
+        TEST_ASSERT_ABORT(lua_engine_gc(NULL), "lua_engine_gc should abort with NULL engine");
+        
+        // Test that registry key functions abort with NULL Lua state
+        TEST_ASSERT_ABORT(lua_engine_add_registry_key(NULL, (void*)0x123, (void*)0x456), "lua_engine_add_registry_key should abort with NULL Lua state");
+        TEST_ASSERT_ABORT(lua_engine_get_registry_key(NULL, (void*)0x123), "lua_engine_get_registry_key should abort with NULL Lua state");
+        TEST_ASSERT_ABORT(lua_engine_remove_registry_key(NULL, (void*)0x123), "lua_engine_remove_registry_key should abort with NULL Lua state");
+        
+        // Test that add function aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_add_function(NULL, "test", NULL), "lua_engine_add_function should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_add_function(engine, NULL, NULL), "lua_engine_add_function should abort with NULL function_name");
+        TEST_ASSERT_ABORT(lua_engine_add_function(engine, "test", NULL), "lua_engine_add_function should abort with NULL func");
+        
+        // Test that add global aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_add_global(NULL, "test", 1), "lua_engine_add_global should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_add_global(engine, NULL, 1), "lua_engine_add_global should abort with NULL global_name");
+        
+        // Test that load script aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_load_script(NULL, "test.lua", "TEST"), "lua_engine_load_script should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_load_script(engine, NULL, "TEST"), "lua_engine_load_script should abort with NULL filename");
+        TEST_ASSERT_ABORT(lua_engine_load_script(engine, "test.lua", NULL), "lua_engine_load_script should abort with NULL module_name");
+        
+        // Test that load script from string aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_load_script_from_string(NULL, "test", "test", "TEST"), "lua_engine_load_script_from_string should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_load_script_from_string(engine, NULL, "test", "TEST"), "lua_engine_load_script_from_string should abort with NULL script");
+        TEST_ASSERT_ABORT(lua_engine_load_script_from_string(engine, "test", NULL, "TEST"), "lua_engine_load_script_from_string should abort with NULL name");
+        TEST_ASSERT_ABORT(lua_engine_load_script_from_string(engine, "test", "test", NULL), "lua_engine_load_script_from_string should abort with NULL module_name");
+        
+        // Test that instance script aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_instance_script(NULL, "test"), "lua_engine_instance_script should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_instance_script(engine, NULL), "lua_engine_instance_script should abort with NULL name");
+        
+        // Test that instance remove aborts with NULL engine
+        TEST_ASSERT_ABORT(lua_engine_instance_remove(NULL, 1), "lua_engine_instance_remove should abort with NULL engine");
+        
+        // Test that run function ref aborts with NULL engine
+        TEST_ASSERT_ABORT(lua_engine_run_function_ref(NULL, 1, 1, 0, NULL, NULL), "lua_engine_run_function_ref should abort with NULL engine");
+        
+        // Test that run function aborts with NULL parameters
+        TEST_ASSERT_ABORT(lua_engine_run_function(NULL, 1, 1, NULL, 0, NULL, NULL), "lua_engine_run_function should abort with NULL engine");
+        TEST_ASSERT_ABORT(lua_engine_run_function(engine, 1, 1, NULL, 0, NULL, NULL), "lua_engine_run_function should abort with NULL func_name");
+        
+        // Test that lua_isinteger_lj aborts with NULL Lua state
+        TEST_ASSERT_ABORT(lua_isinteger_lj(NULL, 1), "lua_isinteger_lj should abort with NULL Lua state");
+        
+        // Test that lua_getextraspace_lj aborts with NULL Lua state
+        TEST_ASSERT_ABORT(lua_getextraspace_lj(NULL), "lua_getextraspace_lj should abort with NULL Lua state");
+        
+        lua_engine_destroy(engine);
+    }
+    
+    test_end("NULL Pointer Abort Tests");
 }

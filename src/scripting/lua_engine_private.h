@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include <setjmp.h>
 
 // Forward declarations
 typedef struct EseHashMap EseHashMap;
