@@ -26,8 +26,14 @@ void log_init(void) {
 static int log_category_enabled(const char *category) {
     if (!log_enabled_categories) {
         // If not set, allow no categories
+        return 0;
+    }
+    
+    // Check if "ALL" is specified to enable all categories
+    if (strcmp(log_enabled_categories, "ALL") == 0) {
         return 1;
     }
+    
     // Tokenize the enabled categories (comma-separated)
     char *categories = strdup(log_enabled_categories);
     char *token = strtok(categories, ",");
