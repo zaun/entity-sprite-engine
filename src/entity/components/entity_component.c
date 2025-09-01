@@ -12,43 +12,56 @@
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component.h"
+#include "utility/profile.h"
 
 void entity_component_lua_init(EseLuaEngine *engine) {
+    profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
+    
     _entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
     _entity_component_map_init(engine);
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);
+    
+    profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_lua_init");
 }
 
 EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
     log_assert("ENTITY_COMP", component, "entity_component_copy called with NULL component");
 
+    profile_start(PROFILE_ENTITY_COMPONENT_COPY);
+
+    EseEntityComponent *result;
     switch (component->type) {
         case ENTITY_COMPONENT_COLLIDER:
-            return _entity_component_collider_copy((EseEntityComponentCollider*)component->data);
+            result = _entity_component_collider_copy((EseEntityComponentCollider*)component->data);
             break;
         case ENTITY_COMPONENT_LUA:
-            return _entity_component_lua_copy((EseEntityComponentLua*)component->data);
+            result = _entity_component_lua_copy((EseEntityComponentLua*)component->data);
             break;
         case ENTITY_COMPONENT_MAP:
-            return _entity_component_map_copy((EseEntityComponentMap*)component->data);
+            result = _entity_component_map_copy((EseEntityComponentMap*)component->data);
             break;
         case ENTITY_COMPONENT_SPRITE:
-            return _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
+            result = _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
             break;
         case ENTITY_COMPONENT_TEXT:
-            return _entity_component_text_copy((EseEntityComponentText*)component->data);
+            result = _entity_component_text_copy((EseEntityComponentText*)component->data);
             break;
         default:
-            return NULL;
+            result = NULL;
             break;
     }
 
+    profile_stop(PROFILE_ENTITY_COMPONENT_COPY, "entity_component_copy");
+    profile_count_add("entity_comp_copy_count");
+    return result;
 }
 
 void entity_component_destroy(EseEntityComponent* component) {
     log_assert("ENTITY_COMP", component, "entity_component_destroy called with NULL component");
+
+    profile_start(PROFILE_ENTITY_COMPONENT_DESTROY);
 
     if (component->lua_ref != LUA_NOREF) {
         luaL_unref(component->lua->runtime, LUA_REGISTRYINDEX, component->lua_ref);
@@ -74,47 +87,71 @@ void entity_component_destroy(EseEntityComponent* component) {
             log_error("ENTITY", "Can't free unknown component type");
             break;
     }
+    
+    profile_stop(PROFILE_ENTITY_COMPONENT_DESTROY, "entity_component_destroy");
+    profile_count_add("entity_comp_destroy_count");
 }
 
 void entity_component_push(EseEntityComponent *component) {
     log_assert("ENTITY_COMP", component, "entity_component_push called with NULL component");
     log_assert("ENTITY_COMP", component->lua_ref != LUA_NOREF, "entity_component_push component not registered with lua");
 
+    profile_start(PROFILE_ENTITY_LUA_PROPERTY_ACCESS);
+
     // Push the proxy table back onto the stack for Lua to receive
     lua_rawgeti(component->lua->runtime, LUA_REGISTRYINDEX, component->lua_ref);
+    
+    profile_stop(PROFILE_ENTITY_LUA_PROPERTY_ACCESS, "entity_component_push");
 }
 
 void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time) {
     log_assert("ENTITY_COMP", component, "entity_component_update called with NULL component");
 
+    profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
+
     switch (component->type) {
         case ENTITY_COMPONENT_COLLIDER:
+            profile_start(PROFILE_ENTITY_COMP_COLLIDER_UPDATE);
             // Update world bounds in case entity position changed
             entity_component_collider_update_world_bounds_only((EseEntityComponentCollider*)component->data);
+            profile_stop(PROFILE_ENTITY_COMP_COLLIDER_UPDATE, "entity_component_collider_update");
             break;
         case ENTITY_COMPONENT_LUA:
+            profile_start(PROFILE_ENTITY_COMP_LUA_UPDATE);
             _entity_component_lua_update((EseEntityComponentLua*)component->data, entity, delta_time);
+            profile_stop(PROFILE_ENTITY_COMP_LUA_UPDATE, "entity_component_lua_update");
             break;
         case ENTITY_COMPONENT_MAP:
+            profile_start(PROFILE_ENTITY_COMP_MAP_UPDATE);
             _entity_component_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
+            profile_stop(PROFILE_ENTITY_COMP_MAP_UPDATE, "entity_component_map_update");
             break;
         case ENTITY_COMPONENT_SPRITE:
+            profile_start(PROFILE_ENTITY_COMP_SPRITE_UPDATE);
             _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
+            profile_stop(PROFILE_ENTITY_COMP_SPRITE_UPDATE, "entity_component_sprite_update");
             break;
         case ENTITY_COMPONENT_TEXT:
+            profile_start(PROFILE_ENTITY_COMP_TEXT_UPDATE);
             _entity_component_text_update((EseEntityComponentText*)component->data, entity, delta_time);
+            profile_stop(PROFILE_ENTITY_COMP_TEXT_UPDATE, "entity_component_text_update");
             break;
         default:
             log_debug("ENTITY_COMP", "Unknown TYPE updaging EseEntityComponent %s", component->id->value);
             break;
     }
+    
+    profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
 }
 
 bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntityComponent *b) {
     log_assert("ENTITY_COMP", a, "entity_component_detect_collision_component called with NULL a");
     log_assert("ENTITY_COMP", b, "entity_component_detect_collision_component called with NULL b");
 
+    profile_start(PROFILE_ENTITY_COLLISION_TEST);
+
     if (a->type != ENTITY_COMPONENT_COLLIDER || b->type != ENTITY_COMPONENT_COLLIDER) {
+        profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
         return false;
     }
 
@@ -132,18 +169,23 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
             if (rect_intersects(rect_a, rect_b)) {
                 rect_destroy(rect_a);
                 rect_destroy(rect_b);
+                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
                 return true;
             }
             rect_destroy(rect_b);
         }
         rect_destroy(rect_a);
     }
+    
+    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
     return false;
 }
 
 bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRect *rect) {
     log_assert("ENTITY_COMP", component, "entity_component_detect_collision_rect called with NULL component");
     log_assert("ENTITY_COMP", rect, "entity_component_detect_collision_rect called with NULL rect");
+
+    profile_start(PROFILE_ENTITY_COLLISION_RECT_DETECT);
 
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
@@ -152,10 +194,13 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
         rect_set_y(colliderRect, rect_get_y(colliderRect) + point_get_y(component->entity->position));
         if (rect_intersects(colliderRect, rect)) {
             rect_destroy(colliderRect);
+            profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
             return true;
         }
         rect_destroy(colliderRect);
     }
+    
+    profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
     return false;
 }
 
@@ -167,6 +212,9 @@ void entity_component_draw(
     EntityDrawRectCallback rectCallback,
     void *callback_user_data
 ) {
+    profile_start(PROFILE_ENTITY_DRAW_SECTION);
+    
+    profile_start(PROFILE_ENTITY_DRAW_SCREEN_POS);
     float entity_x = point_get_x(component->entity->position);
     float entity_y = point_get_y(component->entity->position);
 
@@ -177,40 +225,50 @@ void entity_component_draw(
 
     int screen_x = (int)(entity_x - view_left);
     int screen_y = (int)(entity_y - view_top);
+    profile_stop(PROFILE_ENTITY_DRAW_SCREEN_POS, "entity_component_draw_screen_pos");
 
     switch(component->type) {
         case ENTITY_COMPONENT_COLLIDER: {
+            profile_start(PROFILE_ENTITY_COMP_COLLIDER_DRAW);
             _entity_component_collider_draw(
                 (EseEntityComponentCollider*)component->data,
                 screen_x, screen_y, rectCallback, callback_user_data
             );
+            profile_stop(PROFILE_ENTITY_COMP_COLLIDER_DRAW, "entity_component_collider_draw");
             break;
         }
         case ENTITY_COMPONENT_MAP: {
+            profile_start(PROFILE_ENTITY_COMP_MAP_DRAW);
             _entity_component_map_draw(
                 (EseEntityComponentMap*)component->data,
                 screen_x, screen_y, texCallback, callback_user_data
             );
+            profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_map_draw");
             break;
         }
         case ENTITY_COMPONENT_SPRITE: {
+            profile_start(PROFILE_ENTITY_COMP_SPRITE_DRAW);
             _entity_component_sprite_draw(
                 (EseEntityComponentSprite*)component->data,
                 screen_x, screen_y, texCallback, callback_user_data
             );
+            profile_stop(PROFILE_ENTITY_COMP_SPRITE_DRAW, "entity_component_sprite_draw");
             break;
         }
         case ENTITY_COMPONENT_TEXT: {
+            profile_start(PROFILE_ENTITY_COMP_TEXT_DRAW);
             _entity_component_text_draw(
                 (EseEntityComponentText*)component->data,
                 screen_x, screen_y, texCallback, callback_user_data
             );
+            profile_stop(PROFILE_ENTITY_COMP_TEXT_DRAW, "entity_component_text_draw");
             break;
         }
         default:
             break;
     }
-
+    
+    profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
 }
 
 
@@ -225,13 +283,21 @@ bool entity_component_run_function(
     log_assert("ENTITY_COMP", component, "entity_component_run_function called with NULL component");
     log_assert("ENTITY_COMP", entity, "entity_component_run_function called with NULL entity");
 
+    profile_start(PROFILE_ENTITY_LUA_FUNCTION_CALL);
+
+    bool result;
     switch (component->type) {
         case ENTITY_COMPONENT_LUA:
-            return entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
+            result = entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
+            break;
         default:
             // Other component types don't support function execution
-            return false;
+            result = false;
+            break;
     }
+    
+    profile_stop(PROFILE_ENTITY_LUA_FUNCTION_CALL, "entity_component_run_function");
+    return result;
 }
 
 EseEntityComponent *entity_component_get(lua_State *L) {

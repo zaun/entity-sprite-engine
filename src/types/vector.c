@@ -4,6 +4,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/vector.h"
 
 // ========================================
@@ -34,7 +35,7 @@ static int _vector_lua_normalize(lua_State *L);
 
 // Core helpers
 static EseVector *_vector_make() {
-    EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
+    EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_VECTOR);
     vector->x = 0.0f;
     vector->y = 0.0f;
     vector->state = NULL;
@@ -60,50 +61,69 @@ static int _vector_lua_gc(lua_State *L) {
 }
 
 static int _vector_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_VECTOR_INDEX);
     EseVector *vector = vector_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!vector || !key) return 0;
+    if (!vector || !key) {
+        profile_cancel(PROFILE_LUA_VECTOR_INDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         lua_pushnumber(L, vector->x);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "y") == 0) {
         lua_pushnumber(L, vector->y);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "set_direction") == 0) {
         lua_pushlightuserdata(L, vector);
         lua_pushcclosure(L, _vector_lua_set_direction, 1);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "magnitude") == 0) {
         lua_pushlightuserdata(L, vector);
         lua_pushcclosure(L, _vector_lua_magnitude, 1);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "normalize") == 0) {
         lua_pushlightuserdata(L, vector);
         lua_pushcclosure(L, _vector_lua_normalize, 1);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
         return 1;
     }
+    profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index");
     return 0;
 }
 
 static int _vector_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_VECTOR_NEWINDEX);
     EseVector *vector = vector_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!vector || !key) return 0;
+    if (!vector || !key) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
             return luaL_error(L, "vector.x must be a number");
         }
         vector->x = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
             return luaL_error(L, "vector.y must be a number");
         }
         vector->y = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
         return 0;
     }
+    profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
@@ -124,6 +144,7 @@ static int _vector_lua_tostring(lua_State *L) {
 
 // Lua constructors
 static int _vector_lua_new(lua_State *L) {
+    profile_start(PROFILE_LUA_VECTOR_NEW);
     float x = 0.0f;
     float y = 0.0f;
 
@@ -132,14 +153,17 @@ static int _vector_lua_new(lua_State *L) {
         if (lua_isnumber(L, 1)) {
             x = (float)lua_tonumber(L, 1);
         } else {
+            profile_cancel(PROFILE_LUA_VECTOR_NEW);
             return luaL_error(L, "x must be a number");
         }
         if (lua_isnumber(L, 2)) {
             y = (float)lua_tonumber(L, 2);
         } else {
+            profile_cancel(PROFILE_LUA_VECTOR_NEW);
             return luaL_error(L, "y must be a number");
         }
     } else if (n_args != 0) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEW);
         return luaL_error(L, "new() takes 0 or 2 arguments");
     }
 
@@ -157,6 +181,7 @@ static int _vector_lua_new(lua_State *L) {
     luaL_getmetatable(L, "VectorProxyMeta");
     lua_setmetatable(L, -2);
 
+    profile_stop(PROFILE_LUA_VECTOR_NEW, "vector_lua_new");
     return 1;
 }
 
@@ -230,7 +255,7 @@ EseVector *vector_copy(const EseVector *source) {
         return NULL;
     }
 
-    EseVector *copy = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_GENERAL);
+    EseVector *copy = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_VECTOR);
     copy->x = source->x;
     copy->y = source->y;
     copy->state = source->state;

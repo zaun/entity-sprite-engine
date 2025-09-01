@@ -32,7 +32,7 @@ static int _uuid_lua_reset_method(lua_State *L);
 
 // Core helpers
 static EseUUID *_uuid_make() {
-    EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_GENERAL);
+    EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_UUID);
     uuid->state = NULL;
     uuid->lua_ref = LUA_NOREF;
     uuid->lua_ref_count = 0;
@@ -142,7 +142,7 @@ EseUUID *uuid_copy(const EseUUID *source) {
         return NULL;
     }
 
-    EseUUID *copy = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_GENERAL);
+    EseUUID *copy = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_UUID);
     strcpy(copy->value, source->value);
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;

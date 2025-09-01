@@ -50,7 +50,7 @@ EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src)
 
 void _entity_component_lua_destroy(EseEntityComponentLua *component);
 
-void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity, float delta_time);
+void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity, double delta_time);
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx);
 

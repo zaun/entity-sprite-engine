@@ -170,11 +170,4 @@ void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const cha
  */
 void engine_show_console(EseEngine *engine, bool show);
 
-/**
- * @brief Prints the current engine statistics to the console.
- * 
- * @param engine Pointer to the engine instance.
- */
-void engine_print_stats(EseEngine *engine);
-
 #endif // ESE_ENGINE_H

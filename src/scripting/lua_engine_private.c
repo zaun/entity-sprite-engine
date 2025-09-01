@@ -3,7 +3,12 @@
 #include <limits.h>
 #include <stdlib.h>
 #include "utility/log.h"
+#include "utility/profile.h"
+#include "utility/hashmap.h"
+#include "utility/array.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
+#include "platform/time.h"
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_engine.h"
 
@@ -119,87 +124,102 @@ static inline LuaAllocHdr *alloc_get_hdr(void *user_ptr) {
 }
 
 void* _lua_engine_limited_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
-    // Never trust or use osize
-    (void)osize;
-
-    log_assert("LUA", ud, "_lua_engine_limited_alloc called with NULL ud");
+    // PROFILING: Start timing for allocation
+    uint64_t alloc_start = time_now();
+    
     EseLuaEngine *engine = (EseLuaEngine *)ud;
-    if (!engine) return NULL;
+    EseLuaEngineInternal *internal = engine->internal;
 
-    // Free path
     if (nsize == 0) {
+        // Free
         if (ptr) {
-            LuaAllocHdr *hdr = alloc_get_hdr(ptr);
-            size_t old_size = hdr ? hdr->size : 0;
-
-            if (engine->internal->memory_used >= old_size) {
-                engine->internal->memory_used -= old_size;
-            } else {
-                engine->internal->memory_used = 0;
-            }
-
-            memory_manager.free(hdr);
+                    // Remove from tracking
+        LuaAllocHdr *hdr = (LuaAllocHdr *)((char *)ptr - sizeof(LuaAllocHdr));
+        internal->memory_used -= hdr->size;
+        memory_manager.free(hdr);
         }
         return NULL;
     }
 
-    // Reject unreasonably large allocations (user-visible)
-    if (nsize > LUA_MAX_ALLOC) {
-        return NULL;
-    }
-
-    LuaAllocHdr *old_hdr = alloc_get_hdr(ptr);
-    size_t old_size = old_hdr ? old_hdr->size : 0;
-
-    // Compute new memory_used with overflow/limit checks
-    size_t new_used = engine->internal->memory_used;
-    if (nsize >= old_size) {
-        size_t growth = nsize - old_size;
-
-        if (growth > 0) {
-            if (new_used > SIZE_MAX - growth) {
-                return NULL;
-            }
-            new_used += growth;
-            if (new_used > engine->internal->memory_limit) {
-                return NULL;
-            }
+    if (ptr == NULL) {
+        // New allocation
+        profile_start(PROFILE_LUA_ENGINE_ALLOC);
+        size_t total_size = nsize + sizeof(LuaAllocHdr);
+        
+        // Check memory limit
+        if (internal->memory_used + nsize > internal->memory_limit) {
+            profile_cancel(PROFILE_LUA_ENGINE_ALLOC);
+            profile_count_add("lua_eng_alloc_limit_exceeded");
+            log_error("LUA_ENGINE", "Memory limit exceeded: %zu + %zu > %zu", 
+                     internal->memory_used, nsize, internal->memory_limit);
+            return NULL;
         }
+        
+        LuaAllocHdr *hdr = memory_manager.malloc(total_size, MMTAG_LUA);
+        if (!hdr) {
+            profile_cancel(PROFILE_LUA_ENGINE_ALLOC);
+            profile_count_add("lua_eng_alloc_failed");
+            return NULL;
+        }
+        
+        hdr->size = nsize;
+        internal->memory_used += nsize;
+        
+        profile_count_add("lua_eng_alloc_success");
+        profile_stop(PROFILE_LUA_ENGINE_ALLOC, "lua_eng_alloc");
+        return (char *)hdr + sizeof(LuaAllocHdr);
     } else {
-        size_t shrink = old_size - nsize;
-        if (new_used >= shrink) {
-            new_used -= shrink;
+        // Reallocation
+        LuaAllocHdr *old_hdr = (LuaAllocHdr *)((char *)ptr - sizeof(LuaAllocHdr));
+        size_t old_size = old_hdr->size;
+        
+        if (nsize <= old_size) {
+            // Shrinking or same size
+            internal->memory_used -= (old_size - nsize);
+            old_hdr->size = nsize;
+            return ptr;
         } else {
-            new_used = 0;
+            profile_start(PROFILE_LUA_ENGINE_ALLOC);
+            // Growing
+            size_t total_size = nsize + sizeof(LuaAllocHdr);
+            
+            // Check memory limit
+            if (internal->memory_used + (nsize - old_size) > internal->memory_limit) {
+                log_error("LUA_ENGINE", "Memory limit exceeded during realloc: %zu + %zu > %zu", 
+                         internal->memory_used, nsize - old_size, internal->memory_limit);
+                profile_cancel(PROFILE_LUA_ENGINE_ALLOC);
+                profile_count_add("lua_eng_realloc_limit_exceeded");
+                return NULL;
+            }
+            
+            LuaAllocHdr *new_hdr = memory_manager.malloc(total_size, MMTAG_LUA);
+            if (!new_hdr) {
+                profile_cancel(PROFILE_LUA_ENGINE_ALLOC);
+                profile_count_add("lua_eng_realloc_failed");
+                return NULL;
+            }
+            
+            // Copy data
+            memcpy((char *)new_hdr + sizeof(LuaAllocHdr), ptr, old_size);
+            
+            // Update tracking
+            internal->memory_used += (nsize - old_size);
+            new_hdr->size = nsize;
+            
+            // Free old allocation
+            memory_manager.free(old_hdr);
+            
+            profile_count_add("lua_eng_realloc_success");
+            profile_stop(PROFILE_LUA_ENGINE_ALLOC, "lua_eng_realloc");
+            return (char *)new_hdr + sizeof(LuaAllocHdr);
         }
     }
-
-    // Allocate/reallocate including header
-    size_t total_bytes = nsize + sizeof(LuaAllocHdr);
-    LuaAllocHdr *new_hdr = NULL;
-
-    if (!ptr) {
-        // malloc
-        new_hdr = (LuaAllocHdr *)memory_manager.malloc(total_bytes, MMTAG_LUA_SCRIPT);
-        if (!new_hdr) return NULL;
-    } else {
-        // realloc
-        new_hdr = (LuaAllocHdr *)memory_manager.realloc(old_hdr, total_bytes, MMTAG_LUA_SCRIPT);
-        if (!new_hdr) return NULL;
-    }
-
-    // Update header and accounting
-    new_hdr->size = nsize;
-    engine->internal->memory_used = new_used;
-
-    // Return pointer to user area
-    return (void *)(new_hdr + 1);
 }
 
 void _lua_engine_function_hook(lua_State *L, lua_Debug *ar) {
-    log_assert("LUA", L, "_lua_engine_function_hook called with NULL L");
-    log_assert("LUA", ar, "_lua_engine_function_hook called with NULL ar");
-
+    // Start timing for hook execution
+    profile_start(PROFILE_LUA_ENGINE_HOOK_SETUP);
+    
     lua_getfield(L, LUA_REGISTRYINDEX, LUA_HOOK_KEY);
     LuaFunctionHook *hook = (LuaFunctionHook *)lua_touserdata(L, -1);
     lua_pop(L, 1);
@@ -213,74 +233,167 @@ void _lua_engine_function_hook(lua_State *L, lua_Debug *ar) {
     hook->call_count++;
 
     if (hook->instruction_count > hook->max_instruction_count) {
-        log_debug("LUA_ENGINE", "LUA_HOOK_FRQ = %d", LUA_HOOK_FRQ);
-        log_debug("LUA_ENGINE", "call count = %d", hook->call_count);
-        log_debug("LUA_ENGINE", "Instruction Count... current: %zu max: %zu", hook->instruction_count, hook->max_instruction_count);
+        profile_cancel(PROFILE_LUA_ENGINE_HOOK_SETUP);
+        profile_count_add("lua_eng_hook_instruction_limit_exceeded");
         luaL_error(L, "Instruction count limit exceeded");
     }
 
     if (current - hook->start_time > hook->max_execution_time) {
+        profile_cancel(PROFILE_LUA_ENGINE_HOOK_SETUP);
+        profile_count_add("lua_eng_hook_timeout_exceeded");
         luaL_error(L, "Script execution timeout");
+    }
+    
+    // Log hook execution timing (only every 1000 calls to avoid spam)
+    if (hook->call_count % 1000 == 0) {
+        profile_stop(PROFILE_LUA_ENGINE_HOOK_SETUP, "lua_eng_hook_execution");
+        profile_count_add("lua_eng_hook_execution_completed");
+        log_debug("LUA", "Hook execution (call %d): completed", hook->call_count);
     }
 }
 
 bool _lua_engine_instance_get_function(lua_State *L, int instance_ref, const char *func_name) {
-    log_assert("LUA", L, "_lua_engine_instance_get_function called with NULL L");
-    log_assert("LUA", func_name, "_lua_engine_instance_get_function called with NULL func_name");
-
+    // Start timing for function lookup
+    profile_start(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+    
+    log_debug("LUA", "=== Function lookup debug for '%s' ===", func_name);
+    log_debug("LUA", "Stack size before lookup: %d", lua_gettop(L));
+    
     // Push the instance table onto the stack
     lua_rawgeti(L, LUA_REGISTRYINDEX, instance_ref);
+    log_debug("LUA", "Stack size after pushing instance: %d", lua_gettop(L));
+    log_debug("LUA", "Instance type: %s", lua_typename(L, lua_type(L, -1)));
 
     if (!lua_istable(L, -1)) {
+        log_debug("LUA", "Instance is not a table (type: %s)", lua_typename(L, lua_type(L, -1)));
         lua_pop(L, 1);
+        profile_cancel(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+        profile_count_add("lua_eng_inst_get_func_not_table");
         return false;
     }
 
     // Try to get the function from the instance table
+    log_debug("LUA", "Looking for function '%s' in instance table", func_name);
     lua_getfield(L, -1, func_name);
+    log_debug("LUA", "Stack size after lua_getfield: %d", lua_gettop(L));
+    log_debug("LUA", "Found value type: %s", lua_typename(L, lua_type(L, -1)));
 
     if (lua_isfunction(L, -1)) {
-        lua_remove(L, -2); // remove instance, leave function
-        // Stack: [function]
+        log_debug("LUA", "Found function directly in instance table");
+        log_debug("LUA", "Function value type: %s", lua_typename(L, lua_type(L, -1)));
+        
+        // The stack is [instance][function]
+        // We want to keep [function] and remove [instance]
+        lua_remove(L, -2); // Remove instance table, leaving function on top
+        
+        // Verify we have the function on top
+        log_debug("LUA", "After removing instance, stack size: %d", lua_gettop(L));
+        log_debug("LUA", "Top of stack type: %s", lua_typename(L, lua_type(L, -1)));
+        
+        // Log successful direct lookup timing
+        profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_inst_get_func_direct");
+        profile_count_add("lua_eng_inst_get_func_direct_success");
         return true;
     }
 
     // Not found in instance, try metatable's __index
-    lua_pop(L, 1); // pop nil
-
-    if (!lua_getmetatable(L, -1)) { // push metatable
-        lua_pop(L, 1); // pop instance table
-        return false;
+    log_debug("LUA", "Function '%s' not found directly in instance (found type: %s), trying metatable", func_name, lua_typename(L, lua_type(L, -1)));
+    
+    // Log the actual value found for debugging
+    if (lua_isstring(L, -1)) {
+        log_debug("LUA", "Found string value: %s", lua_tostring(L, -1));
+    } else if (lua_isnumber(L, -1)) {
+        log_debug("LUA", "Found number value: %g", lua_tonumber(L, -1));
+    } else if (lua_istable(L, -1)) {
+        log_debug("LUA", "Found table value");
+    } else if (lua_isboolean(L, -1)) {
+        log_debug("LUA", "Found boolean value: %s", lua_toboolean(L, -1) ? "true" : "false");
+    } else if (lua_isnil(L, -1)) {
+        log_debug("LUA", "Found nil value");
+    } else {
+        log_debug("LUA", "Found other value type: %s", lua_typename(L, lua_type(L, -1)));
     }
-
-    lua_getfield(L, -1, "__index"); // push __index
-
-    if (!lua_istable(L, -1)) {
-        lua_pop(L, 2); // pop __index, metatable
-        lua_pop(L, 1); // pop instance table
-        return false;
+    
+    // Pop the value we found
+    lua_pop(L, 1);
+    
+    // Try to get the metatable
+    if (lua_getmetatable(L, -1)) {
+        log_debug("LUA", "Instance has metatable, checking __index");
+        
+        // Check if metatable has __index
+        lua_getfield(L, -1, "__index");
+        if (lua_isfunction(L, -1)) {
+            log_debug("LUA", "Metatable has __index function");
+            
+            // Call the __index function with instance and function name
+            lua_pushvalue(L, -3); // Push instance table
+            lua_pushstring(L, func_name); // Push function name
+            
+            if (lua_pcall(L, 2, 1, 0) == LUA_OK) {
+                if (lua_isfunction(L, -1)) {
+                    log_debug("LUA", "Found function via metatable __index");
+                    
+                    // Clean up: remove metatable and instance, keep function
+                    lua_remove(L, -3); // Remove metatable
+                    lua_remove(L, -2); // Remove instance
+                    
+                    profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_inst_get_func_metatable");
+                    profile_count_add("lua_eng_inst_get_func_metatable_success");
+                    return true;
+                } else {
+                    log_debug("LUA", "__index returned non-function: %s", lua_typename(L, lua_type(L, -1)));
+                    lua_pop(L, 1); // Pop the result
+                }
+            } else {
+                log_debug("LUA", "Error calling __index: %s", lua_tostring(L, -1));
+                lua_pop(L, 1); // Pop error message
+            }
+        } else if (lua_istable(L, -1)) {
+            log_debug("LUA", "Metatable has __index table");
+            
+            // Try to get the function from the __index table
+            lua_pushstring(L, func_name);
+            lua_gettable(L, -2);
+            
+            if (lua_isfunction(L, -1)) {
+                log_debug("LUA", "Found function via metatable __index table");
+                
+                // Clean up: remove metatable and instance, keep function
+                lua_remove(L, -3); // Remove metatable
+                lua_remove(L, -2); // Remove instance
+                
+                profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_inst_get_func_metatable_table");
+                profile_count_add("lua_eng_inst_get_func_metatable_table_success");
+                return true;
+            } else {
+                log_debug("LUA", "__index table lookup failed, got: %s", lua_typename(L, lua_type(L, -1)));
+                lua_pop(L, 1); // Pop the result
+            }
+        } else {
+            log_debug("LUA", "Metatable __index is not function or table: %s", lua_typename(L, lua_type(L, -1)));
+        }
+        
+        // Clean up metatable
+        lua_pop(L, 1);
+    } else {
+        log_debug("LUA", "Instance has no metatable");
     }
-
-    lua_getfield(L, -1, func_name); // push method from __index
-
-    if (!lua_isfunction(L, -1)) {
-        lua_pop(L, 3); // pop nil, __index, metatable
-        lua_pop(L, 1); // pop instance table
-        return false;
-    }
-
-    // Success: Stack is [instance][metatable][__index][function]
-    // Remove __index, metatable, and instance, leave [function]
-    lua_remove(L, -2); // remove __index
-    lua_remove(L, -2); // remove metatable
-    lua_remove(L, -2); // remove instance
-
-    // Stack: [function]
-    return true;
+    
+    // Clean up instance table
+    lua_pop(L, 1);
+    
+    log_debug("LUA", "Function '%s' not found in instance or metatable", func_name);
+    profile_cancel(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+    profile_count_add("lua_eng_inst_get_func_not_found");
+    return false;
 }
 
 void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
     log_assert("LUA", L, "_lua_engine_push_luavalue called with NULL L");
+
+    // PROFILING: Start timing for this argument
+    uint64_t arg_start = time_now();
 
     if (!arg) {
         lua_pushnil(L);
@@ -328,6 +441,12 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
         default:
             lua_pushnil(L);
             break;
+    }
+
+    // PROFILING: Log timing for complex types
+    uint64_t arg_time = time_now() - arg_start;
+    if (arg->type == LUA_VAL_TABLE || arg->type == LUA_VAL_REF) {
+        log_debug("LUA", "Complex arg conversion (type %d): %.3fμs", arg->type, (double)arg_time / 1000.0);
     }
 }
 

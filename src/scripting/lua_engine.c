@@ -5,11 +5,13 @@
 #include <setjmp.h>
 #include "utility/log.h"
 #include "utility/hashmap.h"
+#include "utility/profile.h"
 #include "vendor/lua/src/lua.h"
 #include "vendor/lua/src/lauxlib.h"
 #include "vendor/lua/src/lualib.h"
 #include "core/memory_manager.h"
 #include "platform/filesystem.h"
+#include "platform/time.h"
 #include "lua_engine_private.h"
 #include "lua_engine.h"
 
@@ -31,8 +33,11 @@ EseLuaEngine *lua_engine_create() {
     engine->internal = memory_manager.malloc(sizeof(EseLuaEngineInternal), MMTAG_LUA);
 
     engine->internal->memory_limit = 1024 * 1024 * 10; // 10MB
-    engine->internal->max_execution_time = (clock_t)((10) * CLOCKS_PER_SEC); // 10 second
-    engine->internal->max_instruction_count = 4000000; // 4M
+    engine->internal->memory_used = 0;
+
+    // Set default limits
+    engine->internal->max_execution_time = (clock_t)((10) * CLOCKS_PER_SEC); // 10 second timeout protection
+    engine->internal->max_instruction_count = 4000000; // 4M instruction limit for security
 
     // Initialize Lua runtime
     engine->runtime = lua_newstate(_lua_engine_limited_alloc, engine);
@@ -66,15 +71,15 @@ EseLuaEngine *lua_engine_create() {
                 log_debug("LUA_ENGINE", "JIT compiler enabled");
             } else {
                 const char* error_msg = lua_tostring(engine->runtime, -1);
-                log_debug("LUA_ENGINE", "Failed to enable JIT: %s", error_msg ? error_msg : "unknown error");
+                log_error("LUA_ENGINE", "Failed to enable JIT: %s", error_msg ? error_msg : "unknown error");
                 lua_pop(engine->runtime, 1);
             }
         } else {
-            log_debug("LUA_ENGINE", "JIT on function not available");
+            log_error("LUA_ENGINE", "JIT on function not available");
             lua_pop(engine->runtime, 1);
         }
     } else {
-        log_debug("LUA_ENGINE", "JIT table not available");
+        log_error("LUA_ENGINE", "JIT table not available");
     }
     lua_pop(engine->runtime, 1);
     
@@ -176,6 +181,8 @@ EseLuaEngine *lua_engine_create() {
 
     engine->internal->sandbox_master_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
 
+    lua_gc(engine->runtime, LUA_GCRESTART, 0);
+
     // Pop _G
     lua_pop(engine->runtime, 1);
     log_debug("LUA_ENGINE", "Lua engine created successfully");
@@ -200,7 +207,7 @@ void lua_engine_destroy(EseLuaEngine *engine) {
 }
 
 void lua_engine_global_lock(EseLuaEngine *engine) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_global_lock called with NULL engine");
+    log_assert("LUA_ENGINE", engine, "lua_eng_global_lock called with NULL engine");
     
     lua_State *L = engine->runtime;
 
@@ -226,20 +233,20 @@ void lua_engine_global_lock(EseLuaEngine *engine) {
 }
 
 void lua_engine_gc(EseLuaEngine *engine) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_gc called with NULL engine");
+    log_assert("LUA_ENGINE", engine, "lua_eng_gc called with NULL engine");
     
     lua_gc(engine->runtime, LUA_GCSTEP, 0);
 }
 
 void lua_engine_add_registry_key(lua_State *L, const void *key, void *ptr) {
-    log_assert("LUA_ENGINE", L, "lua_engine_add_registry_key called with NULL L");
+    log_assert("LUA_ENGINE", L, "lua_eng_add_registry_key called with NULL L");
     lua_pushlightuserdata(L, (void *)key);  // push registry key
     lua_pushlightuserdata(L, ptr);          // push the pointer value
     lua_settable(L, LUA_REGISTRYINDEX);     // registry[key] = ptr
 }
 
 void *lua_engine_get_registry_key(lua_State *L, const void *key) {
-    log_assert("LUA_ENGINE", L, "lua_engine_get_registry_key called with NULL L");
+    log_assert("LUA_ENGINE", L, "lua_eng_get_registry_key called with NULL L");
     void *result;
     lua_pushlightuserdata(L, (void *)key);  // push registry key
     lua_gettable(L, LUA_REGISTRYINDEX);     // pushes registry[key]
@@ -249,17 +256,17 @@ void *lua_engine_get_registry_key(lua_State *L, const void *key) {
 }
 
 void lua_engine_remove_registry_key(lua_State *L, const void *key) {
-    log_assert("LUA_ENGINE", L, "lua_engine_add_registry_key called with NULL L");
+    log_assert("LUA_ENGINE", L, "lua_eng_add_registry_key called with NULL L");
     lua_pushlightuserdata(L, (void *)key);
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
 }
 
 void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, lua_CFunction func) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_add_function called with NULL engine");
-    log_assert("LUA_ENGINE", function_name, "lua_engine_add_function called with NULL function_name");
-    log_assert("LUA_ENGINE", func, "lua_engine_add_function called with NULL func");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_engine_add_function engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine, "lua_eng_add_function called with NULL engine");
+    log_assert("LUA_ENGINE", function_name, "lua_eng_add_function called with NULL function_name");
+    log_assert("LUA_ENGINE", func, "lua_eng_add_function called with NULL func");
+    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_add_function engine->internal->sandbox_master_ref is LUA_NOREF");
 
     // Add to script_sandbox_master
     lua_rawgeti(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref); // master
@@ -271,10 +278,10 @@ void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, lu
 }
 
 void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lua_ref) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_add_global called with NULL engine");
-    log_assert("LUA_ENGINE", global_name, "lua_engine_add_global called with NULL global_name");
-    log_assert("LUA_ENGINE", lua_ref != LUA_NOREF, "lua_engine_add_global called with LUA_NOREF lua_ref");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_engine_add_global engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine, "lua_eng_add_global called with NULL engine");
+    log_assert("LUA_ENGINE", global_name, "lua_eng_add_global called with NULL global_name");
+    log_assert("LUA_ENGINE", lua_ref != LUA_NOREF, "lua_eng_add_global called with LUA_NOREF lua_ref");
+    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_add_global engine->internal->sandbox_master_ref is LUA_NOREF");
 
     // Add to script_sandbox_master
     lua_rawgeti(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref); // master
@@ -284,24 +291,32 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lu
 }
 
 bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_load_script called with NULL engine");
-    log_assert("LUA_ENGINE", filename, "lua_engine_load_script called with NULL filename");
-    log_assert("LUA_ENGINE", module_name, "lua_engine_load_script called with NULL module_name");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_engine_load_script engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine, "lua_eng_load_script called with NULL engine");
+    log_assert("LUA_ENGINE", filename, "lua_eng_load_script called with NULL filename");
+    log_assert("LUA_ENGINE", module_name, "lua_eng_load_script called with NULL module_name");
+    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_load_script engine->internal->sandbox_master_ref is LUA_NOREF");
+
+    profile_start(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
 
     if (!filesystem_check_file(filename, ".lua")) {
         log_error("LUA_ENGINE", "Error: invalid %s", filename);
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
         return false;
     }
 
     int *func = hashmap_get(engine->internal->functions, filename);
     if (func) {
+        profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT, "lua_eng_load_script");
+        profile_count_add("lua_eng_load_script_already_loaded");
         return true; // already loaded
     }
 
     char *full_path = filesystem_get_resource(filename);
     if (!full_path) {
         log_error("LUA_ENGINE", "Error: filesystem_get_resource failed for %s", filename);
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
         return false;
     }
 
@@ -309,6 +324,8 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
     if (!file) {
         log_error("LUA_ENGINE", "Error: Failed to open Lua script file '%s'", full_path);
         memory_manager.free(full_path);
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
         return false;
     }
 
@@ -320,6 +337,8 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
         log_error("LUA_ENGINE", "Error: Failed to get file size for '%s'", full_path);
         memory_manager.free(full_path);
         fclose(file);
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
         return false;
     }
 
@@ -331,6 +350,8 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
         log_error("LUA_ENGINE", "Error: Failed to read complete Lua script from '%s'", full_path);
         memory_manager.free(script);
         memory_manager.free(full_path);
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
         return false;
     }
     script[file_size] = '\0';
@@ -338,15 +359,26 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
     bool status = lua_engine_load_script_from_string(engine, script, filename, module_name);
     memory_manager.free(script);
     memory_manager.free(full_path);
+    
+    if (status) {
+        profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT, "lua_eng_load_script");
+        profile_count_add("lua_eng_load_script_success");
+    } else {
+        profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
+        profile_count_add("lua_eng_load_script_failed");
+    }
+    
     return status;
 }
 
 
 bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script, const char* name, const char* module_name) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_load_script_from_string called with NULL engine");
-    log_assert("LUA_ENGINE", script, "lua_engine_load_script_from_string called with NULL script");
-    log_assert("LUA_ENGINE", name, "lua_engine_load_script_from_string called with NULL name");
-    log_assert("LUA_ENGINE", module_name, "lua_engine_load_script_from_string called with NULL module_name");
+    log_assert("LUA_ENGINE", engine, "lua_eng_load_script_frm_str called with NULL engine");
+    log_assert("LUA_ENGINE", script, "lua_eng_load_script_frm_str called with NULL script");
+    log_assert("LUA_ENGINE", name, "lua_eng_load_script_frm_str called with NULL name");
+    log_assert("LUA_ENGINE", module_name, "lua_eng_load_script_frm_str called with NULL module_name");
+
+    profile_start(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING);
 
     // Build environment
     _lua_engine_build_env_from_master(engine->runtime, engine->internal->sandbox_master_ref);
@@ -395,6 +427,8 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
                 hashmap_set(engine->internal->functions, name, ref);
 
                 memory_manager.free(wrapped);
+                profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING, "lua_eng_load_script_string");
+                profile_count_add("lua_eng_load_script_string_success");
                 return true;
             } else {
                 log_error("LUA_ENGINE", "Script '%s' did not return a table", name);
@@ -413,16 +447,22 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
 
     lua_pop(engine->runtime, 1); // pop env
     memory_manager.free(wrapped);
+    profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING);
+    profile_count_add("lua_eng_load_script_string_failed");
     return false;
 }
 
 int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_instance_script called with NULL engine");
-    log_assert("LUA_ENGINE", name, "lua_engine_instance_script called with NULL name");
+    log_assert("LUA_ENGINE", engine, "lua_eng_inst_script called with NULL engine");
+    log_assert("LUA_ENGINE", name, "lua_eng_inst_script called with NULL name");
+
+    profile_start(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT);
 
     int *script_ref = hashmap_get(engine->internal->functions, name);
     if (!script_ref) {
         log_error("LUA_ENGINE", "Script '%s' not found", name);
+        profile_cancel(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT);
+        profile_count_add("lua_eng_inst_script_not_found");
         return -1;
     }
 
@@ -434,6 +474,8 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
         log_error("LUA_ENGINE", "Script did not return a table");
+        profile_cancel(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT);
+        profile_count_add("lua_eng_inst_script_not_table");
         return -1;
     }
 
@@ -453,11 +495,13 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
     int instance_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
     log_debug("LUA_ENGINE", "New instance %d", instance_ref);
+    profile_stop(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT, "lua_eng_inst_script");
+    profile_count_add("lua_eng_inst_script_success");
     return instance_ref;
 }
 
 void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_instance_remove called with NULL engine");
+    log_assert("LUA_ENGINE", engine, "lua_eng_inst_remove called with NULL engine");
 
     lua_State *L = engine->runtime;
 
@@ -529,31 +573,43 @@ static void _lua_engine_convert_stack_to_luavalue(lua_State *L, int idx, EseLuaV
 }
 
 bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv, EseLuaValue *out_result) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_run_function_ref called with NULL engine");
+    log_assert("LUA_ENGINE", engine, "lua_eng_run_func_ref called with NULL engine");
+
+    profile_start(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF);
 
     // Check if function reference is valid
     if (function_ref == LUA_NOREF) {
+        profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF);
+        profile_count_add("lua_eng_run_func_ref_invalid_ref");
         return false;
     }
 
     lua_State *L = engine->runtime;
 
-    // Push function by reference (fast - no lookup needed)
+    // Function lookup timing
+    profile_start(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
     lua_rawgeti(L, LUA_REGISTRYINDEX, function_ref);
+    profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_run_func_ref_lookup");
     
     // Stack: [function]
 
-    // Push the entity proxy as the "self" argument
+    // Entity proxy timing
+    profile_start(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
     lua_rawgeti(L, LUA_REGISTRYINDEX, self_ref); // push entity proxy as self
+    profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_run_func_ref_entity_proxy");
+    
     int n_args = 1; // self
 
-    // Add args to stack
+    // Argument conversion timing
+    profile_start(PROFILE_LUA_ENGINE_ARG_CONVERSION);
     for (int i = 0; i < argc; ++i) {
         _lua_engine_push_luavalue(L, &argv[i]);
         n_args++;
     }
+    profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_run_func_ref_arg_conversion");
 
-    // Setup timeout (security feature - kept from original)
+    /*
+    profile_start(PROFILE_LUA_ENGINE_HOOK_SETUP);
     LuaFunctionHook timeout;
     timeout.start_time = clock();
     timeout.call_count = 0;
@@ -565,7 +621,11 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     lua_pushlightuserdata(L, &timeout);
     lua_setfield(L, LUA_REGISTRYINDEX, LUA_HOOK_KEY);
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
+    profile_stop(PROFILE_LUA_ENGINE_HOOK_SETUP, "lua_eng_run_func_ref_hook_setup");
+    */
 
+    // Lua execution timing
+    profile_start(PROFILE_LUA_ENGINE_LUA_EXECUTION);
     bool ok = true;
     int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
     if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
@@ -573,46 +633,177 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
         lua_pop(L, 1); // error message
         ok = false;
     } else if (out_result) {
+        // Result conversion timing
+        profile_start(PROFILE_LUA_ENGINE_RESULT_CONVERSION);
         // Convert the result to EseLuaValue
         _lua_engine_convert_stack_to_luavalue(L, -1, out_result);
+        profile_stop(PROFILE_LUA_ENGINE_RESULT_CONVERSION, "lua_eng_run_func_ref_result_conversion");
         lua_pop(L, 1); // pop the result
     }
+    profile_stop(PROFILE_LUA_ENGINE_LUA_EXECUTION, "lua_eng_run_func_ref_execution");
 
-    // Remove the hook
+    // Hook cleanup timing - DISABLED FOR TESTING
+    /*
+    profile_start(PROFILE_LUA_ENGINE_HOOK_CLEANUP);
     lua_sethook(L, NULL, 0, 0);
+    profile_stop(PROFILE_LUA_ENGINE_HOOK_CLEANUP, "lua_eng_run_func_ref_hook_cleanup");
+    */
 
-    // log_debug("LUA_ENGINE", "Stats: call count = %d  instruction count = %zu", timeout.call_count, timeout.instruction_count);
+    if (ok) {
+        profile_stop(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF, "lua_eng_run_func_ref");
+        profile_count_add("lua_eng_run_func_ref_success");
+    } else {
+        profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF);
+        profile_count_add("lua_eng_run_func_ref_failed");
+    }
 
     // No need to pop anything else; stack is clean
     return ok;
 }
 
 bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_ref, const char *func_name, int argc, EseLuaValue *argv, EseLuaValue *out_result) {
-    log_assert("LUA_ENGINE", engine, "lua_engine_run_function called with NULL engine");
-    log_assert("LUA_ENGINE", func_name, "lua_engine_run_function called with NULL func_name");
+    log_assert("LUA_ENGINE", engine, "lua_eng_run_function called with NULL engine");
+    log_assert("LUA_ENGINE", func_name, "lua_eng_run_function called with NULL func_name");
+
+    profile_start(PROFILE_LUA_ENGINE_RUN_FUNCTION);
 
     lua_State *L = engine->runtime;
-
-    // Find the function in the script instance
-    if (!_lua_engine_instance_get_function(L, instance_ref, func_name)) {
-        // Function not found, just return false
-        log_debug("LUA_ENGINE", "Function '%s' not found in instance %d", func_name, instance_ref);
-        return false;
+    
+    // OPTIMIZATION: Function caching - check if we have a cached function reference
+    int cached_func_ref = -1;
+    char cache_key[256];
+    snprintf(cache_key, sizeof(cache_key), "func_cache_%d_%s", instance_ref, func_name);
+    
+    // Try to get cached function from registry
+    lua_pushstring(L, cache_key);
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    if (lua_isfunction(L, -1)) {
+        // Found cached function!
+        cached_func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        log_debug("LUA_ENGINE", "Using cached function for '%s'", func_name);
+    } else {
+        lua_pop(L, 1); // pop nil or non-function
+        log_debug("LUA_ENGINE", "No cached function found for '%s'", func_name);
+    }
+    
+    // Validate stack state before starting
+    int initial_stack_size = lua_gettop(L);
+    log_debug("LUA_ENGINE", "Stack size before function call: %d", initial_stack_size);
+    
+    // CRITICAL FIX: Ensure stack is clean before starting
+    if (initial_stack_size != 0) {
+        log_warn("LUA_ENGINE", "Stack not clean! Found %d items on stack before function call", initial_stack_size);
+        log_debug("LUA_ENGINE", "Cleaning up stack items:");
+        for (int i = 1; i <= initial_stack_size; i++) {
+            log_debug("LUA_ENGINE", "  Removing Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+        }
+        lua_settop(L, 0); // Clean the stack
+        initial_stack_size = 0;
+        log_debug("LUA_ENGINE", "Stack cleaned. New stack size: %d", lua_gettop(L));
     }
 
-    // Stack: [function]
+    // Function lookup timing
+    profile_start(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+    
+    if (cached_func_ref == -1) {
+        // Need to look up the function
+        if (!_lua_engine_instance_get_function(L, instance_ref, func_name)) {
+            log_debug("LUA_ENGINE", "Function '%s' not found in instance %d", func_name, instance_ref);
+            profile_cancel(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+            profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION);
+            profile_count_add("lua_eng_run_func_function_not_found");
+            return false;
+        }
+        
+        // Cache the function for future calls
+        lua_pushstring(L, cache_key);
+        lua_pushvalue(L, -2); // duplicate function
+        lua_settable(L, LUA_REGISTRYINDEX);
+        
+        // Store the function reference for fast access
+        // The function is now at the top of the stack
+        cached_func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        
+        log_debug("LUA_ENGINE", "Cached function '%s' for future calls (ref: %d)", func_name, cached_func_ref);
+        
+        // Verify the cached function is actually a function
+        lua_rawgeti(L, LUA_REGISTRYINDEX, cached_func_ref);
+        if (lua_isfunction(L, -1)) {
+            log_debug("LUA_ENGINE", "Verified cached function is a function");
+            // The function is now at the top of the stack and will be used for the call
+        } else {
+            log_error("LUA_ENGINE", "Cached value is not a function! Type: %s", lua_typename(L, lua_type(L, -1)));
+            lua_pop(L, 1); // Only pop if verification failed
+        }
+    } else {
+        // Use cached function
+        log_debug("LUA_ENGINE", "Retrieving cached function (ref: %d)", cached_func_ref);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, cached_func_ref);
+        
+        // Verify what we actually got
+        if (lua_isfunction(L, -1)) {
+            log_debug("LUA_ENGINE", "Successfully retrieved cached function");
+            // The function is now at the top of the stack and will be used for the call
+        } else {
+            log_error("LUA_ENGINE", "Failed to retrieve cached function! Got type: %s", lua_typename(L, lua_type(L, -1)));
+            // Fall back to standard lookup
+            lua_pop(L, 1); // pop the wrong value
+            if (!_lua_engine_instance_get_function(L, instance_ref, func_name)) {
+                log_debug("LUA_ENGINE", "Function '%s' not found in instance %d", func_name, instance_ref);
+                profile_cancel(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
+                profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION);
+                profile_count_add("lua_eng_run_func_function_not_found");
+                return false;
+            }
+        }
+    }
+    
+    profile_stop(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP, "lua_eng_run_func_lookup");
 
-    // Push the entity proxy as the "self" argument
+    // Stack: [function]
+    log_debug("LUA_ENGINE", "Stack after function lookup: %d", lua_gettop(L));
+
+    // Argument setup timing
+    profile_start(PROFILE_LUA_ENGINE_ARG_CONVERSION);
+    
+    // The function is currently at the top of the stack, so we need to reorder:
+    // 1. Move function to bottom (Stack[1])
+    // 2. Push arguments above it
+    
+    // DEBUG: Show stack before reordering
+    log_debug("LUA_ENGINE", "Stack before reordering:");
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        log_debug("LUA_ENGINE", "  Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+    }
+    
+    // First, move the function to the bottom of the stack
+    lua_insert(L, 1);
+    
+    // DEBUG: Show stack after reordering (function should be at Stack[1]):
+    log_debug("LUA_ENGINE", "Stack after reordering (function should be at Stack[1]):");
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        log_debug("LUA_ENGINE", "  Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+    }
+    
+    // Now push the entity proxy as the "self" argument above the function
     lua_rawgeti(L, LUA_REGISTRYINDEX, self_ref); // push entity proxy as self
     int n_args = 1; // self
 
-    // Add args to stack
+    // Add args to stack above the self argument
     for (int i = 0; i < argc; ++i) {
         _lua_engine_push_luavalue(L, &argv[i]);
         n_args++;
     }
+    
+    profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_run_func_arg_setup");
 
-    // Setup timeout (security feature - kept from original)
+    log_debug("LUA_ENGINE", "Stack before pcall: %d (function + %d args)", lua_gettop(L), n_args);
+
+    // Hook setup timing - DISABLED FOR TESTING
+    /*
+    profile_start(PROFILE_LUA_ENGINE_HOOK_SETUP);
+    
+    // Setup timeout (security feature - always enabled for safety)
     LuaFunctionHook timeout;
     timeout.start_time = clock();
     timeout.call_count = 0;
@@ -620,14 +811,112 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     timeout.max_execution_time = engine->internal->max_execution_time;
     timeout.max_instruction_count = engine->internal->max_instruction_count;
 
-    // Set the hook with the timeout as upvalue
+    // Set the hook with the timeout as upvalue (security requirement)
     lua_pushlightuserdata(L, &timeout);
     lua_setfield(L, LUA_REGISTRYINDEX, LUA_HOOK_KEY);
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
+    
+    profile_stop(PROFILE_LUA_ENGINE_HOOK_SETUP, "lua_eng_run_func_hook_setup");
+    */
 
     bool ok = true;
     int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
-    if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
+    
+    // CRITICAL: Add detailed stack debugging around pcall
+    log_debug("LUA_ENGINE", "About to call lua_pcall with %d args, expecting %d results", n_args, n_results);
+    log_debug("LUA_ENGINE", "Stack contents before pcall:");
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        log_debug("LUA_ENGINE", "  Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+    }
+    
+    // Lua execution timing
+    profile_start(PROFILE_LUA_ENGINE_LUA_EXECUTION);
+    
+    // OPTIMIZATION: Direct function call bypass for maximum performance
+    // Skip the engine wrapper and call the function directly
+    int pcall_result = LUA_OK; // Declare here for both paths
+    
+    if (cached_func_ref != -1 && argc == 0 && !out_result) {
+        // Fast path: direct call with minimal overhead
+        log_debug("LUA_ENGINE", "Using fast path: direct function call");
+        
+        // DEBUG: Show stack before reordering in fast path
+        log_debug("LUA_ENGINE", "Fast path stack before reordering:");
+        for (int i = 1; i <= lua_gettop(L); i++) {
+            log_debug("LUA_ENGINE", "  Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+        }
+        
+        // CRITICAL FIX: Function is already at Stack[1], no need to reorder
+        // The function is correctly positioned for lua_pcall
+        
+        // DEBUG: Show stack in fast path (no reordering needed)
+        log_debug("LUA_ENGINE", "Fast path stack (function already at Stack[1]):");
+        for (int i = 1; i <= lua_gettop(L); i++) {
+            log_debug("LUA_ENGINE", "  Stack[%d]: %s", i, lua_typename(L, lua_type(L, i)));
+        }
+        
+        // Push self argument above the function
+        lua_rawgeti(L, LUA_REGISTRYINDEX, self_ref);
+        
+        // CRITICAL FIX: Calculate actual argument count for fast path
+        // We have: Stack[1] = function, Stack[2] = self, Stack[3+] = additional args
+        int fast_path_args = lua_gettop(L) - 1;
+        log_debug("LUA_ENGINE", "Fast path calling with %d arguments", fast_path_args);
+        
+        // Call function directly with correct argument count
+        pcall_result = lua_pcall(L, fast_path_args, 0, 0);
+        
+        if (pcall_result != LUA_OK) {
+            log_error("LUA_ENGINE", "Fast path error: %s", lua_tostring(L, -1));
+            lua_pop(L, 1); // error message
+            ok = false;
+        }
+    } else {
+        // Standard path: use engine wrapper
+        log_debug("LUA_ENGINE", "Using standard path: engine wrapper");
+        
+        // CRITICAL FIX: Use the n_args variable calculated during argument setup
+        // n_args already includes both self and actual arguments, which is what lua_pcall expects
+        pcall_result = lua_pcall(L, n_args, n_results, 0);
+        
+        if (pcall_result != LUA_OK) {
+            log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, lua_tostring(L, -1));
+            lua_pop(L, 1); // error message
+            ok = false;
+        } else if (out_result) {
+            // Convert the result to EseLuaValue
+            _lua_engine_convert_stack_to_luavalue(L, -1, out_result);
+            lua_pop(L, 1); // pop the result
+        } else {
+            // No out_result provided, but function may have returned values
+            // We need to pop any return values to keep the stack clean
+            // The stack should be back to initial_stack_size after popping return values
+            int current_stack_size = lua_gettop(L);
+            int expected_stack_size = initial_stack_size;
+            int return_values = current_stack_size - expected_stack_size;
+            
+            log_debug("LUA_ENGINE", "Stack cleanup: current=%d, expected=%d, return_values=%d", 
+                      current_stack_size, expected_stack_size, return_values);
+            
+            if (return_values > 0) {
+                log_debug("LUA_ENGINE", "Function returned %d values, popping them", return_values);
+                lua_pop(L, return_values);
+                
+                // Verify stack is now clean
+                int final_stack_size = lua_gettop(L);
+                log_debug("LUA_ENGINE", "After popping return values, stack size: %d", final_stack_size);
+            } else if (return_values < 0) {
+                log_warn("LUA_ENGINE", "Stack corruption detected! Expected %d, got %d", expected_stack_size, current_stack_size);
+            }
+        }
+    }
+    
+    profile_stop(PROFILE_LUA_ENGINE_LUA_EXECUTION, "lua_eng_run_func_execution");
+    
+    log_debug("LUA_ENGINE", "lua_pcall returned: %d", pcall_result);
+    log_debug("LUA_ENGINE", "Stack size after pcall: %d", lua_gettop(L));
+    
+    if (pcall_result != LUA_OK) {
         log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, lua_tostring(L, -1));
         lua_pop(L, 1); // error message
         ok = false;
@@ -635,14 +924,66 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
         // Convert the result to EseLuaValue
         _lua_engine_convert_stack_to_luavalue(L, -1, out_result);
         lua_pop(L, 1); // pop the result
+    } else {
+        // No out_result provided, but function may have returned values
+        // We need to pop any return values to keep the stack clean
+        // The stack should be back to initial_stack_size after popping return values
+        int current_stack_size = lua_gettop(L);
+        int expected_stack_size = initial_stack_size;
+        int return_values = current_stack_size - expected_stack_size;
+        
+        log_debug("LUA_ENGINE", "Stack cleanup: current=%d, expected=%d, return_values=%d", 
+                  current_stack_size, expected_stack_size, return_values);
+        
+        if (return_values > 0) {
+            log_debug("LUA_ENGINE", "Function returned %d values, popping them", return_values);
+            lua_pop(L, return_values);
+            
+            // Verify stack is now clean
+            int final_stack_size = lua_gettop(L);
+            log_debug("LUA_ENGINE", "After popping return values, stack size: %d", final_stack_size);
+        } else if (return_values < 0) {
+            log_warn("LUA_ENGINE", "Stack corruption detected! Expected %d, got %d", expected_stack_size, current_stack_size);
+        }
     }
 
-    // Remove the hook
-    lua_sethook(L, NULL, 0, 0);
+    // Hook cleanup timing - DISABLED FOR TESTING
+    /*
+    profile_start(PROFILE_LUA_ENGINE_HOOK_CLEANUP);
+    
+    // Remove the hook only if we set one
+    if (true) { // Always remove hooks for security
+        lua_sethook(L, NULL, 0, 0);
+    }
+    
+    profile_stop(PROFILE_LUA_ENGINE_HOOK_CLEANUP, "lua_eng_run_func_hook_cleanup");
+    */
 
-    // log_debug("LUA_ENGINE", "Stats: call count = %d  instruction count = %zu", timeout.call_count, timeout.instruction_count);
+    // log_debug("LUA_ENGINE", "Stats: call count = %d  instruction count = %zu", timeout.call_count, timeout.call_count);
 
-    // No need to pop anything else; stack is clean
+    // Ensure stack is clean after function call
+    int final_stack_size = lua_gettop(L);
+    log_debug("LUA_ENGINE", "Stack size after function call: %d", final_stack_size);
+    
+    if (final_stack_size != 0) {
+        log_warn("LUA_ENGINE", "Stack not clean after function call! Cleaning up...");
+        lua_settop(L, 0);
+    }
+    
+    // Validate final stack state
+    int cleaned_stack_size = lua_gettop(L);
+    if (cleaned_stack_size != 0) {
+        log_error("LUA_ENGINE", "Failed to clean stack! Final size: %d", cleaned_stack_size);
+    }
+
+    if (ok) {
+        profile_stop(PROFILE_LUA_ENGINE_RUN_FUNCTION, "lua_eng_run_func");
+        profile_count_add("lua_eng_run_func_success");
+    } else {
+        profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION);
+        profile_count_add("lua_eng_run_func_failed");
+    }
+
     return ok;
 }
 

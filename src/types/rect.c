@@ -92,7 +92,7 @@ static void _rect_notify_watchers(EseRect *rect);
 
 // Core helpers
 static EseRect *_rect_make() {
-    EseRect *rect = (EseRect *)memory_manager.malloc(sizeof(EseRect), MMTAG_GENERAL);
+    EseRect *rect = (EseRect *)memory_manager.malloc(sizeof(EseRect), MMTAG_RECT);
     rect->x = 0.0f;
     rect->y = 0.0f;
     rect->width = 0.0f;
@@ -379,7 +379,7 @@ EseRect *rect_create(EseLuaEngine *engine) {
 EseRect *rect_copy(const EseRect *source) {
     log_assert("RECT", source, "rect_copy called with NULL source");
     
-    EseRect *copy = (EseRect *)memory_manager.malloc(sizeof(EseRect), MMTAG_GENERAL);
+    EseRect *copy = (EseRect *)memory_manager.malloc(sizeof(EseRect), MMTAG_RECT);
     copy->x = source->x;
     copy->y = source->y;
     copy->width = source->width;
@@ -686,8 +686,8 @@ bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *user
     // Initialize watcher arrays if this is the first watcher
     if (rect->watcher_count == 0) {
         rect->watcher_capacity = 4; // Start with capacity for 4 watchers
-        rect->watchers = memory_manager.malloc(sizeof(EseRectWatcherCallback) * rect->watcher_capacity, MMTAG_GENERAL);
-        rect->watcher_userdata = memory_manager.malloc(sizeof(void*) * rect->watcher_capacity, MMTAG_GENERAL);
+        rect->watchers = memory_manager.malloc(sizeof(EseRectWatcherCallback) * rect->watcher_capacity, MMTAG_RECT);
+        rect->watcher_userdata = memory_manager.malloc(sizeof(void*) * rect->watcher_capacity, MMTAG_RECT);
         rect->watcher_count = 0;
     }
     
@@ -697,12 +697,12 @@ bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *user
         EseRectWatcherCallback *new_watchers = memory_manager.realloc(
             rect->watchers, 
             sizeof(EseRectWatcherCallback) * new_capacity, 
-            MMTAG_GENERAL
+            MMTAG_RECT
         );
         void **new_userdata = memory_manager.realloc(
             rect->watcher_userdata, 
             sizeof(void*) * new_capacity, 
-            MMTAG_GENERAL
+            MMTAG_RECT
         );
         
         if (!new_watchers || !new_userdata) return false;

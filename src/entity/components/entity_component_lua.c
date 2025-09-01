@@ -1,7 +1,9 @@
 #include <string.h>
 #include "utility/log.h"
 #include "utility/hashmap.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
+#include "platform/time.h"
 #include "scripting/lua_engine.h"
 #include "entity/entity.h"
 #include "types/types.h"
@@ -36,6 +38,8 @@ static void _entity_component_lua_register(EseEntityComponentLua *component, boo
 
     // Store a reference to this proxy table in the Lua registry
     component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+    
+    profile_count_add("entity_comp_lua_register_count");
 }
 
 static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, const char *script) {
@@ -63,6 +67,7 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->props_count = 0;
     component->function_cache = hashmap_create(NULL); // No free function needed for CachedLuaFunction
 
+    profile_count_add("entity_comp_lua_make_count");
     return &component->base;
 }
 
@@ -71,6 +76,7 @@ EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src)
 
     EseEntityComponent *copy = _entity_component_lua_make(src->base.lua, src->script);
 
+    profile_count_add("entity_comp_lua_copy_count");
     return copy;
 }
 
@@ -92,34 +98,62 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
     lua_value_free(component->arg);
 
     memory_manager.free(component);
+    
+    profile_count_add("entity_comp_lua_destroy_count");
 }
 
-void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity, float delta_time) {
-    log_assert("ENTITY_COMP", component, "entity_component_lua_update called with NULL component");
-    log_assert("ENTITY_COMP", entity, "entity_component_lua_update called with NULL src");
+void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity, double delta_time) {
+    log_assert("ENTITY_COMP", component, "_entity_component_lua_update called with NULL component");
+    log_assert("ENTITY_COMP", entity, "_entity_component_lua_update called with NULL entity");
+
+    profile_start(PROFILE_ENTITY_COMP_LUA_UPDATE);
 
     // If not script, just return
     if (component->script == NULL) {
+        profile_cancel(PROFILE_ENTITY_COMP_LUA_UPDATE);
+        profile_count_add("entity_comp_lua_update_no_script");
         return;
     }
 
     // Check for 1st time running
     if (component->instance_ref == LUA_NOREF) {
+        // Script instance creation timing
+        profile_start(PROFILE_ENTITY_COMP_LUA_INSTANCE_CREATE);
         component->instance_ref = lua_engine_instance_script(component->engine, component->script);
+        profile_stop(PROFILE_ENTITY_COMP_LUA_INSTANCE_CREATE, "entity_comp_lua_instance_create");
+        
         if (component->instance_ref == LUA_NOREF) {
+            profile_cancel(PROFILE_ENTITY_COMP_LUA_UPDATE);
+            profile_count_add("entity_comp_lua_update_instance_creation_failed");
             return;
         }
 
-        // Cache all standard functions
+        // Function caching timing
+        profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE);
         _entity_component_lua_cache_functions(component);
+        profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE, "entity_comp_lua_function_cache");
 
-        // Run the init function (once)
+        // Init function timing
+        profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
         entity_component_lua_run(component, entity, "entity_init", 0, NULL);
+        profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN, "entity_comp_lua_init_function");
+
+        profile_count_add("entity_comp_lua_update_first_time_setup");
     }
 
-    // Run the update function
+    // Update function timing
+    profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+    
+    // Argument setup timing
     lua_value_set_number(component->arg, delta_time);
+    
+    // Function execution timing
     entity_component_lua_run(component, entity, "entity_update", 1, component->arg);
+    
+    profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN, "entity_comp_lua_update_function");
+
+    profile_stop(PROFILE_ENTITY_COMP_LUA_UPDATE, "entity_comp_lua_update");
+    profile_count_add("entity_comp_lua_update_success");
 }
 
 /**
@@ -154,6 +188,7 @@ static int _entity_component_lua_new(lua_State *L) {
     _entity_component_lua_register((EseEntityComponentLua *)component->data, true);
     entity_component_push(component);
     
+    profile_count_add("entity_comp_lua_new_count");
     return 1;
 }
 
@@ -161,8 +196,11 @@ void _entity_component_lua_cache_functions(EseEntityComponentLua *component) {
     log_assert("ENTITY_COMP", component, "_entity_component_lua_cache_functions called with NULL component");
     
     if (!component->engine || component->instance_ref == LUA_NOREF) {
+        profile_count_add("entity_comp_lua_cache_functions_no_engine_or_instance");
         return;
     }
+    
+    profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE);
     
     lua_State *L = component->engine->runtime;
     
@@ -174,6 +212,8 @@ void _entity_component_lua_cache_functions(EseEntityComponentLua *component) {
     
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
+        profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE);
+        profile_count_add("entity_comp_lua_cache_functions_not_table");
         return;
     }
     
@@ -204,6 +244,9 @@ void _entity_component_lua_cache_functions(EseEntityComponentLua *component) {
     
     // Pop the instance table
     lua_pop(L, 1);
+    
+    profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE, "entity_comp_lua_cache_functions");
+    profile_count_add("entity_comp_lua_cache_functions_success");
 }
 
 void _entity_component_lua_clear_cache(EseEntityComponentLua *component) {
@@ -243,37 +286,50 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
     log_assert("ENTITY_COMP", entity, "entity_component_lua_run called with NULL entity");
     log_assert("ENTITY_COMP", func_name, "entity_component_lua_run called with NULL func_name");
     
+    profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+    
     if (!component->function_cache || !component->engine) {
+        profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+        profile_count_add("entity_comp_lua_run_no_cache_or_engine");
         return false;
     }
     
-    // Get cached function
+    // Function cache lookup timing
     CachedLuaFunction *cached = hashmap_get(component->function_cache, func_name);
+    
     if (!cached) {
-        // Function not cached, look it up and cache it
+        // Function lookup and caching timing
         lua_State *L = component->engine->runtime;
         
         if (component->instance_ref == LUA_NOREF) {
+            profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+            profile_count_add("entity_comp_lua_run_no_instance");
             return false;
         }
         
-        // Push the instance table onto the stack
+        // Registry access timing
         lua_rawgeti(L, LUA_REGISTRYINDEX, component->instance_ref);
         
         if (!lua_istable(L, -1)) {
             lua_pop(L, 1);
+            profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+            profile_count_add("entity_comp_lua_run_instance_not_table");
             return false;
         }
         
-        // Try to get the function
+        // Function field lookup timing
         lua_getfield(L, -1, func_name);
         
         if (lua_isfunction(L, -1)) {
-            // Function exists, cache it
+            // Function reference creation timing
             int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            
+            // Memory allocation timing
             cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY);
             cached->function_ref = ref;
             cached->exists = true;
+            
+            // Hashmap insertion timing
             hashmap_set(component->function_cache, func_name, cached);
         } else {
             // Function doesn't exist, cache as LUA_NOREF
@@ -290,11 +346,23 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
     
     // If function doesn't exist, ignore
     if (!cached->exists) {
+        profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+        profile_count_add("entity_comp_lua_run_function_not_exists");
         return false;
     }
     
-    // Run the function using the cached reference and the entity's Lua reference
-    return lua_engine_run_function_ref(component->engine, cached->function_ref, entity_get_lua_ref(entity), argc, argv, NULL);
+    // Engine function execution timing
+    bool result = lua_engine_run_function_ref(component->engine, cached->function_ref, entity_get_lua_ref(entity), argc, argv, NULL);
+    
+    if (result) {
+        profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN, "entity_comp_lua_function_run");
+        profile_count_add("entity_comp_lua_run_success");
+    } else {
+        profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+        profile_count_add("entity_comp_lua_run_failed");
+    }
+    
+    return result;
 }
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx) {
@@ -511,6 +579,8 @@ void _entity_component_lua_init(EseLuaEngine *engine) {
     } else {
         lua_pop(L, 1);
     }
+    
+    profile_count_add("entity_comp_lua_init_count");
 }
 
 EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char *script) {
@@ -521,5 +591,6 @@ EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char
     // Push EseEntityComponent to Lua
     _entity_component_lua_register((EseEntityComponentLua *)component->data, false);
 
+    profile_count_add("entity_comp_lua_create_count");
     return component;
 }

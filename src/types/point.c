@@ -5,6 +5,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/point.h"
 
 // The actual EsePoint struct definition (private to this file)
@@ -49,7 +50,7 @@ static int _point_lua_zero(lua_State *L);
 
 // Core helpers
 static EsePoint *_point_make() {
-    EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
+    EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     point->x = 0.0f;
     point->y = 0.0f;
     point->state = NULL;
@@ -75,7 +76,15 @@ static void _point_notify_watchers(EsePoint *point) {
 
 // Lua metamethods
 static int _point_lua_gc(lua_State *L) {
-    EsePoint *point = point_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, "PointProxyMeta");
+    EsePoint *point = NULL;
+    if (ud) {
+        point = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        point = point_lua_get(L, 1);
+    }
 
     if (point) {
         // If lua_ref == LUA_NOREF, there are no more references to this point, 
@@ -90,40 +99,56 @@ static int _point_lua_gc(lua_State *L) {
 }
 
 static int _point_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_INDEX);
     EsePoint *point = point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!point || !key) return 0;
+    if (!point || !key) {
+        profile_cancel(PROFILE_LUA_POINT_INDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         lua_pushnumber(L, point->x);
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "y") == 0) {
         lua_pushnumber(L, point->y);
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
         return 1;
     }
+    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
     return 0;
 }
 
 static int _point_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_NEWINDEX);
     EsePoint *point = point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!point || !key) return 0;
+    if (!point || !key) {
+        profile_cancel(PROFILE_LUA_POINT_INDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
             return luaL_error(L, "point.x must be a number");
         }
         point->x = (float)lua_tonumber(L, 3);
         _point_notify_watchers(point);
+        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
             return luaL_error(L, "point.y must be a number");
         }
         point->y = (float)lua_tonumber(L, 3);
         _point_notify_watchers(point);
+        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     }
+    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
@@ -144,56 +169,86 @@ static int _point_lua_tostring(lua_State *L) {
 
 // Lua constructors
 static int _point_lua_new(lua_State *L) {
-    float x = 0.0f;
-    float y = 0.0f;
+    profile_start(PROFILE_LUA_POINT_NEW);
 
-    // Check for optional x and y arguments
-    int n_args = lua_gettop(L);
-    if (n_args != 2) {
+    // Validate arguments
+    if (lua_gettop(L) != 2) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
         return luaL_error(L, "new(x, y) takes 2 arguments");
     }
-
-    if (lua_isnumber(L, 1)) {
-        x = (float)lua_tonumber(L, 1);
-    } else {
+    if (!lua_isnumber(L, 1)) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
         return luaL_error(L, "x must be a number");
     }
-    if (lua_isnumber(L, 2)) {
-        y = (float)lua_tonumber(L, 2);
-    } else {
+    if (!lua_isnumber(L, 2)) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
         return luaL_error(L, "y must be a number");
     }
 
-    // Create the point using the standard creation function
+    float x = (float)lua_tonumber(L, 1);
+    float y = (float)lua_tonumber(L, 2);
+
+    // Create the point
     EsePoint *point = _point_make();
     point->x = x;
     point->y = y;
     point->state = L;
-    
-    // Create proxy table for Lua-owned point
+
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, point);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
+    *ud = point;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "PointProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "PointProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
     return 1;
 }
 
 static int _point_lua_zero(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_ZERO);
     // Create the point using the standard creation function
     EsePoint *point = _point_make();  // We'll set the state manually
     point->state = L;
-    
-    // Create proxy table for Lua-owned point
+
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, point);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
+    *ud = point;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "PointProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "PointProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
     return 1;
 }
 
@@ -212,7 +267,7 @@ EsePoint *point_create(EseLuaEngine *engine) {
 EsePoint *point_copy(const EsePoint *source) {
     log_assert("POINT", source, "point_copy called with NULL source");
     
-    EsePoint *copy = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_GENERAL);
+    EsePoint *copy = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     copy->x = source->x;
     copy->y = source->y;
     copy->state = source->state;
@@ -244,19 +299,9 @@ void point_destroy(EsePoint *point) {
         // No Lua references, safe to free immediately
         memory_manager.free(point);
     } else {
-        // Has Lua references, decrement counter
-        if (point->lua_ref_count > 0) {
-            point->lua_ref_count--;
-            
-            if (point->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
-                point->lua_ref = LUA_NOREF;
-            }
-        }
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
+        point_unref(point);
     }
 }
 
@@ -300,11 +345,25 @@ void point_lua_push(EsePoint *point) {
     log_assert("POINT", point, "point_lua_push called with NULL point");
 
     if (point->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
+        // Lua-owned: create a new proxy table
         lua_newtable(point->state);
+
+        // Store pointer in __ptr
         lua_pushlightuserdata(point->state, point);
         lua_setfield(point->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
+        *ud = point;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(point->state, "PointProxyMeta");
+        lua_setmetatable(point->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(point->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable
         luaL_getmetatable(point->state, "PointProxyMeta");
         lua_setmetatable(point->state, -2);
     } else {
@@ -359,9 +418,23 @@ void point_ref(EsePoint *point) {
     if (point->lua_ref == LUA_NOREF) {
         // First time referencing - create proxy table and store reference
         lua_newtable(point->state);
+
+        // Store pointer in __ptr
         lua_pushlightuserdata(point->state, point);
         lua_setfield(point->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
+        *ud = point;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(point->state, "PointProxyMeta");
+        lua_setmetatable(point->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(point->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(point->state, "PointProxyMeta");
         lua_setmetatable(point->state, -2);
 
@@ -372,6 +445,8 @@ void point_ref(EsePoint *point) {
         // Already referenced - just increment count
         point->lua_ref_count++;
     }
+
+    profile_count_add("point_ref_count");
 }
 
 void point_unref(EsePoint *point) {
@@ -386,6 +461,8 @@ void point_unref(EsePoint *point) {
             point->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("point_unref_count");
 }
 
 // Mathematical operations
@@ -454,8 +531,8 @@ bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *
     // Initialize watcher arrays if this is the first watcher
     if (point->watcher_count == 0) {
         point->watcher_capacity = 4; // Start with capacity for 4 watchers
-        point->watchers = memory_manager.malloc(sizeof(EsePointWatcherCallback) * point->watcher_capacity, MMTAG_GENERAL);
-        point->watcher_userdata = memory_manager.malloc(sizeof(void*) * point->watcher_capacity, MMTAG_GENERAL);
+        point->watchers = memory_manager.malloc(sizeof(EsePointWatcherCallback) * point->watcher_capacity, MMTAG_POINT);
+        point->watcher_userdata = memory_manager.malloc(sizeof(void*) * point->watcher_capacity, MMTAG_POINT);
         point->watcher_count = 0;
     }
     
@@ -465,12 +542,12 @@ bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *
         EsePointWatcherCallback *new_watchers = memory_manager.realloc(
             point->watchers, 
             sizeof(EsePointWatcherCallback) * new_capacity, 
-            MMTAG_GENERAL
+            MMTAG_POINT
         );
         void **new_userdata = memory_manager.realloc(
             point->watcher_userdata, 
             sizeof(void*) * new_capacity, 
-            MMTAG_GENERAL
+            MMTAG_POINT
         );
         
         if (!new_watchers || !new_userdata) return false;

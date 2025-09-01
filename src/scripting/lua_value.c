@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "vendor/lua/src/lua.h"
 #include "vendor/lua/src/lauxlib.h"
 #include "vendor/lua/src/lualib.h"
@@ -28,30 +29,42 @@
 static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
     log_assert("LUA", val, "_lua_value_reset called with NULL val");
 
+    // PROFILING: Start timing for reset
+    profile_start(PROFILE_LUA_VALUE_RESET_OVERALL);
+
     if (val->type == LUA_VAL_USERDATA) {
         val->value.userdata = NULL;
     }
 
     if (val->type == LUA_VAL_STRING && val->value.string) {
+        profile_start(PROFILE_LUA_VALUE_RESET_SECTION);
         memory_manager.free(val->value.string);
+        profile_stop(PROFILE_LUA_VALUE_RESET_SECTION, "lua_value_reset_string_free");
         val->value.string = NULL;
     }
 
     if (val->type == LUA_VAL_TABLE && val->value.table.items) {
+        profile_start(PROFILE_LUA_VALUE_RESET_SECTION);
         for (size_t i = 0; i < val->value.table.count; ++i) {
             lua_value_free(val->value.table.items[i]);
         }
         memory_manager.free(val->value.table.items);
+        profile_stop(PROFILE_LUA_VALUE_RESET_SECTION, "lua_value_reset_table_free");
         val->value.table.items = NULL;
         val->value.table.count = 0;
         val->value.table.capacity = 0;
     }
 
     if (val->name && !keep_name) {
+        profile_start(PROFILE_LUA_VALUE_RESET_SECTION);
         memory_manager.free(val->name);
+        profile_stop(PROFILE_LUA_VALUE_RESET_SECTION, "lua_value_reset_name_free");
         val->name = NULL;
     }
     val->type = LUA_VAL_NIL;
+
+    // PROFILING: Stop overall reset timing
+    profile_stop(PROFILE_LUA_VALUE_RESET_OVERALL, "lua_value_reset_overall");
 }
 
 EseLuaValue* lua_value_copy(const EseLuaValue *src) {
@@ -101,6 +114,7 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
             copy->value = src->value;
             break;
     }
+
     return copy;
 }
 
@@ -207,67 +221,97 @@ void lua_value_push(EseLuaValue *val, EseLuaValue *item, bool copy) {
 void lua_value_set_nil(EseLuaValue *val) {
     log_assert("LUA", val, "lua_value_set_nil called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_NIL;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_nil");
 }
 
 void lua_value_set_bool(EseLuaValue *val, bool value) {
     log_assert("LUA", val, "lua_value_set_bool called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_BOOL;
     val->value.boolean = value;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_bool");
 }
 
 void lua_value_set_number(EseLuaValue *val, double value) {
     log_assert("LUA", val, "lua_value_set_number called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_NUMBER;
     val->value.number = value;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_number");
 }
 
 void lua_value_set_string(EseLuaValue *val, const char *value) {
     log_assert("LUA", val, "lua_value_set_string called with NULL val");
     log_assert("LUA", value, "lua_value_set_string called with NULL value");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_STRING;
     val->value.string = memory_manager.strdup(value, MMTAG_LUA_VALUE);
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_string");
 }
 
 void lua_value_set_table(EseLuaValue *val) {
     log_assert("LUA", val, "lua_value_set_table called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_TABLE;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_table");
 }
 
 void lua_value_set_ref(EseLuaValue *val, int value) {
     log_assert("LUA", val, "lua_value_set_ref called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_REF;
     val->value.lua_ref = value;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_ref");
 }
 
 void lua_value_set_userdata(EseLuaValue *val, void* value) {
     log_assert("LUA", val, "lua_value_set_userdata called with NULL val");
 
+    profile_start(PROFILE_LUA_VALUE_SET);
+
     _lua_value_reset(val, true);
 
     val->type = LUA_VAL_USERDATA;
     val->value.userdata = value;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_userdata");
 }
 
 EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
     log_assert("LUA", val, "lua_value_get_table_prop called with NULL val");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
 
     if (val->type != LUA_VAL_TABLE || !prop_name) return NULL;
 
@@ -277,6 +321,9 @@ EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
             return item;
         }
     }
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_get_table_prop");
+
     return NULL;
 }
 

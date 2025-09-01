@@ -14,17 +14,25 @@
 #include "entity/entity_lua.h"
 #include "entity/entity.h"
 #include "entity/components/entity_component_collider.h"
+#include "utility/profile.h"
 
 EseEntity *entity_create(EseLuaEngine *engine) {
     log_assert("ENTITY", engine, "entity_create called with NULL engine");
 
+    profile_start(PROFILE_ENTITY_CREATE);
+    
     EseEntity *entity = _entity_make(engine);
     _entity_lua_register(entity, false); // C-created = C-owned
+    
+    profile_stop(PROFILE_ENTITY_CREATE, "entity_create");
+    profile_count_add("entity_create_count");
     return entity;
 }
 
 EseEntity *entity_copy(EseEntity *entity) {
     log_assert("ENTITY", entity, "entity_copy called with NULL entity");
+    
+    profile_start(PROFILE_ENTITY_COPY);
     
     EseEntity *copy = _entity_make(entity->lua);
     _entity_lua_register(copy, false); // C-created = C-owned
@@ -64,11 +72,15 @@ EseEntity *entity_copy(EseEntity *entity) {
     // Copy default props
     copy->default_props = dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy);
 
+    profile_stop(PROFILE_ENTITY_COPY, "entity_copy");
+    profile_count_add("entity_copy_count");
     return copy;
 }
 
 void entity_destroy(EseEntity *entity) {
     log_assert("ENTITY", entity, "entity_destroy called with NULL entity");
+
+    profile_start(PROFILE_ENTITY_DESTROY);
 
     uuid_destroy(entity->id);
     point_destroy(entity->position);
@@ -102,17 +114,27 @@ void entity_destroy(EseEntity *entity) {
     dlist_free(entity->default_props);
 
     memory_manager.free(entity);
+    
+    profile_stop(PROFILE_ENTITY_DESTROY, "entity_destroy");
+    profile_count_add("entity_destroy_count");
 }
 
 void entity_update(EseEntity *entity, float delta_time) {
     log_assert("ENTITY", entity, "entity_update called with NULL entity");
 
+    profile_start(PROFILE_ENTITY_UPDATE_OVERALL);
+    
     for (size_t i = 0; i < entity->component_count; i++) {
         if (!entity->components[i]->active) {
             continue;
         }
+        
+        profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
         entity_component_update(entity->components[i], entity, delta_time);
+        profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
     }
+    
+    profile_stop(PROFILE_ENTITY_UPDATE_OVERALL, "entity_update");
 }
 
 void entity_run_function_with_args(
@@ -121,17 +143,23 @@ void entity_run_function_with_args(
     int argc,
     EseLuaValue *argv
 ) {
+    profile_start(PROFILE_ENTITY_LUA_FUNCTION_CALL);
+    
     for (size_t i = 0; i < entity->component_count; i++) {
         if (!entity->components[i]->active || entity->components[i]->type != ENTITY_COMPONENT_LUA) {
             continue;
         }
         entity_component_run_function(entity->components[i], entity, func_name, argc, argv);
     }
+    
+    profile_stop(PROFILE_ENTITY_LUA_FUNCTION_CALL, "entity_run_function_with_args");
 }
 
 int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
     log_assert("ENTITY", entity, "entity_check_collision_state called with NULL entity");
     log_assert("ENTITY", test, "entity_check_collision_state called with NULL test");
+
+    profile_start(PROFILE_ENTITY_COLLISION_DETECT);
 
     // Get the key.
     const char* canonical_key = _get_collision_key(entity->id, test->id);
@@ -143,20 +171,26 @@ int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
     bool currently_colliding = _entity_test_collision(entity, test);
 
     // Determine collision state: 0=none, 1=enter, 2=stay, 3=exit
+    int result;
     if (currently_colliding && (!was_colliding_a || !was_colliding_b)) {
-        return 1; // ENTER
+        result = 1; // ENTER
     } else if (currently_colliding && was_colliding_a && was_colliding_b) {
-        return 2; // STAY
+        result = 2; // STAY
     } else if (!currently_colliding && (was_colliding_a || was_colliding_b)) {
-        return 3; // EXIT
+        result = 3; // EXIT
     } else {
-        return 0; // NONE
+        result = 0; // NONE
     }
+    
+    profile_stop(PROFILE_ENTITY_COLLISION_DETECT, "entity_check_collision_state");
+    return result;
 }
 
 void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state) {
     log_assert("ENTITY", entity_a, "entity_process_collision_callbacks called with NULL entity_a");
     log_assert("ENTITY", entity_b, "entity_process_collision_callbacks called with NULL entity_b");
+
+    profile_start(PROFILE_ENTITY_COLLISION_CALLBACK);
 
     // Get the key for updating collision state
     const char* canonical_key = _get_collision_key(entity_a->id, entity_b->id);
@@ -193,11 +227,15 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
             // No collision, nothing to do
             break;
     }
+    
+    profile_stop(PROFILE_ENTITY_COLLISION_CALLBACK, "entity_process_collision_callbacks");
 }
 
 bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {
     log_assert("ENTITY", entity, "entity_detect_collision_rect called with NULL entity");
     log_assert("ENTITY", rect, "entity_detect_collision_rect called with NULL rect");
+
+    profile_start(PROFILE_ENTITY_COLLISION_RECT_DETECT);
 
     for (size_t i = 0; i < entity->component_count; i++) {
         EseEntityComponent *comp = entity->components[i];
@@ -206,10 +244,12 @@ bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {
         }
 
         if (entity_component_detect_collision_rect(comp, rect)) {
+            profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_detect_collision_rect");
             return true;
         }
     }
 
+    profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_detect_collision_rect");
     return false;
 }
 
@@ -225,21 +265,28 @@ void entity_draw(
     log_assert("ENTITY", texCallback, "entity_draw called with NULL texCallback");
     log_assert("ENTITY", rectCallback, "entity_draw called with NULL rectCallback");
 
+    profile_start(PROFILE_ENTITY_DRAW_OVERALL);
 
     for (size_t i = 0; i < entity->component_count; i++) {
         if (!entity->components[i]->active) continue;
 
+        profile_start(PROFILE_ENTITY_DRAW_SECTION);
         entity_component_draw(
             entity->components[i],
             camera_x, camera_y, view_width, view_height,
             texCallback, rectCallback, callback_user_data
         );
+        profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
     }
+    
+    profile_stop(PROFILE_ENTITY_DRAW_OVERALL, "entity_draw");
 }
 
 const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
     log_assert("ENTITY", entity, "entity_component_add called with NULL entity");
     log_assert("ENTITY", comp, "entity_component_add called with NULL comp");
+
+    profile_start(PROFILE_ENTITY_COMPONENT_ADD);
 
     if (entity->component_count == entity->component_capacity) {
         size_t new_capacity = entity->component_capacity * 2;
@@ -260,6 +307,8 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
         entity_component_collider_update_bounds((EseEntityComponentCollider *)comp->data);
     }
 
+    profile_stop(PROFILE_ENTITY_COMPONENT_ADD, "entity_component_add");
+    profile_count_add("entity_comp_add_count");
     return comp->id->value;
 }
 

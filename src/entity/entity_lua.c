@@ -13,6 +13,7 @@
 #include "entity_lua.h"
 #include "entity_private.h"
 #include "entity.h"
+#include "utility/profile.h"
 
 /**
  * @brief Register an EseEntity pointer as a Lua object.
@@ -20,6 +21,8 @@
 void _entity_lua_register(EseEntity *entity, bool is_lua_owned) {
     log_assert("ENTITY", entity, "_entity_lua_register called with NULL entity");
     log_assert("ENTITY", entity->lua_ref == LUA_NOREF, "_entity_lua_register entity is already registered");
+
+    profile_start(PROFILE_ENTITY_LUA_REGISTER);
 
     lua_newtable(entity->lua->runtime);
     lua_pushlightuserdata(entity->lua->runtime, entity);
@@ -35,14 +38,22 @@ void _entity_lua_register(EseEntity *entity, bool is_lua_owned) {
     // Store a reference to this proxy table in the Lua registry
     entity->lua_ref = luaL_ref(entity->lua->runtime, LUA_REGISTRYINDEX);
     lua_value_set_ref(entity->lua_val_ref, entity->lua_ref);
+    
+    profile_stop(PROFILE_ENTITY_LUA_REGISTER, "entity_lua_register");
+    profile_count_add("entity_lua_register_count");
 }
 
 void entity_lua_push(EseEntity *entity) {
     log_assert("ENTITY", entity, "entity_lua_push called with NULL entity");
     log_assert("ENTITY", entity->lua_ref != LUA_NOREF, "entity_lua_push entity not registered with lua");
 
+    profile_start(PROFILE_ENTITY_LUA_PROPERTY_ACCESS);
+
     // Push the proxy table back onto the stack for Lua to receive
     lua_rawgeti(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
+    
+    profile_stop(PROFILE_ENTITY_LUA_PROPERTY_ACCESS, "entity_lua_push");
+    profile_count_add("entity_lua_push_count");
 }
 
 /**
@@ -96,6 +107,8 @@ static int _entity_lua_new(lua_State *L) {
     // always C-owned: GC of the Lua proxy will NOT free the C object
     _entity_lua_register(entity, false);
     entity_lua_push(entity);
+    
+    profile_count_add("entity_lua_new_count");
     return 1;
 }
 
@@ -133,6 +146,8 @@ static int _entity_lua_components_add(lua_State *L) {
     // Stack: [component, "__is_lua_owned", false]
     lua_settable(L, 1);
     // Stack: [component]
+    
+    profile_count_add("entity_lua_components_add_count");
     
     lua_pushboolean(L, true);
     // Stack: [component, true]
@@ -196,6 +211,8 @@ static int _entity_lua_components_remove(lua_State *L) {
     
     lua_pushboolean(L, true);
     // Stack: [entity, component, true]
+    
+    profile_count_add("entity_lua_components_remove_count");
     return 1;
 }
 
@@ -260,6 +277,8 @@ static int _entity_lua_components_insert(lua_State *L) {
     
     lua_pushboolean(L, true);
     // Stack: [entity, component, index, true]
+    
+    profile_count_add("entity_lua_components_insert_count");
     return 1;
 }
 
@@ -294,6 +313,7 @@ static int _entity_lua_components_pop(lua_State *L) {
     lua_setfield(L, -2, "__is_lua_owned");
     // Stack: [entity_proxy, component_proxy]
 
+    profile_count_add("entity_lua_components_pop_count");
     return 1;
 }
 
@@ -334,6 +354,7 @@ static int _entity_lua_components_shift(lua_State *L) {
     lua_setfield(L, -2, "__is_lua_owned");
     // Stack: [entity_proxy, component_proxy]
     
+    profile_count_add("entity_lua_components_shift_count");
     return 1;
 }
 
@@ -387,6 +408,8 @@ static int _entity_lua_components_find(lua_State *L) {
     }
     
     // Stack: [entity_proxy, comp_type_name_string, result_table]
+    
+    profile_count_add("entity_lua_components_find_count");
     return 1;
 }
 
@@ -415,6 +438,7 @@ static int _entity_lua_components_get(lua_State *L) {
         // Stack: [entity_proxy, component_id_string, nil]
     }
     
+    profile_count_add("entity_lua_components_get_count");
     return 1;
 }
 
@@ -833,6 +857,8 @@ static int _entity_lua_newindex(lua_State *L) {
         // Copy values, don't copy reference (ownership safety)
         point_set_x(entity->position, point_get_x(new_position_point));
         point_set_y(entity->position, point_get_y(new_position_point));
+        // Pop the point off the stack
+        lua_pop(L, 1);
         return 0;
     } else if (strcmp(key, "components") == 0) {
         return luaL_error(L, "Entity components is not assignable");

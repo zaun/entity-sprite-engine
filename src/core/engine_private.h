@@ -24,24 +24,6 @@ typedef struct EseDoubleLinkedList EseDoubleLinkedList;
 typedef struct EseSpatialBin EseSpatialBin;
 typedef struct EseArray EseArray;
 
-/**
- * @brief Statistics tracking structure for the engine performance metrics.
- */
-typedef struct EseEngineStats {
-    float updates_per_second;            /**< Average updates per second */
-    float entity_count_average;          /**< Current number of entities in the engine */
-    float entity_update_average_time;    /**< Average time spent updating entities per frame */
-    float entity_collision_detect_average_time; /**< Average time spent on collision detection per frame */
-    float entity_collision_callback_average_time; /**< Average time spent on collision callbacks per frame */
-    float entity_draw_average_time;      /**< Average time spent drawing entities per frame */
-    float lua_gc_average_time;           /**< Average time spent on Lua garbage collection per frame */
-    float input_state_update_average_time; /**< Average time spent updating input state per frame */
-    float display_camera_update_average_time; /**< Average time spent updating display and camera per frame */
-    float console_draw_average_time;     /**< Average time spent drawing console per frame */
-    float renderer_update_average_time;  /**< Average time spent on renderer operations per frame */
-    float stats_update_average_time;     /**< Average time spent updating statistics per frame */
-} EseEngineStats;
-
 struct EseEngine {
     EseRenderer *renderer;              /**< Pointer to the engine's renderer */
     EseDrawList *draw_list;             /**< Flat render lists used in processes */
@@ -65,8 +47,6 @@ struct EseEngine {
     bool draw_console;                  /**< Whether to draw the console */
 
     bool isRunning;
-    
-    EseEngineStats stats;               /**< Engine performance statistics */
 };
 
 /**

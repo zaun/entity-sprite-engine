@@ -14,10 +14,13 @@
 #include "entity/entity_lua.h"
 #include "entity/entity_private.h"
 #include "entity/entity.h"
+#include "utility/profile.h"
 
 #define ENTITY_INITIAL_CAPACITY 10
 
 EseEntity *_entity_make(EseLuaEngine *engine) {
+    profile_start(PROFILE_ENTITY_CREATE);
+    
     EseEntity *entity = memory_manager.malloc(sizeof(EseEntity), MMTAG_ENTITY);
     entity->position = point_create(engine);
     point_ref(entity->position);
@@ -49,6 +52,8 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->tag_count = 0;
     entity->tag_capacity = 0;
 
+    profile_stop(PROFILE_ENTITY_CREATE, "entity_make");
+    profile_count_add("entity_make_count");
     return entity;
 }
 
@@ -65,6 +70,8 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
 }
 
 const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2) {
+    profile_start(PROFILE_ENTITY_COLLISION_KEY_GEN);
+    
     // A static buffer to hold the string key.
     // This makes the function thread-unsafe, but given the context of a game loop,
     // this is likely a safe assumption.
@@ -89,12 +96,15 @@ const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2) {
     // %llu is for unsigned long long, which is what uint64_t is.
     snprintf(key_str, sizeof(key_str), "%llu", combined_hash);
 
+    profile_stop(PROFILE_ENTITY_COLLISION_KEY_GEN, "get_collision_key");
     return key_str;
 }
 
 bool _entity_test_collision(EseEntity *a, EseEntity *b) {
     log_assert("ENTITY", a, "entity_test_collision called with NULL a");
     log_assert("ENTITY", b, "entity_test_collision called with NULL b");
+
+    profile_start(PROFILE_ENTITY_COLLISION_TEST);
 
     for (size_t i = 0; i < a->component_count; i++) {
         EseEntityComponent *comp_a = a->components[i];
@@ -109,10 +119,12 @@ bool _entity_test_collision(EseEntity *a, EseEntity *b) {
             }
 
             if (entity_component_detect_collision_component(comp_a, comp_b)) {
+                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
                 return true;
             }
         }
     }
 
+    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
     return false;
 }

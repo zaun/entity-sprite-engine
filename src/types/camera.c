@@ -151,17 +151,8 @@ EseCamera *camera_state_create(EseLuaEngine *engine) {
     EseCamera *camera_state = _camera_state_make();
     camera_state->state = engine->runtime;
 
-    log_debug("CAMERA", "Creating position point");
     camera_state->position = point_create(engine);
-    if (camera_state->position == NULL) {
-        log_error("CAMERA", "Failed to create position point");
-        return NULL;
-    }
-    log_debug("CAMERA", "Position point created at %p", (void*)camera_state->position);
-    
-    log_debug("CAMERA", "Referencing position point");
     point_ref(camera_state->position);
-    log_debug("CAMERA", "Position point referenced, lua_ref=%d", point_get_lua_ref(camera_state->position));
 
     return camera_state;
 }
@@ -173,7 +164,7 @@ EseCamera *camera_state_copy(const EseCamera *source) {
 
     EseCamera *copy = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_GENERAL);
     copy->position = point_copy(source->position);
-    point_ref(copy->position); // Reference the copied point
+    point_ref(copy->position); 
     copy->rotation = source->rotation;
     copy->scale = source->scale;
     copy->state = source->state;
@@ -192,17 +183,10 @@ void camera_state_destroy(EseCamera *camera_state) {
         }
         memory_manager.free(camera_state);
     } else {
-        // Has Lua references, decrement counter
-        if (camera_state->lua_ref_count > 0) {
-            camera_state->lua_ref_count--;
-            
-            if (camera_state->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(camera_state->state, LUA_REGISTRYINDEX, camera_state->lua_ref);
-                camera_state->lua_ref = LUA_NOREF;
-            }
+        if (camera_state->position) {
+            point_destroy(camera_state->position);
         }
+        camera_state_unref(camera_state);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
