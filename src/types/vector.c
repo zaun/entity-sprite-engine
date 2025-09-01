@@ -34,6 +34,14 @@ static int _vector_lua_normalize(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EseVector instance with default values
+ * 
+ * Allocates memory for a new EseVector and initializes all fields to safe defaults.
+ * The vector starts at origin (0,0) with no Lua state or references.
+ * 
+ * @return Pointer to the newly created EseVector, or NULL on allocation failure
+ */
 static EseVector *_vector_make() {
     EseVector *vector = (EseVector *)memory_manager.malloc(sizeof(EseVector), MMTAG_VECTOR);
     vector->x = 0.0f;
@@ -45,8 +53,25 @@ static EseVector *_vector_make() {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EseVector
+ * 
+ * Handles cleanup when a Lua proxy table for an EseVector is garbage collected.
+ * Only frees the underlying EseVector if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _vector_lua_gc(lua_State *L) {
-    EseVector *vector = vector_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EseVector **ud = (EseVector **)luaL_testudata(L, 1, "VectorProxyMeta");
+    EseVector *vector = NULL;
+    if (ud) {
+        vector = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        vector = vector_lua_get(L, 1);
+    }
 
     if (vector) {
         // If lua_ref == LUA_NOREF, there are no more references to this vector, 
@@ -60,6 +85,16 @@ static int _vector_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EseVector property access
+ * 
+ * Provides read access to vector properties (x, y) from Lua. When a Lua script
+ * accesses vector.x or vector.y, this function is called to retrieve the values.
+ * Also provides access to methods like set_direction, magnitude, and normalize.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
+ */
 static int _vector_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_VECTOR_INDEX);
     EseVector *vector = vector_lua_get(L, 1);
@@ -97,6 +132,15 @@ static int _vector_lua_index(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EseVector property assignment
+ * 
+ * Provides write access to vector properties (x, y) from Lua. When a Lua script
+ * assigns to vector.x or vector.y, this function is called to update the values.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _vector_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_VECTOR_NEWINDEX);
     EseVector *vector = vector_lua_get(L, 1);
@@ -127,6 +171,15 @@ static int _vector_lua_newindex(lua_State *L) {
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
+/**
+ * @brief Lua __tostring metamethod for EseVector string representation
+ * 
+ * Converts an EseVector to a human-readable string for debugging and display.
+ * The format includes the memory address and current x,y coordinates.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _vector_lua_tostring(lua_State *L) {
     EseVector *vector = vector_lua_get(L, 1);
 
@@ -143,6 +196,17 @@ static int _vector_lua_tostring(lua_State *L) {
 }
 
 // Lua constructors
+/**
+ * @brief Lua constructor function for creating new EseVector instances
+ * 
+ * Creates a new EseVector from Lua with specified x,y coordinates.
+ * This function is called when Lua code executes `Vector.new(x, y)`.
+ * It validates the arguments, creates the underlying EseVector, and returns a proxy
+ * table that provides access to the vector's properties and methods.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _vector_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_VECTOR_NEW);
     float x = 0.0f;
@@ -173,11 +237,25 @@ static int _vector_lua_new(lua_State *L) {
     vector->y = y;
     vector->state = L;
     
-    // Create proxy table for Lua-owned vector
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, vector);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
+    *ud = vector;
+
+    // Attach metatable with __gc
+    luaL_getmetatable(L, "VectorProxyMeta");
+    lua_setmetatable(L, -2);
+
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
     luaL_getmetatable(L, "VectorProxyMeta");
     lua_setmetatable(L, -2);
 
@@ -185,23 +263,58 @@ static int _vector_lua_new(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua constructor function for creating EseVector at origin
+ * 
+ * Creates a new EseVector at the origin (0,0) from Lua.
+ * This function is called when Lua code executes `Vector.zero()`.
+ * It's a convenience constructor for creating vectors at the default position.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _vector_lua_zero(lua_State *L) {
+    profile_start(PROFILE_LUA_VECTOR_ZERO);
     // Create the vector using the standard creation function
     EseVector *vector = _vector_make();  // We'll set the state manually
     vector->state = L;
     
-    // Create proxy table for Lua-owned vector
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, vector);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
+    *ud = vector;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "VectorProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "VectorProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_VECTOR_ZERO, "vector_lua_zero");
     return 1;
 }
 
 // Lua methods
+/**
+ * @brief Lua method for setting vector direction and magnitude
+ * 
+ * Sets the vector's direction using cardinal direction strings (N, S, E, W)
+ * and applies the specified magnitude. Handles diagonal directions automatically.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _vector_lua_set_direction(lua_State *L) {
     EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
     if (!vector) {
@@ -219,6 +332,15 @@ static int _vector_lua_set_direction(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua method for calculating vector magnitude
+ * 
+ * Calculates and returns the magnitude (length) of the vector using the
+ * Pythagorean theorem (sqrt(x² + y²)).
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the magnitude value)
+ */
 static int _vector_lua_magnitude(lua_State *L) {
     EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
     if (!vector) {
@@ -229,6 +351,15 @@ static int _vector_lua_magnitude(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua method for normalizing the vector
+ * 
+ * Normalizes the vector to unit length (magnitude = 1.0) while preserving
+ * its direction. If the vector has zero magnitude, no change is made.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _vector_lua_normalize(lua_State *L) {
     EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
     if (!vector) {
@@ -271,17 +402,7 @@ void vector_destroy(EseVector *vector) {
         // No Lua references, safe to free immediately
         memory_manager.free(vector);
     } else {
-        // Has Lua references, decrement counter
-        if (vector->lua_ref_count > 0) {
-            vector->lua_ref_count--;
-            
-            if (vector->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
-                vector->lua_ref = LUA_NOREF;
-            }
-        }
+        vector_unref(vector);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -332,7 +453,19 @@ void vector_lua_push(EseVector *vector) {
         lua_newtable(vector->state);
         lua_pushlightuserdata(vector->state, vector);
         lua_setfield(vector->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EseVector **ud = (EseVector **)lua_newuserdata(vector->state, sizeof(EseVector *));
+        *ud = vector;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        lua_setmetatable(vector->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(vector->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(vector->state, "VectorProxyMeta");
         lua_setmetatable(vector->state, -2);
     } else {
@@ -342,32 +475,41 @@ void vector_lua_push(EseVector *vector) {
 }
 
 EseVector *vector_lua_get(lua_State *L, int idx) {
+    log_assert("VECTOR", L, "vector_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is a table
     if (!lua_istable(L, idx)) {
         return NULL;
     }
     
+    // Check if it has the correct metatable
     if (!lua_getmetatable(L, idx)) {
-        return NULL;
+        return NULL; // No metatable
     }
     
+    // Get the expected metatable for comparison
     luaL_getmetatable(L, "VectorProxyMeta");
     
+    // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
+        lua_pop(L, 2); // Pop both metatables
+        return NULL; // Wrong metatable
     }
     
-    lua_pop(L, 2);
+    lua_pop(L, 2); // Pop both metatables
     
+    // Get the __ptr field
     lua_getfield(L, idx, "__ptr");
     
+    // Check if __ptr exists and is light userdata
     if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
+        lua_pop(L, 1); // Pop the __ptr value (or nil)
         return NULL;
     }
     
+    // Extract the pointer
     void *vector = lua_touserdata(L, -1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // Pop the __ptr value
     
     return (EseVector *)vector;
 }
@@ -381,6 +523,18 @@ void vector_ref(EseVector *vector) {
         lua_pushlightuserdata(vector->state, vector);
         lua_setfield(vector->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EseVector **ud = (EseVector **)lua_newuserdata(vector->state, sizeof(EseVector *));
+        *ud = vector;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        lua_setmetatable(vector->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(vector->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(vector->state, "VectorProxyMeta");
         lua_setmetatable(vector->state, -2);
 
@@ -391,6 +545,8 @@ void vector_ref(EseVector *vector) {
         // Already referenced - just increment count
         vector->lua_ref_count++;
     }
+
+    profile_count_add("vector_ref_count");
 }
 
 void vector_unref(EseVector *vector) {
@@ -405,6 +561,8 @@ void vector_unref(EseVector *vector) {
             vector->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("vector_unref_count");
 }
 
 // Mathematical operations

@@ -5,6 +5,7 @@
 #include "scripting/lua_engine.h"
 #include "core/memory_manager.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/uuid.h"
 
 // ========================================
@@ -31,6 +32,14 @@ static int _uuid_lua_reset_method(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EseUUID instance with default values
+ * 
+ * Allocates memory for a new EseUUID and initializes all fields to safe defaults.
+ * The UUID starts with no Lua state or references, and a new random UUID is generated.
+ * 
+ * @return Pointer to the newly created EseUUID, or NULL on allocation failure
+ */
 static EseUUID *_uuid_make() {
     EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_UUID);
     uuid->state = NULL;
@@ -41,8 +50,25 @@ static EseUUID *_uuid_make() {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EseUUID
+ * 
+ * Handles cleanup when a Lua proxy table for an EseUUID is garbage collected.
+ * Only frees the underlying EseUUID if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _uuid_lua_gc(lua_State *L) {
-    EseUUID *uuid = uuid_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, "UUIDProxyMeta");
+    EseUUID *uuid = NULL;
+    if (ud) {
+        uuid = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        uuid = uuid_lua_get(L, 1);
+    }
 
     if (uuid) {
         // If lua_ref == LUA_NOREF, there are no more references to this uuid, 
@@ -56,32 +82,72 @@ static int _uuid_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EseUUID property access
+ * 
+ * Provides read access to UUID properties (value, string) from Lua. When a Lua script
+ * accesses uuid.value or uuid.string, this function is called to retrieve the values.
+ * Also provides access to methods like reset.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
+ */
 static int _uuid_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_UUID_INDEX);
     EseUUID *uuid = uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!uuid || !key) return 0;
+    if (!uuid || !key) {
+        profile_cancel(PROFILE_LUA_UUID_INDEX);
+        return 0;
+    }
 
     if (strcmp(key, "value") == 0 || strcmp(key, "string") == 0) {
         lua_pushstring(L, uuid->value);
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "reset") == 0) {
         // Return a reset function for this EseUUID instance
         lua_pushlightuserdata(L, uuid);
         lua_pushcclosure(L, _uuid_lua_reset_method, 1);
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
         return 1;
     }
     
+    profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (invalid)");
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EseUUID property assignment
+ * 
+ * Provides write access to UUID properties from Lua. Since UUIDs are immutable,
+ * this function always returns an error for any property assignment attempts.
+ * 
+ * @param L Lua state
+ * @return Never returns (always calls luaL_error)
+ */
 static int _uuid_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_UUID_NEWINDEX);
     EseUUID *uuid = uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!uuid || !key) return 0;
+    if (!uuid || !key) {
+        profile_cancel(PROFILE_LUA_UUID_NEWINDEX);
+        return 0;
+    }
 
+    profile_stop(PROFILE_LUA_UUID_NEWINDEX, "uuid_lua_newindex (error)");
     return luaL_error(L, "UUID objects are immutable - cannot set property '%s'", key);
 }
 
+/**
+ * @brief Lua __tostring metamethod for EseUUID string representation
+ * 
+ * Converts an EseUUID to a human-readable string for debugging and display.
+ * The format includes the memory address and current UUID value.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _uuid_lua_tostring(lua_State *L) {
     EseUUID *uuid = uuid_lua_get(L, 1);
 
@@ -98,23 +164,59 @@ static int _uuid_lua_tostring(lua_State *L) {
 }
 
 // Lua constructors
+/**
+ * @brief Lua constructor function for creating new EseUUID instances
+ * 
+ * Creates a new EseUUID from Lua with a randomly generated UUID value.
+ * This function is called when Lua code executes `UUID.new()`.
+ * It creates the underlying EseUUID and returns a proxy table that provides
+ * access to the UUID's properties and methods.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _uuid_lua_new(lua_State *L) {
+    profile_start(PROFILE_LUA_UUID_NEW);
     // Create the uuid using the standard creation function
     EseUUID *uuid = _uuid_make();
     uuid->state = L;
     
-    // Create proxy table for Lua-owned uuid
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, uuid);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EseUUID **ud = (EseUUID **)lua_newuserdata(L, sizeof(EseUUID *));
+    *ud = uuid;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "UUIDProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "UUIDProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_UUID_NEW, "uuid_lua_new");
     return 1;
 }
 
 // Lua methods
+/**
+ * @brief Lua method for resetting UUID to a new random value
+ * 
+ * Generates a new random UUID value for the existing UUID instance.
+ * This allows reusing UUID objects while maintaining their identity.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _uuid_lua_reset_method(lua_State *L) {
     // Get the EseUUID from the closure's upvalue
     EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
@@ -157,17 +259,7 @@ void uuid_destroy(EseUUID *uuid) {
         // No Lua references, safe to free immediately
         memory_manager.free(uuid);
     } else {
-        // Has Lua references, decrement counter
-        if (uuid->lua_ref_count > 0) {
-            uuid->lua_ref_count--;
-            
-            if (uuid->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(uuid->state, LUA_REGISTRYINDEX, uuid->lua_ref);
-                uuid->lua_ref = LUA_NOREF;
-            }
-        }
+        uuid_unref(uuid);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -214,7 +306,19 @@ void uuid_lua_push(EseUUID *uuid) {
         lua_newtable(uuid->state);
         lua_pushlightuserdata(uuid->state, uuid);
         lua_setfield(uuid->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EseUUID **ud = (EseUUID **)lua_newuserdata(uuid->state, sizeof(EseUUID *));
+        *ud = uuid;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        lua_setmetatable(uuid->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(uuid->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(uuid->state, "UUIDProxyMeta");
         lua_setmetatable(uuid->state, -2);
     } else {
@@ -270,6 +374,18 @@ void uuid_ref(EseUUID *uuid) {
         lua_pushlightuserdata(uuid->state, uuid);
         lua_setfield(uuid->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EseUUID **ud = (EseUUID **)lua_newuserdata(uuid->state, sizeof(EseUUID *));
+        *ud = uuid;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        lua_setmetatable(uuid->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(uuid->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(uuid->state, "UUIDProxyMeta");
         lua_setmetatable(uuid->state, -2);
 
@@ -280,6 +396,8 @@ void uuid_ref(EseUUID *uuid) {
         // Already referenced - just increment count
         uuid->lua_ref_count++;
     }
+
+    profile_count_add("uuid_ref_count");
 }
 
 void uuid_unref(EseUUID *uuid) {
@@ -294,6 +412,8 @@ void uuid_unref(EseUUID *uuid) {
             uuid->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("uuid_unref_count");
 }
 
 // Utility functions

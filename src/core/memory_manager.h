@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define MM_BLOCK_SIZE (2 * 1024 * 1024)
+#define MM_BLOCK_SIZE (10 * 1024 * 1024)
 
 typedef enum {
     MMTAG_GENERAL = 0,
@@ -14,7 +14,6 @@ typedef enum {
     MMTAG_LUA_VALUE,
     MMTAG_LUA_SCRIPT,
     MMTAG_RENDERER,
-    MMTAG_MAP,
     MMTAG_SPRITE,
     MMTAG_DRAWLIST,
     MMTAG_RENDERLIST,
@@ -25,10 +24,18 @@ typedef enum {
     MMTAG_GROUP_HASHMAP,
     MMTAG_LINKED_LIST,
     MMTAG_CONSOLE,
-    MMTAG_RECT,
+    MMTAG_ARC,
+    MMTAG_CAMERA,
+    MMTAG_DISPLAY,
+    MMTAG_INPUT_STATE,
+    MMTAG_MAP_CELL,
+    MMTAG_MAP,
     MMTAG_POINT,
-    MMTAG_VECTOR,
+    MMTAG_RAY,
+    MMTAG_RECT,
+    MMTAG_TILESET,
     MMTAG_UUID,
+    MMTAG_VECTOR,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

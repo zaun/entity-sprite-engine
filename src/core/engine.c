@@ -423,10 +423,12 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_renderer");
 
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
+
     // Overall update time
     profile_stop(PROFILE_ENG_UPDATE_OVERALL, "eng_update_overall");
-
-    // lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
 }
 
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count) {

@@ -118,8 +118,9 @@ MemoryManager *g_memory_manager = NULL;
 
 static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "LUA VM ", "RENDER ",
-    "MAP    ", "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "ARRAY  ", "HASHMAP",
-    "GRPHASH", "LINKLST", "CONSOLE", "RECT   ", "POINT  ", "VECTOR ", "UUID   ", "TEMP   "
+    "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "ARRAY  ", "HASHMAP", "GRPHASH",
+    "LINKLST", "CONSOLE", "ARC    ", "CAMERA ", "DISPLAY", "INPUT  ", "MAPCELL", "MAP    ",
+    "POINT  ", "RAY    ", "RECT   ", "UUID   ", "VECTOR ", "TILESET", "TEMP   "
 };
 
 static size_t _align_up(size_t n, size_t align) {
@@ -151,6 +152,13 @@ static size_t _get_slab_size(size_t bucket) {
     if (bucket == 0) return 32;
     if (bucket == 1) return 64;
     if (bucket == 2) return 128;
+    return 0;
+}
+
+static size_t _get_slab_total(size_t bucket) {
+    if (bucket == 0) return _align_up(sizeof(MemHeader), 16) + _align_up(32, 16)  + sizeof(MemFooter);
+    if (bucket == 1) return _align_up(sizeof(MemHeader), 16) + _align_up(64, 16)  + sizeof(MemFooter);
+    if (bucket == 2) return _align_up(sizeof(MemHeader), 16) + _align_up(128, 16) + sizeof(MemFooter);
     return 0;
 }
 
@@ -291,18 +299,18 @@ static void _abort_with_report(MemoryManager *manager, const char *msg) {
     fprintf(stderr, "\nFATAL: %s\n\n", msg);
     
     // Check for leaks and print details
-    if (manager->allocated_list) {
-        fprintf(stderr, "Unfreed Allocations:\n");
-        int leak_count = 1;
-        MemHeader *current = manager->allocated_list;
-        while (current) {
-            char *user_ptr = (char *)current + _align_up(sizeof(MemHeader), 16);
-            fprintf(stderr, "%d) %zu Bytes ", leak_count, current->size);
-            _print_hex_dump(user_ptr, current->size, stderr);
-            current = current->next;
-            leak_count++;
-        }
-    }
+    // if (manager->allocated_list) {
+    //     fprintf(stderr, "Unfreed Allocations:\n");
+    //     int leak_count = 1;
+    //     MemHeader *current = manager->allocated_list;
+    //     while (current) {
+    //         char *user_ptr = (char *)current + _align_up(sizeof(MemHeader), 16);
+    //         fprintf(stderr, "%d) %zu Bytes ", leak_count, current->size);
+    //         _print_hex_dump(user_ptr, current->size, stderr);
+    //         current = current->next;
+    //         leak_count++;
+    //     }
+    // }
 
     void *buffer[32];
     int nptrs = backtrace(buffer, 32);
@@ -397,7 +405,7 @@ static void _add_block(MemoryManager *manager, size_t bucket, size_t min_size) {
     DEBUG_PRINTF("ADD_BLOCK: min_size=%zu\n", min_size);
     fflush(stdout);
 
-    size_t block_size = (min_size > MM_BLOCK_SIZE) ? _align_up(min_size, 16) : MM_BLOCK_SIZE;
+    size_t block_size = (min_size > MM_BLOCK_SIZE) ? _align_up(min_size, 16) : _align_up(MM_BLOCK_SIZE, 16);
     Block *block = (Block *)malloc(sizeof(Block) + block_size);
     if (!block) {
         _abort_with_report(manager, "Out of memory (system malloc failed)");
@@ -411,14 +419,8 @@ static void _add_block(MemoryManager *manager, size_t bucket, size_t min_size) {
     manager->blocks = block;
     manager->global.total_blocks_alloced[bucket] += 1;
 
-    size_t slab_payload = _get_slab_size(bucket);
-    if (slab_payload > 0) {
-        // Build per-slab total size: aligned header + aligned payload + footer
-        size_t header_aligned = _align_up(sizeof(MemHeader), 16);
-        size_t payload_aligned = _align_up(slab_payload, 16);
-        size_t slab_total = header_aligned + payload_aligned + sizeof(MemFooter);
-
-        // Align the start of the block's data to 16 bytes to ensure each slab is aligned
+    size_t slab_total = _get_slab_total(bucket);
+    if (slab_total > 0) {
         uintptr_t base = (uintptr_t)(block->data);
         uintptr_t aligned_base = (base + 15u) & ~((uintptr_t)15u);
         size_t usable = block_size - (aligned_base - base);
@@ -426,12 +428,10 @@ static void _add_block(MemoryManager *manager, size_t bucket, size_t min_size) {
 
         char *cursor = (char *)aligned_base;
         for (size_t i = 0; i < slabs_per_block; i++) {
-            // Just create FreeChunk for linking - no header/footer setup yet
             FreeChunk *chunk = (FreeChunk *)cursor;
             chunk->size = slab_total;
             chunk->next = manager->free_lists[bucket];
             manager->free_lists[bucket] = chunk;
-            
             cursor += slab_total;
         }
     } else {
@@ -452,6 +452,11 @@ static void *_alloc_slab(MemoryManager *manager, size_t total_size, size_t bucke
     FreeChunk *slab = manager->free_lists[bucket];
     if (!slab) {
         return NULL;
+    }
+
+    // Safety: ensure the slab is large enough
+    if (slab->size < total_size) {
+        _abort_with_report(manager, "Slab too small for requested allocation");
     }
     
     // Remove slab from free list
@@ -556,20 +561,13 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     if (mem) {
         log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list", mem, total);
     } else {
-        // Coalesce and try again
-        _coalesce_free_list(manager, bucket);
+        // Add new block to free list and try again
+        _add_block(manager, bucket, max(total, MM_BLOCK_SIZE));
         mem = _get_allocator(bucket)(manager, total, bucket);
-        if (mem) {
-            log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list after coalesce", mem, total);
-        } else {
-            // Add new block to free list and try again
-            _add_block(manager, bucket, max(total, MM_BLOCK_SIZE));
-            mem = _get_allocator(bucket)(manager, total, bucket);
-            if (!mem) {
-                _abort_with_report(manager, "Failed to allocate from free list after adding new block");
-            }
-            log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list after adding block", mem, total);
+        if (!mem) {
+            _abort_with_report(manager, "Failed to allocate from free list after adding new block");
         }
+        log_verbose("MEM_MALLOC", "Allocated %p = %zu bytes from free list after adding block", mem, total);
     }
 
     // Setup header and footer (unchanged)
@@ -697,23 +695,21 @@ static void _mm_free(void *ptr) {
     FreeChunk *chunk = (FreeChunk *)header;
     
     // For slab buckets, use the actual slab size to maintain bucket consistency
-    size_t slab_payload = _get_slab_size(bucket);
-    if (slab_payload > 0) {
-        // This is a slab allocation - use the full slab size
-        size_t header_aligned = _align_up(sizeof(MemHeader), 16);
-        size_t payload_aligned = _align_up(slab_payload, 16);
-        chunk->size = header_aligned + payload_aligned + sizeof(MemFooter);
+    size_t slab_total = _get_slab_total(bucket);
+    if (slab_total > 0) {
+        chunk->size = slab_total;
     } else {
-        // Non-slab allocation - use the actual allocated size
         chunk->size = total;
     }
     
     chunk->next = manager->free_lists[bucket];
     manager->free_lists[bucket] = chunk;
 
-   static int free_count = 0;
-    if (++free_count % 100 == 0) {
-        _coalesce_free_list(manager, bucket);
+    if (slab_total == 0) {
+        static int free_count = 0;
+        if (++free_count % 100 == 0) {
+            _coalesce_free_list(manager, bucket);
+        }
     }
 
     DEBUG_PRINTF("FREE: completed for ptr=%p\n", ptr);

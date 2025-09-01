@@ -32,7 +32,7 @@ static const char* test_lua_script =
 "    if n == nil or n <= 1 then\n"
 "        return n or 0\n"
 "    end\n"
-"    return TEST_MODULE.fibonacci(n-1) + TEST_MODULE.fibonacci(n-2)\n"
+"    return TEST_MODULE:fibonacci(n-1) + TEST_MODULE:fibonacci(n-2)\n"
 "end\n"
 "\n"
 "function TEST_MODULE:test_math()\n"
@@ -262,9 +262,10 @@ static void test_jit_script_loading() {
             
             // Test calling a function to trigger JIT compilation
             EseLuaValue* fibonacci_arg = lua_value_create_number("n", 10.0);
+            EseLuaValue fibonacci_args[] = { *fibonacci_arg };
             
             // Call fibonacci function (this should also trigger JIT compilation)
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "fibonacci", 1, fibonacci_arg, NULL);
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "fibonacci", 1, fibonacci_args, NULL);
             TEST_ASSERT(exec_result, "fibonacci function should execute successfully");
             
             // Call test_math function
@@ -462,19 +463,20 @@ static void test_function_references() {
             lua_newtable(L);
             int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
             
-            // Test with different argument types
-            EseLuaValue* arg1 = lua_value_create_number("a", 5.0);
-            EseLuaValue* arg2 = lua_value_create_number("a", 3.0); // Changed to "a" to match function signature
             
             // Test add function with single argument
-            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "add", 1, arg1, NULL);
+            EseLuaValue* arg1 = lua_value_create_number("a", 5.0);
+            EseLuaValue args1[] = { *arg1 };  // Create array of values, not pointers
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "add", 1, args1, NULL);
             TEST_ASSERT(exec_result, "add function should execute successfully");
             
             // Test multiply function with single argument
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "multiply", 1, arg2, NULL);
+            EseLuaValue* arg2 = lua_value_create_number("a", 3.0); // Changed to "a" to match function signature
+            EseLuaValue args2[] = { *arg2 };  // Create array of values, not pointers
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "multiply", 1, args2, NULL);
             TEST_ASSERT(exec_result, "multiply function should execute successfully");
             
-            // Clean up
+            // Clean up AFTER all function calls complete
             lua_value_free(arg1);
             lua_value_free(arg2);
             luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
@@ -598,19 +600,24 @@ static void test_lua_value_arguments() {
             EseLuaValue* table_arg = lua_value_create_table("table_val");
             
             // Test function execution with single arguments
-            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, nil_arg, NULL);
+            EseLuaValue nil_args[] = { *nil_arg };
+            bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, nil_args, NULL);
             TEST_ASSERT(exec_result, "Function with nil argument should execute successfully");
             
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, bool_arg, NULL);
+            EseLuaValue bool_args[] = { *bool_arg };
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, bool_args, NULL);
             TEST_ASSERT(exec_result, "Function with bool argument should execute successfully");
             
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, num_arg, NULL);
+            EseLuaValue num_args[] = { *num_arg };
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, num_args, NULL);
             TEST_ASSERT(exec_result, "Function with number argument should execute successfully");
             
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, str_arg, NULL);
+            EseLuaValue str_args[] = { *str_arg };
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, str_args, NULL);
             TEST_ASSERT(exec_result, "Function with string argument should execute successfully");
             
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, table_arg, NULL);
+            EseLuaValue table_args[] = { *table_arg };
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_args", 1, table_args, NULL);
             TEST_ASSERT(exec_result, "Function with table argument should execute successfully");
             
             // Clean up
@@ -658,7 +665,7 @@ static void test_timeout_and_limits() {
         "    if n == nil or n <= 1 then\n"
         "        return 1\n"
         "    end\n"
-        "    return n + TEST_MODULE.recursive_function(n - 1)\n"
+        "    return n + TEST_MODULE:recursive_function(n - 1)\n"
         "end\n";
     
     bool load_result = lua_engine_load_script_from_string(engine, limit_test_script, "limit_test_script", "TEST_MODULE");
@@ -683,7 +690,8 @@ static void test_timeout_and_limits() {
             
             // Test recursive function with reasonable depth (should work)
             EseLuaValue* arg = lua_value_create_number("n", 10.0);
-            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "recursive_function", 1, arg, NULL);
+            EseLuaValue recursive_args[] = { *arg };
+            exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "recursive_function", 1, recursive_args, NULL);
             TEST_ASSERT(exec_result, "Recursive function should execute successfully");
             
             // Clean up

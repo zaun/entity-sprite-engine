@@ -150,7 +150,7 @@ EseDrawListObject* draw_list_request_object(EseDrawList *draw_list) {
         draw_list->objects = new_objs;
         // Allocate new objects
         for (size_t i = draw_list->objects_capacity; i < new_capacity; ++i) {
-            draw_list->objects[i] = calloc(1, sizeof(EseDrawListObject));
+            draw_list->objects[i] = memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
         }
         draw_list->objects_capacity = new_capacity;
     }

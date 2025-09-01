@@ -4,6 +4,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/types.h"
 
 #ifndef M_PI
@@ -38,8 +39,16 @@ static int _arc_lua_get_point_at_angle(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EseArc instance with default values
+ * 
+ * Allocates memory for a new EseArc and initializes all fields to safe defaults.
+ * The arc starts at origin (0,0) with unit radius, full circle angles, and no Lua state or references.
+ * 
+ * @return Pointer to the newly created EseArc, or NULL on allocation failure
+ */
 static EseArc *_arc_make() {
-    EseArc *arc = (EseArc *)memory_manager.malloc(sizeof(EseArc), MMTAG_GENERAL);
+    EseArc *arc = (EseArc *)memory_manager.malloc(sizeof(EseArc), MMTAG_ARC);
     arc->x = 0.0f;
     arc->y = 0.0f;
     arc->radius = 1.0f;
@@ -52,8 +61,25 @@ static EseArc *_arc_make() {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EseArc
+ * 
+ * Handles cleanup when a Lua proxy table for an EseArc is garbage collected.
+ * Only frees the underlying EseArc if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _arc_lua_gc(lua_State *L) {
-    EseArc *arc = arc_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EseArc **ud = (EseArc **)luaL_testudata(L, 1, "ArcProxyMeta");
+    EseArc *arc = NULL;
+    if (ud) {
+        arc = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        arc = arc_lua_get(L, 1);
+    }
 
     if (arc) {
         // If lua_ref == LUA_NOREF, there are no more references to this arc, 
@@ -67,85 +93,142 @@ static int _arc_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EseArc property access
+ * 
+ * Provides read access to arc properties (x, y, radius, start_angle, end_angle) from Lua.
+ * When a Lua script accesses arc.x, arc.y, etc., this function is called to retrieve the values.
+ * Also provides access to methods like contains_point, intersects_rect, get_length, and get_point_at_angle.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
+ */
 static int _arc_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_ARC_INDEX);
     EseArc *arc = arc_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!arc || !key) return 0;
+    if (!arc || !key) {
+        profile_cancel(PROFILE_LUA_ARC_INDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         lua_pushnumber(L, arc->x);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "y") == 0) {
         lua_pushnumber(L, arc->y);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "radius") == 0) {
         lua_pushnumber(L, arc->radius);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "start_angle") == 0) {
         lua_pushnumber(L, arc->start_angle);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "end_angle") == 0) {
         lua_pushnumber(L, arc->end_angle);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "contains_point") == 0) {
         lua_pushlightuserdata(L, arc);
         lua_pushcclosure(L, _arc_lua_contains_point, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (method)");
         return 1;
     } else if (strcmp(key, "intersects_rect") == 0) {
         lua_pushlightuserdata(L, arc);
         lua_pushcclosure(L, _arc_lua_intersects_rect, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_length") == 0) {
         lua_pushlightuserdata(L, arc);
         lua_pushcclosure(L, _arc_lua_get_length, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_point_at_angle") == 0) {
         lua_pushlightuserdata(L, arc);
         lua_pushcclosure(L, _arc_lua_get_point_at_angle, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (method)");
         return 1;
     }
+    profile_stop(PROFILE_LUA_ARC_INDEX, "arc_lua_index (invalid)");
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EseArc property assignment
+ * 
+ * Provides write access to arc properties (x, y, radius, start_angle, end_angle) from Lua.
+ * When a Lua script assigns to arc.x, arc.y, etc., this function is called to update the values.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _arc_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_ARC_NEWINDEX);
     EseArc *arc = arc_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!arc || !key) return 0;
+    if (!arc || !key) {
+        profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+        return 0;
+    }
 
     if (strcmp(key, "x") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
             return luaL_error(L, "arc.x must be a number");
         }
         arc->x = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
             return luaL_error(L, "arc.y must be a number");
         }
         arc->y = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "radius") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
             return luaL_error(L, "arc.radius must be a number");
         }
         arc->radius = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "start_angle") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
             return luaL_error(L, "arc.start_angle must be a number");
         }
         arc->start_angle = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "end_angle") == 0) {
         if (!lua_isnumber(L, 3)) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
             return luaL_error(L, "arc.end_angle must be a number");
         }
         arc->end_angle = (float)lua_tonumber(L, 3);
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (setter)");
         return 0;
     }
+    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "arc_lua_newindex (invalid)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
+/**
+ * @brief Lua __tostring metamethod for EseArc string representation
+ * 
+ * Converts an EseArc to a human-readable string for debugging and display.
+ * The format includes the memory address and current x,y,radius,start_angle,end_angle values.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _arc_lua_tostring(lua_State *L) {
     EseArc *arc = arc_lua_get(L, 1);
 
@@ -163,13 +246,26 @@ static int _arc_lua_tostring(lua_State *L) {
 }
 
 // Lua constructors
+/**
+ * @brief Lua constructor function for creating new EseArc instances
+ * 
+ * Creates a new EseArc from Lua with specified center, radius, and angle parameters.
+ * This function is called when Lua code executes `Arc.new(x, y, radius, start_angle, end_angle)`.
+ * It validates the arguments, creates the underlying EseArc, and returns a proxy table
+ * that provides access to the arc's properties and methods.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _arc_lua_new(lua_State *L) {
+    profile_start(PROFILE_LUA_ARC_NEW);
     float x = 0.0f, y = 0.0f, radius = 1.0f, start_angle = 0.0f, end_angle = 2.0f * M_PI;
 
     int n_args = lua_gettop(L);
     if (n_args == 5) {
         if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2) || !lua_isnumber(L, 3) || 
             !lua_isnumber(L, 4) || !lua_isnumber(L, 5)) {
+            profile_cancel(PROFILE_LUA_ARC_NEW);
             return luaL_error(L, "all arguments must be numbers");
         }
         x = (float)lua_tonumber(L, 1);
@@ -178,6 +274,7 @@ static int _arc_lua_new(lua_State *L) {
         start_angle = (float)lua_tonumber(L, 4);
         end_angle = (float)lua_tonumber(L, 5);
     } else if (n_args != 0) {
+        profile_cancel(PROFILE_LUA_ARC_NEW);
         return luaL_error(L, "new() takes 0 or 5 arguments (x, y, radius, start_angle, end_angle)");
     }
 
@@ -190,34 +287,84 @@ static int _arc_lua_new(lua_State *L) {
     arc->end_angle = end_angle;
     arc->state = L;
     
-    // Create proxy table for Lua-owned arc
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, arc);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
+    *ud = arc;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "ArcProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "ArcProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_ARC_NEW, "arc_lua_new");
     return 1;
 }
 
+/**
+ * @brief Lua constructor function for creating EseArc at origin
+ * 
+ * Creates a new EseArc at the origin (0,0) with unit radius and full circle angles from Lua.
+ * This function is called when Lua code executes `Arc.zero()`.
+ * It's a convenience constructor for creating arcs at the default position and parameters.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _arc_lua_zero(lua_State *L) {
+    profile_start(PROFILE_LUA_ARC_ZERO);
     // Create the arc using the standard creation function
     EseArc *arc = _arc_make();  // We'll set the state manually
     arc->state = L;
     
-    // Create proxy table for Lua-owned arc
+    // Create proxy table
     lua_newtable(L);
+
+    // Store pointer in __ptr
     lua_pushlightuserdata(L, arc);
     lua_setfield(L, -2, "__ptr");
 
+    // Create hidden userdata for GC
+    EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
+    *ud = arc;
+
+    // Attach metatable with __gc
     luaL_getmetatable(L, "ArcProxyMeta");
     lua_setmetatable(L, -2);
 
+    // Store userdata inside the table (hidden field)
+    lua_setfield(L, -2, "__gc_guard");
+
+    // Finally set the table's metatable (for __index, __newindex, etc.)
+    luaL_getmetatable(L, "ArcProxyMeta");
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_ARC_ZERO, "arc_lua_zero");
     return 1;
 }
 
 // Lua methods
+/**
+ * @brief Lua method for testing if a point is contained within the arc
+ * 
+ * Tests whether the specified (x,y) point lies within the arc bounds using
+ * distance and angle calculations with optional tolerance.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - boolean result)
+ */
 static int _arc_lua_contains_point(lua_State *L) {
     EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
     if (!arc) {
@@ -240,6 +387,15 @@ static int _arc_lua_contains_point(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua method for testing arc-rectangle intersection
+ * 
+ * Tests whether the arc intersects with a given rectangle using
+ * bounding box intersection algorithms.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - boolean result)
+ */
 static int _arc_lua_intersects_rect(lua_State *L) {
     EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
     if (!arc) {
@@ -255,6 +411,15 @@ static int _arc_lua_intersects_rect(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua method for calculating arc length
+ * 
+ * Calculates and returns the arc length using the formula: radius * angle_difference.
+ * Handles angle wrapping automatically.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the length value)
+ */
 static int _arc_lua_get_length(lua_State *L) {
     EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
     if (!arc) {
@@ -265,6 +430,15 @@ static int _arc_lua_get_length(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua method for getting a point along the arc at a specified angle
+ * 
+ * Calculates the coordinates of a point that lies along the arc at the given angle.
+ * Returns success status and x,y coordinates if the angle is within the arc's range.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (3 for success: true, x, y; 1 for failure: false)
+ */
 static int _arc_lua_get_point_at_angle(lua_State *L) {
     EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
     if (!arc) {
@@ -306,7 +480,7 @@ EseArc *arc_copy(const EseArc *source) {
         return NULL;
     }
 
-    EseArc *copy = (EseArc *)memory_manager.malloc(sizeof(EseArc), MMTAG_GENERAL);
+    EseArc *copy = (EseArc *)memory_manager.malloc(sizeof(EseArc), MMTAG_ARC);
     copy->x = source->x;
     copy->y = source->y;
     copy->radius = source->radius;
@@ -325,17 +499,7 @@ void arc_destroy(EseArc *arc) {
         // No Lua references, safe to free immediately
         memory_manager.free(arc);
     } else {
-        // Has Lua references, decrement counter
-        if (arc->lua_ref_count > 0) {
-            arc->lua_ref_count--;
-            
-            if (arc->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(arc->state, LUA_REGISTRYINDEX, arc->lua_ref);
-                arc->lua_ref = LUA_NOREF;
-            }
-        }
+        arc_unref(arc);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -384,7 +548,19 @@ void arc_lua_push(EseArc *arc) {
         lua_newtable(arc->state);
         lua_pushlightuserdata(arc->state, arc);
         lua_setfield(arc->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EseArc **ud = (EseArc **)lua_newuserdata(arc->state, sizeof(EseArc *));
+        *ud = arc;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(arc->state, "ArcProxyMeta");
+        lua_setmetatable(arc->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(arc->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(arc->state, "ArcProxyMeta");
         lua_setmetatable(arc->state, -2);
     } else {
@@ -394,32 +570,41 @@ void arc_lua_push(EseArc *arc) {
 }
 
 EseArc *arc_lua_get(lua_State *L, int idx) {
+    log_assert("ARC", L, "arc_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is a table
     if (!lua_istable(L, idx)) {
         return NULL;
     }
     
+    // Check if it has the correct metatable
     if (!lua_getmetatable(L, idx)) {
-        return NULL;
+        return NULL; // No metatable
     }
     
+    // Get the expected metatable for comparison
     luaL_getmetatable(L, "ArcProxyMeta");
     
+    // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
+        lua_pop(L, 2); // Pop both metatables
+        return NULL; // Wrong metatable
     }
     
-    lua_pop(L, 2);
+    lua_pop(L, 2); // Pop both metatables
     
+    // Get the __ptr field
     lua_getfield(L, idx, "__ptr");
     
+    // Check if __ptr exists and is light userdata
     if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
+        lua_pop(L, 1); // Pop the __ptr value (or nil)
         return NULL;
     }
     
+    // Extract the pointer
     void *arc = lua_touserdata(L, -1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // Pop the __ptr value
     
     return (EseArc *)arc;
 }
@@ -433,6 +618,18 @@ void arc_ref(EseArc *arc) {
         lua_pushlightuserdata(arc->state, arc);
         lua_setfield(arc->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EseArc **ud = (EseArc **)lua_newuserdata(arc->state, sizeof(EseArc *));
+        *ud = arc;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(arc->state, "ArcProxyMeta");
+        lua_setmetatable(arc->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(arc->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(arc->state, "ArcProxyMeta");
         lua_setmetatable(arc->state, -2);
 
@@ -443,6 +640,8 @@ void arc_ref(EseArc *arc) {
         // Already referenced - just increment count
         arc->lua_ref_count++;
     }
+
+    profile_count_add("arc_ref_count");
 }
 
 void arc_unref(EseArc *arc) {
@@ -457,6 +656,8 @@ void arc_unref(EseArc *arc) {
             arc->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("arc_unref_count");
 }
 
 // Mathematical operations

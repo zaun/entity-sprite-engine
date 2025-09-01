@@ -11,7 +11,7 @@
 static char *_strdup_safe(const char *src) {
     if (!src) return NULL;
     size_t len = strlen(src) + 1;
-    char *dst = (char *)memory_manager.malloc(len, MMTAG_GENERAL);
+    char *dst = (char *)memory_manager.malloc(len, MMTAG_MAP);
     if (dst) memcpy(dst, src, len);
     return dst;
 }
@@ -20,12 +20,12 @@ static bool _allocate_cells_array(EseMap *map) {
     if (!map || map->width == 0 || map->height == 0) return false;
 
     map->cells = (EseMapCell ***)memory_manager.malloc(
-        sizeof(EseMapCell **) * map->height, MMTAG_GENERAL);
+        sizeof(EseMapCell **) * map->height, MMTAG_MAP);
     if (!map->cells) return false;
 
     for (uint32_t y = 0; y < map->height; y++) {
         map->cells[y] = (EseMapCell **)memory_manager.malloc(
-            sizeof(EseMapCell *) * map->width, MMTAG_GENERAL);
+            sizeof(EseMapCell *) * map->width, MMTAG_MAP);
         if (!map->cells[y]) {
             for (uint32_t cleanup_y = 0; cleanup_y < y; cleanup_y++) {
                 for (uint32_t x = 0; x < map->width; x++) {
@@ -353,7 +353,7 @@ void map_lua_init(EseLuaEngine *engine) {
 EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMapType type, bool c_only) {
     if (width == 0 || height == 0) return NULL;
 
-    EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_GENERAL);
+    EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_MAP);
     map->title = _strdup_safe("Untitled Map");
     map->author = _strdup_safe("Unknown");
     map->version = 0;

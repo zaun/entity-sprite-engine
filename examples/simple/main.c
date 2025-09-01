@@ -74,8 +74,6 @@ int main(int argc, char *argv[]) {
     engine_set_renderer(engine, NULL);
     window_set_renderer(window, NULL);
 
-    engine_print_stats(engine);
-
     engine_destroy(engine);
     renderer_destroy(renderer);
     window_destroy(window);

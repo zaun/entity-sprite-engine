@@ -3,6 +3,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/input_state.h"
 
 /**
@@ -57,8 +58,16 @@ static int _input_state_readonly_error(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EseInputState instance with default values
+ * 
+ * Allocates memory for a new EseInputState and initializes all fields to safe defaults.
+ * All key states are initialized to false, mouse position to (0,0), and no Lua state or references.
+ * 
+ * @return Pointer to the newly created EseInputState, or NULL on allocation failure
+ */
 static EseInputState *_input_state_make() {
-    EseInputState *input = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_GENERAL);
+    EseInputState *input = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_INPUT_STATE);
     memset(input->keys_down, 0, sizeof(input->keys_down));
     memset(input->keys_pressed, 0, sizeof(input->keys_pressed));
     memset(input->keys_released, 0, sizeof(input->keys_released));
@@ -75,8 +84,25 @@ static EseInputState *_input_state_make() {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EseInputState
+ * 
+ * Handles cleanup when a Lua proxy table for an EseInputState is garbage collected.
+ * Only frees the underlying EseInputState if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _input_state_lua_gc(lua_State *L) {
-    EseInputState *input = input_state_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, "InputProxyMeta");
+    EseInputState *input = NULL;
+    if (ud) {
+        input = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        input = input_state_lua_get(L, 1);
+    }
 
     if (input) {
         // If lua_ref == LUA_NOREF, there are no more references to this input, 
@@ -90,10 +116,24 @@ static int _input_state_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EseInputState property access
+ * 
+ * Provides read access to input state properties from Lua. When a Lua script
+ * accesses input.mouse_x, input.keys_down, etc., this function is called to retrieve the values.
+ * Creates read-only proxy tables for key arrays and mouse button states.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
+ */
 static int _input_state_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_INPUT_STATE_INDEX);
     EseInputState *input = input_state_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!input || !key) return 0;
+    if (!input || !key) {
+        profile_cancel(PROFILE_LUA_INPUT_STATE_INDEX);
+        return 0;
+    }
 
     // keys_down, keys_pressed, keys_released tables
     if (strcmp(key, "keys_down") == 0 ||
@@ -122,24 +162,29 @@ static int _input_state_lua_index(lua_State *L) {
         // Apply metatable to the table
         lua_setmetatable(L, -2);
 
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (keys_table)");
         return 1;
     }
 
     // mouse_x, mouse_y, mouse_scroll_dx, mouse_scroll_dy
     if (strcmp(key, "mouse_x") == 0) {
         lua_pushinteger(L, input->mouse_x);
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_x)");
         return 1;
     }
     if (strcmp(key, "mouse_y") == 0) {
         lua_pushinteger(L, input->mouse_y);
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_y)");
         return 1;
     }
     if (strcmp(key, "mouse_scroll_dx") == 0) {
         lua_pushinteger(L, input->mouse_scroll_dx);
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_scroll_dx)");
         return 1;
     }
     if (strcmp(key, "mouse_scroll_dy") == 0) {
         lua_pushinteger(L, input->mouse_scroll_dy);
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_scroll_dy)");
         return 1;
     }
 
@@ -163,6 +208,7 @@ static int _input_state_lua_index(lua_State *L) {
         // Apply metatable to the table
         lua_setmetatable(L, -2);
 
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_buttons)");
         return 1;
     }
 
@@ -173,16 +219,38 @@ static int _input_state_lua_index(lua_State *L) {
             lua_pushinteger(L, i);
             lua_setfield(L, -2, input_state_key_names[i]);
         }
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (KEY_table)");
         return 1;
     }
 
+    profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (invalid)");
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EseInputState property assignment
+ * 
+ * Provides write access to input state properties from Lua. Since input state is read-only,
+ * this function always returns an error for any property assignment attempts.
+ * 
+ * @param L Lua state
+ * @return Never returns (always calls luaL_error)
+ */
 static int _input_state_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_INPUT_STATE_NEWINDEX);
+    profile_stop(PROFILE_LUA_INPUT_STATE_NEWINDEX, "input_state_lua_newindex (error)");
     return luaL_error(L, "Input object is read-only");
 }
 
+/**
+ * @brief Lua __tostring metamethod for EseInputState string representation
+ * 
+ * Converts an EseInputState to a human-readable string for debugging and display.
+ * The format includes the memory address, mouse position, and visual representation of key states.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _input_state_lua_tostring(lua_State *L) {
     EseInputState *input = input_state_lua_get(L, 1);
     if (!input) {
@@ -240,6 +308,15 @@ static int _input_state_lua_tostring(lua_State *L) {
 }
 
 // Lua helpers
+/**
+ * @brief Lua helper function for accessing key state arrays
+ * 
+ * Provides read-only access to key state arrays (keys_down, keys_pressed, keys_released).
+ * This function is used as the __index metamethod for the proxy tables created in the main index function.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - boolean key state)
+ */
 static int _input_state_keys_index(lua_State *L) {
     bool *arr = (bool *)lua_touserdata(L, lua_upvalueindex(1));
     int key_idx = (int)luaL_checkinteger(L, 2);
@@ -248,6 +325,15 @@ static int _input_state_keys_index(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua helper function for accessing mouse button states
+ * 
+ * Provides read-only access to mouse button states. This function is used as the
+ * __index metamethod for the mouse_buttons proxy table.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - boolean button state)
+ */
 static int _input_state_mouse_buttons_index(lua_State *L) {
     EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
     int btn = (int)luaL_checkinteger(L, 2);
@@ -258,6 +344,15 @@ static int _input_state_mouse_buttons_index(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua helper function for read-only error handling
+ * 
+ * Called when any attempt is made to modify read-only input state tables.
+ * Always returns an error indicating that the tables are read-only.
+ * 
+ * @param L Lua state
+ * @return Never returns (always calls luaL_error)
+ */
 static int _input_state_readonly_error(lua_State *L) {
     return luaL_error(L, "Input tables are read-only");
 }
@@ -282,7 +377,7 @@ EseInputState *input_state_copy(const EseInputState *src) {
     log_assert("INPUT_STATE", src, "input_state_copy called with NULL src");
     log_assert("INPUT_STATE", memory_manager.malloc, "memory_manager.malloc is NULL");
 
-    EseInputState *copy = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_GENERAL);
+    EseInputState *copy = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_INPUT_STATE);
     log_assert("INPUT_STATE", copy, "input_state_copy failed to allocate memory");
 
     memcpy(copy->keys_down, src->keys_down, sizeof(src->keys_down));
@@ -309,16 +404,7 @@ void input_state_destroy(EseInputState *input) {
         // No Lua references, safe to free immediately
         memory_manager.free(input);
     } else {
-        // Has Lua references, decrement counter
-        if (input->lua_ref_count > 0) {
-            input->lua_ref_count--;
-            
-            if (input->lua_ref_count == 0) {
-                // No more C references - remove from registry
-                luaL_unref(input->state, LUA_REGISTRYINDEX, input->lua_ref);
-                input->lua_ref = LUA_NOREF;
-            }
-        }
+        input_state_unref(input);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -355,7 +441,19 @@ void input_state_lua_push(EseInputState *input) {
         lua_newtable(input->state);
         lua_pushlightuserdata(input->state, input);
         lua_setfield(input->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EseInputState **ud = (EseInputState **)lua_newuserdata(input->state, sizeof(EseInputState *));
+        *ud = input;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(input->state, "InputProxyMeta");
+        lua_setmetatable(input->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(input->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(input->state, "InputProxyMeta");
         lua_setmetatable(input->state, -2);
     } else {
@@ -365,24 +463,42 @@ void input_state_lua_push(EseInputState *input) {
 }
 
 EseInputState *input_state_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-
-    if (!lua_getmetatable(L, idx)) return NULL;
-
+    log_assert("INPUT_STATE", L, "input_state_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is a table
+    if (!lua_istable(L, idx)) {
+        return NULL;
+    }
+    
+    // Check if it has the correct metatable
+    if (!lua_getmetatable(L, idx)) {
+        return NULL; // No metatable
+    }
+    
+    // Get the expected metatable for comparison
     luaL_getmetatable(L, "InputProxyMeta");
+    
+    // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
+        lua_pop(L, 2); // Pop both metatables
+        return NULL; // Wrong metatable
     }
-    lua_pop(L, 2);
-
+    
+    lua_pop(L, 2); // Pop both metatables
+    
+    // Get the __ptr field
     lua_getfield(L, idx, "__ptr");
+    
+    // Check if __ptr exists and is light userdata
     if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
+        lua_pop(L, 1); // Pop the __ptr value (or nil)
         return NULL;
     }
+    
+    // Extract the pointer
     void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // Pop the __ptr value
+    
     return (EseInputState *)ptr;
 }
 
@@ -396,6 +512,18 @@ void input_state_ref(EseInputState *input) {
         lua_pushlightuserdata(input->state, input);
         lua_setfield(input->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EseInputState **ud = (EseInputState **)lua_newuserdata(input->state, sizeof(EseInputState *));
+        *ud = input;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(input->state, "InputProxyMeta");
+        lua_setmetatable(input->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(input->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(input->state, "InputProxyMeta");
         lua_setmetatable(input->state, -2);
 
@@ -406,6 +534,8 @@ void input_state_ref(EseInputState *input) {
         // Already referenced - just increment count
         input->lua_ref_count++;
     }
+
+    profile_count_add("input_state_ref_count");
 }
 
 void input_state_unref(EseInputState *input) {
@@ -421,4 +551,6 @@ void input_state_unref(EseInputState *input) {
             input->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("input_state_unref_count");
 }

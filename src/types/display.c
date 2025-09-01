@@ -3,6 +3,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "types/display.h"
 
 // ========================================
@@ -30,8 +31,16 @@ static int _display_state_readonly_error(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EseDisplay instance with default values
+ * 
+ * Allocates memory for a new EseDisplay and initializes all fields to safe defaults.
+ * The display starts in windowed mode with zero dimensions, 1.0 aspect ratio, and no Lua state or references.
+ * 
+ * @return Pointer to the newly created EseDisplay, or NULL on allocation failure
+ */
 static EseDisplay *_display_state_make() {
-    EseDisplay *display = (EseDisplay *)memory_manager.malloc(sizeof(EseDisplay), MMTAG_GENERAL);
+    EseDisplay *display = (EseDisplay *)memory_manager.malloc(sizeof(EseDisplay), MMTAG_DISPLAY);
     display->fullscreen = false;
     display->width = 0;
     display->height = 0;
@@ -45,8 +54,25 @@ static EseDisplay *_display_state_make() {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EseDisplay
+ * 
+ * Handles cleanup when a Lua proxy table for an EseDisplay is garbage collected.
+ * Only frees the underlying EseDisplay if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _display_state_lua_gc(lua_State *L) {
-    EseDisplay *display = display_state_lua_get(L, 1);
+    // Try to get from userdata (GC guard)
+    EseDisplay **ud = (EseDisplay **)luaL_testudata(L, 1, "DisplayProxyMeta");
+    EseDisplay *display = NULL;
+    if (ud) {
+        display = *ud;
+    } else {
+        // Fallback: maybe called on a table (unlikely, but safe)
+        display = display_state_lua_get(L, 1);
+    }
 
     if (display) {
         // If lua_ref == LUA_NOREF, there are no more references to this display, 
@@ -60,26 +86,44 @@ static int _display_state_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EseDisplay property access
+ * 
+ * Provides read access to display properties from Lua. When a Lua script
+ * accesses display.width, display.height, display.fullscreen, etc., this function is called
+ * to retrieve the values. Creates read-only proxy tables for viewport data.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
+ */
 static int _display_state_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_DISPLAY_INDEX);
     EseDisplay *display = display_state_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    if (!display || !key) return 0;
+    if (!display || !key) {
+        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
+        return 0;
+    }
 
     // Simple properties
     if (strcmp(key, "fullscreen") == 0) {
         lua_pushboolean(L, display->fullscreen);
+        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (fullscreen)");
         return 1;
     }
     if (strcmp(key, "width") == 0) {
         lua_pushinteger(L, display->width);
+        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (width)");
         return 1;
     }
     if (strcmp(key, "height") == 0) {
         lua_pushinteger(L, display->height);
+        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (height)");
         return 1;
     }
     if (strcmp(key, "aspect_ratio") == 0) {
         lua_pushnumber(L, display->aspect_ratio);
+        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (aspect_ratio)");
         return 1;
     }
 
@@ -103,16 +147,38 @@ static int _display_state_lua_index(lua_State *L) {
         // Apply metatable to the table
         lua_setmetatable(L, -2);
 
+        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (viewport)");
         return 1;
     }
 
+    profile_stop(PROFILE_LUA_DISPLAY_INDEX, "display_state_lua_index (invalid)");
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EseDisplay property assignment
+ * 
+ * Provides write access to display properties from Lua. Since display state is read-only,
+ * this function always returns an error for any property assignment attempts.
+ * 
+ * @param L Lua state
+ * @return Never returns (always calls luaL_error)
+ */
 static int _display_state_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_DISPLAY_NEWINDEX);
+    profile_stop(PROFILE_LUA_DISPLAY_NEWINDEX, "display_state_lua_newindex (error)");
     return luaL_error(L, "Display object is read-only");
 }
 
+/**
+ * @brief Lua __tostring metamethod for EseDisplay string representation
+ * 
+ * Converts an EseDisplay to a human-readable string for debugging and display.
+ * The format includes the memory address, dimensions, fullscreen status, and viewport size.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _display_state_lua_tostring(lua_State *L) {
     EseDisplay *display = display_state_lua_get(L, 1);
     if (!display) {
@@ -146,6 +212,15 @@ static int _display_state_lua_tostring(lua_State *L) {
 // }
 
 // Lua viewport helpers
+/**
+ * @brief Lua helper function for accessing viewport properties
+ * 
+ * Provides read-only access to viewport properties (width, height) from Lua.
+ * This function is used as the __index metamethod for the viewport proxy table.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
+ */
 static int _display_state_viewport_index(lua_State *L) {
     EseViewport *viewport = (EseViewport *)lua_touserdata(L, lua_upvalueindex(1));
     const char *key = lua_tostring(L, 2);
@@ -163,6 +238,15 @@ static int _display_state_viewport_index(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua helper function for read-only error handling
+ * 
+ * Called when any attempt is made to modify read-only display state tables.
+ * Always returns an error indicating that the tables are read-only.
+ * 
+ * @param L Lua state
+ * @return Never returns (always calls luaL_error)
+ */
 static int _display_state_readonly_error(lua_State *L) {
     return luaL_error(L, "Display tables are read-only");
 }
@@ -187,7 +271,7 @@ EseDisplay *display_state_copy(const EseDisplay *src) {
     log_assert("DISPLAY_STATE", src, "display_state_copy called with NULL src");
     log_assert("DISPLAY_STATE", memory_manager.malloc, "memory_manager.malloc is NULL");
 
-    EseDisplay *copy = (EseDisplay *)memory_manager.malloc(sizeof(EseDisplay), MMTAG_GENERAL);
+    EseDisplay *copy = (EseDisplay *)memory_manager.malloc(sizeof(EseDisplay), MMTAG_DISPLAY);
     log_assert("DISPLAY_STATE", copy, "display_state_copy failed to allocate memory");
 
     copy->fullscreen = src->fullscreen;
@@ -209,17 +293,7 @@ void display_state_destroy(EseDisplay *display) {
         // No Lua references, safe to free immediately
         memory_manager.free(display);
     } else {
-        // Has Lua references, decrement counter
-        if (display->lua_ref_count > 0) {
-            display->lua_ref_count--;
-            
-            if (display->lua_ref_count == 0) {
-                // No more C references, unref from Lua registry
-                // Let Lua's GC handle the final cleanup
-                luaL_unref(display->state, LUA_REGISTRYINDEX, display->lua_ref);
-                display->lua_ref = LUA_NOREF;
-            }
-        }
+        display_state_unref(display);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -258,7 +332,19 @@ void display_state_lua_push(EseDisplay *display) {
         lua_newtable(display->state);
         lua_pushlightuserdata(display->state, display);
         lua_setfield(display->state, -2, "__ptr");
-        
+
+        // Create hidden userdata for GC
+        EseDisplay **ud = (EseDisplay **)lua_newuserdata(display->state, sizeof(EseDisplay *));
+        *ud = display;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(display->state, "DisplayProxyMeta");
+        lua_setmetatable(display->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(display->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(display->state, "DisplayProxyMeta");
         lua_setmetatable(display->state, -2);
     } else {
@@ -268,24 +354,42 @@ void display_state_lua_push(EseDisplay *display) {
 }
 
 EseDisplay *display_state_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-
-    if (!lua_getmetatable(L, idx)) return NULL;
-
+    log_assert("DISPLAY", L, "display_state_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is a table
+    if (!lua_istable(L, idx)) {
+        return NULL;
+    }
+    
+    // Check if it has the correct metatable
+    if (!lua_getmetatable(L, idx)) {
+        return NULL; // No metatable
+    }
+    
+    // Get the expected metatable for comparison
     luaL_getmetatable(L, "DisplayProxyMeta");
+    
+    // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
+        lua_pop(L, 2); // Pop both metatables
+        return NULL; // Wrong metatable
     }
-    lua_pop(L, 2);
-
+    
+    lua_pop(L, 2); // Pop both metatables
+    
+    // Get the __ptr field
     lua_getfield(L, idx, "__ptr");
+    
+    // Check if __ptr exists and is light userdata
     if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
+        lua_pop(L, 1); // Pop the __ptr value (or nil)
         return NULL;
     }
+    
+    // Extract the pointer
     void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // Pop the __ptr value
+    
     return (EseDisplay *)ptr;
 }
 
@@ -298,6 +402,18 @@ void display_state_ref(EseDisplay *display) {
         lua_pushlightuserdata(display->state, display);
         lua_setfield(display->state, -2, "__ptr");
 
+        // Create hidden userdata for GC
+        EseDisplay **ud = (EseDisplay **)lua_newuserdata(display->state, sizeof(EseDisplay *));
+        *ud = display;
+
+        // Attach metatable with __gc
+        luaL_getmetatable(display->state, "DisplayProxyMeta");
+        lua_setmetatable(display->state, -2);
+
+        // Store userdata inside the table (hidden field)
+        lua_setfield(display->state, -2, "__gc_guard");
+
+        // Finally set the table's metatable (for __index, __newindex, etc.)
         luaL_getmetatable(display->state, "DisplayProxyMeta");
         lua_setmetatable(display->state, -2);
 
@@ -308,6 +424,8 @@ void display_state_ref(EseDisplay *display) {
         // Already referenced - just increment count
         display->lua_ref_count++;
     }
+
+    profile_count_add("display_state_ref_count");
 }
 
 void display_state_unref(EseDisplay *display) {
@@ -322,6 +440,8 @@ void display_state_unref(EseDisplay *display) {
             display->lua_ref = LUA_NOREF;
         }
     }
+
+    profile_count_add("display_state_unref_count");
 }
 
 // State management

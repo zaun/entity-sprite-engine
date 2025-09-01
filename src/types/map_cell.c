@@ -73,10 +73,10 @@ void mapcell_lua_push(EseMapCell *cell) {
  */
 static int _mapcell_lua_new(lua_State *L) {
     EseMapCell *cell = (EseMapCell *)memory_manager.malloc(
-        sizeof(EseMapCell), MMTAG_GENERAL);
+        sizeof(EseMapCell), MMTAG_MAP_CELL);
 
     cell->tile_ids = (uint8_t *)memory_manager.malloc(
-        sizeof(uint8_t) * INITIAL_LAYER_CAPACITY, MMTAG_GENERAL);
+        sizeof(uint8_t) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
     cell->layer_count = 0;
     cell->layer_capacity = INITIAL_LAYER_CAPACITY;
     cell->isDynamic = false;
@@ -315,9 +315,9 @@ void mapcell_lua_init(EseLuaEngine *engine) {
 
 EseMapCell *mapcell_create(EseLuaEngine *engine, bool c_only) {
     EseMapCell *cell =
-        (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_GENERAL);
+        (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);
     cell->tile_ids = (uint8_t *)memory_manager.malloc(
-        sizeof(uint8_t) * INITIAL_LAYER_CAPACITY, MMTAG_GENERAL);
+        sizeof(uint8_t) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
     cell->layer_count = 0;
     cell->layer_capacity = INITIAL_LAYER_CAPACITY;
     cell->isDynamic = false;
@@ -335,9 +335,9 @@ EseMapCell *mapcell_create(EseLuaEngine *engine, bool c_only) {
 EseMapCell *mapcell_copy(const EseMapCell *src, bool c_only) {
     if (!src) return NULL;
     EseMapCell *copy =
-        (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_GENERAL);
+        (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);
     copy->tile_ids = (uint8_t *)memory_manager.malloc(
-        sizeof(uint8_t) * src->layer_capacity, MMTAG_GENERAL);
+        sizeof(uint8_t) * src->layer_capacity, MMTAG_MAP_CELL);
     memcpy(copy->tile_ids, src->tile_ids, sizeof(uint8_t) * src->layer_count);
     copy->layer_count = src->layer_count;
     copy->layer_capacity = src->layer_capacity;
@@ -391,7 +391,7 @@ bool mapcell_add_layer(EseMapCell *cell, uint8_t tile_id) {
     if (cell->layer_count >= cell->layer_capacity) {
         size_t new_capacity = cell->layer_capacity * 2;
         uint8_t *new_array = (uint8_t *)memory_manager.realloc(
-            cell->tile_ids, sizeof(uint8_t) * new_capacity, MMTAG_GENERAL);
+            cell->tile_ids, sizeof(uint8_t) * new_capacity, MMTAG_MAP_CELL);
         if (!new_array) return false;
         cell->tile_ids = new_array;
         cell->layer_capacity = new_capacity;

@@ -27,9 +27,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if (condition) { \
+    } else if (condition) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s\n", message); \
@@ -47,9 +45,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if ((expected) == (actual)) { \
+    } else if ((expected) == (actual)) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s (expected: %g, got: %g)\n", message, (double)(expected), (double)(actual)); \
@@ -67,9 +63,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if ((expected) == (actual)) { \
+    } else if ((expected) == (actual)) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s (expected: %p, got: %p)\n", message, (void*)(expected), (void*)(actual)); \
@@ -87,18 +81,18 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    float diff = (expected) - (actual); \
-    if (diff < 0) diff = -diff; \
-    if (diff <= (tolerance)) { \
-        test_passed++; \
-        test_suite_passed++; \
-        printf("✓ PASS: %s (expected: %g, got: %g, diff: %g)\n", message, (double)(expected), (double)(actual), (double)diff); \
     } else { \
-        test_failed++; \
-        test_suite_failed++; \
-        printf("✗ FAIL: %s (expected: %g, got: %g, diff: %g)\n", message, (double)(expected), (double)(actual), (double)diff); \
+        float diff = (expected) - (actual); \
+        if (diff < 0) diff = -diff; \
+        if (diff <= (tolerance)) { \
+            test_passed++; \
+            test_suite_passed++; \
+            printf("✓ PASS: %s (expected: %g, got: %g, diff: %g)\n", message, (double)(expected), (double)(actual), (double)diff); \
+        } else { \
+            test_failed++; \
+            test_suite_failed++; \
+            printf("✗ FAIL: %s (expected: %g, got: %g, diff: %g)\n", message, (double)(expected), (double)(actual), (double)diff); \
+        } \
     } \
 } while(0)
 
@@ -109,9 +103,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if (strcmp((expected), (actual)) == 0) { \
+    } else if (strcmp((expected), (actual)) == 0) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s (expected: \"%s\", got: \"%s\")\n", message, (expected), (actual)); \
@@ -129,9 +121,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if ((ptr) != NULL) { \
+    } else if ((ptr) != NULL) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s (pointer is not NULL)\n", message); \
@@ -149,9 +139,7 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_suite_skipped++; \
-        return; \
-    } \
-    if ((ptr) == NULL) { \
+    } else if ((ptr) == NULL) { \
         test_passed++; \
         test_suite_passed++; \
         printf("✓ PASS: %s (pointer is NULL)\n", message); \
@@ -169,36 +157,36 @@ static int test_suite_skipped = 0;
         printf("ℹ INFO: Skipping test due to test_skip flag\n"); \
         test_skipped++; \
         test_skipped++; \
-        return; \
-    } \
-    pid_t pid = fork(); \
-    if (pid == 0) { \
-        /* Child process - run the function that should abort */ \
-        func; \
-        /* If we get here, the function didn't abort */ \
-        exit(0); \
-    } else if (pid > 0) { \
-        /* Parent process - wait for child */ \
-        int status; \
-        waitpid(pid, &status, 0); \
-        if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGABRT || WTERMSIG(status) == SIGSEGV)) { \
-            test_passed++; \
-            test_suite_passed++; \
-            printf("✓ PASS: %s (function aborted as expected)\n", message); \
-        } else if (WIFEXITED(status) && WEXITSTATUS(status) == 0) { \
-            test_failed++; \
-            test_suite_failed++; \
-            printf("✗ FAIL: %s (function did not abort)\n", message); \
-        } else { \
-            test_failed++; \
-            test_suite_failed++; \
-            printf("✗ FAIL: %s (function exited with unexpected status)\n", message); \
-        } \
     } else { \
-        /* Fork failed */ \
-        test_failed++; \
-        test_suite_failed++; \
-        printf("✗ FAIL: %s (fork failed)\n", message); \
+        pid_t pid = fork(); \
+        if (pid == 0) { \
+            /* Child process - run the function that should abort */ \
+            func; \
+            /* If we get here, the function didn't abort */ \
+            exit(0); \
+        } else if (pid > 0) { \
+            /* Parent process - wait for child */ \
+            int status; \
+            waitpid(pid, &status, 0); \
+            if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGABRT || WTERMSIG(status) == SIGSEGV)) { \
+                test_passed++; \
+                test_suite_passed++; \
+                printf("✓ PASS: %s (function aborted as expected)\n", message); \
+            } else if (WIFEXITED(status) && WEXITSTATUS(status) == 0) { \
+                test_failed++; \
+                test_suite_failed++; \
+                printf("✗ FAIL: %s (function did not abort)\n", message); \
+            } else { \
+                test_failed++; \
+                test_suite_failed++; \
+                printf("✗ FAIL: %s (function exited with unexpected status)\n", message); \
+            } \
+        } else { \
+            /* Fork failed */ \
+            test_failed++; \
+            test_suite_failed++; \
+            printf("✗ FAIL: %s (fork failed)\n", message); \
+        } \
     } \
 } while(0)
 

@@ -238,7 +238,7 @@ static int _tileset_lua_tostring(lua_State *L) {
 /* ----------------- Lua Init ----------------- */
 
 static int _tileset_lua_new(lua_State *L) {
-    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_GENERAL);
+    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_TILESET);
 
     for (int i = 0; i < 256; i++) {
         tiles->mappings[i].sprites = NULL;
@@ -292,7 +292,7 @@ void tileset_lua_init(EseLuaEngine *engine) {
 /* ----------------- C API ----------------- */
 
 EseTileSet *tileset_create(EseLuaEngine *engine, bool c_only) {
-    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_GENERAL);
+    EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_TILESET);
 
     for (int i = 0; i < 256; i++) {
         tiles->mappings[i].sprites = NULL;
@@ -375,7 +375,7 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_i
     if (mapping->sprite_count >= mapping->sprite_capacity) {
         size_t new_capacity = mapping->sprite_capacity == 0 ? INITIAL_SPRITE_CAPACITY : mapping->sprite_capacity * 2;
         EseSpriteWeight *new_array = (EseSpriteWeight *)memory_manager.realloc(
-            mapping->sprites, sizeof(EseSpriteWeight) * new_capacity, MMTAG_GENERAL);
+            mapping->sprites, sizeof(EseSpriteWeight) * new_capacity, MMTAG_TILESET);
         if (!new_array) return false;
         mapping->sprites = new_array;
         mapping->sprite_capacity = new_capacity;
@@ -383,7 +383,7 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_i
 
     // Copy string
     size_t len = strlen(sprite_id);
-    char *copy = (char *)memory_manager.malloc(len + 1, MMTAG_GENERAL);
+    char *copy = (char *)memory_manager.malloc(len + 1, MMTAG_TILESET);
     if (!copy) return false;
     memcpy(copy, sprite_id, len + 1);
 

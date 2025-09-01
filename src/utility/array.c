@@ -12,10 +12,10 @@ struct EseArray {
 };
 
 EseArray *array_create(size_t initial_capacity, ArrayFreeFn free_fn) {
-    EseArray *array = memory_manager.malloc(sizeof(EseArray), MMTAG_GENERAL);
+    EseArray *array = memory_manager.malloc(sizeof(EseArray), MMTAG_ARRAY);
     if (!array) return NULL;
     
-    array->elements = memory_manager.malloc(sizeof(void*) * initial_capacity, MMTAG_GENERAL);
+    array->elements = memory_manager.malloc(sizeof(void*) * initial_capacity, MMTAG_ARRAY);
     if (!array->elements) {
         memory_manager.free(array);
         return NULL;
@@ -44,7 +44,7 @@ void array_destroy(EseArray *array) {
 }
 
 static bool array_resize(EseArray *array, size_t new_capacity) {
-    void **new_elements = memory_manager.realloc(array->elements, sizeof(void*) * new_capacity, MMTAG_GENERAL);
+    void **new_elements = memory_manager.realloc(array->elements, sizeof(void*) * new_capacity, MMTAG_ARRAY);
     if (!new_elements) return false;
     
     array->elements = new_elements;

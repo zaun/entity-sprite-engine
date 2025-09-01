@@ -2,6 +2,7 @@
 #define PROFILE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // Snapshot structure for storing timing data
 typedef struct {
@@ -95,10 +96,46 @@ extern "C" {
 #define PROFILE_LUA_POINT_NEW                   55
 #define PROFILE_LUA_POINT_ZERO                  56
 
+// Timer ID constants for rect Lua operations
+#define PROFILE_LUA_RECT_INDEX                  57
+#define PROFILE_LUA_RECT_NEWINDEX               58
+#define PROFILE_LUA_RECT_NEW                    59
+#define PROFILE_LUA_RECT_ZERO                   60
+
+// Timer ID constants for uuid Lua operations
+#define PROFILE_LUA_UUID_INDEX                  61
+#define PROFILE_LUA_UUID_NEWINDEX               62
+#define PROFILE_LUA_UUID_NEW                    63
+
+// Timer ID constants for ray Lua operations
+#define PROFILE_LUA_RAY_INDEX                   64
+#define PROFILE_LUA_RAY_NEWINDEX                65
+#define PROFILE_LUA_RAY_NEW                     66
+#define PROFILE_LUA_RAY_ZERO                    67
+
+// Timer ID constants for input_state Lua operations
+#define PROFILE_LUA_INPUT_STATE_INDEX           68
+#define PROFILE_LUA_INPUT_STATE_NEWINDEX        69
+
+// Timer ID constants for display Lua operations
+#define PROFILE_LUA_DISPLAY_INDEX               70
+#define PROFILE_LUA_DISPLAY_NEWINDEX            71
+
+// Timer ID constants for camera Lua operations
+#define PROFILE_LUA_CAMERA_INDEX                72
+#define PROFILE_LUA_CAMERA_NEWINDEX             73
+
+// Timer ID constants for arc Lua operations
+#define PROFILE_LUA_ARC_INDEX                   74
+#define PROFILE_LUA_ARC_NEWINDEX                75
+#define PROFILE_LUA_ARC_NEW                     76
+#define PROFILE_LUA_ARC_ZERO                    77
+
 // Timer ID constants for vector Lua operations
-#define PROFILE_LUA_VECTOR_INDEX                 57
-#define PROFILE_LUA_VECTOR_NEWINDEX              58
-#define PROFILE_LUA_VECTOR_NEW                   59
+#define PROFILE_LUA_VECTOR_INDEX                78
+#define PROFILE_LUA_VECTOR_NEWINDEX             79
+#define PROFILE_LUA_VECTOR_NEW                  80
+#define PROFILE_LUA_VECTOR_ZERO                 81
 
 
 #ifdef ESE_PROFILE_ENABLED

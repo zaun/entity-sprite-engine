@@ -30,6 +30,9 @@ endif()
 
 project(entityspriteengine LANGUAGES ${PROJECT_LANGUAGES})
 
+# Enable profiling
+# add_definitions(-DESE_PROFILE_ENABLED)
+
 #
 # Platform
 #
@@ -221,3 +224,5 @@ add_subdirectory(examples)
 
 # Add the tests subdirectory.
 add_subdirectory(tests)
+
+

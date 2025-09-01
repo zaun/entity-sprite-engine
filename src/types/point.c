@@ -49,6 +49,14 @@ static int _point_lua_zero(lua_State *L);
 // ========================================
 
 // Core helpers
+/**
+ * @brief Creates a new EsePoint instance with default values
+ * 
+ * Allocates memory for a new EsePoint and initializes all fields to safe defaults.
+ * The point starts at origin (0,0) with no Lua state or watchers.
+ * 
+ * @return Pointer to the newly created EsePoint, or NULL on allocation failure
+ */
 static EsePoint *_point_make() {
     EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     point->x = 0.0f;
@@ -64,6 +72,15 @@ static EsePoint *_point_make() {
 }
 
 // Watcher system
+/**
+ * @brief Notifies all registered watchers of a point change
+ * 
+ * Iterates through all registered watcher callbacks and invokes them with the
+ * updated point and their associated userdata. This is called whenever the
+ * point's x or y coordinates are modified.
+ * 
+ * @param point Pointer to the EsePoint that has changed
+ */
 static void _point_notify_watchers(EsePoint *point) {
     if (!point || point->watcher_count == 0) return;
     
@@ -75,6 +92,15 @@ static void _point_notify_watchers(EsePoint *point) {
 }
 
 // Lua metamethods
+/**
+ * @brief Lua garbage collection metamethod for EsePoint
+ * 
+ * Handles cleanup when a Lua proxy table for an EsePoint is garbage collected.
+ * Only frees the underlying EsePoint if it has no C-side references.
+ * 
+ * @param L Lua state
+ * @return Always returns 0 (no values pushed)
+ */
 static int _point_lua_gc(lua_State *L) {
     // Try to get from userdata (GC guard)
     EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, "PointProxyMeta");
@@ -98,6 +124,15 @@ static int _point_lua_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua __index metamethod for EsePoint property access
+ * 
+ * Provides read access to point properties (x, y) from Lua. When a Lua script
+ * accesses point.x or point.y, this function is called to retrieve the values.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
+ */
 static int _point_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_INDEX);
     EsePoint *point = point_lua_get(L, 1);
@@ -116,10 +151,20 @@ static int _point_lua_index(lua_State *L) {
         profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
         return 1;
     }
-    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
+    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (invalid)");
     return 0;
 }
 
+/**
+ * @brief Lua __newindex metamethod for EsePoint property assignment
+ * 
+ * Provides write access to point properties (x, y) from Lua. When a Lua script
+ * assigns to point.x or point.y, this function is called to update the values
+ * and notify any registered watchers of the change.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 0)
+ */
 static int _point_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_NEWINDEX);
     EsePoint *point = point_lua_get(L, 1);
@@ -148,10 +193,19 @@ static int _point_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     }
-    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
+    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (invalid)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
+/**
+ * @brief Lua __tostring metamethod for EsePoint string representation
+ * 
+ * Converts an EsePoint to a human-readable string for debugging and display.
+ * The format includes the memory address and current x,y coordinates.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1)
+ */
 static int _point_lua_tostring(lua_State *L) {
     EsePoint *point = point_lua_get(L, 1);
 
@@ -168,6 +222,17 @@ static int _point_lua_tostring(lua_State *L) {
 }
 
 // Lua constructors
+/**
+ * @brief Lua constructor function for creating new EsePoint instances
+ * 
+ * Creates a new EsePoint from Lua with specified x,y coordinates. This function
+ * is called when Lua code executes `Point.new(x, y)`. It validates the arguments,
+ * creates the underlying EsePoint, and returns a proxy table that provides
+ * access to the point's properties and methods.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _point_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_NEW);
 
@@ -220,6 +285,16 @@ static int _point_lua_new(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua constructor function for creating EsePoint at origin
+ * 
+ * Creates a new EsePoint at the origin (0,0) from Lua. This function is called
+ * when Lua code executes `Point.zero()`. It's a convenience constructor for
+ * creating points at the default position.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
 static int _point_lua_zero(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_ZERO);
     // Create the point using the standard creation function

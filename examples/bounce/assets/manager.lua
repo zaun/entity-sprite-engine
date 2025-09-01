@@ -5,17 +5,25 @@ function ENTITY:entity_init()
     ups_display.position.x = 10
     ups_display.position.y = 10
     
-    ENTITY:add_ball()
+    -- Create initial 20 balls
+    for i = 1, 300 do
+        ENTITY:add_ball()
+    end
+    
+    -- Initialize counter for adding more balls
+    self.data.ball_counter = 0
 end
 
 function ENTITY:entity_update(delta_time)
     local space = InputState.keys_pressed[InputState.KEY.SPACE]
 
     if space then
-        ENTITY:add_ball()
+        for i = 1, 50 do
+            ENTITY:add_ball()
+        end
     end
 
-    self.data.ups.text = "Updates Per Second: " .. string.format("%.2f", 1 / delta_time) .. " | Entities: " .. tostring(Entity.count())
+    self.data.ups.text = "Updates Per Second: " .. string.format("%07.2f", 1 / delta_time) .. " | Entities: " .. tostring(Entity.count())
 end
 
 function ENTITY:entity_collision_enter(entity) 
