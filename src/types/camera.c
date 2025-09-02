@@ -57,16 +57,13 @@ static EseCamera *_camera_state_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _camera_state_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseCamera **ud = (EseCamera **)luaL_testudata(L, 1, "CameraProxyMeta");
-    EseCamera *camera_state = NULL;
-    if (ud) {
-        camera_state = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        camera_state = camera_state_lua_get(L, 1);
+    // Get from userdata
+    EseCamera **ud = (EseCamera **)luaL_testudata(L, 1, "CameraMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseCamera *camera_state = *ud;
     if (camera_state) {
         // If lua_ref == LUA_NOREF, there are no more references to this camera, 
         // so we can free it.
@@ -254,9 +251,9 @@ void camera_state_lua_init(EseLuaEngine *engine) {
     log_assert("CAMERA_STATE", engine, "camera_state_lua_init called with NULL engine");
     log_assert("CAMERA_STATE", engine->runtime, "camera_state_lua_init called with NULL engine->runtime");
 
-    if (luaL_newmetatable(engine->runtime, "CameraProxyMeta")) {
-        log_debug("LUA", "Adding CameraProxyMeta to engine");
-        lua_pushstring(engine->runtime, "CameraProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "CameraMeta")) {
+        log_debug("LUA", "Adding CameraMeta to engine");
+        lua_pushstring(engine->runtime, "CameraMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _camera_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -276,24 +273,12 @@ void camera_state_lua_push(EseCamera *camera_state) {
     log_assert("CAMERA", camera_state, "camera_state_lua_push called with NULL camera_state");
 
     if (camera_state->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(camera_state->state);
-        lua_pushlightuserdata(camera_state->state, camera_state);
-        lua_setfield(camera_state->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseCamera **ud = (EseCamera **)lua_newuserdata(camera_state->state, sizeof(EseCamera *));
         *ud = camera_state;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
-        lua_setmetatable(camera_state->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(camera_state->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(camera_state->state, "CameraMeta");
         lua_setmetatable(camera_state->state, -2);
     } else {
         // C-owned: get from registry
@@ -304,65 +289,30 @@ void camera_state_lua_push(EseCamera *camera_state) {
 EseCamera *camera_state_lua_get(lua_State *L, int idx) {
     log_assert("CAMERA", L, "camera_state_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseCamera **ud = (EseCamera **)luaL_testudata(L, idx, "CameraMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "CameraProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *pos = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseCamera *)pos;
+    return *ud;
 }
 
 void camera_state_ref(EseCamera *camera_state) {
     log_assert("CAMERA", camera_state, "camera_state_ref called with NULL camera_state");
     
     if (camera_state->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(camera_state->state);
-        lua_pushlightuserdata(camera_state->state, camera_state);
-        lua_setfield(camera_state->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseCamera **ud = (EseCamera **)lua_newuserdata(camera_state->state, sizeof(EseCamera *));
         *ud = camera_state;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
-        lua_setmetatable(camera_state->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(camera_state->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(camera_state->state, "CameraProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(camera_state->state, "CameraMeta");
         lua_setmetatable(camera_state->state, -2);
 
         // Store hard reference to prevent garbage collection

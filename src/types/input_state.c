@@ -94,16 +94,13 @@ static EseInputState *_input_state_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _input_state_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, "InputProxyMeta");
-    EseInputState *input = NULL;
-    if (ud) {
-        input = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        input = input_state_lua_get(L, 1);
+    // Get from userdata
+    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, "InputStateMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseInputState *input = *ud;
     if (input) {
         // If lua_ref == LUA_NOREF, there are no more references to this input, 
         // so we can free it.
@@ -415,9 +412,9 @@ void input_state_lua_init(EseLuaEngine *engine) {
     log_assert("INPUT_STATE", engine, "input_state_lua_init called with NULL engine");
     log_assert("INPUT_STATE", engine->runtime, "input_state_lua_init called with NULL engine->runtime");
 
-    if (luaL_newmetatable(engine->runtime, "InputProxyMeta")) {
-        log_debug("LUA", "Adding InputProxyMeta to engine");
-        lua_pushstring(engine->runtime, "InputProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "InputStateMeta")) {
+        log_debug("LUA", "Adding InputStateMeta to engine");
+        lua_pushstring(engine->runtime, "InputStateMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _input_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -437,24 +434,12 @@ void input_state_lua_push(EseInputState *input) {
     log_assert("INPUT_STATE", input, "input_state_lua_push called with NULL input");
 
     if (input->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(input->state);
-        lua_pushlightuserdata(input->state, input);
-        lua_setfield(input->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseInputState **ud = (EseInputState **)lua_newuserdata(input->state, sizeof(EseInputState *));
         *ud = input;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(input->state, "InputProxyMeta");
-        lua_setmetatable(input->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(input->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(input->state, "InputProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(input->state, "InputStateMeta");
         lua_setmetatable(input->state, -2);
     } else {
         // C-owned: get from registry
@@ -465,41 +450,18 @@ void input_state_lua_push(EseInputState *input) {
 EseInputState *input_state_lua_get(lua_State *L, int idx) {
     log_assert("INPUT_STATE", L, "input_state_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseInputState **ud = (EseInputState **)luaL_testudata(L, idx, "InputStateMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "InputProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseInputState *)ptr;
+    return *ud;
 }
 
 void input_state_ref(EseInputState *input) {
@@ -507,24 +469,12 @@ void input_state_ref(EseInputState *input) {
     log_assert("INPUT_STATE", input->state, "input_state_ref called with C only input");
     
     if (input->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(input->state);
-        lua_pushlightuserdata(input->state, input);
-        lua_setfield(input->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseInputState **ud = (EseInputState **)lua_newuserdata(input->state, sizeof(EseInputState *));
         *ud = input;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(input->state, "InputProxyMeta");
-        lua_setmetatable(input->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(input->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(input->state, "InputProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(input->state, "InputStateMeta");
         lua_setmetatable(input->state, -2);
 
         // Store hard reference to prevent garbage collection

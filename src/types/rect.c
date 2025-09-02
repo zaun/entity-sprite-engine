@@ -190,16 +190,13 @@ static bool _obb_overlap(const OBB *A, const OBB *B) {
  * @return Always returns 0 (no values pushed)
  */
 static int _rect_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseRect **ud = (EseRect **)luaL_testudata(L, 1, "RectProxyMeta");
-    EseRect *rect = NULL;
-    if (ud) {
-        rect = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        rect = rect_lua_get(L, 1);
+    // Get from userdata
+    EseRect **ud = (EseRect **)luaL_testudata(L, 1, "RectMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseRect *rect = *ud;
     if (rect) {
         // If lua_ref == LUA_NOREF, there are no more references to this rect, 
         // so we can free it.
@@ -410,26 +407,12 @@ static int _rect_lua_new(lua_State *L) {
     rect->height = height;
     rect->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, rect);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseRect **ud = (EseRect **)lua_newuserdata(L, sizeof(EseRect *));
     *ud = rect;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "RectProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "RectProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "RectMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RECT_NEW, "rect_lua_new");
@@ -452,26 +435,12 @@ static int _rect_lua_zero(lua_State *L) {
     EseRect *rect = _rect_make();  // We'll set the state manually
     rect->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, rect);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseRect **ud = (EseRect **)lua_newuserdata(L, sizeof(EseRect *));
     *ud = rect;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "RectProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "RectProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "RectMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RECT_ZERO, "rect_lua_zero");
@@ -611,9 +580,9 @@ size_t rect_sizeof(void) {
 // Lua integration
 void rect_lua_init(EseLuaEngine *engine) {
     log_assert("RECT", engine, "rect_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, "RectProxyMeta")) {
-        log_debug("LUA", "Adding entity RectProxyMeta to engine");
-        lua_pushstring(engine->runtime, "RectProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "RectMeta")) {
+        log_debug("LUA", "Adding entity RectMeta to engine");
+        lua_pushstring(engine->runtime, "RectMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _rect_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -648,24 +617,12 @@ void rect_lua_push(EseRect *rect) {
     log_assert("RECT", rect, "rect_lua_push called with NULL rect");
 
     if (rect->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(rect->state);
-        lua_pushlightuserdata(rect->state, rect);
-        lua_setfield(rect->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseRect **ud = (EseRect **)lua_newuserdata(rect->state, sizeof(EseRect *));
         *ud = rect;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(rect->state, "RectProxyMeta");
-        lua_setmetatable(rect->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(rect->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(rect->state, "RectProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(rect->state, "RectMeta");
         lua_setmetatable(rect->state, -2);
     } else {
         // C-owned: get from registry
@@ -676,65 +633,30 @@ void rect_lua_push(EseRect *rect) {
 EseRect *rect_lua_get(lua_State *L, int idx) {
     log_assert("RECT", L, "rect_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseRect **ud = (EseRect **)luaL_testudata(L, idx, "RectMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "RectProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *rect = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseRect *)rect;
+    return *ud;
 }
 
 void rect_ref(EseRect *rect) {
     log_assert("RECT", rect, "rect_ref called with NULL rect");
     
     if (rect->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(rect->state);
-        lua_pushlightuserdata(rect->state, rect);
-        lua_setfield(rect->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseRect **ud = (EseRect **)lua_newuserdata(rect->state, sizeof(EseRect *));
         *ud = rect;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(rect->state, "RectProxyMeta");
-        lua_setmetatable(rect->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(rect->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(rect->state, "RectProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(rect->state, "RectMeta");
         lua_setmetatable(rect->state, -2);
 
         // Store hard reference to prevent garbage collection

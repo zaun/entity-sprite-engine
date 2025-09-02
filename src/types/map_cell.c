@@ -20,18 +20,12 @@ static void _mapcell_lua_register(EseMapCell *cell, bool is_lua_owned) {
 
     lua_State *L = cell->state;
 
-    lua_newtable(L);
+    // Create userdata directly
+    EseMapCell **ud = (EseMapCell **)lua_newuserdata(L, sizeof(EseMapCell *));
+    *ud = cell;
 
-    // Store pointer
-    lua_pushlightuserdata(L, cell);
-    lua_setfield(L, -2, "__ptr");
-
-    // Store ownership flag
-    lua_pushboolean(L, is_lua_owned);
-    lua_setfield(L, -2, "__is_lua_owned");
-
-    // Set metatable
-    luaL_getmetatable(L, "MapCellProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "MapCellMeta");
     lua_setmetatable(L, -2);
 
     if (is_lua_owned) {
@@ -50,15 +44,11 @@ void mapcell_lua_push(EseMapCell *cell) {
     log_assert("MAPCELL", cell, "mapcell_lua_push called with NULL cell");
 
     if (cell->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(cell->state);
-        lua_pushlightuserdata(cell->state, cell);
-        lua_setfield(cell->state, -2, "__ptr");
+        // Lua-owned: create a new userdata
+        EseMapCell **ud = (EseMapCell **)lua_newuserdata(cell->state, sizeof(EseMapCell *));
+        *ud = cell;
         
-        lua_pushboolean(cell->state, true);
-        lua_setfield(cell->state, -2, "__is_lua_owned");
-        
-        luaL_getmetatable(cell->state, "MapCellProxyMeta");
+        luaL_getmetatable(cell->state, "MapCellMeta");
         lua_setmetatable(cell->state, -2);
     } else {
         // C-owned: get from registry
@@ -251,13 +241,10 @@ static int _mapcell_lua_newindex(lua_State *L) {
 }
 
 static int _mapcell_lua_gc(lua_State *L) {
-    EseMapCell *cell = mapcell_lua_get(L, 1);
-    if (cell) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
+    EseMapCell **ud = (EseMapCell **)luaL_testudata(L, 1, "MapCellMeta");
+    if (ud && *ud) {
+        EseMapCell *cell = *ud;
+        if (cell->lua_ref == LUA_NOREF) {
             mapcell_destroy(cell);
         }
     }
@@ -280,9 +267,9 @@ static int _mapcell_lua_tostring(lua_State *L) {
 
 /* ----------------- Lua Init ----------------- */
 void mapcell_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "MapCellProxyMeta")) {
-        log_debug("LUA", "Adding MapCellProxyMeta");
-        lua_pushstring(engine->runtime, "MapCellProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "MapCellMeta")) {
+        log_debug("LUA", "Adding MapCellMeta");
+        lua_pushstring(engine->runtime, "MapCellMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _mapcell_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -365,22 +352,8 @@ void mapcell_destroy(EseMapCell *cell) {
 }
 
 EseMapCell *mapcell_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-    if (!lua_getmetatable(L, idx)) return NULL;
-    luaL_getmetatable(L, "MapCellProxyMeta");
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
-        return NULL;
-    }
-    lua_pop(L, 2);
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
-    }
-    void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    return (EseMapCell *)ptr;
+    EseMapCell **ud = (EseMapCell **)luaL_testudata(L, idx, "MapCellMeta");
+    return ud ? *ud : NULL;
 }
 
 /* ----------------- Tile/Flag Helpers ----------------- */

@@ -28,18 +28,12 @@ static void _tileset_lua_register(EseTileSet *tiles, bool is_lua_owned) {
 
     lua_State *L = tiles->state;
 
-    lua_newtable(L);
+    // Create userdata directly
+    EseTileSet **ud = (EseTileSet **)lua_newuserdata(L, sizeof(EseTileSet *));
+    *ud = tiles;
 
-    // Store pointer
-    lua_pushlightuserdata(L, tiles);
-    lua_setfield(L, -2, "__ptr");
-
-    // Store ownership flag
-    lua_pushboolean(L, is_lua_owned);
-    lua_setfield(L, -2, "__is_lua_owned");
-
-    // Set metatable
-    luaL_getmetatable(L, "TilesProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "TilesetMeta");
     lua_setmetatable(L, -2);
 
     if (is_lua_owned) {
@@ -55,15 +49,11 @@ void tileset_lua_push(EseTileSet *tiles) {
     log_assert("TILESET", tiles, "tileset_lua_push called with NULL tiles");
 
     if (tiles->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(tiles->state);
-        lua_pushlightuserdata(tiles->state, tiles);
-        lua_setfield(tiles->state, -2, "__ptr");
+        // Lua-owned: create a new userdata
+        EseTileSet **ud = (EseTileSet **)lua_newuserdata(tiles->state, sizeof(EseTileSet *));
+        *ud = tiles;
         
-        lua_pushboolean(tiles->state, true);
-        lua_setfield(tiles->state, -2, "__is_lua_owned");
-        
-        luaL_getmetatable(tiles->state, "TilesProxyMeta");
+        luaL_getmetatable(tiles->state, "TilesetMeta");
         lua_setmetatable(tiles->state, -2);
     } else {
         // C-owned: get from registry
@@ -204,15 +194,16 @@ static int _tileset_lua_newindex(lua_State *L) {
 }
 
 static int _tileset_lua_gc(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+    // Get from userdata
+    EseTileSet **ud = (EseTileSet **)luaL_testudata(L, 1, "TilesetMeta");
+    if (!ud) {
+        return 0; // Not our userdata
+    }
+    
+    EseTileSet *tiles = *ud;
     if (tiles) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
-            tileset_destroy(tiles);
-        }
+        // For userdata, we always destroy since it's Lua-owned
+        tileset_destroy(tiles);
     }
     return 0;
 }
@@ -258,9 +249,9 @@ static int _tileset_lua_new(lua_State *L) {
 }
 
 void tileset_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "TilesProxyMeta")) {
-        log_debug("LUA", "Adding TilesProxyMeta");
-        lua_pushstring(engine->runtime, "TilesProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "TilesetMeta")) {
+        log_debug("LUA", "Adding TilesetMeta");
+        lua_pushstring(engine->runtime, "TilesetMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _tileset_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -336,22 +327,18 @@ void tileset_destroy(EseTileSet *tiles) {
 }
 
 EseTileSet *tileset_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-    if (!lua_getmetatable(L, idx)) return NULL;
-    luaL_getmetatable(L, "TilesProxyMeta");
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
-    lua_pop(L, 2);
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
+    
+    // Get the userdata and check metatable
+    EseTileSet **ud = (EseTileSet **)luaL_testudata(L, idx, "TilesetMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
-    void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    return (EseTileSet *)ptr;
+    
+    return *ud;
 }
 
 /* ----------------- Sprite Management ----------------- */

@@ -12,6 +12,8 @@ function ENTITY:entity_init()
     
     -- Initialize counter for adding more balls
     self.data.ball_counter = 0
+
+    self.draw_order = 10000
 end
 
 function ENTITY:entity_update(delta_time)

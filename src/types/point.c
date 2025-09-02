@@ -102,16 +102,13 @@ static void _point_notify_watchers(EsePoint *point) {
  * @return Always returns 0 (no values pushed)
  */
 static int _point_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, "PointProxyMeta");
-    EsePoint *point = NULL;
-    if (ud) {
-        point = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        point = point_lua_get(L, 1);
+    // Get from userdata
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, "PointMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EsePoint *point = *ud;
     if (point) {
         // If lua_ref == LUA_NOREF, there are no more references to this point, 
         // so we can free it.
@@ -259,26 +256,12 @@ static int _point_lua_new(lua_State *L) {
     point->y = y;
     point->state = L;
 
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, point);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
     *ud = point;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "PointProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "PointProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "PointMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
@@ -301,26 +284,12 @@ static int _point_lua_zero(lua_State *L) {
     EsePoint *point = _point_make();  // We'll set the state manually
     point->state = L;
 
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, point);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
     *ud = point;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "PointProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "PointProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "PointMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
@@ -383,9 +352,9 @@ void point_destroy(EsePoint *point) {
 // Lua integration
 void point_lua_init(EseLuaEngine *engine) {
     log_assert("POINT", engine, "point_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, "PointProxyMeta")) {
-        log_debug("LUA", "Adding entity PointProxyMeta to engine");
-        lua_pushstring(engine->runtime, "PointProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "PointMeta")) {
+        log_debug("LUA", "Adding entity PointMeta to engine");
+        lua_pushstring(engine->runtime, "PointMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _point_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
@@ -420,26 +389,12 @@ void point_lua_push(EsePoint *point) {
     log_assert("POINT", point, "point_lua_push called with NULL point");
 
     if (point->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table
-        lua_newtable(point->state);
-
-        // Store pointer in __ptr
-        lua_pushlightuserdata(point->state, point);
-        lua_setfield(point->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
         *ud = point;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(point->state, "PointProxyMeta");
-        lua_setmetatable(point->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(point->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable
-        luaL_getmetatable(point->state, "PointProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(point->state, "PointMeta");
         lua_setmetatable(point->state, -2);
     } else {
         // C-owned: get from registry
@@ -450,67 +405,30 @@ void point_lua_push(EsePoint *point) {
 EsePoint *point_lua_get(lua_State *L, int idx) {
     log_assert("POINT", L, "point_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, idx, "PointMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "PointProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *pos = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EsePoint *)pos;
+    return *ud;
 }
 
 void point_ref(EsePoint *point) {
     log_assert("POINT", point, "point_ref called with NULL point");
     
     if (point->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(point->state);
-
-        // Store pointer in __ptr
-        lua_pushlightuserdata(point->state, point);
-        lua_setfield(point->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
         *ud = point;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(point->state, "PointProxyMeta");
-        lua_setmetatable(point->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(point->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(point->state, "PointProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(point->state, "PointMeta");
         lua_setmetatable(point->state, -2);
 
         // Store hard reference to prevent garbage collection

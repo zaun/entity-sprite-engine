@@ -65,16 +65,13 @@ static EseRay *_ray_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _ray_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseRay **ud = (EseRay **)luaL_testudata(L, 1, "RayProxyMeta");
-    EseRay *ray = NULL;
-    if (ud) {
-        ray = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        ray = ray_lua_get(L, 1);
+    // Get from userdata
+    EseRay **ud = (EseRay **)luaL_testudata(L, 1, "RayMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseRay *ray = *ud;
     if (ray) {
         // If lua_ref == LUA_NOREF, there are no more references to this ray, 
         // so we can free it.
@@ -273,26 +270,12 @@ static int _ray_lua_new(lua_State *L) {
     ray->dy = dy;
     ray->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, ray);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseRay **ud = (EseRay **)lua_newuserdata(L, sizeof(EseRay *));
     *ud = ray;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "RayProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "RayProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "RayMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RAY_NEW, "ray_lua_new");
@@ -315,26 +298,12 @@ static int _ray_lua_zero(lua_State *L) {
     EseRay *ray = _ray_make();  // We'll set the state manually
     ray->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, ray);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseRay **ud = (EseRay **)lua_newuserdata(L, sizeof(EseRay *));
     *ud = ray;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "RayProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "RayProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "RayMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RAY_ZERO, "ray_lua_zero");
@@ -455,9 +424,9 @@ void ray_destroy(EseRay *ray) {
 
 // Lua integration
 void ray_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "RayProxyMeta")) {
-        log_debug("LUA", "Adding entity RayProxyMeta to engine");
-        lua_pushstring(engine->runtime, "RayProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "RayMeta")) {
+        log_debug("LUA", "Adding entity RayMeta to engine");
+        lua_pushstring(engine->runtime, "RayMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _ray_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -492,24 +461,12 @@ void ray_lua_push(EseRay *ray) {
     log_assert("RAY", ray, "ray_lua_push called with NULL ray");
 
     if (ray->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(ray->state);
-        lua_pushlightuserdata(ray->state, ray);
-        lua_setfield(ray->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseRay **ud = (EseRay **)lua_newuserdata(ray->state, sizeof(EseRay *));
         *ud = ray;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(ray->state, "RayProxyMeta");
-        lua_setmetatable(ray->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(ray->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(ray->state, "RayProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(ray->state, "RayMeta");
         lua_setmetatable(ray->state, -2);
     } else {
         // C-owned: get from registry
@@ -520,65 +477,30 @@ void ray_lua_push(EseRay *ray) {
 EseRay *ray_lua_get(lua_State *L, int idx) {
     log_assert("RAY", L, "ray_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseRay **ud = (EseRay **)luaL_testudata(L, idx, "RayMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "RayProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *ray = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseRay *)ray;
+    return *ud;
 }
 
 void ray_ref(EseRay *ray) {
     log_assert("RAY", ray, "ray_ref called with NULL ray");
     
     if (ray->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(ray->state);
-        lua_pushlightuserdata(ray->state, ray);
-        lua_setfield(ray->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseRay **ud = (EseRay **)lua_newuserdata(ray->state, sizeof(EseRay *));
         *ud = ray;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(ray->state, "RayProxyMeta");
-        lua_setmetatable(ray->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(ray->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(ray->state, "RayProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(ray->state, "RayMeta");
         lua_setmetatable(ray->state, -2);
 
         // Store hard reference to prevent garbage collection

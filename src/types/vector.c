@@ -63,16 +63,13 @@ static EseVector *_vector_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _vector_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseVector **ud = (EseVector **)luaL_testudata(L, 1, "VectorProxyMeta");
-    EseVector *vector = NULL;
-    if (ud) {
-        vector = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        vector = vector_lua_get(L, 1);
+    // Get from userdata
+    EseVector **ud = (EseVector **)luaL_testudata(L, 1, "VectorMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseVector *vector = *ud;
     if (vector) {
         // If lua_ref == LUA_NOREF, there are no more references to this vector, 
         // so we can free it.
@@ -237,26 +234,12 @@ static int _vector_lua_new(lua_State *L) {
     vector->y = y;
     vector->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, vector);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
     *ud = vector;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "VectorProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "VectorProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "VectorMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_VECTOR_NEW, "vector_lua_new");
@@ -279,26 +262,12 @@ static int _vector_lua_zero(lua_State *L) {
     EseVector *vector = _vector_make();  // We'll set the state manually
     vector->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, vector);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
     *ud = vector;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "VectorProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "VectorProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "VectorMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_VECTOR_ZERO, "vector_lua_zero");
@@ -412,9 +381,9 @@ void vector_destroy(EseVector *vector) {
 void vector_lua_init(EseLuaEngine *engine) {
     log_assert("VECTOR", engine, "vector_lua_init called with NULL engine");
 
-    if (luaL_newmetatable(engine->runtime, "VectorProxyMeta")) {
-        log_debug("LUA", "Adding entity VectorProxyMeta to engine");
-        lua_pushstring(engine->runtime, "VectorProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "VectorMeta")) {
+        log_debug("LUA", "Adding entity VectorMeta to engine");
+        lua_pushstring(engine->runtime, "VectorMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _vector_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -449,24 +418,12 @@ void vector_lua_push(EseVector *vector) {
     log_assert("VECTOR", vector, "vector_lua_push called with NULL vector");
 
     if (vector->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(vector->state);
-        lua_pushlightuserdata(vector->state, vector);
-        lua_setfield(vector->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseVector **ud = (EseVector **)lua_newuserdata(vector->state, sizeof(EseVector *));
         *ud = vector;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(vector->state, "VectorProxyMeta");
-        lua_setmetatable(vector->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(vector->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(vector->state, "VectorMeta");
         lua_setmetatable(vector->state, -2);
     } else {
         // C-owned: get from registry
@@ -477,65 +434,30 @@ void vector_lua_push(EseVector *vector) {
 EseVector *vector_lua_get(lua_State *L, int idx) {
     log_assert("VECTOR", L, "vector_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseVector **ud = (EseVector **)luaL_testudata(L, idx, "VectorMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "VectorProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *vector = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseVector *)vector;
+    return *ud;
 }
 
 void vector_ref(EseVector *vector) {
     log_assert("VECTOR", vector, "vector_ref called with NULL vector");
     
     if (vector->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(vector->state);
-        lua_pushlightuserdata(vector->state, vector);
-        lua_setfield(vector->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseVector **ud = (EseVector **)lua_newuserdata(vector->state, sizeof(EseVector *));
         *ud = vector;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(vector->state, "VectorProxyMeta");
-        lua_setmetatable(vector->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(vector->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(vector->state, "VectorProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(vector->state, "VectorMeta");
         lua_setmetatable(vector->state, -2);
 
         // Store hard reference to prevent garbage collection

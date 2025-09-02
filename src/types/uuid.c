@@ -60,16 +60,13 @@ static EseUUID *_uuid_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _uuid_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, "UUIDProxyMeta");
-    EseUUID *uuid = NULL;
-    if (ud) {
-        uuid = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        uuid = uuid_lua_get(L, 1);
+    // Get from userdata
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, "UUIDMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseUUID *uuid = *ud;
     if (uuid) {
         // If lua_ref == LUA_NOREF, there are no more references to this uuid, 
         // so we can free it.
@@ -181,26 +178,12 @@ static int _uuid_lua_new(lua_State *L) {
     EseUUID *uuid = _uuid_make();
     uuid->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, uuid);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseUUID **ud = (EseUUID **)lua_newuserdata(L, sizeof(EseUUID *));
     *ud = uuid;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "UUIDProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "UUIDProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "UUIDMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_UUID_NEW, "uuid_lua_new");
@@ -267,9 +250,9 @@ void uuid_destroy(EseUUID *uuid) {
 
 // Lua integration
 void uuid_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "UUIDProxyMeta")) {
-        log_debug("LUA", "Adding entity UUIDProxyMeta to engine");
-        lua_pushstring(engine->runtime, "UUIDProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "UUIDMeta")) {
+        log_debug("LUA", "Adding entity UUIDMeta to engine");
+        lua_pushstring(engine->runtime, "UUIDMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _uuid_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
@@ -302,24 +285,12 @@ void uuid_lua_push(EseUUID *uuid) {
     log_assert("UUID", uuid, "uuid_lua_push called with NULL uuid");
 
     if (uuid->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(uuid->state);
-        lua_pushlightuserdata(uuid->state, uuid);
-        lua_setfield(uuid->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseUUID **ud = (EseUUID **)lua_newuserdata(uuid->state, sizeof(EseUUID *));
         *ud = uuid;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
-        lua_setmetatable(uuid->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(uuid->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(uuid->state, "UUIDMeta");
         lua_setmetatable(uuid->state, -2);
     } else {
         // C-owned: get from registry
@@ -328,65 +299,30 @@ void uuid_lua_push(EseUUID *uuid) {
 }
 
 EseUUID *uuid_lua_get(lua_State *L, int idx) {
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, idx, "UUIDMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "UUIDProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *uuid = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseUUID *)uuid;
+    return *ud;
 }
 
 void uuid_ref(EseUUID *uuid) {
     log_assert("UUID", uuid, "uuid_ref called with NULL uuid");
     
     if (uuid->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(uuid->state);
-        lua_pushlightuserdata(uuid->state, uuid);
-        lua_setfield(uuid->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseUUID **ud = (EseUUID **)lua_newuserdata(uuid->state, sizeof(EseUUID *));
         *ud = uuid;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
-        lua_setmetatable(uuid->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(uuid->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(uuid->state, "UUIDProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(uuid->state, "UUIDMeta");
         lua_setmetatable(uuid->state, -2);
 
         // Store hard reference to prevent garbage collection

@@ -31,7 +31,7 @@ endif()
 project(entityspriteengine LANGUAGES ${PROJECT_LANGUAGES})
 
 # Enable profiling
-# add_definitions(-DESE_PROFILE_ENABLED)
+add_definitions(-DESE_PROFILE_ENABLED)
 
 #
 # Platform

@@ -71,16 +71,13 @@ static EseArc *_arc_make() {
  * @return Always returns 0 (no values pushed)
  */
 static int _arc_lua_gc(lua_State *L) {
-    // Try to get from userdata (GC guard)
-    EseArc **ud = (EseArc **)luaL_testudata(L, 1, "ArcProxyMeta");
-    EseArc *arc = NULL;
-    if (ud) {
-        arc = *ud;
-    } else {
-        // Fallback: maybe called on a table (unlikely, but safe)
-        arc = arc_lua_get(L, 1);
+    // Get from userdata
+    EseArc **ud = (EseArc **)luaL_testudata(L, 1, "ArcMeta");
+    if (!ud) {
+        return 0; // Not our userdata
     }
-
+    
+    EseArc *arc = *ud;
     if (arc) {
         // If lua_ref == LUA_NOREF, there are no more references to this arc, 
         // so we can free it.
@@ -287,26 +284,12 @@ static int _arc_lua_new(lua_State *L) {
     arc->end_angle = end_angle;
     arc->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, arc);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
     *ud = arc;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "ArcProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "ArcProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "ArcMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_ARC_NEW, "arc_lua_new");
@@ -329,26 +312,12 @@ static int _arc_lua_zero(lua_State *L) {
     EseArc *arc = _arc_make();  // We'll set the state manually
     arc->state = L;
     
-    // Create proxy table
-    lua_newtable(L);
-
-    // Store pointer in __ptr
-    lua_pushlightuserdata(L, arc);
-    lua_setfield(L, -2, "__ptr");
-
-    // Create hidden userdata for GC
+    // Create userdata directly
     EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
     *ud = arc;
 
-    // Attach metatable with __gc
-    luaL_getmetatable(L, "ArcProxyMeta");
-    lua_setmetatable(L, -2);
-
-    // Store userdata inside the table (hidden field)
-    lua_setfield(L, -2, "__gc_guard");
-
-    // Finally set the table's metatable (for __index, __newindex, etc.)
-    luaL_getmetatable(L, "ArcProxyMeta");
+    // Attach metatable
+    luaL_getmetatable(L, "ArcMeta");
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_ARC_ZERO, "arc_lua_zero");
@@ -507,9 +476,9 @@ void arc_destroy(EseArc *arc) {
 
 // Lua integration
 void arc_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "ArcProxyMeta")) {
-        log_debug("LUA", "Adding entity ArcProxyMeta to engine");
-        lua_pushstring(engine->runtime, "ArcProxyMeta");
+    if (luaL_newmetatable(engine->runtime, "ArcMeta")) {
+        log_debug("LUA", "Adding entity ArcMeta to engine");
+        lua_pushstring(engine->runtime, "ArcMeta");
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _arc_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -544,24 +513,12 @@ void arc_lua_push(EseArc *arc) {
     log_assert("ARC", arc, "arc_lua_push called with NULL arc");
 
     if (arc->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(arc->state);
-        lua_pushlightuserdata(arc->state, arc);
-        lua_setfield(arc->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // Lua-owned: create a new userdata
         EseArc **ud = (EseArc **)lua_newuserdata(arc->state, sizeof(EseArc *));
         *ud = arc;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(arc->state, "ArcProxyMeta");
-        lua_setmetatable(arc->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(arc->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(arc->state, "ArcProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(arc->state, "ArcMeta");
         lua_setmetatable(arc->state, -2);
     } else {
         // C-owned: get from registry
@@ -572,65 +529,30 @@ void arc_lua_push(EseArc *arc) {
 EseArc *arc_lua_get(lua_State *L, int idx) {
     log_assert("ARC", L, "arc_lua_get called with NULL Lua state");
     
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseArc **ud = (EseArc **)luaL_testudata(L, idx, "ArcMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, "ArcProxyMeta");
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *arc = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseArc *)arc;
+    return *ud;
 }
 
 void arc_ref(EseArc *arc) {
     log_assert("ARC", arc, "arc_ref called with NULL arc");
     
     if (arc->lua_ref == LUA_NOREF) {
-        // First time referencing - create proxy table and store reference
-        lua_newtable(arc->state);
-        lua_pushlightuserdata(arc->state, arc);
-        lua_setfield(arc->state, -2, "__ptr");
-
-        // Create hidden userdata for GC
+        // First time referencing - create userdata and store reference
         EseArc **ud = (EseArc **)lua_newuserdata(arc->state, sizeof(EseArc *));
         *ud = arc;
 
-        // Attach metatable with __gc
-        luaL_getmetatable(arc->state, "ArcProxyMeta");
-        lua_setmetatable(arc->state, -2);
-
-        // Store userdata inside the table (hidden field)
-        lua_setfield(arc->state, -2, "__gc_guard");
-
-        // Finally set the table's metatable (for __index, __newindex, etc.)
-        luaL_getmetatable(arc->state, "ArcProxyMeta");
+        // Attach metatable
+        luaL_getmetatable(arc->state, "ArcMeta");
         lua_setmetatable(arc->state, -2);
 
         // Store hard reference to prevent garbage collection
