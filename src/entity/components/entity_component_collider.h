@@ -52,4 +52,8 @@ void entity_component_collider_position_changed(EseEntityComponentCollider *coll
 
 void entity_component_collider_update_world_bounds_only(EseEntityComponentCollider *collider);
 
+bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collider);
+
+void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collider, bool draw_debug);
+
 #endif // ESE_ENTITY_COMPONENT_COLLIDER_H

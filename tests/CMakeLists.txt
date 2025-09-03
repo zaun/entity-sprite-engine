@@ -27,6 +27,7 @@ add_executable(test_entity test_entity.c)
 add_executable(test_entity_component_lua test_entity_component_lua.c)
 add_executable(test_lua_only test_lua_only.c)
 add_executable(test_bottleneck test_bottleneck.c)
+add_executable(test_audio test_audio.c)
 
 add_dependencies(test_lua_only build_lua)
 
@@ -50,6 +51,7 @@ target_link_libraries(test_entity entityspriteengine)
 target_link_libraries(test_entity_component_lua entityspriteengine)
 target_link_libraries(test_lua_only "${CMAKE_SOURCE_DIR}/src/vendor/lua/src/libluajit.a" entityspriteengine)
 target_link_libraries(test_bottleneck entityspriteengine)
+target_link_libraries(test_audio entityspriteengine)
 
 
 # Include directories
@@ -72,6 +74,7 @@ target_include_directories(test_entity PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_entity_component_lua PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_lua_only PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_bottleneck PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(test_audio PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 
 # Add tests
@@ -94,6 +97,7 @@ add_test(NAME EntityTests COMMAND test_entity)
 add_test(NAME EntityComponentLuaTests COMMAND test_entity_component_lua)
 add_test(NAME LuaOnlyTests COMMAND test_lua_only)
 add_test(NAME BottleneckTests COMMAND test_bottleneck)
+add_test(NAME AudioTests COMMAND test_audio)
 
 
 # Set test properties
@@ -170,6 +174,10 @@ set_tests_properties(EntityComponentLuaTests PROPERTIES
 )
 
 set_tests_properties(LuaOnlyTests PROPERTIES
+    ENVIRONMENT "ESETEST=1"
+)
+
+set_tests_properties(AudioTests PROPERTIES
     ENVIRONMENT "ESETEST=1"
 )
 

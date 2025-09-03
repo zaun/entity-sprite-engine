@@ -1,4 +1,5 @@
 {
+    "image": "paddle_ball",
     "sprites": [
         {
             "name": "paddle arrow blue xlarge",
@@ -212,233 +213,233 @@
         },
         {
             "name": "ball blue glass large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Glass_32x32"
+                "Ball_Blue_Glass-32x32"
             ]
         },
         {
             "name": "ball blue glass medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Glass_24x24"
+                "Ball_Blue_Glass-24x24"
             ]
         },
         {
             "name": "ball blue glass small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Glass_16x16"
+                "Ball_Blue_Glass-16x16"
             ]
         },
         {
             "name": "ball chrome glass large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Chrome_Glass_32x32"
+                "Ball_Chrome_Glass-32x32"
             ]
         },
         {
             "name": "ball chrome glass medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Chrome_Glass_24x24"
+                "Ball_Chrome_Glass-24x24"
             ]
         },
         {
             "name": "ball chrome glass small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Chrome_Glass_16x16"
+                "Ball_Chrome_Glass-16x16"
             ]
         },
         {
             "name": "ball green glossy large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Glossy_32x32"
+                "Ball_Green_Glossy-32x32"
             ]
         },
         {
             "name": "ball green glossy medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Glossy_24x24"
+                "Ball_Green_Glossy-24x24"
             ]
         },
         {
             "name": "ball green glossy small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Glossy_16x16"
+                "Ball_Green_Glossy-16x16"
             ]
         },
         {
             "name": "ball orange glossy large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Glossy_32x32"
+                "Ball_Orange_Glossy-32x32"
             ]
         },
         {
             "name": "ball orange glossy medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Glossy_24x24"
+                "Ball_Orange_Glossy-24x24"
             ]
         },
         {
             "name": "ball orange glossy small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Glossy_16x16"
+                "Ball_Orange_Glossy-16x16"
             ]
         },
         {
             "name": "ball red glossy large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Glossy_32x32"
+                "Ball_Red_Glossy-32x32"
             ]
         },
         {
             "name": "ball red glossy medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Glossy_24x24"
+                "Ball_Red_Glossy-24x24"
             ]
         },
         {
             "name": "ball red glossy small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Glossy_16x16"
+                "Ball_Red_Glossy-16x16"
             ]
         },
         {
             "name": "ball yellow glossy large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Glossy_32x32"
+                "Ball_Yellow_Glossy-32x32"
             ]
         },
         {
             "name": "ball yellow glossy medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Glossy_24x24"
+                "Ball_Yellow_Glossy-24x24"
             ]
         },
         {
             "name": "ball yellow glossy small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Glossy_16x16"
+                "Ball_Yellow_Glossy-16x16"
             ]
         },
         {
             "name": "ball blue shiny large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Shiny_32x32"
+                "Ball_Blue_Shiny-32x32"
             ]
         },
         {
             "name": "ball blue shiny medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Shiny_24x24"
+                "Ball_Blue_Shiny-24x24"
             ]
         },
         {
             "name": "ball blue shiny small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Blue_Shiny_16x16"
+                "Ball_Blue_Shiny-16x16"
             ]
         },
         {
             "name": "ball green shiny large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Shiny_32x32"
+                "Ball_Green_Shiny-32x32"
             ]
         },
         {
             "name": "ball green shiny medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Shiny_24x24"
+                "Ball_Green_Shiny-24x24"
             ]
         },
         {
             "name": "ball green shiny small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Green_Shiny_16x16"
+                "Ball_Green_Shiny-16x16"
             ]
         },
         {
             "name": "ball orange shiny large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Shiny_32x32"
+                "Ball_Orange_Shiny-32x32"
             ]
         },
         {
             "name": "ball orange shiny medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Shiny_24x24"
+                "Ball_Orange_Shiny-24x24"
             ]
         },
         {
             "name": "ball orange shiny small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Orange_Shiny_16x16"
+                "Ball_Orange_Shiny-16x16"
             ]
         },
         {
             "name": "ball red shiny large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Shiny_32x32"
+                "Ball_Red_Shiny-32x32"
             ]
         },
         {
             "name": "ball red shiny medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Shiny_24x24"
+                "Ball_Red_Shiny-24x24"
             ]
         },
         {
             "name": "ball red shiny small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Red_Shiny_16x16"
+                "Ball_Red_Shiny-16x16"
             ]
         },
         {
             "name": "ball yellow shiny large",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Shiny_32x32"
+                "Ball_Yellow_Shiny-32x32"
             ]
         },
         {
             "name": "ball yellow shiny medium",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Shiny_24x24"
+                "Ball_Yellow_Shiny-24x24"
             ]
         },
         {
             "name": "ball yellow shiny small",
-            "speed": 1,
+            "speed": 75,
             "frames": [
-                "Ball_Yellow_Shiny_16x16"
+                "Ball_Yellow_Shiny-16x16"
             ]
         }
     ],

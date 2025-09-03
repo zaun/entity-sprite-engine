@@ -200,7 +200,7 @@ bool lua_engine_run_function_ref(
     int function_ref,
     int self_ref,
     int argc,
-    EseLuaValue *argv,
+    EseLuaValue *argv[],
     EseLuaValue *out_result
 );
 

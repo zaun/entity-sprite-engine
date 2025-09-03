@@ -174,7 +174,8 @@ static void test_lua_engine() {
     int max_stack_top = 0;  
     for (int i = 0; i < TOTAL_CALLS; i++) {
         max_stack_top = MAX(max_stack_top, lua_gettop(engine->runtime));
-        bool result = lua_engine_run_function_ref(engine, function_ref, entity->lua_ref, 1, delta_time, NULL);
+        EseLuaValue *args[] = {delta_time};
+        bool result = lua_engine_run_function_ref(engine, function_ref, entity->lua_ref, 1, args, NULL);
         if (!result) {
             TEST_ASSERT(result, "Function should run successfully");
             break;

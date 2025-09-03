@@ -605,7 +605,8 @@ static void test_direct_lua_benchmarks() {
                     
                 batch_10_done:
                     // Test 50 functions in a row
-                    uint64_t batch50_start = time_now();
+                    {
+                        uint64_t batch50_start = time_now();
                     for (int iter = 0; iter < iterations; iter++) {
                         for (int i = 0; i < 50; i++) {
                             lua_pushvalue(L, -1); // Copy function
@@ -621,11 +622,13 @@ static void test_direct_lua_benchmarks() {
                     uint64_t batch50_end = time_now();
                     double batch50_time_ms = (double)(batch50_end - batch50_start) / 1000000.0;
                     double avg_batch50_us = (double)(batch50_end - batch50_start) / (iterations * 50) / 1000.0;
-                    printf("✓ PASS: 50 functions batch completed in %.2fms (avg: %.2fμs per call)\n", batch50_time_ms, avg_batch50_us);
+                        printf("✓ PASS: 50 functions batch completed in %.2fms (avg: %.2fμs per call)\n", batch50_time_ms, avg_batch50_us);
+                    }
                     
                 batch_50_done:
                     // Test 100 functions in a row
-                    uint64_t batch100_start = time_now();
+                    {
+                        uint64_t batch100_start = time_now();
                     for (int iter = 0; iter < iterations; iter++) {
                         for (int i = 0; i < 100; i++) {
                             lua_pushvalue(L, -1); // Copy function
@@ -641,7 +644,8 @@ static void test_direct_lua_benchmarks() {
                     uint64_t batch100_end = time_now();
                     double batch100_time_ms = (double)(batch100_end - batch100_start) / 1000000.0;
                     double avg_batch100_us = (double)(batch100_end - batch100_start) / (iterations * 100) / 1000.0;
-                    printf("✓ PASS: 100 functions batch completed in %.2fms (avg: %.2fμs per call)\n", batch100_time_ms, avg_batch100_us);
+                        printf("✓ PASS: 100 functions batch completed in %.2fms (avg: %.2fμs per call)\n", batch100_time_ms, avg_batch100_us);
+                    }
                     
                 batch_100_done:
                     printf("✓ PASS: Batch function benchmarks completed\n");

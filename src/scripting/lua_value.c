@@ -27,7 +27,7 @@
  * @warning After reset, only the name field (if kept) and structure itself remain valid.
  */
 static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
-    log_assert("LUA", val, "_lua_value_reset called with NULL val");
+    log_assert("LUA_VALUE", val, "_lua_value_reset called with NULL val");
 
     // PROFILING: Start timing for reset
     profile_start(PROFILE_LUA_VALUE_RESET_OVERALL);
@@ -68,7 +68,7 @@ static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
 }
 
 EseLuaValue* lua_value_copy(const EseLuaValue *src) {
-    log_assert("LUA", src, "_lua_value_reset called with NULL src");
+    log_assert("LUA_VALUE", src, "_lua_value_reset called with NULL src");
     
     EseLuaValue *copy = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     copy->type = src->type;
@@ -119,7 +119,7 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
 }
 
 EseLuaValue *lua_value_create_nil(const char *name) {
-    log_assert("LUA", name, "lua_value_create_nil called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_nil called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NIL;
@@ -128,7 +128,7 @@ EseLuaValue *lua_value_create_nil(const char *name) {
 }
 
 EseLuaValue *lua_value_create_bool(const char *name, bool value) {
-    log_assert("LUA", name, "lua_value_create_bool called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_bool called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_BOOL;
@@ -138,7 +138,7 @@ EseLuaValue *lua_value_create_bool(const char *name, bool value) {
 }
 
 EseLuaValue *lua_value_create_number(const char *name, double value) {
-    log_assert("LUA", name, "lua_value_create_number called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_number called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NUMBER;
@@ -148,7 +148,7 @@ EseLuaValue *lua_value_create_number(const char *name, double value) {
 }
 
 EseLuaValue *lua_value_create_string(const char *name, const char *value) {
-    log_assert("LUA", name, "lua_value_create_string called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_string called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_STRING;
@@ -158,7 +158,7 @@ EseLuaValue *lua_value_create_string(const char *name, const char *value) {
 }
 
 EseLuaValue *lua_value_create_table(const char *name) {
-    log_assert("LUA", name, "lua_value_create_table called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_table called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_TABLE;
@@ -170,7 +170,7 @@ EseLuaValue *lua_value_create_table(const char *name) {
 }
 
 EseLuaValue *lua_value_create_ref(const char *name, int value) {
-    log_assert("LUA", name, "lua_value_create_ref called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_ref called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_REF;
@@ -180,7 +180,7 @@ EseLuaValue *lua_value_create_ref(const char *name, int value) {
 }
 
 EseLuaValue *lua_value_create_userdata(const char *name, void* value) {
-    log_assert("LUA", name, "lua_value_create_number called with NULL name");
+    log_assert("LUA_VALUE", name, "lua_value_create_number called with NULL name");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_USERDATA;
@@ -190,8 +190,8 @@ EseLuaValue *lua_value_create_userdata(const char *name, void* value) {
 }
 
 void lua_value_push(EseLuaValue *val, EseLuaValue *item, bool copy) {
-    log_assert("LUA", val, "lua_value_push called with NULL val");
-    log_assert("LUA", item, "lua_value_push called with NULL item");
+    log_assert("LUA_VALUE", val, "lua_value_push called with NULL val");
+    log_assert("LUA_VALUE", item, "lua_value_push called with NULL item");
 
     if (val->type != LUA_VAL_TABLE) {
         log_error("LUA_ENGINE", "lua_value_push item is not a table");
@@ -219,7 +219,7 @@ void lua_value_push(EseLuaValue *val, EseLuaValue *item, bool copy) {
 }
 
 void lua_value_set_nil(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_set_nil called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_nil called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -231,7 +231,7 @@ void lua_value_set_nil(EseLuaValue *val) {
 }
 
 void lua_value_set_bool(EseLuaValue *val, bool value) {
-    log_assert("LUA", val, "lua_value_set_bool called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_bool called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -244,7 +244,7 @@ void lua_value_set_bool(EseLuaValue *val, bool value) {
 }
 
 void lua_value_set_number(EseLuaValue *val, double value) {
-    log_assert("LUA", val, "lua_value_set_number called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_number called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -257,8 +257,8 @@ void lua_value_set_number(EseLuaValue *val, double value) {
 }
 
 void lua_value_set_string(EseLuaValue *val, const char *value) {
-    log_assert("LUA", val, "lua_value_set_string called with NULL val");
-    log_assert("LUA", value, "lua_value_set_string called with NULL value");
+    log_assert("LUA_VALUE", val, "lua_value_set_string called with NULL val");
+    log_assert("LUA_VALUE", value, "lua_value_set_string called with NULL value");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -271,7 +271,7 @@ void lua_value_set_string(EseLuaValue *val, const char *value) {
 }
 
 void lua_value_set_table(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_set_table called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_table called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -283,7 +283,7 @@ void lua_value_set_table(EseLuaValue *val) {
 }
 
 void lua_value_set_ref(EseLuaValue *val, int value) {
-    log_assert("LUA", val, "lua_value_set_ref called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_ref called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -296,7 +296,7 @@ void lua_value_set_ref(EseLuaValue *val, int value) {
 }
 
 void lua_value_set_userdata(EseLuaValue *val, void* value) {
-    log_assert("LUA", val, "lua_value_set_userdata called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_set_userdata called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -309,7 +309,7 @@ void lua_value_set_userdata(EseLuaValue *val, void* value) {
 }
 
 EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
-    log_assert("LUA", val, "lua_value_get_table_prop called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_table_prop called with NULL val");
 
     profile_start(PROFILE_LUA_VALUE_SET);
 
@@ -328,31 +328,31 @@ EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
 }
 
 const char *lua_value_get_name(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_get_name called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_name called with NULL val");
 
     return val->name;
 }
 
 bool lua_value_get_bool(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_get_bool called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_bool called with NULL val");
 
     return val->value.boolean;
 }
 
 float lua_value_get_number(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_get_number called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_number called with NULL val");
 
     return (float)val->value.number;
 }
 
 const char *lua_value_get_string(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_get_string called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_string called with NULL val");
 
     return val->value.string;
 }
 
 void *lua_value_get_userdata(EseLuaValue *val) {
-    log_assert("LUA", val, "lua_value_get_userdata called with NULL val");
+    log_assert("LUA_VALUE", val, "lua_value_get_userdata called with NULL val");
 
     return val->value.userdata;
 }
@@ -422,7 +422,7 @@ static void _log_luavalue_rec(
 
 void log_luavalue(EseLuaValue *val) {
     if (!val) {
-        log_debug("LUA", "log_luavalue: (null)");
+        log_debug("LUA_VALUE", "log_luavalue: (null)");
         return;
     }
     char buf[LOG_LUAVALUE_MAXLEN];
@@ -434,5 +434,5 @@ void log_luavalue(EseLuaValue *val) {
     // Ensure null-termination
     buf[sizeof(buf) - 1] = '\0';
 
-    log_debug("LUA", "\n%s", buf);
+    log_debug("LUA_VALUE", "\n%s", buf);
 }

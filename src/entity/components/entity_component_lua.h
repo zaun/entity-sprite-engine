@@ -73,7 +73,7 @@ EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char
  * 
  * @return true if the function executed successfully, false if function doesn't exist or on error.
  */
-bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv);
+bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv[]);
 
 /**
  * @brief Populates the function cache with standard entity lifecycle functions.

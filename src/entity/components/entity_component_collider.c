@@ -811,3 +811,15 @@ void entity_component_collider_update_world_bounds_only(EseEntityComponentCollid
     rect_set_height(world_bounds, rect_get_height(entity_bounds));
     rect_set_rotation(world_bounds, rect_get_rotation(entity_bounds));
 }
+
+bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY_COMP", collider, "entity_component_collider_get_draw_debug called with NULL collider");
+    
+    return collider->draw_debug;
+}
+
+void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collider, bool draw_debug) {
+    log_assert("ENTITY_COMP", collider, "entity_component_collider_set_draw_debug called with NULL collider");
+    
+    collider->draw_debug = draw_debug;
+}

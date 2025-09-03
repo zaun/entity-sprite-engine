@@ -569,28 +569,38 @@ static int _entity_lua_find_by_id(lua_State *L) {
     return 1;
 }
 
-// Function to convert a Lua value on the stack to an EseLuaValue struct
-static EseLuaValue _convert_lua_value_to_ese_lua_value(lua_State *L, int index) {
-    EseLuaValue result;
-    result.type = LUA_VAL_NIL;
+// Function to convert a Lua value on the stack to an EseLuaValue struct in place
+static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index, EseLuaValue *result) {
+    // Initialize the struct to NIL first
+    result->type = LUA_VAL_NIL;
+    result->name = NULL;
+    result->value.string = NULL;
 
     int arg_type = lua_type(L, index);
+    printf("DEBUG: Converting argument type %d at index %d\n", arg_type, index);
     switch (arg_type) {
         case LUA_TNUMBER:
-            lua_value_set_number(&result, lua_tonumber(L, index));
+            printf("DEBUG: Processing LUA_TNUMBER\n");
+            lua_value_set_number(result, lua_tonumber(L, index));
             break;
         case LUA_TBOOLEAN:
-            lua_value_set_bool(&result, lua_toboolean(L, index));
+            printf("DEBUG: Processing LUA_TBOOLEAN\n");
+            lua_value_set_bool(result, lua_toboolean(L, index));
             break;
         case LUA_TSTRING:
-            lua_value_set_string(&result, lua_tostring(L, index));
+            printf("DEBUG: Processing LUA_TSTRING\n");
+            const char *str = lua_tostring(L, index);
+            printf("DEBUG: lua_tostring returned: '%s'\n", str ? str : "NULL");
+            lua_value_set_string(result, str);
             break;
         case LUA_TUSERDATA: {
+            printf("DEBUG: Processing LUA_TUSERDATA\n");
             void *udata = lua_touserdata(L, index);
-            lua_value_set_userdata(&result, udata);
+            lua_value_set_userdata(result, udata);
             break;
         }
         case LUA_TTABLE: {
+            printf("DEBUG: Processing LUA_TTABLE\n");
             // Create a temporary table EseLuaValue
             EseLuaValue *table_value = lua_value_create_table(NULL);
             if (table_value) {
@@ -609,22 +619,24 @@ static EseLuaValue _convert_lua_value_to_ese_lua_value(lua_State *L, int index) 
                     
                     EseLuaValue *item_ptr = lua_value_create_nil(key_str);
                     if (item_ptr) {
-                        *item_ptr = _convert_lua_value_to_ese_lua_value(L, -1);
+                        _convert_lua_value_to_ese_lua_value_in_place(L, -1, item_ptr);
                         lua_value_push(table_value, item_ptr, false);
                     }
                     lua_pop(L, 1);
                 }
-                result = *table_value;
-                memory_manager.free(table_value);
+                *result = *table_value;
+                lua_value_free(table_value);
             }
             break;
         }
         default:
-            lua_value_set_nil(&result);
+            printf("DEBUG: Processing default case (type %d)\n", arg_type);
+            lua_value_set_nil(result);
             break;
     }
-    return result;
 }
+
+
 
 // Returns true if the function is run, false if the function is not found or run
 static int _entity_lua_dispatch(lua_State *L) {
@@ -634,31 +646,45 @@ static int _entity_lua_dispatch(lua_State *L) {
         return 1;
     }
 
-    // The function name is now at stack index 1.
-    const char *func_name = luaL_checkstring(L, 1);
-    // The number of arguments is the total number of arguments minus one for the function name.
-    int argc = lua_gettop(L) - 1;
-    EseLuaValue *argv = NULL;
+    int func_name_index = 1;
+    int argc = 0;
+    
+    // Check if first argument is a table (entity from colon syntax)
+    if (lua_istable(L, 1)) {
+        // Colon syntax: entity:dispatch('func_name') 
+        // Stack: [entity, 'func_name', ...args]
+        func_name_index = 2;
+        argc = lua_gettop(L) - 2; // Total args minus entity and function name
+    } else {
+        // Dot syntax: entity.dispatch('func_name')
+        // Stack: ['func_name', ...args]
+        argc = lua_gettop(L) - 1; // Total args minus function name
+    }
+    
+    const char *func_name = luaL_checkstring(L, func_name_index);
+    EseLuaValue **argv = NULL;
 
     if (argc > 0) {
-        argv = memory_manager.calloc(argc, sizeof(EseLuaValue), MMTAG_LUA);
+        argv = memory_manager.calloc(argc, sizeof(EseLuaValue*), MMTAG_LUA);
         if (!argv) {
             lua_pushboolean(L, false);
             return 1;
         }
 
         for (int i = 0; i < argc; ++i) {
-            // The Lua arguments start at index 2.
-            int lua_arg_index = i + 2;
-            argv[i] = _convert_lua_value_to_ese_lua_value(L, lua_arg_index);
+            // The Lua arguments start after the function name
+            int lua_arg_index = func_name_index + 1 + i;
+            argv[i] = lua_value_create_nil("argument");
+            _convert_lua_value_to_ese_lua_value_in_place(L, lua_arg_index, argv[i]);
         }
     }
 
+    // For now, just call without arguments since we're not converting them
     entity_run_function_with_args(entity, func_name, argc, argv);
 
     if (argv) {
         for (int i = 0; i < argc; ++i) {
-            lua_value_free(&argv[i]);
+            lua_value_free(argv[i]);
         }
         memory_manager.free(argv);
     }

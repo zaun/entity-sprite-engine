@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "entity/entity_lua.h"
+#include "scripting/lua_engine_private.h"
 
 // Forward declarations
 typedef struct EseLuaEngine EseLuaEngine;
@@ -72,11 +73,20 @@ void entity_destroy(EseEntity *entity);
  */
 void entity_update(EseEntity *entity, float delta_time);
 
+/**
+ * @brief Sets the position of an entity.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @param x X coordinate
+ * @param y Y coordinate
+ */
+void entity_set_position(EseEntity *entity, float x, float y);
+
 void entity_run_function_with_args(
     EseEntity *entity,
     const char *func_name,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv[]
 );
 
 /**
@@ -144,6 +154,14 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp);
  * @return true if component was removed, false otherwise
  */
 bool entity_component_remove(EseEntity *entity, const char *id);
+
+/**
+ * @brief Gets the number of components attached to an entity.
+ * 
+ * @param entity Pointer to the EseEntity
+ * @return Number of components attached to the entity
+ */
+size_t entity_component_count(EseEntity *entity);
 
 /**
  * @brief Adds a property from a EseLuaValue to an entity's Lua proxy table.

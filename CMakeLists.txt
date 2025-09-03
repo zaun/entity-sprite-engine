@@ -49,6 +49,7 @@ if(PLATFORM STREQUAL "MAC")
         "src/platform/mac/renderer.m"
         "src/platform/mac/renderer_delegate.m"
         "src/platform/mac/time.m"
+        "src/platform/mac/audio.m"
     )
 elseif(PLATFORM STREQUAL "LINUX")
     message(STATUS "Building with Linux platform")
@@ -60,6 +61,7 @@ elseif(PLATFORM STREQUAL "LINUX")
         "src/platform/glfw/filesystem.c"
         "src/platform/glfw/renderer.c"
         "src/platform/glfw/time.c"
+        "src/platform/glfw/audio.c"
     )
 else()
     # This case should ideally not be reached, but it's good practice to handle it.
@@ -144,6 +146,9 @@ if(PLATFORM STREQUAL "MAC")
     find_library(QUARTZ_CORE_LIB QuartzCore)
     find_library(IMAGEIO_LIB ImageIO)
     find_library(CORE_GRAPHICS_LIB CoreGraphics)
+    find_library(AV_FOUNDATION_LIB AVFoundation)
+    find_library(AUDIO_TOOLBOX_LIB AudioToolbox)
+    find_library(CORE_AUDIO_LIB CoreAudio)
 
     target_link_libraries(entityspriteengine PRIVATE
         ${COCOA_LIB}
@@ -155,22 +160,29 @@ if(PLATFORM STREQUAL "MAC")
         ${QUARTZ_CORE_LIB}
         ${IMAGEIO_LIB}
         ${CORE_GRAPHICS_LIB}
+        ${AV_FOUNDATION_LIB}
+        ${AUDIO_TOOLBOX_LIB}
+        ${CORE_AUDIO_LIB}
     )
 elseif(PLATFORM STREQUAL "LINUX")
     find_package(OpenGL REQUIRED)
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(OPENAL REQUIRED openal)
 
     target_include_directories(entityspriteengine PRIVATE
         ${OPENGL_INCLUDE_DIR}
         ${GLFW3_INCLUDE_DIR}
         ${GLEW_INCLUDE_DIRS}
+        ${OPENAL_INCLUDE_DIRS}
     )
 
     target_link_libraries(entityspriteengine PRIVATE
         OpenGL::GL
         glfw
         GLEW::GLEW
+        ${OPENAL_LIBRARIES}
     )
 endif()
 

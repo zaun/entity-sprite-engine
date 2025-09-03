@@ -52,8 +52,10 @@ bool entity_component_run_function(
     EseEntity *entity,
     const char *func_name,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv[]
 );
+
+void *entity_component_get_data(EseEntityComponent *component);
 
 EseEntityComponent *entity_component_get(lua_State *L);
 

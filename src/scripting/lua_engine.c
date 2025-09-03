@@ -494,7 +494,6 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
     // Reference the instance table in the registry
     int instance_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    log_debug("LUA_ENGINE", "New instance %d", instance_ref);
     profile_stop(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT, "lua_eng_inst_script");
     profile_count_add("lua_eng_inst_script_success");
     return instance_ref;
@@ -572,7 +571,7 @@ static void _lua_engine_convert_stack_to_luavalue(lua_State *L, int idx, EseLuaV
     }
 }
 
-bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv, EseLuaValue *out_result) {
+bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv[], EseLuaValue *out_result) {
     log_assert("LUA_ENGINE", engine, "lua_eng_run_func_ref called with NULL engine");
 
     profile_start(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF);
@@ -603,7 +602,7 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     // Argument conversion timing
     profile_start(PROFILE_LUA_ENGINE_ARG_CONVERSION);
     for (int i = 0; i < argc; ++i) {
-        _lua_engine_push_luavalue(L, &argv[i]);
+        _lua_engine_push_luavalue(L, argv[i]);
         n_args++;
     }
     profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_run_func_ref_arg_conversion");

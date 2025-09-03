@@ -1,10 +1,11 @@
 #ifndef ESE_ENTITY_LUA_H
 #define ESE_ENTITY_LUA_H
 
+#include "scripting/lua_engine_private.h"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
-typedef struct EseLuaValue EseLuaValue;
 typedef struct EseEntity EseEntity;
 
 /**

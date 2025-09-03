@@ -278,7 +278,7 @@ bool entity_component_run_function(
     EseEntity *entity,
     const char *func_name,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv[]
 ) {
     log_assert("ENTITY_COMP", component, "entity_component_run_function called with NULL component");
     log_assert("ENTITY_COMP", entity, "entity_component_run_function called with NULL entity");
@@ -288,6 +288,7 @@ bool entity_component_run_function(
     bool result;
     switch (component->type) {
         case ENTITY_COMPONENT_LUA:
+            log_debug("ENTITY_COMP", "Running function '%s' with args", func_name);
             result = entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
             break;
         default:
@@ -298,6 +299,12 @@ bool entity_component_run_function(
     
     profile_stop(PROFILE_ENTITY_LUA_FUNCTION_CALL, "entity_component_run_function");
     return result;
+}
+
+void *entity_component_get_data(EseEntityComponent *component) {
+    log_assert("ENTITY_COMP", component, "entity_component_get_type called with NULL component");
+    
+    return component->data;
 }
 
 EseEntityComponent *entity_component_get(lua_State *L) {

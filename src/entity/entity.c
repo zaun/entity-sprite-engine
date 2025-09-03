@@ -72,6 +72,15 @@ EseEntity *entity_copy(EseEntity *entity) {
     // Copy default props
     copy->default_props = dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy);
 
+    // Apply copied default_props to the new entity's Lua __data table
+    EseDListIter *iter = dlist_iter_create(copy->default_props);
+    void *value_ptr;
+    while (dlist_iter_next(iter, &value_ptr)) {
+        EseLuaValue *value = (EseLuaValue*)value_ptr;
+        _entity_lua_to_data(copy, value);
+    }
+    dlist_iter_free(iter);
+
     profile_stop(PROFILE_ENTITY_COPY, "entity_copy");
     profile_count_add("entity_copy_count");
     return copy;
@@ -137,11 +146,18 @@ void entity_update(EseEntity *entity, float delta_time) {
     profile_stop(PROFILE_ENTITY_UPDATE_OVERALL, "entity_update");
 }
 
+void entity_set_position(EseEntity *entity, float x, float y) {
+    log_assert("ENTITY", entity, "entity_set_position called with NULL entity");
+    
+    point_set_x(entity->position, x);
+    point_set_y(entity->position, y);
+}
+
 void entity_run_function_with_args(
     EseEntity *entity,
     const char *func_name,
     int argc,
-    EseLuaValue *argv
+    EseLuaValue *argv[]
 ) {
     profile_start(PROFILE_ENTITY_LUA_FUNCTION_CALL);
     
@@ -149,6 +165,7 @@ void entity_run_function_with_args(
         if (!entity->components[i]->active || entity->components[i]->type != ENTITY_COMPONENT_LUA) {
             continue;
         }
+        log_debug("ENTITY", "Running function '%s' with args", func_name);
         entity_component_run_function(entity->components[i], entity, func_name, argc, argv);
     }
     
@@ -198,8 +215,14 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
     switch (state) {
         case 1: // ENTER
             // Collision Enter
-            entity_run_function_with_args(entity_a, "entity_collision_enter", 1, entity_b->lua_val_ref);
-            entity_run_function_with_args(entity_b, "entity_collision_enter", 1, entity_a->lua_val_ref);
+            {
+                EseLuaValue *args[] = {entity_b->lua_val_ref};
+                entity_run_function_with_args(entity_a, "entity_collision_enter", 1, args);
+            }
+            {
+                EseLuaValue *args[] = {entity_a->lua_val_ref};
+                entity_run_function_with_args(entity_b, "entity_collision_enter", 1, args);
+            }
             
             // Update collision state
             hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
@@ -208,14 +231,26 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
             
         case 2: // STAY
             // Collision Stay
-            entity_run_function_with_args(entity_a, "entity_collision_stay", 1, entity_b->lua_val_ref);
-            entity_run_function_with_args(entity_b, "entity_collision_stay", 1, entity_a->lua_val_ref);
+            {
+                EseLuaValue *args[] = {entity_b->lua_val_ref};
+                entity_run_function_with_args(entity_a, "entity_collision_stay", 1, args);
+            }
+            {
+                EseLuaValue *args[] = {entity_a->lua_val_ref};
+                entity_run_function_with_args(entity_b, "entity_collision_stay", 1, args);
+            }
             break;
             
         case 3: // EXIT
             // Collision Exit
-            entity_run_function_with_args(entity_a, "entity_collision_exit", 1, entity_b->lua_val_ref);
-            entity_run_function_with_args(entity_b, "entity_collision_exit", 1, entity_a->lua_val_ref);
+            {
+                EseLuaValue *args[] = {entity_b->lua_val_ref};
+                entity_run_function_with_args(entity_a, "entity_collision_exit", 1, args);
+            }
+            {
+                EseLuaValue *args[] = {entity_a->lua_val_ref};
+                entity_run_function_with_args(entity_b, "entity_collision_exit", 1, args);
+            }
             
             // Update collision state
             hashmap_remove(entity_a->current_collisions, canonical_key);
@@ -328,6 +363,11 @@ bool entity_component_remove(EseEntity *entity, const char *id) {
     entity->component_count--;
 
     return true;
+}
+
+size_t entity_component_count(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_component_count called with NULL entity");
+    return entity->component_count;
 }
 
 bool entity_add_prop(EseEntity *entity, EseLuaValue *value) {

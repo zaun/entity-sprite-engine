@@ -148,7 +148,8 @@ void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *e
     lua_value_set_number(component->arg, delta_time);
     
     // Function execution timing
-    entity_component_lua_run(component, entity, "entity_update", 1, component->arg);
+    EseLuaValue *args[] = {component->arg};
+    entity_component_lua_run(component, entity, "entity_update", 1, args);
     
     profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN, "entity_comp_lua_update_function");
 
@@ -281,7 +282,7 @@ void _entity_component_lua_clear_cache(EseEntityComponentLua *component) {
     hashmap_clear(component->function_cache);
 }
 
-bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv) {
+bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv[]) {
     log_assert("ENTITY_COMP", component, "entity_component_lua_run called with NULL component");
     log_assert("ENTITY_COMP", entity, "entity_component_lua_run called with NULL entity");
     log_assert("ENTITY_COMP", func_name, "entity_component_lua_run called with NULL func_name");
@@ -302,9 +303,28 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
         lua_State *L = component->engine->runtime;
         
         if (component->instance_ref == LUA_NOREF) {
-            profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
-            profile_count_add("entity_comp_lua_run_no_instance");
-            return false;
+            // Initialize the component if it hasn't been initialized yet
+            if (component->script == NULL) {
+                profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+                profile_count_add("entity_comp_lua_run_no_script");
+                return false;
+            }
+            
+            // Script instance creation timing
+            profile_start(PROFILE_ENTITY_COMP_LUA_INSTANCE_CREATE);
+            component->instance_ref = lua_engine_instance_script(component->engine, component->script);
+            profile_stop(PROFILE_ENTITY_COMP_LUA_INSTANCE_CREATE, "entity_comp_lua_instance_create");
+            
+            if (component->instance_ref == LUA_NOREF) {
+                profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+                profile_count_add("entity_comp_lua_run_instance_creation_failed");
+                return false;
+            }
+
+            // Function caching timing
+            profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE);
+            _entity_component_lua_cache_functions(component);
+            profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE, "entity_comp_lua_function_cache");
         }
         
         // Registry access timing
