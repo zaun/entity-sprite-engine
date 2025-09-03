@@ -396,20 +396,23 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
     lua_setfield(engine->runtime, -2, "__metatable");
     lua_setmetatable(engine->runtime, env_idx);
 
+    // run the pre-processor
+    char *processed_script = _replace_colon_calls(module_name, script);
+
     // Wrap script: LuaJIT-safe, returns module table
     const char *prologue_fmt = "local %s = ...\n";
     const char *epilogue_fmt = "\nreturn %s\n";
-
     size_t new_len = strlen(prologue_fmt) + strlen(module_name)
-                   + strlen(script)
+                   + strlen(processed_script)
                    + strlen(epilogue_fmt) + strlen(module_name) + 1;
 
     char *wrapped = memory_manager.malloc(new_len, MMTAG_LUA);
     snprintf(wrapped, new_len, prologue_fmt, module_name);
-    strcat(wrapped, script);
+    strcat(wrapped, processed_script);
     char epilogue[256];
     snprintf(epilogue, sizeof(epilogue), epilogue_fmt, module_name);
     strcat(wrapped, epilogue);
+    memory_manager.free(processed_script);
 
     // Load chunk
     char chunkname[512];

@@ -38,6 +38,30 @@ char* _replace_colon_calls(const char* prefix, const char* script) {
     snprintf(search_pattern, prefix_len + 2, "%s:", prefix);
     
     while (*src) {
+        // Check if this is a function definition line
+        if (strncmp(src, "function", 8) == 0 && (src == script || *(src-1) == '\n' || *(src-1) == ' ' || *(src-1) == '\t')) {
+            // Look for the function name pattern
+            const char* func_start = src + 8;
+            while (*func_start && (*func_start == ' ' || *func_start == '\t')) func_start++;
+            
+            // Check if this is a function definition with our prefix
+            if (strncmp(func_start, search_pattern, prefix_len + 1) == 0) {
+                // This is a function definition, don't replace it
+                // Copy the entire function definition line
+                while (*src && *src != '\n') {
+                    if (remaining < 1) break;
+                    *dst++ = *src++;
+                    remaining--;
+                }
+                // Copy the newline
+                if (*src == '\n' && remaining > 0) {
+                    *dst++ = *src++;
+                    remaining--;
+                }
+                continue;
+            }
+        }
+        
         if (strncmp(src, search_pattern, prefix_len + 1) == 0) {
             // Found PREFIX:, replace with PREFIX.
             if (remaining < prefix_len + 1) break;
@@ -65,9 +89,9 @@ char* _replace_colon_calls(const char* prefix, const char* script) {
             if (*src == '(' && remaining >= 6) {
                 *dst++ = '(';
                 remaining--;
+                src++; // Advance past the opening parenthesis
                 
                 // Skip whitespace after (
-                src++;
                 while (*src && (*src == ' ' || *src == '\t')) {
                     if (remaining < 1) break;
                     *dst++ = *src++;
@@ -85,6 +109,12 @@ char* _replace_colon_calls(const char* prefix, const char* script) {
                     memcpy(dst, "self, ", 6);
                     dst += 6;
                     remaining -= 6;
+                }
+                
+                // Copy the rest of the parameters and closing parenthesis
+                while (*src && remaining > 0) {
+                    *dst++ = *src++;
+                    remaining--;
                 }
             }
         } else {
