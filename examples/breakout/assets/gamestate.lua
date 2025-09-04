@@ -11,6 +11,7 @@ function ENTITY:entity_init()
     self.data.score = 0
     self.data.lives = 3
     self.data.bricks_remaining = 0
+    self.data.initialized = false  -- Flag to track if setup_board has been called
     
     -- Create UI text components
     self.data.score_text = EntityComponentText.new("Score: 0")
@@ -39,9 +40,6 @@ function ENTITY:entity_init()
     instructions_display.position.y = Display.viewport.height / 2 + 100
     
     self.draw_order = 10000
-    
-    -- Call setup_board directly in entity_init
-    ENTITY:setup_board()
 end
 
 function ENTITY:setup_board()
@@ -54,16 +52,16 @@ function ENTITY:setup_board()
     -- Brick colors: Blue, Green, Red, Yellow, Orange, Purple
     local colors = {"blue", "green", "red", "yellow", "orange", "purple"}
     local color_sprites = {
-        ["blue"] = "breakout:blue large",
-        ["green"] = "breakout:green large", 
-        ["red"] = "breakout:red large",
-        ["yellow"] = "breakout:yellow large",
-        ["orange"] = "breakout:orange large",
-        ["purple"] = "breakout:purple large"
+        ["blue"] = "breakout:blue small",
+        ["green"] = "breakout:green small", 
+        ["red"] = "breakout:red small",
+        ["yellow"] = "breakout:yellow small",
+        ["orange"] = "breakout:orange small",
+        ["purple"] = "breakout:purple small"
     }
     
     local brick_width = 64
-    local brick_height = 24
+    local brick_height = 32
     local start_x = 50
     local start_y = 100
     local spacing_x = 5
@@ -115,22 +113,29 @@ function ENTITY:setup_board()
     
     -- Reset ball position
     local balls = Entity.find_by_tag("ball")
-            if balls and #balls > 0 then
-            local ball = balls[1]  -- Get first ball
-            ball:dispatch("reset_ball")
-            local paddles = Entity.find_by_tag("paddle")
-            if paddles and #paddles > 0 then
-                local paddle = paddles[1]  -- Get first paddle
-                ball.position.x = paddle.position.x + paddle.data.width / 2 - ball.data.size / 2
-                ball.position.y = paddle.position.y - ball.data.size - 5
-            end
+    if balls and #balls > 0 then
+        local ball = balls[1]  -- Get first ball
+        ball:dispatch("reset_ball")
+        local paddles = Entity.find_by_tag("paddle")
+        if paddles and #paddles > 0 and ball.data and ball.data.size then
+            local paddle = paddles[1]  -- Get first paddle
+            ball.position.x = paddle.position.x + paddle.data.width / 2 - ball.data.size / 2
+            ball.position.y = paddle.position.y - ball.data.size - 5
         end
+    end
     
     self.data.state = 1
     self.data.instructions_text.text = "Press SPACE to launch ball"
 end
 
 function ENTITY:entity_update(delta_time)
+    -- Call setup_board on first update to ensure all entities are initialized
+    if not self.data.initialized then
+        ENTITY:setup_board()
+        self.data.initialized = true
+        return
+    end
+    
     if self.data.state == 1 then
         -- Check if all bricks are destroyed
         if self.data.bricks_remaining <= 0 then
@@ -162,7 +167,7 @@ function ENTITY:ball_lost()
             local ball = balls[1]  -- Get first ball
             ball:dispatch("reset_ball")
             local paddles = Entity.find_by_tag("paddle")
-            if paddles and #paddles > 0 then
+            if paddles and #paddles > 0 and ball.data and ball.data.size then
                 local paddle = paddles[1]  -- Get first paddle
                 ball.position.x = paddle.position.x + paddle.data.width / 2 - ball.data.size / 2
                 ball.position.y = paddle.position.y - ball.data.size - 5

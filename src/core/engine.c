@@ -51,7 +51,9 @@ EseEngine *engine_create(const char *startup_script) {
     engine->render_list_a = render_list_create();
     engine->render_list_b = render_list_create();
 
-    engine->entities = dlist_create((DListFreeFn)entity_destroy);
+    engine->entities = dlist_create(NULL);
+    engine->del_entities = dlist_create(NULL);
+
     engine->collision_bin = spatial_bin_create();
     engine->collision_pairs = array_create(128, _free_collision_pair);
 
@@ -124,7 +126,20 @@ void engine_destroy(EseEngine *engine) {
     render_list_destroy(engine->render_list_a);
     render_list_destroy(engine->render_list_b);
 
-    dlist_free(engine->entities);
+    // Manually clear del_entities list since it has no free function
+    void *del_entity_value;
+    EseDListIter *del_entity_iter = dlist_iter_create(engine->del_entities);
+    while (dlist_iter_next(del_entity_iter, &del_entity_value)) {
+        EseEntity *entity = (EseEntity*)del_entity_value;
+        dlist_remove_by_value(engine->del_entities, entity);
+        entity_destroy(entity);
+    }
+    dlist_iter_free(del_entity_iter);
+    
+    // Now free the lists
+    dlist_free(engine->entities);  // This will auto-destroy remaining entities
+    dlist_free(engine->del_entities);  // This should be empty now
+
     if (engine->asset_manager) {
         asset_manager_destroy(engine->asset_manager);
     }
@@ -426,6 +441,18 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
+
+    // Delete entities
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    void *del_entity_value;
+    EseDListIter *del_entity_iter = dlist_iter_create(engine->del_entities);
+    while (dlist_iter_next(del_entity_iter, &del_entity_value)) {
+        EseEntity *entity = (EseEntity*)del_entity_value;
+        dlist_remove_by_value(engine->del_entities, entity);  // Remove from list first
+        entity_destroy(entity);  // Then destroy
+    }
+    dlist_iter_free(del_entity_iter);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_del_entities");
 
     // Overall update time
     profile_stop(PROFILE_ENG_UPDATE_OVERALL, "eng_update_overall");

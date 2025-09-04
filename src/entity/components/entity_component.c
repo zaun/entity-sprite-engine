@@ -151,7 +151,7 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
     profile_start(PROFILE_ENTITY_COLLISION_TEST);
 
     if (a->type != ENTITY_COMPONENT_COLLIDER || b->type != ENTITY_COMPONENT_COLLIDER) {
-        profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
+        profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
         return false;
     }
 
@@ -169,7 +169,7 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
             if (rect_intersects(rect_a, rect_b)) {
                 rect_destroy(rect_a);
                 rect_destroy(rect_b);
-                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
+                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
                 return true;
             }
             rect_destroy(rect_b);
@@ -177,7 +177,7 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
         rect_destroy(rect_a);
     }
     
-    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision_component");
+    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
     return false;
 }
 
@@ -288,7 +288,6 @@ bool entity_component_run_function(
     bool result;
     switch (component->type) {
         case ENTITY_COMPONENT_LUA:
-            log_debug("ENTITY_COMP", "Running function '%s' with args", func_name);
             result = entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
             break;
         default:

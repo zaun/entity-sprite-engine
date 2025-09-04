@@ -116,7 +116,7 @@ static int _entity_component_collider_new(lua_State *L) {
     int n_args = lua_gettop(L);
     if (n_args == 1) {
         // The rect parameter is at index 1 (first argument to the function)
-        EseRect *rect = rect_lua_get(L, 1);
+        rect = rect_lua_get(L, 1);
         if (rect == NULL) {
             luaL_argerror(L, 1, "EntityComponentCollider.new() or EntityComponentCollider.new(Rect)");
             return 0;

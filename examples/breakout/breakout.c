@@ -9,9 +9,40 @@
 #include "platform/window.h"
 #include "platform/time.h"
 #include "core/memory_manager.h"
+#include "utility/profile.h"
 
+
+void segfault_handler(int signo, siginfo_t *info, void *context) {
+    void *buffer[32];
+    int nptrs = backtrace(buffer, 32);
+    char **strings = backtrace_symbols(buffer, nptrs);
+    if (strings) {
+        fprintf(stderr, "---- BACKTRACE START ----\n");
+        for (int i = 0; i < nptrs; i++) {
+            fprintf(stderr, "%s\n", strings[i]);
+        }
+        fprintf(stderr, "---- BACKTRACE  END  ----\n");
+        free(strings);
+    }
+
+    signal(signo, SIG_DFL);
+    raise(signo);
+}
 
 int main(int argc, char *argv[]) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_sigaction = segfault_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, SIGINT);
+
+    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
+        perror("Error setting SIGSEGV handler");
+        return EXIT_FAILURE;
+    }
+
     int max_time_seconds = -1;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--max-time") == 0 && i + 1 < argc) {
@@ -68,6 +99,8 @@ int main(int argc, char *argv[]) {
     window_destroy(window);
 
     memory_manager.destroy();
+
+    profile_display();
 
     printf("Bye\n");
     return 0;

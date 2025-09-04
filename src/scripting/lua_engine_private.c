@@ -423,6 +423,7 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
     log_assert("LUA", L, "_lua_engine_push_luavalue called with NULL L");
 
     // PROFILING: Start timing for this argument
+    profile_start(PROFILE_LUA_ENGINE_ARG_CONVERSION);
     uint64_t arg_start = time_now();
 
     if (!arg) {
@@ -474,9 +475,11 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
     }
 
     // PROFILING: Log timing for complex types
-    uint64_t arg_time = time_now() - arg_start;
     if (arg->type == LUA_VAL_TABLE || arg->type == LUA_VAL_REF) {
-        log_debug("LUA", "Complex arg conversion (type %d): %.3fμs", arg->type, (double)arg_time / 1000.0);
+        profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_push_luavalue_complex_arg");
+        profile_count_add("lua_eng_push_luavalue_complex_arg");
+    } else  {
+        profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_push_luavalue_simple_arg");
     }
 }
 

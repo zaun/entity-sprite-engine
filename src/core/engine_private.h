@@ -32,6 +32,8 @@ struct EseEngine {
     bool active_render_list;            /**< Flag to indicate which render list is currently active */
 
     EseDoubleLinkedList *entities;      /**< A doubly-linked list containing all active entities */
+    EseDoubleLinkedList *del_entities;  /**< A doubly-linked list containing to be deleted entities */
+
     EseSpatialBin *collision_bin;       /**< Spatial bin for collision detection */
     EseArray *collision_pairs;          /**< Array of collision pairs */
 

@@ -19,11 +19,3 @@ end
 
 function ENTITY:entity_collision_exit(entity) 
 end
-
-function ENTITY:destroy()
-    if not self.data.destroyed then
-        self.data.destroyed = true
-        -- The actual entity destruction will be handled by the engine
-        -- when this function returns
-    end
-end

@@ -105,5 +105,5 @@ void _engine_delete_entity(EseEngine *engine, EseEntity *entity) {
     log_assert("ENGINE", entity, "_engine_delete_entity called with NULL entity");
 
     dlist_remove_by_value(engine->entities, entity);
-    entity_destroy(entity);
+    dlist_append(engine->del_entities, entity);
 }

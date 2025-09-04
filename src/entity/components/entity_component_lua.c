@@ -320,6 +320,10 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
                 profile_count_add("entity_comp_lua_run_instance_creation_failed");
                 return false;
             }
+            
+            if (strcmp(func_name, "entity_init") != 0) {
+                entity_component_lua_run(component, entity, "entity_init", 0, NULL);
+            }
 
             // Function caching timing
             profile_start(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE);

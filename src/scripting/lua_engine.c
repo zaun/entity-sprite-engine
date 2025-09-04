@@ -631,7 +631,6 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     bool ok = true;
     int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
     if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
-        log_error("LUA_ENGINE", "Error running function by reference: %s", lua_tostring(L, -1));
         lua_pop(L, 1); // error message
         ok = false;
     } else if (out_result) {

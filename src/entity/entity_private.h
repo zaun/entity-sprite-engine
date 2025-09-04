@@ -18,6 +18,8 @@ struct EseEntity {
     EseUUID *id;                            /**< Unique entity identifier */
     bool active;                            /**< Whether entity is active */
     int draw_order;                         /**< Drawing order (z-index) */
+
+    bool destroyed;                         /**< Whether entity is destroyed */
     
     EsePoint *position;                     /**< EseEntity position */
     

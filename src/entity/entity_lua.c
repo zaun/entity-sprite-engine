@@ -4,6 +4,7 @@
 #include "types/types.h"
 #include "entity/components/entity_component_private.h"
 #include "core/engine.h"
+#include "core/engine_private.h"
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_value.h"
 #include "vendor/lua/src/lua.h"
@@ -483,6 +484,35 @@ static int _entity_lua_remove_tag(lua_State *L) {
 }
 
 /**
+ * @brief Lua function to destroy an entity.
+ */
+static int _entity_lua_destroy(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    if (entity->destroyed) {
+        // could be called more than once, just ignore it
+        lua_pushboolean(L, true);
+        return 1;
+    }
+
+    // Destroy the entity
+    entity->destroyed = true;
+    _engine_delete_entity(engine, entity);
+    
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
  * @brief Lua function to check if an entity has a tag.
  */
 static int _entity_lua_has_tag(lua_State *L) {
@@ -829,6 +859,10 @@ static int _entity_lua_index(lua_State *L) {
     } else if (strcmp(key, "remove_tag") == 0) {
         lua_pushlightuserdata(L, entity);
         lua_pushcclosure(L, _entity_lua_remove_tag, 1);
+        return 1;
+    } else if (strcmp(key, "destroy") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_destroy, 1);
         return 1;
     } else if (strcmp(key, "has_tag") == 0) {
         lua_pushlightuserdata(L, entity);

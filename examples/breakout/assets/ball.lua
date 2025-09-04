@@ -1,7 +1,4 @@
 function ENTITY:entity_init()
-    -- Initialize data table
-    self.data = {}
-    
     -- Ball starts stationary until game begins
     self.data.velocity = Vector.new(0, 0)
     self.data.speed = 300
@@ -107,6 +104,7 @@ function ENTITY:entity_collision_enter(entity)
         end
         
         -- Destroy the brick
+        print("Destroying brick")
         entity:destroy()
         
         -- Notify game state for scoring

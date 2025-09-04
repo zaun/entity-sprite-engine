@@ -165,7 +165,6 @@ void entity_run_function_with_args(
         if (!entity->components[i]->active || entity->components[i]->type != ENTITY_COMPONENT_LUA) {
             continue;
         }
-        log_debug("ENTITY", "Running function '%s' with args", func_name);
         entity_component_run_function(entity->components[i], entity, func_name, argc, argv);
     }
     
