@@ -219,4 +219,12 @@ EseRect *entity_get_collision_bounds(EseEntity *entity, bool to_world_coords);
 
 int entity_get_lua_ref(EseEntity *entity);
 
+void entity_set_visible(EseEntity *entity, bool visible);
+
+bool entity_get_visible(EseEntity *entity);
+
+void entity_set_persistent(EseEntity *entity, bool persistent);
+
+bool entity_get_persistent(EseEntity *entity);
+
 #endif // ESE_ENTITY_H

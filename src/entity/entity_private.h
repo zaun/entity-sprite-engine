@@ -17,6 +17,8 @@
 struct EseEntity {
     EseUUID *id;                            /**< Unique entity identifier */
     bool active;                            /**< Whether entity is active */
+    bool visible;                           /**< Whether entity is visible */
+    bool persistent;                        /**< Whether entity is persistent */
     int draw_order;                         /**< Drawing order (z-index) */
 
     bool destroyed;                         /**< Whether entity is destroyed */

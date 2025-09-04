@@ -268,3 +268,33 @@ int _lua_detect_collision(lua_State *L) {
     lua_newtable(L);
     return 1;
 }
+
+int _lua_scene_clear(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        log_warn("ENGINE", "scene_clear() takes 0 arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    engine_entities_clear(engine, false);
+
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+int _lua_scene_reset(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        log_warn("ENGINE", "scene_reset() takes 0 arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    engine_entities_clear(engine, true);
+
+    lua_pushboolean(L, true);
+    return 1;
+}

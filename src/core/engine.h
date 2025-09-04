@@ -145,6 +145,14 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
 EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string);
 
 /**
+ * @brief Clears the engine's entities.
+ * 
+ * @param engine Pointer to the EseEngine
+ * @param include_persistent Whether to include persistent entities
+ */
+void engine_entities_clear(EseEngine *engine, bool include_persistent);
+
+/**
  * @brief Gets the number of entities in the engine.
  * 
  * @param engine Pointer to the EseEngine

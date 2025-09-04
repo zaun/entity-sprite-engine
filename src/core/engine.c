@@ -90,6 +90,8 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_get_map", _lua_asset_get_map);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
     lua_engine_add_function(engine->lua_engine, "detect_collision", _lua_detect_collision);
+    lua_engine_add_function(engine->lua_engine, "scene_clear", _lua_scene_clear);
+    lua_engine_add_function(engine->lua_engine, "scene_reset", _lua_scene_reset);
     
     // Add globals
     engine->input_state = input_state_create(engine->lua_engine);
@@ -395,6 +397,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 	while (dlist_iter_next(entity_iter, &value)) {
 	    EseEntity *entity = (EseEntity*)value;
 
+        // if (!entity->visible) continue;
         entity_draw(
             entity,
             point_get_x(engine->camera_state->position),
@@ -582,6 +585,23 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 
     dlist_iter_free(iter);
     return NULL;
+}
+
+void engine_entities_clear(EseEngine *engine, bool include_persistent) {
+    log_assert("ENGINE", engine, "engine_entities_clear called with NULL engine");
+
+    void *entity_value;
+    EseDListIter *iter = dlist_iter_create(engine->entities);
+    while (dlist_iter_next(iter, &entity_value)) {
+        EseEntity *entity = (EseEntity*)entity_value;
+        if (!include_persistent && entity_get_persistent(entity)) {
+            // skip persistent entities
+            continue;
+        }
+        dlist_remove_by_value(engine->entities, entity);
+        dlist_append(engine->del_entities, entity);
+    }
+    dlist_iter_free(iter);
 }
 
 int engine_get_entity_count(EseEngine *engine) {

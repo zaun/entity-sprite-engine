@@ -736,6 +736,12 @@ static int _entity_lua_components_index(lua_State *L) {
         // Stack after lua_pushnil: [userdata, key, nil]
         return 1;
     }
+
+    if (entity->destroyed) {
+        lua_pushnil(L);
+        // Stack after lua_pushnil: [userdata, key, nil]
+        return 1;
+    }
     
     // Check if the key is a number for array access
     if (lua_isnumber(L, 2)) {
@@ -811,6 +817,12 @@ static int _entity_lua_index(lua_State *L) {
         lua_pushnil(L);
         return 1;
     }
+
+    if (entity->destroyed) {
+        lua_pushnil(L);
+        // Stack after lua_pushnil: [userdata, key, nil]
+        return 1;
+    }
     
     if (!key) return 0;
 
@@ -819,6 +831,12 @@ static int _entity_lua_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "active") == 0) {
         lua_pushboolean(L, entity->active);
+        return 1;
+    } else if (strcmp(key, "visible") == 0) {
+        lua_pushboolean(L, entity->visible);
+        return 1;
+    } else if (strcmp(key, "persistent") == 0) {
+        lua_pushboolean(L, entity->persistent);
         return 1;
     } else if (strcmp(key, "draw_order") == 0) {
         lua_pushinteger(L, entity->draw_order);
@@ -893,6 +911,10 @@ static int _entity_lua_newindex(lua_State *L) {
     if (!entity) {
         return 0;
     }
+
+    if (entity->destroyed) {
+        return 0;
+    }
     
     if (!key) return 0;
 
@@ -903,6 +925,18 @@ static int _entity_lua_newindex(lua_State *L) {
             return luaL_error(L, "Entity active must be a boolean");
         }
         entity->active = lua_toboolean(L, 3);
+        return 0;
+    } else if (strcmp(key, "visible") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            return luaL_error(L, "Entity visible must be a boolean");
+        }
+        entity->visible = lua_toboolean(L, 3);
+        return 0;
+    } else if (strcmp(key, "persistent") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            return luaL_error(L, "Entity persistent must be a boolean");
+        }
+        entity->persistent = lua_toboolean(L, 3);
         return 0;
     } else if (strcmp(key, "draw_order") == 0) {
         if (!lua_isinteger_lj(L, 3)) {

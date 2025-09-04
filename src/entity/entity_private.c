@@ -28,6 +28,8 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->id = uuid_create(engine);
     uuid_ref(entity->id);
     entity->active = true;
+    entity->visible = true;
+    entity->persistent = false;
     entity->destroyed = false;
     point_set_x(entity->position, 0.0f);
     point_set_y(entity->position, 0.0f);

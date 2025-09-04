@@ -516,3 +516,23 @@ EseRect *entity_get_collision_bounds(EseEntity *entity, bool to_world_coords) {
         return rect_copy(entity->collision_bounds);
     }
 }
+
+void entity_set_visible(EseEntity *entity, bool visible) {
+    log_assert("ENTITY", entity, "entity_set_visible called with NULL entity");
+    entity->visible = visible;
+}
+
+bool entity_get_visible(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_get_visible called with NULL entity");
+    return entity->visible;
+}
+
+void entity_set_persistent(EseEntity *entity, bool persistent) {
+    log_assert("ENTITY", entity, "entity_set_persistent called with NULL entity");
+    entity->persistent = persistent;
+}
+
+bool entity_get_persistent(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_get_persistent called with NULL entity");
+    return entity->persistent;
+}
