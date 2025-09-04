@@ -4,12 +4,16 @@ function ENTITY:entity_init()
     self.data.speed = 300
     self.data.launched = false
     self.data.size = 16
+    self.data.collided_entities = {}  -- Track entities we've already collided with this frame
 end
 
 function ENTITY:entity_update(delta_time)
     if not self.data.launched then
         return
     end
+    
+    -- Clear collision tracking at start of each frame
+    self.data.collided_entities = {}
     
     -- Update ball position based on velocity
     local current_pos = self.position
@@ -73,6 +77,15 @@ end
 
 function ENTITY:entity_collision_enter(entity) 
     if entity.data and entity.data.type == "paddle" then
+        -- Check if we've already collided with this entity this frame
+        local entity_id = entity.id
+        if self.data.collided_entities[entity_id] then
+            return  -- Skip this collision, we already handled it
+        end
+        
+        -- Mark this entity as collided with this frame
+        self.data.collided_entities[entity_id] = true
+        
         -- Bounce off paddle with angle based on hit position
         local paddle_center = entity.position.x + entity.data.width / 2
         local ball_center = self.position.x + self.data.size / 2
@@ -84,8 +97,20 @@ function ENTITY:entity_collision_enter(entity)
             math.sin(angle) * self.data.speed,
             -math.abs(math.cos(angle)) * self.data.speed  -- Always bounce upward
         )
+        
+        -- Move ball above the paddle to prevent overlap
+        self.position.y = entity.position.y - self.data.size - 2
     elseif entity.data and entity.data.type == "brick" then
-        -- Destroy brick and bounce ball
+        -- Check if we've already collided with this entity this frame
+        local entity_id = entity.id
+        if self.data.collided_entities[entity_id] then
+            return  -- Skip this collision, we already handled it
+        end
+        
+        -- Mark this entity as collided with this frame
+        self.data.collided_entities[entity_id] = true
+        
+        -- Calculate bounce direction and update ball position immediately
         local ball_center_x = self.position.x + self.data.size / 2
         local ball_center_y = self.position.y + self.data.size / 2
         local brick_center_x = entity.position.x + entity.data.width / 2
@@ -95,12 +120,29 @@ function ENTITY:entity_collision_enter(entity)
         local dx = ball_center_x - brick_center_x
         local dy = ball_center_y - brick_center_y
         
+        -- Now handle the bounce
         if math.abs(dx) > math.abs(dy) then
-            -- Hit from left or right
+            -- Hit from left or right - bounce horizontally
             self.data.velocity.x = -self.data.velocity.x
+            -- Move ball away from where the brick was to prevent overlap
+            if dx > 0 then
+                -- Ball hit from right side, move it right
+                self.position.x = brick_center_x + entity.data.width / 2 + self.data.size / 2 + 2
+            else
+                -- Ball hit from left side, move it left
+                self.position.x = brick_center_x - entity.data.width / 2 - self.data.size / 2 - 2
+            end
         else
-            -- Hit from top or bottom
+            -- Hit from top or bottom - bounce vertically
             self.data.velocity.y = -self.data.velocity.y
+            -- Move ball away from where the brick was to prevent overlap
+            if dy > 0 then
+                -- Ball hit from bottom, move it down
+                self.position.y = brick_center_y + entity.data.height / 2 + self.data.size / 2 + 2
+            else
+                -- Ball hit from top, move it up
+                self.position.y = brick_center_y - entity.data.height / 2 - self.data.size / 2 - 2
+            end
         end
         
         -- Destroy the brick

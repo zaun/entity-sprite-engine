@@ -13,11 +13,11 @@ function ENTITY:entity_update(delta_time)
     local move_speed = self.data.speed * delta_time
     
     -- Handle keyboard input
-    if InputState.keys_pressed[InputState.KEY.LEFT] or InputState.keys_pressed[InputState.KEY.A] then
+    if InputState.keys_down[InputState.KEY.LEFT] or InputState.keys_down[InputState.KEY.A] then
         self.position.x = self.position.x - move_speed
     end
     
-    if InputState.keys_pressed[InputState.KEY.RIGHT] or InputState.keys_pressed[InputState.KEY.D] then
+    if InputState.keys_down[InputState.KEY.RIGHT] or InputState.keys_down[InputState.KEY.D] then
         self.position.x = self.position.x + move_speed
     end
     
