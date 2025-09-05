@@ -27,6 +27,7 @@
 
 // Test function declarations
 static void test_engine_collision_detection();
+static void test_no_self_collision();
 
 // Helper function to create and initialize engine
 static EseLuaEngine* create_test_engine() {
@@ -69,6 +70,7 @@ int main() {
     
     // Run all test suites
     test_engine_collision_detection();
+    test_no_self_collision();
     
     // Print final summary
     test_suite_end("🎯 Final Test Summary");
@@ -201,4 +203,60 @@ static void test_engine_collision_detection() {
     engine_destroy(engine);
     
     test_end("Engine Collision Detection");
+}
+
+// Ensure an entity is never reported colliding with itself
+static void test_no_self_collision() {
+    test_begin("No Self-Collision Emitted");
+
+    EseEngine *engine = engine_create("dummy_startup.lua");
+    TEST_ASSERT_NOT_NULL(engine, "Engine should be created");
+
+    EseLuaEngine *lua_engine = engine->lua_engine;
+    TEST_ASSERT_NOT_NULL(lua_engine, "Lua engine should be created");
+
+    // Create a single entity with a collider and a simple collision handler script
+    const char *script =
+        "function ENTITY:entity_collision_enter(other) self:add_tag('enter') end\n"
+        "function ENTITY:entity_collision_stay(other) self:add_tag('stay') end\n"
+        "function ENTITY:entity_collision_exit(other) self:add_tag('exit') end\n";
+
+    bool load_result = lua_engine_load_script_from_string(lua_engine, script, "self_collision_script", "ENTITY");
+    TEST_ASSERT(load_result, "Self-collision script should load successfully");
+
+    EseEntity *entity = entity_create(lua_engine);
+    TEST_ASSERT_NOT_NULL(entity, "Entity should be created");
+
+    EseEntityComponent *lua_comp = entity_component_lua_create(lua_engine, "self_collision_script");
+    entity_component_add(entity, lua_comp);
+
+    EseEntityComponent *collider = entity_component_collider_create(lua_engine);
+    entity_component_add(entity, collider);
+
+    // Add a single rect to the collider
+    EseRect *rect = rect_create(lua_engine);
+    rect_set_x(rect, 0);
+    rect_set_y(rect, 0);
+    rect_set_width(rect, 64);
+    rect_set_height(rect, 64);
+    entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider), rect);
+
+    engine_add_entity(engine, entity);
+
+    // Run an update and ensure no collision tags appear (self-pairs would create them)
+    EseInputState *input_state = input_state_create(lua_engine);
+    TEST_ASSERT_NOT_NULL(input_state, "Input state should be created");
+
+    entity_set_position(entity, 100, 100);
+    engine_update(engine, 0.016f, input_state);
+
+    TEST_ASSERT(!entity_has_tag(entity, "enter"), "Entity must not receive 'enter' from self-collision");
+    TEST_ASSERT(!entity_has_tag(entity, "stay"), "Entity must not receive 'stay' from self-collision");
+    TEST_ASSERT(!entity_has_tag(entity, "exit"), "Entity must not receive 'exit' from self-collision");
+
+    // Clean up
+    input_state_destroy(input_state);
+    engine_destroy(engine);
+
+    test_end("No Self-Collision Emitted");
 }
