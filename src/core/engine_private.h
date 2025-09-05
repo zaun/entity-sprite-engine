@@ -12,6 +12,7 @@
 #define ESE_ENGINE_PRIVATE_H
 
 #include "core/asset_manager.h"
+#include "core/collision_index.h"
 #include "core/console.h"
 #include "core/engine.h"
 #include "entity/entity.h"
@@ -21,7 +22,7 @@ typedef struct EseDrawList EseDrawList;
 typedef struct EseRenderList EseRenderList;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseDoubleLinkedList EseDoubleLinkedList;
-typedef struct EseSpatialBin EseSpatialBin;
+typedef struct EseCollisionIndex EseCollisionIndex;
 typedef struct EseArray EseArray;
 
 struct EseEngine {
@@ -34,8 +35,7 @@ struct EseEngine {
     EseDoubleLinkedList *entities;      /**< A doubly-linked list containing all active entities */
     EseDoubleLinkedList *del_entities;  /**< A doubly-linked list containing to be deleted entities */
 
-    EseSpatialBin *collision_bin;       /**< Spatial bin for collision detection */
-    EseArray *collision_pairs;          /**< Array of collision pairs */
+    EseCollisionIndex *collision_bin;   /**< Collision index for collision detection */
 
     EseInputState *input_state;         /**< The current input state of the application */
     EseDisplay *display_state;          /**< The current display state of the application */

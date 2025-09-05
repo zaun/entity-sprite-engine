@@ -75,10 +75,8 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
 const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2) {
     profile_start(PROFILE_ENTITY_COLLISION_KEY_GEN);
     
-    // A static buffer to hold the string key.
-    // This makes the function thread-unsafe, but given the context of a game loop,
-    // this is likely a safe assumption.
-    static char key_str[40]; // A buffer large enough for two UUIDs' hash strings.
+    // Use a thread-local buffer to avoid race conditions
+    static __thread char key_str[40]; // A buffer large enough for two UUIDs' hash strings.
 
     // Ensure consistent key by sorting UUIDs based on their value.
     if (strcmp(uuid1->value, uuid2->value) > 0) {

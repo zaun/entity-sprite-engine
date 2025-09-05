@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
+#include "core/collision_index.h"
 #include "core/memory_manager.h"
 #include "entity/entity.h"
 #include "types/types.h"
@@ -22,19 +23,7 @@
 #include "utility/hashmap.h"
 #include "utility/double_linked_list.h"
 #include "utility/profile.h"
-#include "utility/spatial_bin.h"
  
-typedef struct CollisionPair {
-    EseEntity *entity_a;
-    EseEntity *entity_b;
-    int state; // 0=none, 1=enter, 2=stay, 3=exit
-} CollisionPair;
-
-static void _free_collision_pair(void *ptr) {
-    if (ptr) {
-        memory_manager.free(ptr);
-    }
-}
 
 EseEngine *engine_create(const char *startup_script) {
     log_init();
@@ -54,8 +43,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine->entities = dlist_create(NULL);
     engine->del_entities = dlist_create(NULL);
 
-    engine->collision_bin = spatial_bin_create();
-    engine->collision_pairs = array_create(128, _free_collision_pair);
+    engine->collision_bin = collision_index_create();
 
     engine->lua_engine = lua_engine_create();
 
@@ -150,8 +138,7 @@ void engine_destroy(EseEngine *engine) {
     camera_state_destroy(engine->camera_state);
     console_destroy(engine->console);
 
-    spatial_bin_destroy(engine->collision_bin);
-    array_destroy(engine->collision_pairs);
+    collision_index_destroy(engine->collision_bin);
 
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
@@ -279,8 +266,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     
     // Entity PASS TWO Step 1: Collect collision pairs using spatial bin
-    spatial_bin_clear(engine->collision_bin);
-    array_clear(engine->collision_pairs);
+    collision_index_clear(engine->collision_bin);
 
     // Insert active entities
     void* entity_value;
@@ -288,98 +274,19 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     while (dlist_iter_next(insert_iter, &entity_value)) {
         EseEntity *entity = (EseEntity*)entity_value;
         if (!entity->active) continue;
-        spatial_bin_insert(engine->collision_bin, entity);
+        collision_index_insert(engine->collision_bin, entity);
     }
     dlist_iter_free(insert_iter);
 
-    // Collect pairs
-    EseHashMapIter *bin_iter = hashmap_iter_create(engine->collision_bin->bins);
-    const char *bin_key_str;
-    void *bin_value;
-    while (hashmap_iter_next(bin_iter, &bin_key_str, &bin_value)) {
-        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList *)bin_value;
-        if (dlist_size(cell_list) < 2) continue;
-
-        // Check within cell using nested iterators
-        void *a_value;
-        EseDListIter *outer = dlist_iter_create(cell_list);
-        while (dlist_iter_next(outer, &a_value)) {
-            EseEntity *a = (EseEntity *)a_value;
-
-            EseDListIter *inner = dlist_iter_create_from(outer);
-            void *b_value;
-            while (dlist_iter_next(inner, &b_value)) {
-                EseEntity *b = (EseEntity *)b_value;
-                int state = entity_check_collision_state(a, b);
-                if (state != 0) {
-                    // Create heap-allocated collision pair and add to array
-                    CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                    pair->entity_a = a;
-                    pair->entity_b = b;
-                    pair->state = state;
-                    if (!array_push(engine->collision_pairs, pair)) {
-                        log_warn("ENGINE", "Failed to add collision pair to array");
-                        memory_manager.free(pair);
-                    }
-                }
-            }
-            dlist_iter_free(inner);
-        }
-        dlist_iter_free(outer);
-
-        // Neighbor checks
-        // Extract cell_x, cell_y from bin_key_str (format is "%llu" from EseSpatialBinKey)
-        // We need to reverse the key computation to get x,y coordinates
-        EseSpatialBinKey key_val;
-        if (sscanf(bin_key_str, "%llu", (unsigned long long*)&key_val) == 1) {
-            // Reverse the key computation: key = ((x + INT_MAX) << 32) | (y + INT_MAX)
-            int cell_x = (int)((key_val >> 32) - INT_MAX);
-            int cell_y = (int)((key_val & 0xFFFFFFFF) - INT_MAX);
-            
-            EseDoubleLinkedList *neighbors[8];
-            size_t neighbor_count = 0;
-            spatial_bin_get_neighbors(engine->collision_bin, cell_x, cell_y, neighbors, &neighbor_count);
-
-            for (size_t n = 0; n < neighbor_count; n++) {
-                EseDoubleLinkedList *neighbor_list = neighbors[n];
-
-                // Check pairs between current cell and neighbor cell
-                EseDListIter *cell_iter = dlist_iter_create(cell_list);
-                void *c_value;
-                while (dlist_iter_next(cell_iter, &c_value)) {
-                    EseEntity *c = (EseEntity *)c_value;
-                    EseDListIter *neigh_iter = dlist_iter_create(neighbor_list);
-                    void *n_value;
-                    while (dlist_iter_next(neigh_iter, &n_value)) {
-                        EseEntity *n = (EseEntity *)n_value;
-                        int state = entity_check_collision_state(c, n);
-                        if (state != 0) {
-                            // Create heap-allocated collision pair and add to array
-                            CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                            pair->entity_a = c;
-                            pair->entity_b = n;
-                            pair->state = state;
-                            if (!array_push(engine->collision_pairs, pair)) {
-                                log_warn("ENGINE", "Failed to add collision pair to array");
-                                memory_manager.free(pair);
-                            }
-                        }
-                    }
-                    dlist_iter_free(neigh_iter);
-                }
-                dlist_iter_free(cell_iter);
-            }
-        }
-    }
-
-    hashmap_iter_free(bin_iter);
+    // Get collision pairs from the spatial index (array is cleared internally)
+    EseArray *collision_pairs = collision_index_get_pairs(engine->collision_bin);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_detect");
 
     // Entity PASS TWO Step 2: Process collision callbacks for all pairs
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    size_t pair_count = array_size(engine->collision_pairs);
+    size_t pair_count = array_size(collision_pairs);
     for (size_t i = 0; i < pair_count; i++) {
-        CollisionPair *pair = (CollisionPair *)array_get(engine->collision_pairs, i);
+        CollisionPair *pair = (CollisionPair *)array_get(collision_pairs, i);
         if (pair) {
             entity_process_collision_callbacks(pair->entity_a, pair->entity_b, pair->state);
         }

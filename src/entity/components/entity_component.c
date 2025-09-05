@@ -158,23 +158,32 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
     EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a->data;
     EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
 
+    // Get entity positions once
+    float pos_a_x = point_get_x(a->entity->position);
+    float pos_a_y = point_get_y(a->entity->position);
+    float pos_b_x = point_get_x(b->entity->position);
+    float pos_b_y = point_get_y(b->entity->position);
+
     for (size_t i = 0; i < colliderA->rects_count; i++) {
-        EseRect *rect_a = rect_copy(colliderA->rects[i]);
-        rect_set_x(rect_a, rect_get_x(rect_a) + point_get_x(a->entity->position));
-        rect_set_y(rect_a, rect_get_y(rect_a) + point_get_y(a->entity->position));
+        EseRect *rect_a = colliderA->rects[i];
+        float a_x = rect_get_x(rect_a) + pos_a_x;
+        float a_y = rect_get_y(rect_a) + pos_a_y;
+        float a_w = rect_get_width(rect_a);
+        float a_h = rect_get_height(rect_a);
+        
         for (size_t j = 0; j < colliderB->rects_count; j++) {
-            EseRect *rect_b = rect_copy(colliderB->rects[j]);
-            rect_set_x(rect_b, rect_get_x(rect_b) + point_get_x(b->entity->position));
-            rect_set_y(rect_b, rect_get_y(rect_b) + point_get_y(b->entity->position));
-            if (rect_intersects(rect_a, rect_b)) {
-                rect_destroy(rect_a);
-                rect_destroy(rect_b);
+            EseRect *rect_b = colliderB->rects[j];
+            float b_x = rect_get_x(rect_b) + pos_b_x;
+            float b_y = rect_get_y(rect_b) + pos_b_y;
+            float b_w = rect_get_width(rect_b);
+            float b_h = rect_get_height(rect_b);
+            
+            // Direct AABB intersection test without creating rect objects
+            if (a_x < b_x + b_w && a_x + a_w > b_x && a_y < b_y + b_h && a_y + a_h > b_y) {
                 profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
                 return true;
             }
-            rect_destroy(rect_b);
         }
-        rect_destroy(rect_a);
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");

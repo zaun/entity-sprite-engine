@@ -5,22 +5,22 @@ function ENTITY:entity_init()
     ups_display.position.x = 10
     ups_display.position.y = 10
     
-    -- Create initial 20 balls
-    for i = 1, 300 do
+    -- Create initial balls
+    for i = 1, 400 do
         ENTITY:add_ball()
     end
     
     -- Initialize counter for adding more balls
     self.data.ball_counter = 0
-
     self.draw_order = 10000
+
 end
 
 function ENTITY:entity_update(delta_time)
     local space = InputState.keys_pressed[InputState.KEY.SPACE]
 
     if space then
-        for i = 1, 50 do
+        for i = 1, 100 do
             ENTITY:add_ball()
         end
     end
@@ -50,7 +50,9 @@ function ENTITY:add_ball()
     ball.components.add(EntityComponentLua.new("ball.lua"))
     ball.components.add(EntityComponentSprite.new("bounce:ball " .. color .. " small"))
     ball.components.add(EntityComponentCollider.new(Rect.new(0, 0, 16, 16)))
-    ball.position.x = Display.viewport.width / 2
-    ball.position.y = Display.viewport.height / 2
     ball.data.size = 16
+    ball.data.world_start = 0
+    ball.data.world_size = Display.viewport.width
+    ball.position.x = math.random(ball.data.world_start, ball.data.world_size - ball.data.size)
+    ball.position.y = math.random(ball.data.world_start, ball.data.world_size - ball.data.size)
 end
