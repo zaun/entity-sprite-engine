@@ -42,7 +42,7 @@ function STARTUP:startup()
     local paddle = Entity.new()
     paddle.components.add(EntityComponentLua.new("paddle.lua"))
     paddle.components.add(EntityComponentSprite.new("breakout:paddle bar blue medium"))
-    paddle.components.add(EntityComponentCollider.new(Rect.new(0, 0, 80, 16)))
+    paddle.components.add(EntityComponentCollider.new(Rect.new(0, 0, 128, 28)))
     paddle:add_tag("paddle")
     paddle.position.x = Display.viewport.width / 2 - 40  -- Center paddle
     paddle.position.y = Display.viewport.height - 50    -- Near bottom of screen

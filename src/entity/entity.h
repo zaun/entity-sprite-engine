@@ -99,6 +99,13 @@ void entity_run_function_with_args(
 int entity_check_collision_state(EseEntity *entity, EseEntity *test);
 
 /**
+ * @brief Clear collision states for an entity (called at the beginning of each frame).
+ * 
+ * @param entity Pointer to the EseEntity to clear collision states for
+ */
+void entity_clear_collision_states(EseEntity *entity);
+
+/**
  * @brief Process collision callbacks for a collision pair with known state.
  * 
  * @param entity_a Pointer to the first EseEntity

@@ -37,6 +37,7 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
 
     // Not storing any values, so no free function needed
     entity->current_collisions = hashmap_create(NULL);
+    entity->previous_collisions = hashmap_create(NULL);
     entity->collision_bounds = NULL;
     entity->collision_world_bounds = NULL;
 
@@ -72,33 +73,16 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
     return -1;
 }
 
-const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2) {
-    profile_start(PROFILE_ENTITY_COLLISION_KEY_GEN);
-    
-    // Use a thread-local buffer to avoid race conditions
-    static __thread char key_str[40]; // A buffer large enough for two UUIDs' hash strings.
-
-    // Ensure consistent key by sorting UUIDs based on their value.
-    if (strcmp(uuid1->value, uuid2->value) > 0) {
-        EseUUID* temp = uuid1;
-        uuid1 = uuid2;
-        uuid2 = temp;
-    }
-    
-    // Get the individual hashes.
-    uint64_t h1 = uuid_hash(uuid1);
-    uint64_t h2 = uuid_hash(uuid2);
-    
-    // A simple, robust way to combine two hashes for a single key.
-    // This is more robust than a simple XOR.
-    uint64_t combined_hash = h1 + (h2 << 6) + (h2 >> 2);
-
-    // Format the combined hash into a string.
-    // %llu is for unsigned long long, which is what uint64_t is.
-    snprintf(key_str, sizeof(key_str), "%llu", combined_hash);
-
-    profile_stop(PROFILE_ENTITY_COLLISION_KEY_GEN, "get_collision_key");
-    return key_str;
+const char* _get_collision_key(EseUUID *a, EseUUID *b) {
+    const char* ida = a->value;
+    const char* idb = b->value;
+    const char* first = ida;
+    const char* second = idb;
+    if (strcmp(ida, idb) > 0) { first = idb; second = ida; }
+    size_t keylen = strlen(first) + 1 + strlen(second) + 1;
+    char *key = memory_manager.malloc(keylen, MMTAG_ENGINE);
+    snprintf(key, keylen, "%s|%s", first, second);
+    return key; // NOTE: caller (hashmap_set) MUST take ownership and free later
 }
 
 bool _entity_test_collision(EseEntity *a, EseEntity *b) {

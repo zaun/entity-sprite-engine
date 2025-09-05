@@ -13,7 +13,7 @@
 #include "types/rect.h"
 #include "types/point.h"
 #include "entity/entity.h"
-#include "utility/hashmap.h"
+#include "utility/int_hashmap.h"
 #include "utility/double_linked_list.h"
 #include "utility/array.h"
 #include "core/memory_manager.h"
@@ -44,6 +44,8 @@ typedef struct DBVHNode {
     struct DBVHNode *left;    /**< Left child node */
     struct DBVHNode *right;   /**< Right child node */
     int height;               /**< Height of this subtree */
+    int region_center_x;
+    int region_center_y;
 } DBVHNode;
 
 /**
@@ -127,39 +129,6 @@ EseArray *collision_index_get_pairs(EseCollisionIndex *index);
  * @param index Pointer to the collision index to optimize
  */
 void collision_index_auto_tune(EseCollisionIndex *index);
-
-// DBVH functions
-/**
- * @brief Creates a new DBVH node.
- * 
- * @param entity Entity for this node (NULL for internal nodes)
- * @return Pointer to the new DBVH node, or NULL on failure
- */
-DBVHNode *dbvh_node_create(EseEntity *entity);
-
-/**
- * @brief Destroys a DBVH node and all its children.
- * 
- * @param node Pointer to the DBVH node to destroy
- */
-void dbvh_node_destroy(DBVHNode *node);
-
-/**
- * @brief Inserts an entity into the DBVH.
- * 
- * @param root Pointer to the root of the DBVH tree
- * @param entity Entity to insert
- * @return New root of the tree (may change due to rebalancing)
- */
-DBVHNode *dbvh_insert(DBVHNode *root, EseEntity *entity);
-
-/**
- * @brief Queries the DBVH for collision pairs.
- * 
- * @param root Root of the DBVH tree
- * @param pairs Array to store collision pairs
- */
-void dbvh_query_pairs(DBVHNode *root, EseArray *pairs);
 
 
 #endif // ESE_COLLISION_INDEX_H

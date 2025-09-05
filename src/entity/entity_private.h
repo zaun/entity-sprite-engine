@@ -29,7 +29,8 @@ struct EseEntity {
     size_t component_count;                 /**< Number of components */
     size_t component_capacity;              /**< Capacity of component array */
 
-    EseHashMap* current_collisions;         /**< Hashmap of current collisions */   
+    EseHashMap* current_collisions;         /**< Hashmap of current frame collisions */   
+    EseHashMap* previous_collisions;        /**< Hashmap of previous frame collisions */   
     EseRect *collision_bounds;              /**< Bounds of the entity for collision detection */
     EseRect *collision_world_bounds;        /**< Bounds of the entity for collision detection in world coordinates */
 

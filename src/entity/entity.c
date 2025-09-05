@@ -95,6 +95,7 @@ void entity_destroy(EseEntity *entity) {
     point_destroy(entity->position);
 
     hashmap_free(entity->current_collisions);
+    hashmap_free(entity->previous_collisions);
     if (entity->collision_bounds) {
         rect_destroy(entity->collision_bounds);
     }
@@ -151,6 +152,14 @@ void entity_set_position(EseEntity *entity, float x, float y) {
     
     point_set_x(entity->position, x);
     point_set_y(entity->position, y);
+    
+    // Update collision bounds for all collider components
+    for (size_t i = 0; i < entity->component_count; i++) {
+        EseEntityComponent *comp = entity->components[i];
+        if (comp->active && comp->type == ENTITY_COMPONENT_COLLIDER) {
+            entity_component_collider_position_changed((EseEntityComponentCollider *)comp->data);
+        }
+    }
 }
 
 void entity_run_function_with_args(
@@ -180,26 +189,38 @@ int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
     // Get the key.
     const char* canonical_key = _get_collision_key(entity->id, test->id);
 
-    // Read the state from the PREVIOUS frame for both entities.
-    bool was_colliding_a = hashmap_get(entity->current_collisions, canonical_key) != NULL;
-    bool was_colliding_b = hashmap_get(test->current_collisions, canonical_key) != NULL;
-
+    // Read the state from the PREVIOUS frame - check if this pair was colliding
+    // We only need to check one entity's collision state since both should be in sync
+    bool was_colliding = hashmap_get(entity->previous_collisions, canonical_key) != NULL;
     bool currently_colliding = _entity_test_collision(entity, test);
 
     // Determine collision state: 0=none, 1=enter, 2=stay, 3=exit
     int result;
-    if (currently_colliding && (!was_colliding_a || !was_colliding_b)) {
+    if (currently_colliding && !was_colliding) {
         result = 1; // ENTER
-    } else if (currently_colliding && was_colliding_a && was_colliding_b) {
+    } else if (currently_colliding && was_colliding) {
         result = 2; // STAY
-    } else if (!currently_colliding && (was_colliding_a || was_colliding_b)) {
+    } else if (!currently_colliding && was_colliding) {
         result = 3; // EXIT
     } else {
         result = 0; // NONE
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_DETECT, "entity_check_collision_state");
+    memory_manager.free((void*)canonical_key);
     return result;
+}
+
+void entity_clear_collision_states(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_clear_collision_states called with NULL entity");
+    
+    // Swap current and previous collision states
+    EseHashMap *temp = entity->previous_collisions;
+    entity->previous_collisions = entity->current_collisions;
+    entity->current_collisions = temp;
+    
+    // Clear the new current_collisions (which was previous_collisions)
+    hashmap_clear(entity->current_collisions);
 }
 
 void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state) {
@@ -226,6 +247,7 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
             // Update collision state
             hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
             hashmap_set(entity_b->current_collisions, canonical_key, (void*)1);
+            
             break;
             
         case 2: // STAY
@@ -238,6 +260,10 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
                 EseLuaValue *args[] = {entity_a->lua_val_ref};
                 entity_run_function_with_args(entity_b, "entity_collision_stay", 1, args);
             }
+
+            // Maintain collision in current_collisions to indicate ongoing contact
+            hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
+            hashmap_set(entity_b->current_collisions, canonical_key, (void*)1);
             break;
             
         case 3: // EXIT
@@ -263,6 +289,7 @@ void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_CALLBACK, "entity_process_collision_callbacks");
+    memory_manager.free((void*)canonical_key);
 }
 
 bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {

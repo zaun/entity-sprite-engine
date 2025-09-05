@@ -1,7 +1,10 @@
+// core/collision_index.c
 #include "collision_index.h"
 #include "utility/log.h"
 #include "utility/array.h"
 #include "utility/double_linked_list.h"
+#include "utility/int_hashmap.h"
+#include "utility/hashmap.h"
 #include "types/rect.h"
 #include "entity/entity_private.h"
 #include "entity/components/entity_component_private.h"
@@ -16,20 +19,16 @@
 #define COLLISION_INDEX_DBVH_THRESHOLD 15
 #define COLLISION_INDEX_AUTO_TUNE_COOLDOWN_SECONDS 5.0
 
-/**
- * @brief Structure for the collision index using a spatial hash grid.
- */
 struct EseCollisionIndex {
-    float cell_size;            /**< Size of each grid cell in world units */
-    EseHashMap *bins;           /**< Hashmap<EseCollisionIndexKey, EseDList* (of EseEntity*)> */
-    EseHashMap *dbvh_regions;   /**< Hashmap<EseCollisionIndexKey, DBVHNode*> for DBVH regions */
-    EseArray *collision_pairs;  /**< Array of collision pairs (owned by this index) */
-    double last_auto_tune_time; /**< Last time auto-tuning was performed (in seconds) */
+    float cell_size;
+    EseIntHashMap *bins;        // IntHashmap<EseCollisionIndexKey, EseDoubleLinkedList*>
+    EseIntHashMap *dbvh_regions; // IntHashmap<EseCollisionIndexKey, DBVHNode*>
+    EseArray *collision_pairs;
+    double last_auto_tune_time;
 };
 
-// Forward declarations for internal functions
+// Forward declarations
 static void _free_collision_pair(void *ptr);
-static void _dbvh_query_pairs_recursive(DBVHNode *root, EseArray *pairs);
 static int _dbvh_get_height(DBVHNode *node);
 static int _dbvh_get_balance(DBVHNode *node);
 static DBVHNode *_dbvh_rotate_right(DBVHNode *y);
@@ -37,114 +36,95 @@ static DBVHNode *_dbvh_rotate_left(DBVHNode *x);
 static void _dbvh_update_bounds(DBVHNode *node);
 static void _dbvh_collect_entities(DBVHNode *root, EseArray *entities);
 static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int center_x, int center_y);
+static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b, int state);
 
-// Helper function to free collision pairs
+// DBVH function forward declarations
+static DBVHNode *_dbvh_node_create(EseEntity *entity);
+static void _dbvh_node_destroy(DBVHNode *node);
+static DBVHNode *_dbvh_insert(DBVHNode *root, EseEntity *entity);
+static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex *index, EseHashMap *seen);
+
+// Helper to free collision pairs in the array
 static void _free_collision_pair(void *ptr) {
-    if (ptr) {
-        memory_manager.free(ptr);
-    }
+    if (ptr) memory_manager.free(ptr);
 }
 
-// Internal helper to compute cell key (simple hash combining x and y)
+// Pack two signed 32-bit into uint64 key
 EseCollisionIndexKey _collision_index_compute_key(int x, int y) {
-    // Convert to unsigned by adding a large offset to handle negative coordinates
-    // Use 0x80000000 (2^31) as offset to ensure all values become positive
-    uint64_t key = ((uint64_t)((uint32_t)(x + 0x80000000)) << 32) | (uint64_t)((uint32_t)(y + 0x80000000));
-    return key;
+    uint32_t ux = (uint32_t)(int32_t)x;
+    uint32_t uy = (uint32_t)(int32_t)y;
+    uint64_t key = ((uint64_t)ux << 32) | (uint64_t)uy;
+    return (EseCollisionIndexKey)key;
 }
 
-// Internal helper to convert EseCollisionIndexKey to string for hashmap
-char* _collision_index_key_to_string(EseCollisionIndexKey key) {
-    static char key_str[64];
-    snprintf(key_str, sizeof(key_str), "%llu", (unsigned long long)key);
-    return key_str;
-}
-
-// Internal helper to calculate average bin count
 float _collision_index_calculate_average_bin_count(EseCollisionIndex *index) {
     size_t total_entities = 0;
     size_t non_empty_bins = 0;
-    
-    EseHashMapIter *iter = hashmap_iter_create(index->bins);
-    const char *key;
+    EseIntHashMapIter *iter = int_hashmap_iter_create(index->bins);
+    uint64_t key;
     void *value;
-    while (hashmap_iter_next(iter, &key, &value)) {
+    while (int_hashmap_iter_next(iter, &key, &value)) {
         EseDoubleLinkedList *list = (EseDoubleLinkedList *)value;
-        size_t bin_size = dlist_size(list);
-        if (bin_size > 0) {
-            total_entities += bin_size;
+        size_t sz = dlist_size(list);
+        if (sz > 0) {
+            total_entities += sz;
             non_empty_bins++;
         }
     }
-    hashmap_iter_free(iter);
-    
+    int_hashmap_iter_free(iter);
     return non_empty_bins > 0 ? (float)total_entities / (float)non_empty_bins : 0.0f;
 }
 
-// ========================================
-// DBVH IMPLEMENTATION
-// ========================================
+// ==================== DBVH ====================
 
-DBVHNode *dbvh_node_create(EseEntity *entity) {
+static DBVHNode *_dbvh_node_create(EseEntity *entity) {
     DBVHNode *node = memory_manager.malloc(sizeof(DBVHNode), MMTAG_ENTITY);
     if (!node) return NULL;
-    
     node->entity = entity;
     node->left = NULL;
     node->right = NULL;
     node->height = 1;
-    
+    node->region_center_x = INT_MIN;
+    node->region_center_y = INT_MIN;
     if (entity && entity->collision_world_bounds) {
-        EseRect *bounds = entity->collision_world_bounds;
-        node->bounds_x = rect_get_x(bounds);
-        node->bounds_y = rect_get_y(bounds);
-        node->bounds_width = rect_get_width(bounds);
-        node->bounds_height = rect_get_height(bounds);
+        EseRect *r = entity->collision_world_bounds;
+        node->bounds_x = rect_get_x(r);
+        node->bounds_y = rect_get_y(r);
+        node->bounds_width = rect_get_width(r);
+        node->bounds_height = rect_get_height(r);
     } else {
-        // Initialize with empty bounds for internal nodes
-        node->bounds_x = 0;
-        node->bounds_y = 0;
-        node->bounds_width = 0;
-        node->bounds_height = 0;
+        node->bounds_x = node->bounds_y = node->bounds_width = node->bounds_height = 0;
     }
-    
     return node;
 }
 
-void dbvh_node_destroy(DBVHNode *node) {
+static void _dbvh_node_destroy(DBVHNode *node) {
     if (!node) return;
-    
-    dbvh_node_destroy(node->left);
-    dbvh_node_destroy(node->right);
+    _dbvh_node_destroy(node->left);
+    _dbvh_node_destroy(node->right);
     memory_manager.free(node);
 }
 
-static int _dbvh_get_height(DBVHNode *node) {
-    return node ? node->height : 0;
-}
-
-static int _dbvh_get_balance(DBVHNode *node) {
-    return node ? _dbvh_get_height(node->left) - _dbvh_get_height(node->right) : 0;
-}
+static int _dbvh_get_height(DBVHNode *node) { return node ? node->height : 0; }
+static int _dbvh_get_balance(DBVHNode *node) { return node ? _dbvh_get_height(node->left) - _dbvh_get_height(node->right) : 0; }
 
 static void _dbvh_update_bounds(DBVHNode *node) {
     if (!node) return;
-    
     if (node->entity && node->entity->collision_world_bounds) {
-        EseRect *bounds = node->entity->collision_world_bounds;
-        node->bounds_x = rect_get_x(bounds);
-        node->bounds_y = rect_get_y(bounds);
-        node->bounds_width = rect_get_width(bounds);
-        node->bounds_height = rect_get_height(bounds);
-    } else if (node->left && node->right) {
-        // Internal node - union of children bounds
+        EseRect *b = node->entity->collision_world_bounds;
+        node->bounds_x = rect_get_x(b);
+        node->bounds_y = rect_get_y(b);
+        node->bounds_width = rect_get_width(b);
+        node->bounds_height = rect_get_height(b);
+        return;
+    }
+    if (node->left && node->right) {
         float min_x = fminf(node->left->bounds_x, node->right->bounds_x);
         float min_y = fminf(node->left->bounds_y, node->right->bounds_y);
-        float max_x = fmaxf(node->left->bounds_x + node->left->bounds_width, 
-                           node->right->bounds_x + node->right->bounds_width);
-        float max_y = fmaxf(node->left->bounds_y + node->left->bounds_height, 
-                           node->right->bounds_y + node->right->bounds_height);
-        
+        float max_x = fmaxf(node->left->bounds_x + node->left->bounds_width,
+                            node->right->bounds_x + node->right->bounds_width);
+        float max_y = fmaxf(node->left->bounds_y + node->left->bounds_height,
+                            node->right->bounds_y + node->right->bounds_height);
         node->bounds_x = min_x;
         node->bounds_y = min_y;
         node->bounds_width = max_x - min_x;
@@ -165,157 +145,57 @@ static void _dbvh_update_bounds(DBVHNode *node) {
 static DBVHNode *_dbvh_rotate_right(DBVHNode *y) {
     DBVHNode *x = y->left;
     DBVHNode *T2 = x->right;
-    
     x->right = y;
     y->left = T2;
-    
     y->height = 1 + fmax(_dbvh_get_height(y->left), _dbvh_get_height(y->right));
     x->height = 1 + fmax(_dbvh_get_height(x->left), _dbvh_get_height(x->right));
-    
     _dbvh_update_bounds(y);
     _dbvh_update_bounds(x);
-    
     return x;
 }
 
 static DBVHNode *_dbvh_rotate_left(DBVHNode *x) {
     DBVHNode *y = x->right;
     DBVHNode *T2 = y->left;
-    
     y->left = x;
     x->right = T2;
-    
     x->height = 1 + fmax(_dbvh_get_height(x->left), _dbvh_get_height(x->right));
     y->height = 1 + fmax(_dbvh_get_height(y->left), _dbvh_get_height(y->right));
-    
     _dbvh_update_bounds(x);
     _dbvh_update_bounds(y);
-    
     return y;
 }
 
-DBVHNode *dbvh_insert(DBVHNode *root, EseEntity *entity) {
+static DBVHNode *_dbvh_insert(DBVHNode *root, EseEntity *entity) {
     if (!entity || !entity->collision_world_bounds) return root;
-    
-    // Create leaf node
-    if (!root) {
-        return dbvh_node_create(entity);
-    }
-    
-    // Insert as leaf (simple approach for now)
-    DBVHNode *new_node = dbvh_node_create(entity);
+    if (!root) return _dbvh_node_create(entity);
+    DBVHNode *new_node = _dbvh_node_create(entity);
     if (!new_node) return root;
-    
-    // For simplicity, just add as right child of current root
-    // In a more sophisticated implementation, we'd choose insertion point based on bounds
     if (!root->right) {
         root->right = new_node;
     } else {
-        // Create new internal node
-        DBVHNode *internal = dbvh_node_create(NULL);
-        if (!internal) {
-            dbvh_node_destroy(new_node);
-            return root;
-        }
+        DBVHNode *internal = _dbvh_node_create(NULL);
+        if (!internal) { _dbvh_node_destroy(new_node); return root; }
         internal->left = root;
         internal->right = new_node;
         root = internal;
     }
-    
-    // Update height and bounds
     root->height = 1 + fmax(_dbvh_get_height(root->left), _dbvh_get_height(root->right));
     _dbvh_update_bounds(root);
-    
-    // Simple balancing (not perfect, but functional)
     int balance = _dbvh_get_balance(root);
-    
     if (balance > 1) {
-        if (_dbvh_get_balance(root->left) < 0) {
-            root->left = _dbvh_rotate_left(root->left);
-        }
+        if (_dbvh_get_balance(root->left) < 0) root->left = _dbvh_rotate_left(root->left);
         return _dbvh_rotate_right(root);
     }
-    
     if (balance < -1) {
-        if (_dbvh_get_balance(root->right) > 0) {
-            root->right = _dbvh_rotate_right(root->right);
-        }
+        if (_dbvh_get_balance(root->right) > 0) root->right = _dbvh_rotate_right(root->right);
         return _dbvh_rotate_left(root);
     }
-    
     return root;
 }
 
-static void _dbvh_query_pairs_recursive(DBVHNode *root, EseArray *pairs) {
-    if (!root) return;
-    
-    // If this is a leaf node with an entity, we need to check it against all other entities
-    if (root->entity) {
-        // For now, we'll do a simple O(n²) check within the DBVH
-        // In a more sophisticated implementation, we'd use the tree structure more efficiently
-        _dbvh_query_pairs_recursive(root->left, pairs);
-        _dbvh_query_pairs_recursive(root->right, pairs);
-        return;
-    }
-    
-    // Internal node - check if bounds overlap (simplified)
-    if (root->left && root->right) {
-        _dbvh_query_pairs_recursive(root->left, pairs);
-        _dbvh_query_pairs_recursive(root->right, pairs);
-        
-        // Check pairs between left and right subtrees
-        if (root->left->entity && root->right->entity) {
-            int state = entity_check_collision_state(root->left->entity, root->right->entity);
-            if (state != 0) {
-                CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                pair->entity_a = root->left->entity;
-                pair->entity_b = root->right->entity;
-                pair->state = state;
-                if (!array_push(pairs, pair)) {
-                    log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
-                    memory_manager.free(pair);
-                }
-            }
-        }
-    } else {
-        _dbvh_query_pairs_recursive(root->left, pairs);
-        _dbvh_query_pairs_recursive(root->right, pairs);
-    }
-}
-
-void dbvh_query_pairs(DBVHNode *root, EseArray *pairs) {
-    if (!root) return;
-    
-    // Collect all entities first
-    EseArray *entities = array_create(64, NULL);
-    _dbvh_collect_entities(root, entities);
-    
-    // Check all pairs (O(n²) for now)
-    for (size_t i = 0; i < array_size(entities); i++) {
-        EseEntity *a = (EseEntity *)array_get(entities, i);
-        for (size_t j = i + 1; j < array_size(entities); j++) {
-            EseEntity *b = (EseEntity *)array_get(entities, j);
-            int state = entity_check_collision_state(a, b);
-            if (state != 0) {
-                CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                pair->entity_a = a;
-                pair->entity_b = b;
-                pair->state = state;
-                if (!array_push(pairs, pair)) {
-                    log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
-                    memory_manager.free(pair);
-                }
-            }
-        }
-    }
-    
-    array_destroy(entities);
-}
-
-// Helper to collect all entities from DBVH tree
 static void _dbvh_collect_entities(DBVHNode *root, EseArray *entities) {
     if (!root) return;
-    
     if (root->entity) {
         array_push(entities, root->entity);
     } else {
@@ -324,76 +204,141 @@ static void _dbvh_collect_entities(DBVHNode *root, EseArray *entities) {
     }
 }
 
-// Helper function to convert a cell and its 8 neighbors to DBVH
+// Emit helper: canonicalize unordered pair, check seen, push to pairs.
+static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b, int state) {
+    if (!a || !b || !seen || !pairs) return;
+
+    // Skip if the same entity
+    if (a == b) return;
+    if (a->id && b->id && strcmp(a->id->value, b->id->value) == 0) return;
+
+    const char *ida = a->id->value;
+    const char *idb = b->id->value;
+    const char *first = ida;
+    const char *second = idb;
+    if (strcmp(ida, idb) > 0) { first = idb; second = ida; }
+    size_t keylen = strlen(first) + 1 + strlen(second) + 1;
+    char *key = memory_manager.malloc(keylen, MMTAG_ENGINE);
+    if (!key) return;
+    snprintf(key, keylen, "%s|%s", first, second);
+    if (hashmap_get(seen, key) != NULL) { memory_manager.free(key); return; }
+    // Mark seen (hashmap will own the key and free later)
+    hashmap_set(seen, key, (void*)1);
+    CollisionPair *pair = (CollisionPair*)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
+    pair->entity_a = a;
+    pair->entity_b = b;
+    pair->state = state;
+    if (!array_push(pairs, pair)) {
+        log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
+        memory_manager.free(pair);
+    }
+}
+
+// DBVH query: internal pairs + DBVH entities vs neighboring grid bins
+static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex *index, EseHashMap *seen) {
+    if (!root || !index || !pairs) return;
+    EseArray *entities = array_create(64, NULL);
+    _dbvh_collect_entities(root, entities);
+    // internal pairs
+    for (size_t i = 0; i < array_size(entities); i++) {
+        EseEntity *a = (EseEntity*)array_get(entities, i);
+        for (size_t j = i + 1; j < array_size(entities); j++) {
+            EseEntity *b = (EseEntity*)array_get(entities, j);
+            int state = entity_check_collision_state(a, b);
+            if (state != 0) _collision_index_emit_pair_if_new(index, seen, pairs, a, b, state);
+        }
+    }
+    // cross-boundary: test DBVH entities against neighboring grid bins (outside 3x3)
+    int cx = root->region_center_x;
+    int cy = root->region_center_y;
+    if (cx != INT_MIN && cy != INT_MIN) {
+        for (int nx = cx - 2; nx <= cx + 2; nx++) {
+            for (int ny = cy - 2; ny <= cy + 2; ny++) {
+                // skip inner 3x3 (owned)
+                if (nx >= cx - 1 && nx <= cx + 1 && ny >= cy - 1 && ny <= cy + 1) continue;
+                EseCollisionIndexKey nkey = _collision_index_compute_key(nx, ny);
+                // skip neighbor if owned by another DBVH
+                if (int_hashmap_get(index->dbvh_regions, nkey)) continue;
+                EseDoubleLinkedList *neighbor_list = (EseDoubleLinkedList*)int_hashmap_get(index->bins, nkey);
+                if (!neighbor_list || dlist_size(neighbor_list) == 0) continue;
+                for (size_t i = 0; i < array_size(entities); i++) {
+                    EseEntity *a = (EseEntity*)array_get(entities, i);
+                    EseDListIter *it = dlist_iter_create(neighbor_list);
+                    void *val;
+                    while (dlist_iter_next(it, &val)) {
+                        EseEntity *b = (EseEntity*)val;
+                        int state = entity_check_collision_state(a, b);
+                        if (state != 0) _collision_index_emit_pair_if_new(index, seen, pairs, a, b, state);
+                    }
+                    dlist_iter_free(it);
+                }
+            }
+        }
+    }
+    array_destroy(entities);
+}
+
+// Convert center+8 neighbors to DBVH and take ownership of those bins
 static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int center_x, int center_y) {
     EseCollisionIndexKey center_key = _collision_index_compute_key(center_x, center_y);
-    char *center_key_str = _collision_index_key_to_string(center_key);
-    
-    // Check if already converted
-    if (hashmap_get(index->dbvh_regions, center_key_str)) {
-        return;
+    // already converted?
+    if (int_hashmap_get(index->dbvh_regions, center_key)) return;
+    // prevent overlapping DBVHs: ensure all 3x3 bins still exist in bins map
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            EseCollisionIndexKey k = _collision_index_compute_key(center_x + dx, center_y + dy);
+            if (!int_hashmap_get(index->bins, k)) return; // missing -> skip conversion
+        }
     }
-    
-    // Collect all entities from center cell + 8 neighbors
+    // collect entities
     EseArray *entities = array_create(64, NULL);
-    
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
             int cell_x = center_x + dx;
             int cell_y = center_y + dy;
             EseCollisionIndexKey key = _collision_index_compute_key(cell_x, cell_y);
-            char *key_str = _collision_index_key_to_string(key);
-            EseDoubleLinkedList *list = (EseDoubleLinkedList *)hashmap_get(index->bins, key_str);
-            
-            if (list) {
-                EseDListIter *iter = dlist_iter_create(list);
-                void *entity_value;
-                while (dlist_iter_next(iter, &entity_value)) {
-                    EseEntity *entity = (EseEntity *)entity_value;
-                    array_push(entities, entity);
-                }
-                dlist_iter_free(iter);
-            }
+            EseDoubleLinkedList *list = (EseDoubleLinkedList*)int_hashmap_get(index->bins, key);
+            if (!list) continue;
+            EseDListIter *it = dlist_iter_create(list);
+            void *val;
+            while (dlist_iter_next(it, &val)) array_push(entities, val);
+            dlist_iter_free(it);
         }
     }
-    
-    if (array_size(entities) == 0) {
-        array_destroy(entities);
-        return;
-    }
-    
-    // Build DBVH from collected entities
+    if (array_size(entities) == 0) { array_destroy(entities); return; }
+    // build DBVH
     DBVHNode *root = NULL;
     for (size_t i = 0; i < array_size(entities); i++) {
-        EseEntity *entity = (EseEntity *)array_get(entities, i);
-        root = dbvh_insert(root, entity);
+        EseEntity *e = (EseEntity*)array_get(entities, i);
+        root = _dbvh_insert(root, e);
     }
-    
     if (root) {
-        // Store DBVH in regions hashmap
-        hashmap_set(index->dbvh_regions, center_key_str, root);
-        
-        // Clear the center cell (neighbors remain in grid for other cells' neighbor checks)
-        EseDoubleLinkedList *center_list = (EseDoubleLinkedList *)hashmap_get(index->bins, center_key_str);
-        if (center_list) {
-            // Replace with a new empty list
-            dlist_free(center_list);
-            EseDoubleLinkedList *new_list = dlist_create(NULL);
-            hashmap_set(index->bins, center_key_str, new_list);
+        // set region metadata
+        root->region_center_x = center_x;
+        root->region_center_y = center_y;
+        // Remove the 3x3 bins from the grid so grid-phase won't touch them.
+        // NOTE: int_hashmap_remove will call the map's freefn, which in your
+        // setup is dlist_free. This implementation assumes dlist_free only
+        // frees the list structure and NOT the entity pointers inside.
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                EseCollisionIndexKey k = _collision_index_compute_key(center_x + dx, center_y + dy);
+                int_hashmap_remove(index->bins, k);
+            }
         }
-        
-        log_debug("COLLISION_INDEX", "Converted cell (%d,%d) to DBVH with %zu entities", center_x, center_y, array_size(entities));
+        int_hashmap_set(index->dbvh_regions, center_key, root);
+        log_debug("COLLISION_INDEX", "Converted 3x3 centered (%d,%d) to DBVH with %zu entities", center_x, center_y, array_size(entities));
     }
-    
     array_destroy(entities);
 }
 
+// ==================== Public API ====================
 
 EseCollisionIndex *collision_index_create(void) {
     EseCollisionIndex *index = memory_manager.malloc(sizeof(EseCollisionIndex), MMTAG_ENTITY);
     index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE;
-    index->bins = hashmap_create((EseHashMapFreeFn)dlist_free);
-    index->dbvh_regions = hashmap_create((EseHashMapFreeFn)dbvh_node_destroy);
+    index->bins = int_hashmap_create((EseIntHashMapFreeFn)dlist_free);
+    index->dbvh_regions = int_hashmap_create((EseIntHashMapFreeFn)_dbvh_node_destroy);
     index->collision_pairs = array_create(128, _free_collision_pair);
     index->last_auto_tune_time = 0.0;
     return index;
@@ -401,19 +346,16 @@ EseCollisionIndex *collision_index_create(void) {
 
 void collision_index_destroy(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "destroy called with NULL index");
-    
-    hashmap_free(index->bins);
-    hashmap_free(index->dbvh_regions);
+    int_hashmap_free(index->bins);
+    int_hashmap_free(index->dbvh_regions);
     array_destroy(index->collision_pairs);
     memory_manager.free(index);
 }
 
 void collision_index_clear(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "clear called with NULL index");
-
-    // The hashmap will automatically free all linked list objects when cleared
-    hashmap_clear(index->bins);
-    hashmap_clear(index->dbvh_regions);
+    int_hashmap_clear(index->bins);
+    int_hashmap_clear(index->dbvh_regions);
     array_clear(index->collision_pairs);
 }
 
@@ -421,57 +363,56 @@ void collision_index_insert(EseCollisionIndex *index, EseEntity *entity) {
     log_assert("COLLISION_INDEX", index, "insert called with NULL index");
     log_assert("COLLISION_INDEX", entity, "insert called with NULL entity");
     if (!entity->active) return;
-
-    // Use the entity's pre-computed world bounds
-    if (!entity->collision_world_bounds) return;  // No collision bounds, skip
-
+    if (!entity->collision_world_bounds) return;
     EseRect *bounds = entity->collision_world_bounds;
-
-    // Compute primary cell (top-left cell the entity occupies)
-    int cell_x = (int)floorf(rect_get_x(bounds) / index->cell_size);
-    int cell_y = (int)floorf(rect_get_y(bounds) / index->cell_size);
-
-    // Insert entity into only its primary cell
-    EseCollisionIndexKey key = _collision_index_compute_key(cell_x, cell_y);
-    char *key_str = _collision_index_key_to_string(key);
-    EseDoubleLinkedList *list = (EseDoubleLinkedList *)hashmap_get(index->bins, key_str);
-    if (!list) {
-        list = dlist_create(NULL);  // No free function needed for entity pointers
-        hashmap_set(index->bins, key_str, list);
+    float x0 = rect_get_x(bounds);
+    float y0 = rect_get_y(bounds);
+    float x1 = x0 + rect_get_width(bounds);
+    float y1 = y0 + rect_get_height(bounds);
+    int min_cell_x = (int)floorf(x0 / index->cell_size);
+    int min_cell_y = (int)floorf(y0 / index->cell_size);
+    int max_cell_x = (int)floorf((x1) / index->cell_size);
+    int max_cell_y = (int)floorf((y1) / index->cell_size);
+    for (int cx = min_cell_x; cx <= max_cell_x; cx++) {
+        for (int cy = min_cell_y; cy <= max_cell_y; cy++) {
+            EseCollisionIndexKey key = _collision_index_compute_key(cx, cy);
+            // If this cell is owned by a DBVH, skip (DBVH owns it)
+            if (int_hashmap_get(index->dbvh_regions, key)) continue;
+            EseDoubleLinkedList *list = (EseDoubleLinkedList*)int_hashmap_get(index->bins, key);
+            if (!list) {
+                list = dlist_create(NULL);
+                int_hashmap_set(index->bins, key, list);
+            }
+            dlist_append(list, entity);
+        }
     }
-    dlist_append(list, entity);
-    
-    // Check if auto-tuning should be triggered
-    double current_time = time_now_seconds();
-    if (current_time - index->last_auto_tune_time >= COLLISION_INDEX_AUTO_TUNE_COOLDOWN_SECONDS) {
-        float avg_bin_count = _collision_index_calculate_average_bin_count(index);
-        if (avg_bin_count > COLLISION_INDEX_AUTO_TUNE_THRESHOLD) {
+    double now = time_now_seconds();
+    if (now - index->last_auto_tune_time >= COLLISION_INDEX_AUTO_TUNE_COOLDOWN_SECONDS) {
+        float avg = _collision_index_calculate_average_bin_count(index);
+        if (avg > COLLISION_INDEX_AUTO_TUNE_THRESHOLD) {
             collision_index_auto_tune(index);
-            index->last_auto_tune_time = current_time;
+            index->last_auto_tune_time = now;
         }
     }
 }
 
 EseDoubleLinkedList *collision_index_get_cell(EseCollisionIndex *index, int cell_x, int cell_y) {
     log_assert("COLLISION_INDEX", index, "get_cell called with NULL index");
-
     EseCollisionIndexKey key = _collision_index_compute_key(cell_x, cell_y);
-    char *key_str = _collision_index_key_to_string(key);
-    return (EseDoubleLinkedList *)hashmap_get(index->bins, key_str);
+    return (EseDoubleLinkedList*)int_hashmap_get(index->bins, key);
 }
 
 void collision_index_get_neighbors(EseCollisionIndex *index, int cell_x, int cell_y, EseDoubleLinkedList **neighbors, size_t *neighbor_count) {
     log_assert("COLLISION_INDEX", index, "get_neighbors called with NULL index");
     log_assert("COLLISION_INDEX", neighbors, "get_neighbors called with NULL neighbors");
     log_assert("COLLISION_INDEX", neighbor_count, "get_neighbors called with NULL neighbor_count");
-
     *neighbor_count = 0;
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue;  // Skip self
-            EseDoubleLinkedList *list = collision_index_get_cell(index, cell_x + dx, cell_y + dy);
-            if (list && dlist_size(list) > 0) {
-                neighbors[*neighbor_count] = list;
+            if (dx == 0 && dy == 0) continue;
+            EseDoubleLinkedList *l = collision_index_get_cell(index, cell_x + dx, cell_y + dy);
+            if (l && dlist_size(l) > 0) {
+                neighbors[*neighbor_count] = l;
                 (*neighbor_count)++;
             }
         }
@@ -480,166 +421,131 @@ void collision_index_get_neighbors(EseCollisionIndex *index, int cell_x, int cel
 
 void collision_index_auto_tune(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "auto_tune called with NULL index");
-
-    float total_size = 0.0f;
-    size_t sample_count = 0;
-
-    EseHashMapIter *iter = hashmap_iter_create(index->bins);
-    const char *key;
+    float total = 0.0f;
+    size_t samples = 0;
+    EseIntHashMapIter *iter = int_hashmap_iter_create(index->bins);
+    uint64_t key;
     void *value;
-    while (hashmap_iter_next(iter, &key, &value)) {
-        EseDoubleLinkedList *list = (EseDoubleLinkedList *)value;
+    while (int_hashmap_iter_next(iter, &key, &value)) {
+        EseDoubleLinkedList *list = (EseDoubleLinkedList*)value;
         if (dlist_size(list) > 0) {
-            // Sample first entity in bin using iterator
-            EseDListIter *entity_iter = dlist_iter_create(list);
-            void *entity_value;
-            if (dlist_iter_next(entity_iter, &entity_value)) {
-                EseEntity *entity = (EseEntity *)entity_value;
-                if (entity->collision_world_bounds) {
-                    EseRect *bounds = entity->collision_world_bounds;
-                    float diag = sqrtf(rect_get_width(bounds) * rect_get_width(bounds) + rect_get_height(bounds) * rect_get_height(bounds));
-                    total_size += diag;
-                    sample_count++;
+            EseDListIter *it = dlist_iter_create(list);
+            void *val;
+            if (dlist_iter_next(it, &val)) {
+                EseEntity *e = (EseEntity*)val;
+                if (e->collision_world_bounds) {
+                    EseRect *r = e->collision_world_bounds;
+                    float diag = sqrtf(rect_get_width(r)*rect_get_width(r) + rect_get_height(r)*rect_get_height(r));
+                    total += diag;
+                    samples++;
                 }
             }
-            dlist_iter_free(entity_iter);
+            dlist_iter_free(it);
         }
     }
-    hashmap_iter_free(iter);
-
-    if (sample_count == 0) {
-        index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE;
-        return;
-    }
-
-    float avg_size = total_size / sample_count;
-    float new_size = fmaxf(32.0f, avg_size * 2.0f);  // 2x average, min 32
+    int_hashmap_iter_free(iter);
+    if (samples == 0) { index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE; return; }
+    float avg = total / (float)samples;
+    float new_size = fmaxf(32.0f, avg * 2.0f);
     index->cell_size = new_size;
-    log_debug("COLLISION_INDEX", "Auto-tuned cell_size to %f based on %zu samples (avg diag: %f)", new_size, sample_count, avg_size);
+    log_debug("COLLISION_INDEX", "Auto-tuned cell_size to %f based on %zu samples (avg diag: %f)", new_size, samples, avg);
 }
 
 EseArray *collision_index_get_pairs(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "get_pairs called with NULL index");
-    
-    // Clear the existing pairs array for reuse
     array_clear(index->collision_pairs);
-    
-    // PHASE 1: Convert cells to DBVH if they exceed threshold
-    EseHashMapIter *bin_iter = hashmap_iter_create(index->bins);
-    const char *bin_key_str;
+
+    // PHASE 1: convert dense cells -> DBVH (3x3) and remove owned bins
+    EseIntHashMapIter *bin_iter = int_hashmap_iter_create(index->bins);
+    uint64_t bin_key;
     void *bin_value;
-    while (hashmap_iter_next(bin_iter, &bin_key_str, &bin_value)) {
-        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList *)bin_value;
-        size_t cell_size = dlist_size(cell_list);
-        
-        // Check if cell exceeds threshold for DBVH conversion
-        if (cell_size > COLLISION_INDEX_DBVH_THRESHOLD) {
-            // Extract cell coordinates
-            EseCollisionIndexKey key_val;
-            if (sscanf(bin_key_str, "%llu", (unsigned long long*)&key_val) == 1) {
-                int cell_x = (int)((key_val >> 32) - 0x80000000);
-                int cell_y = (int)((key_val & 0xFFFFFFFF) - 0x80000000);
-                _collision_index_convert_cell_to_dbvh(index, cell_x, cell_y);
-            }
+    while (int_hashmap_iter_next(bin_iter, &bin_key, &bin_value)) {
+        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList*)bin_value;
+        size_t sz = dlist_size(cell_list);
+        if (sz > COLLISION_INDEX_DBVH_THRESHOLD) {
+            uint32_t ux = (uint32_t)(bin_key >> 32);
+            uint32_t uy = (uint32_t)(bin_key & 0xFFFFFFFFu);
+            int cell_x = (int)(int32_t)ux;
+            int cell_y = (int)(int32_t)uy;
+            _collision_index_convert_cell_to_dbvh(index, cell_x, cell_y);
         }
     }
-    hashmap_iter_free(bin_iter);
-    
-    // PHASE 2: Query DBVH regions for collision pairs
-    EseHashMapIter *dbvh_iter = hashmap_iter_create(index->dbvh_regions);
-    const char *dbvh_key_str;
+    int_hashmap_iter_free(bin_iter);
+
+    // PHASE 2: DBVH regions
+    EseHashMap *seen = hashmap_create(NULL); // defensive dedupe across DBVHs
+    EseIntHashMapIter *dbvh_iter = int_hashmap_iter_create(index->dbvh_regions);
+    uint64_t dbvh_key;
     void *dbvh_value;
-    while (hashmap_iter_next(dbvh_iter, &dbvh_key_str, &dbvh_value)) {
-        DBVHNode *root = (DBVHNode *)dbvh_value;
-        dbvh_query_pairs(root, index->collision_pairs);
+    while (int_hashmap_iter_next(dbvh_iter, &dbvh_key, &dbvh_value)) {
+        DBVHNode *root = (DBVHNode*)dbvh_value;
+        _dbvh_query_pairs(root, index->collision_pairs, index, seen);
     }
-    hashmap_iter_free(dbvh_iter);
-    
-    // PHASE 3: Process regular grid cells (excluding DBVH centers)
-    bin_iter = hashmap_iter_create(index->bins);
-    while (hashmap_iter_next(bin_iter, &bin_key_str, &bin_value)) {
-        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList *)bin_value;
-        if (dlist_size(cell_list) < 2) continue;
+    int_hashmap_iter_free(dbvh_iter);
 
-        // Check if this cell is a DBVH center (skip if so)
-        EseCollisionIndexKey key_val;
-        if (sscanf(bin_key_str, "%llu", (unsigned long long*)&key_val) == 1) {
-            if (hashmap_get(index->dbvh_regions, bin_key_str)) {
-                continue; // Skip DBVH center cells
-            }
-        }
+    // PHASE 3: grid cells (DBVH-owned bins were removed)
+    bin_iter = int_hashmap_iter_create(index->bins);
+    while (int_hashmap_iter_next(bin_iter, &bin_key, &bin_value)) {
+        EseDoubleLinkedList *cell_list = (EseDoubleLinkedList*)bin_value;
+        if (!cell_list || dlist_size(cell_list) == 0) continue;
 
-        // Check within cell using nested iterators
-        void *a_value;
-        EseDListIter *outer = dlist_iter_create(cell_list);
-        while (dlist_iter_next(outer, &a_value)) {
-            EseEntity *a = (EseEntity *)a_value;
+        // decode coords
+        uint32_t ux = (uint32_t)(bin_key >> 32);
+        uint32_t uy = (uint32_t)(bin_key & 0xFFFFFFFFu);
+        int cell_x = (int)(int32_t)ux;
+        int cell_y = (int)(int32_t)uy;
 
-            EseDListIter *inner = dlist_iter_create_from(outer);
-            void *b_value;
-            while (dlist_iter_next(inner, &b_value)) {
-                EseEntity *b = (EseEntity *)b_value;
-                int state = entity_check_collision_state(a, b);
-                if (state != 0) {
-                    // Create heap-allocated collision pair and add to array
-                    CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                    pair->entity_a = a;
-                    pair->entity_b = b;
-                    pair->state = state;
-                    if (!array_push(index->collision_pairs, pair)) {
-                        log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
-                        memory_manager.free(pair);
-                    }
+        // intra-cell
+        if (dlist_size(cell_list) >= 2) {
+            void *a_val;
+            EseDListIter *outer = dlist_iter_create(cell_list);
+            while (dlist_iter_next(outer, &a_val)) {
+                EseEntity *a = (EseEntity*)a_val;
+                EseDListIter *inner = dlist_iter_create_from(outer);
+                void *b_val;
+                while (dlist_iter_next(inner, &b_val)) {
+                    EseEntity *b = (EseEntity*)b_val;
+                    int state = entity_check_collision_state(a, b);
+                    if (state != 0) _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, a, b, state);
                 }
+                dlist_iter_free(inner);
             }
-            dlist_iter_free(inner);
+            dlist_iter_free(outer);
         }
-        dlist_iter_free(outer);
 
-        // Neighbor checks
-        // Extract cell_x, cell_y from bin_key_str (format is "%llu" from EseCollisionIndexKey)
-        // We need to reverse the key computation to get x,y coordinates
-        if (sscanf(bin_key_str, "%llu", (unsigned long long*)&key_val) == 1) {
-            // Reverse the key computation: key = ((x + 0x80000000) << 32) | (y + 0x80000000)
-            int cell_x = (int)((key_val >> 32) - 0x80000000);
-            int cell_y = (int)((key_val & 0xFFFFFFFF) - 0x80000000);
-            
-            EseDoubleLinkedList *neighbors[8];
-            size_t neighbor_count = 0;
-            collision_index_get_neighbors(index, cell_x, cell_y, neighbors, &neighbor_count);
-
-            for (size_t n = 0; n < neighbor_count; n++) {
-                EseDoubleLinkedList *neighbor_list = neighbors[n];
-
-                // Check pairs between current cell and neighbor cell
-                EseDListIter *cell_iter = dlist_iter_create(cell_list);
-                void *c_value;
-                while (dlist_iter_next(cell_iter, &c_value)) {
-                    EseEntity *c = (EseEntity *)c_value;
-                    EseDListIter *neigh_iter = dlist_iter_create(neighbor_list);
-                    void *n_value;
-                    while (dlist_iter_next(neigh_iter, &n_value)) {
-                        EseEntity *n = (EseEntity *)n_value;
+        // neighbors: use stable ordering on keys to avoid duplicating checks
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int nx = cell_x + dx;
+                int ny = cell_y + dy;
+                EseCollisionIndexKey nkey = _collision_index_compute_key(nx, ny);
+                if (nkey <= bin_key) continue; // ensures each unordered cell-pair handled once
+                // skip neighbor if it's a DBVH center (DBVH handled cross-boundary checks)
+                if (int_hashmap_get(index->dbvh_regions, nkey)) continue;
+                EseDoubleLinkedList *neighbor_list = (EseDoubleLinkedList*)int_hashmap_get(index->bins, nkey);
+                if (!neighbor_list || dlist_size(neighbor_list) == 0) continue;
+                // iterate both lists
+                EseDListIter *cell_it = dlist_iter_create(cell_list);
+                void *c_val;
+                while (dlist_iter_next(cell_it, &c_val)) {
+                    EseEntity *c = (EseEntity*)c_val;
+                    EseDListIter *neigh_it = dlist_iter_create(neighbor_list);
+                    void *n_val;
+                    while (dlist_iter_next(neigh_it, &n_val)) {
+                        EseEntity *n = (EseEntity*)n_val;
                         int state = entity_check_collision_state(c, n);
-                        if (state != 0) {
-                            // Create heap-allocated collision pair and add to array
-                            CollisionPair *pair = (CollisionPair *)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
-                            pair->entity_a = c;
-                            pair->entity_b = n;
-                            pair->state = state;
-                            if (!array_push(index->collision_pairs, pair)) {
-                                log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
-                                memory_manager.free(pair);
-                            }
-                        }
+                        if (state != 0) _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, c, n, state);
                     }
-                    dlist_iter_free(neigh_iter);
+                    dlist_iter_free(neigh_it);
                 }
-                dlist_iter_free(cell_iter);
+                dlist_iter_free(cell_it);
             }
         }
     }
+    int_hashmap_iter_free(bin_iter);
 
-    hashmap_iter_free(bin_iter);
+    // cleanup seen
+    hashmap_free(seen);
     return index->collision_pairs;
 }

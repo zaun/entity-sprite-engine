@@ -151,7 +151,7 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
     profile_start(PROFILE_ENTITY_COLLISION_TEST);
 
     if (a->type != ENTITY_COMPONENT_COLLIDER || b->type != ENTITY_COMPONENT_COLLIDER) {
-        profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
+        profile_cancel(PROFILE_ENTITY_COLLISION_TEST);
         return false;
     }
 

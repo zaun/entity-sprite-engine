@@ -265,6 +265,17 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Entity PASS TWO - Check for collisions
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     
+    // Clear collision states for all entities at the beginning of each frame
+    // This swaps current and previous collision states
+    void* clear_value;
+    EseDListIter* clear_iter = dlist_iter_create(engine->entities);
+    while (dlist_iter_next(clear_iter, &clear_value)) {
+        EseEntity *entity = (EseEntity*)clear_value;
+        if (!entity->active) continue;
+        entity_clear_collision_states(entity);
+    }
+    dlist_iter_free(clear_iter);
+    
     // Entity PASS TWO Step 1: Collect collision pairs using spatial bin
     collision_index_clear(engine->collision_bin);
 
