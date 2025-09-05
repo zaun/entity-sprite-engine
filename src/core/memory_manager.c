@@ -50,7 +50,8 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "LUA VM ", "RENDER ",
     "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "ARRAY  ", "HASHMAP", "GRPHASH",
     "LINKLST", "CONSOLE", "ARC    ", "CAMERA ", "DISPLAY", "INPUT  ", "MAPCELL", "MAP    ",
-    "POINT  ", "RAY    ", "RECT   ", "UUID   ", "VECTOR ", "TILESET", "TEMP   "
+    "POINT  ", "RAY    ", "RECT   ", "UUID   ", "VECTOR ", "TILESET", "AUDIO  ", "COLLIDX",
+    "TEMP   "
 };
 
 static inline size_t _align_up(size_t n, size_t align) {

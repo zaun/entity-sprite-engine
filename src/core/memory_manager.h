@@ -37,6 +37,7 @@ typedef enum {
     MMTAG_UUID,
     MMTAG_VECTOR,
     MMTAG_AUDIO,
+    MMTAG_COLLISION_INDEX,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

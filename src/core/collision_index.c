@@ -10,6 +10,7 @@
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_collider.h"
 #include "platform/time.h"
+#include "core/memory_manager.h"
 #include <math.h>
 #include <limits.h>
 #include <stdio.h>
@@ -21,8 +22,8 @@
 
 struct EseCollisionIndex {
     float cell_size;
-    EseIntHashMap *bins;        // IntHashmap<EseCollisionIndexKey, EseDoubleLinkedList*>
-    EseIntHashMap *dbvh_regions; // IntHashmap<EseCollisionIndexKey, DBVHNode*>
+    EseIntHashMap *bins;            // IntHashmap<EseCollisionIndexKey, EseDoubleLinkedList*>
+    EseIntHashMap *dbvh_regions;    // IntHashmap<EseCollisionIndexKey, DBVHNode*>
     EseArray *collision_pairs;
     double last_auto_tune_time;
 };
@@ -78,7 +79,7 @@ float _collision_index_calculate_average_bin_count(EseCollisionIndex *index) {
 // ==================== DBVH ====================
 
 static DBVHNode *_dbvh_node_create(EseEntity *entity) {
-    DBVHNode *node = memory_manager.malloc(sizeof(DBVHNode), MMTAG_ENTITY);
+    DBVHNode *node = memory_manager.malloc(sizeof(DBVHNode), MMTAG_COLLISION_INDEX);
     if (!node) return NULL;
     node->entity = entity;
     node->left = NULL;
@@ -216,18 +217,30 @@ static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashM
     const char *idb = b->id->value;
     const char *first = ida;
     const char *second = idb;
-    if (strcmp(ida, idb) > 0) { first = idb; second = ida; }
+
+    if (strcmp(ida, idb) > 0) {
+        first = idb;
+        second = ida;
+    }
+
+    // Make the key, we own the key so free it later.
     size_t keylen = strlen(first) + 1 + strlen(second) + 1;
-    char *key = memory_manager.malloc(keylen, MMTAG_ENGINE);
-    if (!key) return;
+    char *key = memory_manager.malloc(keylen, MMTAG_COLLISION_INDEX);
     snprintf(key, keylen, "%s|%s", first, second);
-    if (hashmap_get(seen, key) != NULL) { memory_manager.free(key); return; }
+
+    if (hashmap_get(seen, key) != NULL) {
+        memory_manager.free(key); return;
+    }
+
     // Mark seen (hashmap will own the key and free later)
     hashmap_set(seen, key, (void*)1);
-    CollisionPair *pair = (CollisionPair*)memory_manager.malloc(sizeof(CollisionPair), MMTAG_ENGINE);
+    memory_manager.free(key);
+    
+    CollisionPair *pair = (CollisionPair*)memory_manager.malloc(sizeof(CollisionPair), MMTAG_COLLISION_INDEX);
     pair->entity_a = a;
     pair->entity_b = b;
     pair->state = state;
+
     if (!array_push(pairs, pair)) {
         log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
         memory_manager.free(pair);
@@ -335,7 +348,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
 // ==================== Public API ====================
 
 EseCollisionIndex *collision_index_create(void) {
-    EseCollisionIndex *index = memory_manager.malloc(sizeof(EseCollisionIndex), MMTAG_ENTITY);
+    EseCollisionIndex *index = memory_manager.malloc(sizeof(EseCollisionIndex), MMTAG_COLLISION_INDEX);
     index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE;
     index->bins = int_hashmap_create((EseIntHashMapFreeFn)dlist_free);
     index->dbvh_regions = int_hashmap_create((EseIntHashMapFreeFn)_dbvh_node_destroy);
@@ -473,7 +486,7 @@ EseArray *collision_index_get_pairs(EseCollisionIndex *index) {
     int_hashmap_iter_free(bin_iter);
 
     // PHASE 2: DBVH regions
-    EseHashMap *seen = hashmap_create(NULL); // defensive dedupe across DBVHs
+    EseHashMap *seen = hashmap_create(NULL); // defensive dedupe across DBVHs, WE DONT OWN THE CONTENT!
     EseIntHashMapIter *dbvh_iter = int_hashmap_iter_create(index->dbvh_regions);
     uint64_t dbvh_key;
     void *dbvh_value;

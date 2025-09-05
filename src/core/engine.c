@@ -116,6 +116,16 @@ void engine_destroy(EseEngine *engine) {
     render_list_destroy(engine->render_list_a);
     render_list_destroy(engine->render_list_b);
 
+    // Manually clear entities list since it has no free function
+    void *entity_value;
+    EseDListIter *entity_iter = dlist_iter_create(engine->entities);
+    while (dlist_iter_next(entity_iter, &entity_value)) {
+        EseEntity *entity = (EseEntity*)entity_value;
+        dlist_remove_by_value(engine->entities, entity);
+        entity_destroy(entity);
+    }
+    dlist_iter_free(entity_iter);
+    
     // Manually clear del_entities list since it has no free function
     void *del_entity_value;
     EseDListIter *del_entity_iter = dlist_iter_create(engine->del_entities);
@@ -127,7 +137,7 @@ void engine_destroy(EseEngine *engine) {
     dlist_iter_free(del_entity_iter);
     
     // Now free the lists
-    dlist_free(engine->entities);  // This will auto-destroy remaining entities
+    dlist_free(engine->entities);  // This should be empty now
     dlist_free(engine->del_entities);  // This should be empty now
 
     if (engine->asset_manager) {
@@ -141,6 +151,7 @@ void engine_destroy(EseEngine *engine) {
     collision_index_destroy(engine->collision_bin);
 
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
+    lua_engine_remove_registry_key(engine->lua_engine->runtime, ENGINE_KEY);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
     lua_engine_destroy(engine->lua_engine);
 
