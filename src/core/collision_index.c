@@ -336,7 +336,12 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 EseCollisionIndexKey k = _collision_index_compute_key(center_x + dx, center_y + dy);
-                int_hashmap_remove(index->bins, k);
+                // int_hashmap_remove returns the stored value but does not call the map's
+                // free_fn. Free the returned list explicitly to avoid leaking list nodes.
+                EseDoubleLinkedList *removed = (EseDoubleLinkedList*)int_hashmap_remove(index->bins, k);
+                if (removed) {
+                    dlist_free(removed);
+                }
             }
         }
         int_hashmap_set(index->dbvh_regions, center_key, root);

@@ -116,30 +116,17 @@ void engine_destroy(EseEngine *engine) {
     render_list_destroy(engine->render_list_a);
     render_list_destroy(engine->render_list_b);
 
-    // Manually clear entities list since it has no free function
-    void *entity_value;
-    EseDListIter *entity_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(entity_iter, &entity_value)) {
-        EseEntity *entity = (EseEntity*)entity_value;
-        dlist_remove_by_value(engine->entities, entity);
-        entity_destroy(entity);
+    // Now free the entirty lists
+    void *v;
+    while ((v = dlist_pop_front(engine->entities)) != NULL) {
+        entity_destroy((EseEntity*)v);
     }
-    dlist_iter_free(entity_iter);
-    
-    // Manually clear del_entities list since it has no free function
-    void *del_entity_value;
-    EseDListIter *del_entity_iter = dlist_iter_create(engine->del_entities);
-    while (dlist_iter_next(del_entity_iter, &del_entity_value)) {
-        EseEntity *entity = (EseEntity*)del_entity_value;
-        dlist_remove_by_value(engine->del_entities, entity);
-        entity_destroy(entity);
+    while ((v = dlist_pop_front(engine->del_entities)) != NULL) {
+        entity_destroy((EseEntity*)v);
     }
-    dlist_iter_free(del_entity_iter);
+    dlist_free(engine->entities);
+    dlist_free(engine->del_entities);
     
-    // Now free the lists
-    dlist_free(engine->entities);  // This should be empty now
-    dlist_free(engine->del_entities);  // This should be empty now
-
     if (engine->asset_manager) {
         asset_manager_destroy(engine->asset_manager);
     }
@@ -376,14 +363,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
     // Delete entities
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    void *del_entity_value;
-    EseDListIter *del_entity_iter = dlist_iter_create(engine->del_entities);
-    while (dlist_iter_next(del_entity_iter, &del_entity_value)) {
-        EseEntity *entity = (EseEntity*)del_entity_value;
-        dlist_remove_by_value(engine->del_entities, entity);  // Remove from list first
-        entity_destroy(entity);  // Then destroy
+    void *v;
+    while ((v = dlist_pop_front(engine->del_entities)) != NULL) {
+        EseEntity *entity = (EseEntity*)v;
+        entity_destroy(entity);
     }
-    dlist_iter_free(del_entity_iter);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_del_entities");
 
     // Overall update time
@@ -519,18 +503,23 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 void engine_entities_clear(EseEngine *engine, bool include_persistent) {
     log_assert("ENGINE", engine, "engine_entities_clear called with NULL engine");
 
-    void *entity_value;
-    EseDListIter *iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(iter, &entity_value)) {
-        EseEntity *entity = (EseEntity*)entity_value;
+    EseDoubleLinkedList *temp = dlist_create(NULL);
+
+    void *v;
+    while ((v = dlist_pop_front(engine->entities)) != NULL) {
+        EseEntity *entity = (EseEntity*)v;
         if (!include_persistent && entity_get_persistent(entity)) {
-            // skip persistent entities
-            continue;
+            dlist_append(temp, entity);
+        } else {
+            dlist_append(engine->del_entities, entity);
         }
-        dlist_remove_by_value(engine->entities, entity);
-        dlist_append(engine->del_entities, entity);
     }
-    dlist_iter_free(iter);
+
+    // Restore persistent entities back to engine->entities in original order.
+    while ((v = dlist_pop_front(temp)) != NULL) {
+        dlist_append(engine->entities, v);
+    }
+    dlist_free(temp);
 }
 
 int engine_get_entity_count(EseEngine *engine) {

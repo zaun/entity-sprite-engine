@@ -44,4 +44,16 @@ int dlist_iter_next(EseDListIter* iter, void** value);
 // Get list size
 size_t dlist_size(EseDoubleLinkedList* list);
 
+// Pop front node
+void* dlist_pop_front(EseDoubleLinkedList* list);
+
+// Clear list
+void dlist_clear(EseDoubleLinkedList* list);
+
+// Remove all nodes
+void dlist_remove_all(EseDoubleLinkedList* list);
+
+// Remove all nodes matching predicate
+void dlist_remove_all_by(EseDoubleLinkedList* list, DListPredicate pred, void *user_data);
+
 #endif // ESE_DOUBLE_LINKED_LIST_H

@@ -9,6 +9,7 @@
 #include "utility/log.h"
 
 #define DEBUG_MEMORY_MANAGER 0
+#define MEMORY_TRACKING 1
 
 #if DEBUG_MEMORY_MANAGER
 #define DEBUG_PRINTF(fmt, ...) do { printf(fmt, ##__VA_ARGS__); fflush(stdout); } while(0)
@@ -25,6 +26,10 @@ typedef struct AllocEntry {
     size_t size;
     MemTag tag;
     struct AllocEntry *next;
+#if MEMORY_TRACKING == 1
+    void *bt[16];    /* backtrace frames (optional) */
+    int bt_size;     /* number of frames captured */
+#endif
 } AllocEntry;
 
 typedef struct {
@@ -47,11 +52,11 @@ typedef struct MemoryManager MemoryManager;
 MemoryManager *g_memory_manager = NULL;
 
 static const char *mem_tag_names[MMTAG_COUNT] = {
-    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "LUA    ", "LUA VAL", "LUA VM ", "RENDER ",
-    "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "ARRAY  ", "HASHMAP", "GRPHASH",
-    "LINKLST", "CONSOLE", "ARC    ", "CAMERA ", "DISPLAY", "INPUT  ", "MAPCELL", "MAP    ",
-    "POINT  ", "RAY    ", "RECT   ", "UUID   ", "VECTOR ", "TILESET", "AUDIO  ", "COLLIDX",
-    "TEMP   "
+    "GENERAL", "ENGINE ", "ASSET  ", "ENTITY ", "ENT_LUA", "LUA    ", "LUA VAL", "LUA VM ",
+    "RENDER ", "SPRITE ", "DRAWLST", "RENDLST", "SHADER ", "WINDOW ", "ARRAY  ", "HASHMAP",
+    "GRPHASH", "LINKLST", "CONSOLE", "ARC    ", "CAMERA ", "DISPLAY", "INPUT  ", "MAPCELL",
+    "MAP    ", "POINT  ", "RAY    ", "RECT   ", "UUID   ", "VECTOR ", "TILESET", "AUDIO  ",
+    "COLLIDX", "TEMP   "
 };
 
 static inline size_t _align_up(size_t n, size_t align) {
@@ -74,6 +79,13 @@ static void _track_alloc(MemoryManager *manager, void *ptr, size_t size, MemTag 
     entry->size = size;
     entry->tag = tag;
     entry->next = manager->alloc_table[hash];
+
+#if MEMORY_TRACKING == 1
+    /* capture a small backtrace for entity allocations to help find leaks */
+    entry->bt_size = 0;
+    entry->bt_size = backtrace(entry->bt, sizeof(entry->bt) / sizeof(entry->bt[0]));
+#endif
+
     manager->alloc_table[hash] = entry;
     
     DEBUG_PRINTF("TRACK_ALLOC: tracking %p -> %zu bytes\n", ptr, size);
@@ -287,13 +299,14 @@ static void _mm_report(void) {
             entry = entry->next;
         }
     }
-    
+
     if (leak_count > 0) {
         printf("  WARNING: %zu memory leaks detected (%zu bytes leaked)!\n", leak_count, leak_bytes);
         
         // Print some leak details (limit to avoid spam)
         printf("  Sample leaks:\n");
         size_t shown = 0;
+#if MEMORY_TRACKING != 1
         for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
             AllocEntry *entry = manager->alloc_table[i];
             while (entry && shown < 10) {
@@ -303,6 +316,28 @@ static void _mm_report(void) {
                 shown++;
             }
         }
+#else
+        for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
+            AllocEntry *entry = manager->alloc_table[i];
+            while (entry && shown < 10) {
+                const char *tagname = (entry->tag >= 0 && entry->tag < MMTAG_COUNT) ? mem_tag_names[entry->tag] : "UNKNOWN";
+                printf("    %p: %zu bytes (%s)\n", entry->ptr, entry->size, tagname);
+                /* If we captured a backtrace for this allocation, print it */
+                if (entry->bt_size > 0) {
+                    char **symbols = backtrace_symbols(entry->bt, entry->bt_size);
+                    if (symbols) {
+                        printf("      Backtrace (most recent first):\n");
+                        for (int bi = 0; bi < entry->bt_size; bi++) {
+                            printf("        %s\n", symbols[bi]);
+                        }
+                        free(symbols);
+                    }
+                }
+                entry = entry->next;
+                shown++;
+            }
+        }
+#endif
         if (leak_count > 10) {
             printf("    ... and %zu more leaks\n", leak_count - 10);
         }

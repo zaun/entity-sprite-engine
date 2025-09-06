@@ -563,14 +563,14 @@ void rect_destroy(EseRect *rect) {
     rect->watcher_count = 0;
     rect->watcher_capacity = 0;
     
-    if (rect->lua_ref != LUA_NOREF) {
-        // Remove from Lua registry
-        luaL_unref(rect->state, LUA_REGISTRYINDEX, rect->lua_ref);
-        rect->lua_ref = LUA_NOREF;
+    if (rect->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
+        memory_manager.free(rect);
+    } else {
+        rect_unref(rect);
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
     }
-    
-    // Always free the memory - this is called from C code
-    memory_manager.free(rect);
 }
 
 size_t rect_sizeof(void) {

@@ -184,3 +184,43 @@ size_t dlist_size(EseDoubleLinkedList* list) {
 
     return list->size;
 }
+
+void* dlist_pop_front(EseDoubleLinkedList* list) {
+    log_assert("DLIST", list, "dlist_pop_front called with NULL list");
+    if (!list->head) return NULL;
+    EseDListNode *node = list->head;
+    void *val = node->value;
+    if (node->next) {
+        node->next->prev = NULL;
+        list->head = node->next;
+    } else {
+        list->head = list->tail = NULL;
+    }
+    memory_manager.free(node);
+    list->size--;
+    return val;
+}
+
+void* dlist_pop_back(EseDoubleLinkedList* list) {
+    log_assert("DLIST", list, "dlist_pop_back called with NULL list");
+    if (!list->tail) return NULL;
+    EseDListNode *node = list->tail;
+    void *val = node->value;
+    if (node->prev) {
+        node->prev->next = NULL;
+        list->tail = node->prev;
+    } else {
+        list->head = list->tail = NULL;
+    }
+    memory_manager.free(node);
+    list->size--;
+    return val;
+}
+
+void dlist_clear(EseDoubleLinkedList* list) {
+    log_assert("DLIST", list, "dlist_clear called with NULL list");
+    void *v;
+    while ((v = dlist_pop_front(list)) != NULL) {
+        if (list->free_fn) list->free_fn(v);
+    }
+}
