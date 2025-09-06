@@ -146,11 +146,36 @@ void engine_destroy(EseEngine *engine) {
 }
 
 void engine_add_entity(EseEngine *engine, EseEntity *entity) {
-    log_assert("ENGINE", engine, "engine_destroy called with NULL engine");
-    log_assert("ENGINE", entity, "engine_destroy called with NULL entity");
+    log_assert("ENGINE", engine, "engine_add_entity called with NULL engine");
+    log_assert("ENGINE", entity, "engine_add_entity called with NULL entity");
 
     log_debug("ENGINE", "Added entity %s", entity->id->value);
     dlist_append(engine->entities, entity);
+}
+
+void engine_remove_entity(EseEngine *engine, EseEntity *entity) {
+    log_assert("ENGINE", engine, "engine_remove_entity called with NULL engine");
+    log_assert("ENGINE", entity, "engine_remove_entity called with NULL entity");
+
+    log_debug("ENGINE", "Removed entity %s", entity->id->value);
+    dlist_append(engine->del_entities, entity);
+}
+
+void engine_clear_entities(EseEngine *engine, bool include_persistent) {
+    log_assert("ENGINE", engine, "engine_clear_entities called with NULL engine");
+
+    // We can't remove from engine->entities while iterating over it,
+    // so just add it to the delete list, we'll remvoe from the entites
+    // list later
+    void *value;
+    EseDListIter *iter = dlist_iter_create(engine->entities);
+    while (dlist_iter_next(iter, &value)) {
+        EseEntity *entity = (EseEntity*)value;
+        if (include_persistent || !entity_get_persistent(entity)) {
+            dlist_append(engine->del_entities, entity);
+        }
+    }
+    dlist_iter_free(iter);
 }
 
 void engine_start(EseEngine *engine) {
@@ -366,6 +391,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     void *v;
     while ((v = dlist_pop_front(engine->del_entities)) != NULL) {
         EseEntity *entity = (EseEntity*)v;
+        // remvoe from entities list here
+        dlist_remove_by_value(engine->entities, entity);
         entity_destroy(entity);
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_del_entities");
@@ -498,28 +525,6 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 
     dlist_iter_free(iter);
     return NULL;
-}
-
-void engine_entities_clear(EseEngine *engine, bool include_persistent) {
-    log_assert("ENGINE", engine, "engine_entities_clear called with NULL engine");
-
-    EseDoubleLinkedList *temp = dlist_create(NULL);
-
-    void *v;
-    while ((v = dlist_pop_front(engine->entities)) != NULL) {
-        EseEntity *entity = (EseEntity*)v;
-        if (!include_persistent && entity_get_persistent(entity)) {
-            dlist_append(temp, entity);
-        } else {
-            dlist_append(engine->del_entities, entity);
-        }
-    }
-
-    // Restore persistent entities back to engine->entities in original order.
-    while ((v = dlist_pop_front(temp)) != NULL) {
-        dlist_append(engine->entities, v);
-    }
-    dlist_free(temp);
 }
 
 int engine_get_entity_count(EseEngine *engine) {

@@ -38,83 +38,82 @@ char* _replace_colon_calls(const char* prefix, const char* script) {
     snprintf(search_pattern, prefix_len + 2, "%s:", prefix);
     
     while (*src) {
-        // Check if this is a function definition line
-        if (strncmp(src, "function", 8) == 0 && (src == script || *(src-1) == '\n' || *(src-1) == ' ' || *(src-1) == '\t')) {
-            // Look for the function name pattern
-            const char* func_start = src + 8;
-            while (*func_start && (*func_start == ' ' || *func_start == '\t')) func_start++;
+        if (strncmp(src, search_pattern, prefix_len + 1) == 0) {
+            // Check if this is a function definition line
+            const char* line_start = src;
+            while (line_start > script && *(line_start - 1) != '\n') {
+                line_start--;
+            }
             
-            // Check if this is a function definition with our prefix
-            if (strncmp(func_start, search_pattern, prefix_len + 1) == 0) {
-                // This is a function definition, don't replace it
-                // Copy the entire function definition line
+            // Skip whitespace at start of line
+            while (line_start < src && (*line_start == ' ' || *line_start == '\t')) {
+                line_start++;
+            }
+            
+            if (strncmp(line_start, "function", 8) == 0) {
+                // This is a function definition, skip it
                 while (*src && *src != '\n') {
                     if (remaining < 1) break;
                     *dst++ = *src++;
                     remaining--;
                 }
-                // Copy the newline
-                if (*src == '\n' && remaining > 0) {
-                    *dst++ = *src++;
-                    remaining--;
-                }
-                continue;
-            }
-        }
-        
-        if (strncmp(src, search_pattern, prefix_len + 1) == 0) {
-            // Found PREFIX:, replace with PREFIX.
-            if (remaining < prefix_len + 1) break;
-            memcpy(dst, prefix, prefix_len);
-            dst += prefix_len;
-            *dst++ = '.';
-            remaining -= (prefix_len + 1);
-            src += (prefix_len + 1);
-            
-            // Skip whitespace and find opening paren
-            while (*src && (*src == ' ' || *src == '\t')) {
-                if (remaining < 1) break;
-                *dst++ = *src++;
-                remaining--;
-            }
-            
-            // Copy function name until (
-            while (*src && *src != '(') {
-                if (remaining < 1) break;
-                *dst++ = *src++;
-                remaining--;
-            }
-            
-            // Add opening paren and self
-            if (*src == '(' && remaining >= 6) {
-                *dst++ = '(';
-                remaining--;
-                src++; // Advance past the opening parenthesis
+            } else {
+                // Found PREFIX:, replace with PREFIX.
+                if (remaining < prefix_len + 1) break;
+                memcpy(dst, prefix, prefix_len);
+                dst += prefix_len;
+                *dst++ = '.';
+                remaining -= (prefix_len + 1);
+                src += (prefix_len + 1);
                 
-                // Skip whitespace after (
+                // Skip whitespace and find opening paren
                 while (*src && (*src == ' ' || *src == '\t')) {
                     if (remaining < 1) break;
                     *dst++ = *src++;
                     remaining--;
                 }
                 
-                // Add self
-                if (*src == ')') {
-                    // Empty params: PREFIX:func() -> PREFIX.func(self)
-                    memcpy(dst, "self", 4);
-                    dst += 4;
-                    remaining -= 4;
-                } else {
-                    // Has params: PREFIX:func(x) -> PREFIX.func(self, x)
-                    memcpy(dst, "self, ", 6);
-                    dst += 6;
-                    remaining -= 6;
-                }
-                
-                // Copy the rest of the parameters and closing parenthesis
-                while (*src && remaining > 0) {
+                // Copy function name until (
+                while (*src && *src != '(') {
+                    if (remaining < 1) break;
                     *dst++ = *src++;
                     remaining--;
+                }
+                
+                // Add opening paren and self
+                if (*src == '(' && remaining >= 6) {
+                    *dst++ = '(';
+                    remaining--;
+                    src++; // Advance past the opening parenthesis
+                    
+                    // Skip whitespace after (
+                    while (*src && (*src == ' ' || *src == '\t')) {
+                        if (remaining < 1) break;
+                        *dst++ = *src++;
+                        remaining--;
+                    }
+                    
+                    // Add self
+                    if (*src == ')') {
+                        // Empty params: PREFIX:func() -> PREFIX.func(self)
+                        memcpy(dst, "self", 4);
+                        dst += 4;
+                        remaining -= 4;
+                        *dst++ = ')'; // Add closing parenthesis
+                        remaining--;
+                        src++; // Skip the closing parenthesis
+                    } else {
+                        // Has params: PREFIX:func(x) -> PREFIX.func(self, x)
+                        memcpy(dst, "self, ", 6);
+                        dst += 6;
+                        remaining -= 6;
+                        
+                        // Copy the rest of the parameters and closing parenthesis
+                        while (*src && remaining > 0) {
+                            *dst++ = *src++;
+                            remaining--;
+                        }
+                    }
                 }
             }
         } else {

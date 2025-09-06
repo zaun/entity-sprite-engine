@@ -278,7 +278,7 @@ int _lua_scene_clear(lua_State *L) {
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    engine_entities_clear(engine, false);
+    engine_clear_entities(engine, false);
 
     lua_pushboolean(L, true);
     return 1;
@@ -293,7 +293,7 @@ int _lua_scene_reset(lua_State *L) {
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    engine_entities_clear(engine, true);
+    engine_clear_entities(engine, true);
 
     lua_pushboolean(L, true);
     return 1;

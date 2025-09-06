@@ -507,7 +507,7 @@ static int _entity_lua_destroy(lua_State *L) {
     // Destroy the entity
     entity->destroyed = true;
     entity->active = false;
-    _engine_delete_entity(engine, entity);
+    engine_remove_entity(engine, entity);
     
     lua_pushboolean(L, true);
     return 1;

@@ -1,7 +1,9 @@
 function STARTUP:startup()
     print("Breakout startup script started")
 
-    -- Load resources and fail if any fail
+    -- 
+    -- Load Assets
+    --
     if asset_load_atlas("breakout", "bricks.json") == false then
         print("Breakout bricks failed")
         return false
@@ -12,9 +14,8 @@ function STARTUP:startup()
         return false
     end
 
-    -- Load scripts
-    if asset_load_script("gamestate.lua") == false then
-        print("Loading gamestate script failed")
+    if asset_load_script("gamemanager.lua") == false then
+        print("Loading gamemanager script failed")
         return false
     end
 
@@ -33,28 +34,18 @@ function STARTUP:startup()
         return false
     end
 
-    -- Create the game state manager
-    local game_state = Entity.new()
-    game_state.components.add(EntityComponentLua.new("gamestate.lua"))
-    game_state:add_tag("gamestate")
-
-    -- Create the paddle
-    local paddle = Entity.new()
-    paddle.components.add(EntityComponentLua.new("paddle.lua"))
-    paddle.components.add(EntityComponentSprite.new("breakout:paddle bar blue medium"))
-    paddle.components.add(EntityComponentCollider.new(Rect.new(0, 0, 128, 28)))
-    paddle:add_tag("paddle")
-    paddle.position.x = Display.viewport.width / 2 - 40  -- Center paddle
-    paddle.position.y = Display.viewport.height - 50    -- Near bottom of screen
-
-    -- Create the ball
-    local ball = Entity.new()
-    ball.components.add(EntityComponentLua.new("ball.lua"))
-    ball.components.add(EntityComponentSprite.new("breakout:ball blue glass small"))
-    ball.components.add(EntityComponentCollider.new(Rect.new(0, 0, 16, 16)))
-    ball:add_tag("ball")
-    ball.position.x = Display.viewport.width / 2 - 8    -- Center ball
-    ball.position.y = Display.viewport.height - 80      -- Above paddle
+    -- Create the game  manager
+    local gamemanager = Entity.new()
+    gamemanager.persistent = true; -- When we clear entities, we don't want to clear this one
+    gamemanager.components.add(EntityComponentLua.new("gamemanager.lua"))
+    gamemanager:add_tag("gamestate")
+    gamemanager.data.STATE = {
+        "title",
+        "countdown",
+        "play",
+        "level_complete",
+        "game_over"
+    }
 
     -- Set the camera to the center of the viewport
     Camera.position.x = Display.viewport.width / 2

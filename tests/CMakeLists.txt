@@ -25,6 +25,7 @@ add_executable(test_lua_value test_lua_value.c)
 add_executable(test_log_assert test_log_assert.c)
 add_executable(test_entity test_entity.c)
 add_executable(test_entity_component_lua test_entity_component_lua.c)
+add_executable(test_engine test_engine.c)
 add_executable(test_engine_collision test_engine_collision.c)
 add_executable(test_lua_only test_lua_only.c)
 add_executable(test_bottleneck test_bottleneck.c)
@@ -50,6 +51,7 @@ target_link_libraries(test_lua_value entityspriteengine)
 target_link_libraries(test_log_assert entityspriteengine)
 target_link_libraries(test_entity entityspriteengine)
 target_link_libraries(test_entity_component_lua entityspriteengine)
+target_link_libraries(test_engine entityspriteengine)
 target_link_libraries(test_engine_collision entityspriteengine)
 target_link_libraries(test_lua_only "${CMAKE_SOURCE_DIR}/src/vendor/lua/src/libluajit.a" entityspriteengine)
 target_link_libraries(test_bottleneck entityspriteengine)
@@ -74,6 +76,7 @@ target_include_directories(test_lua_value PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_log_assert PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_entity PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_entity_component_lua PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_engine_collision PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_lua_only PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test_bottleneck PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -98,6 +101,7 @@ add_test(NAME LuaValueTests COMMAND test_lua_value)
 add_test(NAME LogAssertTests COMMAND test_log_assert)
 add_test(NAME EntityTests COMMAND test_entity)
 add_test(NAME EntityComponentLuaTests COMMAND test_entity_component_lua)
+add_test(NAME EngineTests COMMAND test_engine)
 add_test(NAME EngineCollisionTests COMMAND test_engine_collision)
 add_test(NAME LuaOnlyTests COMMAND test_lua_only)
 add_test(NAME BottleneckTests COMMAND test_bottleneck)
@@ -174,6 +178,10 @@ set_tests_properties(BottleneckTests PROPERTIES
 )
 
 set_tests_properties(EntityComponentLuaTests PROPERTIES
+    ENVIRONMENT "ESETEST=1"
+)
+
+set_tests_properties(EngineTests PROPERTIES
     ENVIRONMENT "ESETEST=1"
 )
 

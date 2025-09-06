@@ -75,6 +75,29 @@ void engine_set_renderer(EseEngine *engine, EseRenderer *renderer);
 void engine_add_entity(EseEngine *engine, EseEntity *entity);
 
 /**
+ * @brief Removes an existing entity from the engine's management.
+ * 
+ * @details This function appends an entity to the engine's internal list, making it part of the
+ * game loop for updates and rendering.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param entity A pointer to the EseEntity to remove.
+ * 
+ * @note This function asserts that both the `engine` and `entity` pointers are not NULL.
+ * @warning The engine will take ownership of the `entity` pointer, and it will be freed when the
+ * engine is destroyed.
+ */
+ void engine_remove_entity(EseEngine *engine, EseEntity *entity);
+
+/**
+ * @brief Clears the engine's entities.
+ * 
+ * @param engine Pointer to the EseEngine
+ * @param include_persistent Whether to include persistent entities
+ */
+void engine_clear_entities(EseEngine *engine, bool include_persistent);
+
+/**
  * @brief Starts the engine's main loop.
  * 
  * @details This function should be called once by the native application to begin the engine's
@@ -143,14 +166,6 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
  * @return Pointer to the found entity, or NULL if not found
  */
 EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string);
-
-/**
- * @brief Clears the engine's entities.
- * 
- * @param engine Pointer to the EseEngine
- * @param include_persistent Whether to include persistent entities
- */
-void engine_entities_clear(EseEngine *engine, bool include_persistent);
 
 /**
  * @brief Gets the number of entities in the engine.

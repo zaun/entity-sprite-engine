@@ -157,17 +157,4 @@ EseEntity *_engine_new_entity(EseEngine *engine, const char *id);
  */
 EseEntity *_engine_find_entity(EseEngine *engine, const char *id);
 
-/**
- * @brief Deletes an entity from the engine.
- * 
- * @details This private function removes an entity from the engine's internal list and frees its
- * memory.
- * 
- * @param engine A pointer to the EseEngine instance.
- * @param entity A pointer to the EseEntity to be deleted.
- * 
- * @note This function asserts that both the engine and entity pointers are not NULL.
- */
-void _engine_delete_entity(EseEngine *engine, EseEntity *entity);
-
 #endif // ESE_ENGINE_PRIVATE_H

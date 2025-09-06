@@ -1,54 +1,133 @@
-function ENTITY:entity_init()
-    -- Initialize data table
-    -- self.data = {}
-    
-    -- State 0: Startup
-    -- State 1: Playing
-    -- State 2: Round Over
-    -- State 3: Game Over
-    self.data.state = 0
+function ENTITY:set_state_title()
+    print("Setting state to title")
+
+    self.data.state = "title"
+    self.data.lives = 3
     self.data.level = 1
     self.data.score = 0
-    self.data.lives = 3
-    self.data.bricks_remaining = 0
-    self.data.initialized = false  -- Flag to track if setup_board has been called
+
+    -- Reset everything
+    print("Clearing scene")
+    scene_clear()
+
+    -- Create the title
+    local title_text = EntityComponentText.new("Breakout")
+    local entity_title = Entity.new()
+    entity_title.components.add(title_text)
+    entity_title.position.x = Display.viewport.width / 2
+    entity_title.position.y = Display.viewport.height / 2
+    entity_title.draw_order = 10000
+    entity_title:add_tag("title")
+ 
+    -- Create the title
+    local title_text = EntityComponentText.new("Press SPACE to start")
+    local entity_title = Entity.new()
+    entity_title.components.add(title_text)
+    entity_title.position.x = Display.viewport.width / 2
+    entity_title.position.y = Display.viewport.height / 4 * 3
+    entity_title.draw_order = 10000
+    entity_title:add_tag("title")
+end
+
+function ENTITY:set_state_countdown()
+    print("Setting state to countdown")
+
+    self.data.state = "countdown"
+    self.data.countdown = 5
     
-    -- Create UI text components
+    -- Reset everything
+    scene_clear()
+
+    -- Create the counter
+    self.data.countdown_text = EntityComponentText.new(tostring(self.data.countdown))
+    local countdown = Entity.new()
+    countdown.components.add(self.data.countdown_text)
+    countdown.position.x = Display.viewport.width / 2
+    countdown.position.y = Display.viewport.height / 2
+    countdown.draw_order = 10000
+end
+
+function ENTITY:set_state_play()
+    print("Setting state to play")
+
+    self.data.state = "play"
+    self.data.bricks_remaining = 0
+    
+    -- Reset everything
+    scene_clear()
+
+    -- Create the UI
     self.data.score_text = EntityComponentText.new("Score: 0")
     self.data.lives_text = EntityComponentText.new("Lives: 3")
     self.data.level_text = EntityComponentText.new("Level: 1")
-    self.data.instructions_text = EntityComponentText.new("Press SPACE to launch ball")
-    
+    local instructions_text = EntityComponentText.new("Press SPACE to launch ball")
+
+    -- Center
     local score_display = Entity.new()
     score_display.components.add(self.data.score_text)
-    score_display.position.x = 10
+    score_display.position.x = Display.viewport.width / 2 - 20
     score_display.position.y = 10
-    
+
+    -- Top Left
     local lives_display = Entity.new()
     lives_display.components.add(self.data.lives_text)
     lives_display.position.x = 10
-    lives_display.position.y = 30
-    
+    lives_display.position.y = 10
+
+    -- Top Left
     local level_display = Entity.new()
     level_display.components.add(self.data.level_text)
-    level_display.position.x = 10
-    level_display.position.y = 50
-    
-    local instructions_display = Entity.new()
-    instructions_display.components.add(self.data.instructions_text)
-    instructions_display.position.x = Display.viewport.width / 2 - 100
-    instructions_display.position.y = Display.viewport.height / 2 + 100
-    
-    self.draw_order = 10000
+    level_display.position.x = Display.viewport.width - 100
+    level_display.position.y = 10
+
+    self.data.instructions_display = Entity.new()
+    self.data.instructions_display.components.add(instructions_text)
+    self.data.instructions_display.position.x = Display.viewport.width / 2 - 100
+    self.data.instructions_display.position.y = Display.viewport.height / 2 + 100
+
+    -- Create the ball
+    local ball = Entity.new()
+    ball.active = false;
+    ball.components.add(EntityComponentLua.new("ball.lua"))
+    ball.components.add(EntityComponentSprite.new("breakout:ball blue glass small"))
+    ball.components.add(EntityComponentCollider.new(Rect.new(0, 0, 16, 16)))
+    ball:add_tag("game")
+    ball:add_tag("ball")
+
+    -- Create the paddle
+    local paddle = Entity.new()
+    paddle.active = false;
+    paddle.components.add(EntityComponentLua.new("paddle.lua"))
+    paddle.components.add(EntityComponentSprite.new("breakout:paddle bar blue medium"))
+    paddle.components.add(EntityComponentCollider.new(Rect.new(0, 0, 128, 28)))
+    paddle:add_tag("game")
+    paddle:add_tag("paddle")
+
+    -- Create the level
+    ENTITY:setup_board()
+end
+
+function ENTITY:set_state_level_complete()
+    print("Setting state to level complete")
+
+    self.data.state = "level_complete"
+
+    self.data.level = self.data.level + 1
+    self.data.score = self.data.score + self.data.lives * 100
+
+    self.data.score = self.data.score + self.data.lives * 100
+    self.data.score_text.text = "Score: " .. tostring(self.data.score)
+    self.data.lives_text.text = "Lives: " .. tostring(self.data.lives)
+    self.data.instructions_text.text = "Level Complete! Press SPACE to continue"
+end
+
+function ENTITY:set_state_game_over()
+    print("Setting state to game over")
+
+    self.data.state = "game_over"
 end
 
 function ENTITY:setup_board()
-    -- Clear existing bricks by finding them by tag
-    local bricks = Entity.find_by_tag("brick")
-    for i = 1, #bricks do
-        bricks[i]:destroy()
-    end
-    
     -- Brick colors: Blue, Green, Red, Yellow, Orange, Purple
     local colors = {"blue", "green", "red", "yellow", "orange", "purple"}
     local color_sprites = {
@@ -128,31 +207,56 @@ function ENTITY:setup_board()
     self.data.instructions_text.text = "Press SPACE to launch ball"
 end
 
+--
+-- Entity functions
+--
+
+function ENTITY:entity_init()
+    print("Entity init")
+    print(self)
+    print(self.data)
+    ENTITY:set_state_title()
+end
+
 function ENTITY:entity_update(delta_time)
-    -- Call setup_board on first update to ensure all entities are initialized
-    if not self.data.initialized then
-        ENTITY:setup_board()
-        self.data.initialized = true
-        return
+    if self.data.state == "title" then
+        if InputState.keys_pressed[InputState.KEY.SPACE] then
+            ENTITY:set_state_countdown()
+        end
     end
-    
-    if self.data.state == 1 then
+    if self.data.state == "countdown" then
+        self.data.countdown = self.data.countdown - delta_time
+        self.data.countdown_text.text = tostring(math.ceil(self.data.countdown))
+        if self.data.countdown <= 0 then
+            ENTITY:set_state_play()
+        end
+    end
+    if self.data.state == "play" then
+        -- Remove the instructions on ball launch
+        if InputState.keys_pressed[InputState.KEY.SPACE] then
+            self.data.instructions_display.active = false
+        end
         -- Check if all bricks are destroyed
         if self.data.bricks_remaining <= 0 then
             ENTITY:level_complete()
         end
-    elseif self.data.state == 2 then
-        -- Level complete state - wait for space to continue
+    end
+    if self.data.state == "level_complete" then
         if InputState.keys_pressed[InputState.KEY.SPACE] then
-            ENTITY:setup_board()
+            if self.data.level > 5 then
+                ENTITY:set_state_game_over()
+            else
+                ENTITY:set_state_play()
+            end
         end
-    elseif self.data.state == 3 then
-        -- Game over state - wait for R to restart
+    end
+    if self.data.state == "game_over" then
         if InputState.keys_pressed[InputState.KEY.R] then
-            ENTITY:restart_game()
+            ENTITY:set_state_title()
         end
     end
 end
+
 
 function ENTITY:ball_lost()
     self.data.lives = self.data.lives - 1

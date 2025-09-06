@@ -99,11 +99,3 @@ EseEntity *_engine_find_entity(EseEngine *engine, const char *id) {
 
     return (EseEntity*)value;
 }
-
-void _engine_delete_entity(EseEngine *engine, EseEntity *entity) {
-    log_assert("ENGINE", engine, "_engine_delete_entity called with NULL engine");
-    log_assert("ENGINE", entity, "_engine_delete_entity called with NULL entity");
-
-    dlist_remove_by_value(engine->entities, entity);
-    dlist_append(engine->del_entities, entity);
-}
