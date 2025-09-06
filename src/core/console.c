@@ -183,19 +183,19 @@ void console_draw(EseConsole* console,
         int dot_radius = console->font_char_width / 2;
         
         switch (line->type) {
-            case CONSOLE_INFO:
+            case ESE_CONSOLE_INFO:
                 // Blue dot
                 rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 0, 100, 255, 255, user_data);
                 break;
-            case CONSOLE_WARN:
+            case ESE_CONSOLE_WARN:
                 // Orange dot
                 rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 165, 0, 255, user_data);
                 break;
-            case CONSOLE_ERROR:
+            case ESE_CONSOLE_ERROR:
                 // Red dot
                 rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 0, 0, 255, user_data);
                 break;
-            case CONSOLE_NORMAL:
+            case ESE_CONSOLE_NORMAL:
             default:
                 // No dot for normal lines
                 break;
@@ -239,10 +239,25 @@ void console_draw(EseConsole* console,
         // Draw separator ": "
         prefix_x += 2;
         
-        // Draw message text
+        // Draw message text with line wrapping
         int message_x = prefix_x;
+        int current_y = y_pos;
+        int available_width = view_width - message_x - 10; // Leave some margin
+        int char_width = console->font_char_width + 1;
+        int max_chars_per_line = available_width / char_width;
+        
+        int char_count = 0;
         for (int j = 0; line->message[j]; j++) {
             char c = line->message[j];
+            
+            // Handle line wrapping
+            if (char_count >= max_chars_per_line) {
+                // Move to next line
+                current_y += console->font_char_height + console->font_spacing;
+                message_x = prefix_x;
+                char_count = 0;
+            }
+            
             if (c >= 32 && c <= 126) {  // Printable ASCII
                 char sprite_name[64];
                 snprintf(sprite_name, sizeof(sprite_name), "fonts:console_font_10x20_%03d", (int)c);
@@ -254,9 +269,15 @@ void console_draw(EseConsole* console,
                     int w, h;
                     
                     sprite_get_frame(letter, 0, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
-                    texCallback(message_x, y_pos, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
+                    texCallback(message_x, current_y, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
                 }
-                message_x += console->font_char_width + 1;
+                message_x += char_width;
+                char_count++;
+            } else if (c == '\n') {
+                // Handle explicit newlines
+                current_y += console->font_char_height + console->font_spacing;
+                message_x = prefix_x;
+                char_count = 0;
             }
         }
     }

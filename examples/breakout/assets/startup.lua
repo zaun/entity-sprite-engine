@@ -41,7 +41,6 @@ function STARTUP:startup()
     gamemanager:add_tag("gamestate")
     gamemanager.data.STATE = {
         "title",
-        "countdown",
         "play",
         "level_complete",
         "game_over"

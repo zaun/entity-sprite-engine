@@ -9,6 +9,8 @@
 #include "vendor/lua/src/lua.h"
 #include "vendor/lua/src/lauxlib.h"
 #include "vendor/lua/src/lualib.h"
+#include "core/engine.h"
+#include "core/console.h"
 #include "core/memory_manager.h"
 #include "platform/filesystem.h"
 #include "platform/time.h"
@@ -610,7 +612,6 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     }
     profile_stop(PROFILE_LUA_ENGINE_ARG_CONVERSION, "lua_eng_run_func_ref_arg_conversion");
 
-    /*
     profile_start(PROFILE_LUA_ENGINE_HOOK_SETUP);
     LuaFunctionHook timeout;
     timeout.start_time = clock();
@@ -624,14 +625,33 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     lua_setfield(L, LUA_REGISTRYINDEX, LUA_HOOK_KEY);
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
     profile_stop(PROFILE_LUA_ENGINE_HOOK_SETUP, "lua_eng_run_func_ref_hook_setup");
-    */
 
     // Lua execution timing
     profile_start(PROFILE_LUA_ENGINE_LUA_EXECUTION);
     bool ok = true;
     int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
     if (lua_pcall(L, n_args, n_results, 0) != LUA_OK) {
+        // Grab the error message
+        const char *error_message = lua_tostring(L, -1);
         lua_pop(L, 1); // error message
+        
+        // Log the error first
+        log_error("LUA_ENGINE", "Error running function: %s", error_message);
+        
+        // Try to add to console if engine is available
+        lua_pushlightuserdata(L, (void*)ENGINE_KEY);
+        lua_gettable(L, LUA_REGISTRYINDEX);
+        if (lua_islightuserdata(L, -1)) {
+            EseEngine *engine = (EseEngine *)lua_touserdata(L, -1);
+            lua_pop(L, 1);
+            
+            if (engine) {
+                engine_add_to_console(engine, ESE_CONSOLE_ERROR, "LUA", error_message);
+                engine_show_console(engine, true);
+            }
+        } else {
+            lua_pop(L, 1);
+        }
         ok = false;
     } else if (out_result) {
         // Result conversion timing
@@ -644,11 +664,9 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     profile_stop(PROFILE_LUA_ENGINE_LUA_EXECUTION, "lua_eng_run_func_ref_execution");
 
     // Hook cleanup timing - DISABLED FOR TESTING
-    /*
     profile_start(PROFILE_LUA_ENGINE_HOOK_CLEANUP);
     lua_sethook(L, NULL, 0, 0);
     profile_stop(PROFILE_LUA_ENGINE_HOOK_CLEANUP, "lua_eng_run_func_ref_hook_cleanup");
-    */
 
     if (ok) {
         profile_stop(PROFILE_LUA_ENGINE_RUN_FUNCTION_REF, "lua_eng_run_func_ref");
@@ -800,8 +818,7 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
 
     log_debug("LUA_ENGINE", "Stack before pcall: %d (function + %d args)", lua_gettop(L), n_args);
 
-    // Hook setup timing - DISABLED FOR TESTING
-    /*
+    // Hook setup timing
     profile_start(PROFILE_LUA_ENGINE_HOOK_SETUP);
     
     // Setup timeout (security feature - always enabled for safety)
@@ -818,7 +835,6 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     lua_sethook(L, _lua_engine_function_hook, LUA_MASKCOUNT, LUA_HOOK_FRQ);
     
     profile_stop(PROFILE_LUA_ENGINE_HOOK_SETUP, "lua_eng_run_func_hook_setup");
-    */
 
     bool ok = true;
     int n_results = out_result ? 1 : 0; // Expect 1 result if out_result is provided
@@ -868,8 +884,28 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
         pcall_result = lua_pcall(L, fast_path_args, 0, 0);
         
         if (pcall_result != LUA_OK) {
-            log_error("LUA_ENGINE", "Fast path error: %s", lua_tostring(L, -1));
+            // Grab the error message
+            const char *error_message = lua_tostring(L, -1);
             lua_pop(L, 1); // error message
+            
+            // Log the error first
+            log_error("LUA_ENGINE", "Fast path error: %s", error_message);
+            
+            // Try to add to console if engine is available
+            lua_pushlightuserdata(L, (void*)ENGINE_KEY);
+            lua_gettable(L, LUA_REGISTRYINDEX);
+            if (lua_islightuserdata(L, -1)) {
+                EseEngine *engine = (EseEngine *)lua_touserdata(L, -1);
+                lua_pop(L, 1);
+                
+                if (engine) {
+                    engine_add_to_console(engine, ESE_CONSOLE_ERROR, "LUA", error_message);
+                    engine_show_console(engine, true);
+                }
+            } else {
+                lua_pop(L, 1);
+            }
+            
             ok = false;
         }
     } else {
@@ -881,8 +917,28 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
         pcall_result = lua_pcall(L, n_args, n_results, 0);
         
         if (pcall_result != LUA_OK) {
-            log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, lua_tostring(L, -1));
+            // Grab the error message
+            const char *error_message = lua_tostring(L, -1);
             lua_pop(L, 1); // error message
+            
+            // Log the error first
+            log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, error_message);
+            
+            // Try to add to console if engine is available
+            lua_pushlightuserdata(L, (void*)ENGINE_KEY);
+            lua_gettable(L, LUA_REGISTRYINDEX);
+            if (lua_islightuserdata(L, -1)) {
+                EseEngine *engine = (EseEngine *)lua_touserdata(L, -1);
+                lua_pop(L, 1);
+                
+                if (engine) {
+                    engine_add_to_console(engine, ESE_CONSOLE_ERROR, "LUA", error_message);
+                    engine_show_console(engine, true);
+                }
+            } else {
+                lua_pop(L, 1);
+            }
+            
             ok = false;
         } else if (out_result) {
             // Convert the result to EseLuaValue
@@ -918,8 +974,28 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     log_debug("LUA_ENGINE", "Stack size after pcall: %d", lua_gettop(L));
     
     if (pcall_result != LUA_OK) {
-        log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, lua_tostring(L, -1));
+        // Grab the error message
+        const char *error_message = lua_tostring(L, -1);
         lua_pop(L, 1); // error message
+        
+        // Log the error first
+        log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, error_message);
+        
+        // Try to add to console if engine is available
+        lua_pushlightuserdata(L, (void*)ENGINE_KEY);
+        lua_gettable(L, LUA_REGISTRYINDEX);
+        if (lua_islightuserdata(L, -1)) {
+            EseEngine *engine = (EseEngine *)lua_touserdata(L, -1);
+            lua_pop(L, 1);
+            
+            if (engine) {
+                engine_add_to_console(engine, ESE_CONSOLE_ERROR, "LUA", error_message);
+                engine_show_console(engine, true);
+            }
+        } else {
+            lua_pop(L, 1);
+        }
+        
         ok = false;
     } else if (out_result) {
         // Convert the result to EseLuaValue
@@ -948,17 +1024,14 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
         }
     }
 
-    // Hook cleanup timing - DISABLED FOR TESTING
-    /*
+    // Hook cleanup timing 
     profile_start(PROFILE_LUA_ENGINE_HOOK_CLEANUP);
     
     // Remove the hook only if we set one
     if (true) { // Always remove hooks for security
         lua_sethook(L, NULL, 0, 0);
     }
-    
     profile_stop(PROFILE_LUA_ENGINE_HOOK_CLEANUP, "lua_eng_run_func_hook_cleanup");
-    */
 
     // log_debug("LUA_ENGINE", "Stats: call count = %d  instruction count = %zu", timeout.call_count, timeout.call_count);
 

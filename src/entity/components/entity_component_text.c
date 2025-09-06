@@ -60,7 +60,7 @@ static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, con
 
     // Initialize with default values
     component->justify = TEXT_JUSTIFY_LEFT;
-    component->align = TEXT_ALIGN_LEFT;
+    component->align = TEXT_ALIGN_TOP;
     component->offset = point_create(engine);
     point_ref(component->offset);
 
@@ -303,6 +303,27 @@ void _entity_component_text_init(EseLuaEngine *engine) {
         lua_newtable(L);
         lua_pushcfunction(L, _entity_component_text_new);
         lua_setfield(L, -2, "new");
+        
+        // Add JUSTIFY constants
+        lua_newtable(L);
+        lua_pushinteger(L, TEXT_JUSTIFY_LEFT);
+        lua_setfield(L, -2, "LEFT");
+        lua_pushinteger(L, TEXT_JUSTIFY_CENTER);
+        lua_setfield(L, -2, "CENTER");
+        lua_pushinteger(L, TEXT_JUSTIFY_RIGHT);
+        lua_setfield(L, -2, "RIGHT");
+        lua_setfield(L, -2, "JUSTIFY");
+        
+        // Add ALIGN constants
+        lua_newtable(L);
+        lua_pushinteger(L, TEXT_ALIGN_TOP);
+        lua_setfield(L, -2, "TOP");
+        lua_pushinteger(L, TEXT_ALIGN_CENTER);
+        lua_setfield(L, -2, "CENTER");
+        lua_pushinteger(L, TEXT_ALIGN_BOTTOM);
+        lua_setfield(L, -2, "BOTTOM");
+        lua_setfield(L, -2, "ALIGN");
+        
         lua_setglobal(L, "EntityComponentText");
     } else {
         lua_pop(L, 1);
@@ -342,10 +363,10 @@ void _entity_component_text_draw(EseEntityComponentText *component, float screen
         case TEXT_ALIGN_CENTER:
             final_y -= text_height / 2.0f;
             break;
-        case TEXT_ALIGN_RIGHT:
+        case TEXT_ALIGN_BOTTOM:
             final_y -= text_height;
             break;
-        case TEXT_ALIGN_LEFT:
+        case TEXT_ALIGN_TOP:
         default:
             break;
     }

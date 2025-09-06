@@ -575,6 +575,35 @@ static int _entity_lua_find_by_tag(lua_State *L) {
 }
 
 /**
+ * @brief Lua function to find the first entity by tag.
+ */
+static int _entity_lua_find_first_by_tag(lua_State *L) {
+    if (!lua_isstring(L, 1)) {
+        return luaL_error(L, "Tag must be a string");
+    }
+
+    const char *tag = lua_tostring(L, 1);
+    
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    // Find 1 entity with tag
+    EseEntity **found = engine_find_by_tag(engine, tag, 1);
+    if (!found) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    // Push the found entity
+    entity_lua_push(found[0]);
+    memory_manager.free(found);
+    return 1;
+}
+
+/**
  * @brief Lua function to find an entity by ID.
  */
 static int _entity_lua_find_by_id(lua_State *L) {
@@ -1120,6 +1149,9 @@ void entity_lua_init(EseLuaEngine *engine) {
         // Add static tag functions
         lua_pushcfunction(engine->runtime, _entity_lua_find_by_tag);
         lua_setfield(engine->runtime, -2, "find_by_tag");
+
+        lua_pushcfunction(engine->runtime, _entity_lua_find_first_by_tag);
+        lua_setfield(engine->runtime, -2, "find_first_by_tag");
         
         lua_pushcfunction(engine->runtime, _entity_lua_find_by_id);
         lua_setfield(engine->runtime, -2, "find_by_id");

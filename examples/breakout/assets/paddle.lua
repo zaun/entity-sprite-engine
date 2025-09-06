@@ -1,15 +1,31 @@
+
+function ENTITY:new_ball()
+    self.data.ball_locked = true
+    self.position.x = Display.viewport.width / 2 - self.data.width / 2
+    self.position.y = Display.viewport.height - self.data.height - 10
+end
+
+function ENTITY:set_state_play()
+    self.data.is_playing = true
+end
+
 function ENTITY:entity_init()
-    -- Initialize data table
-    self.data = {}
-    
-    self.data.type = "paddle"
-    self.data.width = 80
-    self.data.height = 16
     self.data.speed = 400
-    self.data.size = 16  -- For collision detection
+    self.data.ball_locked = true
+    self.data.is_playing = false
+    self.position.x = Display.viewport.width / 2 - self.data.width / 2
+    self.position.y = Display.viewport.height - self.data.height - 10
 end
 
 function ENTITY:entity_update(delta_time)
+
+    -- If ball is locked, move with paddle
+    if self.data.ball_locked then
+        local ball = Entity.find_first_by_tag("ball")
+        ball.position.x = self.position.x + self.data.width / 2 - ball.data.size / 2
+        ball.position.y = self.position.y - ball.data.size - 5
+    end
+
     local move_speed = self.data.speed * delta_time
     
     -- Handle keyboard input
@@ -28,24 +44,19 @@ function ENTITY:entity_update(delta_time)
     elseif self.position.x > viewport_width - self.data.width then
         self.position.x = viewport_width - self.data.width
     end
-    
+
+    if not self.data.is_playing then
+        return
+    end
+
     -- Launch ball when space is pressed
     if InputState.keys_pressed[InputState.KEY.SPACE] then
-        local balls = Entity.find_by_tag("ball")
-        if balls and #balls > 0 then
-            local ball = balls[1]  -- Get first ball
+        local ball = Entity.find_first_by_tag("ball")
+        if ball then
             if ball and not ball.data.launched then
+                self.data.ball_locked = false
                 ball:dispatch("launch_ball")
             end
         end
     end
-end
-
-function ENTITY:entity_collision_enter(entity) 
-end
-
-function ENTITY:entity_collision_stay(entity) 
-end
-
-function ENTITY:entity_collision_exit(entity) 
 end

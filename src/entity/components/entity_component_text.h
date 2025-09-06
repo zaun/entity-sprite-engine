@@ -25,9 +25,9 @@ typedef enum {
  * @brief Text alignment options for vertical alignment
  */
 typedef enum {
-    TEXT_ALIGN_LEFT,
+    TEXT_ALIGN_TOP,
     TEXT_ALIGN_CENTER,
-    TEXT_ALIGN_RIGHT,
+    TEXT_ALIGN_BOTTOM,
 } EseTextAlign;
 
 /**

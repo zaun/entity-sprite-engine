@@ -338,7 +338,10 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 	while (dlist_iter_next(entity_iter, &value)) {
 	    EseEntity *entity = (EseEntity*)value;
 
-        // if (!entity->visible) continue;
+        if (!entity->active || !entity->visible) {
+            continue;
+        }
+
         entity_draw(
             entity,
             point_get_x(engine->camera_state->position),
