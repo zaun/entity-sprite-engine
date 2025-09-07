@@ -4,6 +4,7 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "types/rect.h"
+#include "types/point.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 
@@ -288,7 +289,7 @@ static int _rect_lua_newindex(lua_State *L) {
     }
 
     if (strcmp(key, "x") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
             return luaL_error(L, "rect.x must be a number");
         }
@@ -297,7 +298,7 @@ static int _rect_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
             return luaL_error(L, "rect.y must be a number");
         }
@@ -306,7 +307,7 @@ static int _rect_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "width") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
             return luaL_error(L, "rect.width must be a number");
         }
@@ -315,7 +316,7 @@ static int _rect_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "height") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
             return luaL_error(L, "rect.height must be a number");
         }
@@ -324,7 +325,7 @@ static int _rect_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
         return 0;
     }  else if (strcmp(key, "rotation") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
             return luaL_error(L, "rect.rotation must be a number (degrees)");
         }
@@ -381,23 +382,23 @@ static int _rect_lua_tostring(lua_State *L) {
  */
 static int _rect_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_RECT_NEW);
-    float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
 
     int n_args = lua_gettop(L);
     if (n_args == 4) {
-        if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2) || 
-            !lua_isnumber(L, 3) || !lua_isnumber(L, 4)) {
+        if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER || 
+            lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RECT_NEW);
-            return luaL_error(L, "all arguments must be numbers");
+            return luaL_error(L, "Rect.new(number, number, number, number) arguments must be numbers");
         }
-        x = (float)lua_tonumber(L, 1);
-        y = (float)lua_tonumber(L, 2);
-        width = (float)lua_tonumber(L, 3);
-        height = (float)lua_tonumber(L, 4);
-    } else if (n_args != 0) {
+    } else {
         profile_cancel(PROFILE_LUA_RECT_NEW);
-        return luaL_error(L, "new() takes 0 or 4 arguments (x, y, width, height)");
+        return luaL_error(L, "Rect.new(number, number, number, number) takes 4 arguments");
     }
+
+    float x = (float)lua_tonumber(L, 1);
+    float y = (float)lua_tonumber(L, 2);
+    float width = (float)lua_tonumber(L, 3);
+    float height = (float)lua_tonumber(L, 4);
 
     // Create the rect using the standard creation function
     EseRect *rect = _rect_make();
@@ -431,6 +432,14 @@ static int _rect_lua_new(lua_State *L) {
  */
 static int _rect_lua_zero(lua_State *L) {
     profile_start(PROFILE_LUA_RECT_ZERO);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        profile_cancel(PROFILE_LUA_RECT_ZERO);
+        return luaL_error(L, "Rect.zero() takes 0 arguments");
+    }
+
     // Create the rect using the standard creation function
     EseRect *rect = _rect_make();  // We'll set the state manually
     rect->state = L;
@@ -458,7 +467,13 @@ static int _rect_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the area value)
  */
 static int _rect_lua_area(lua_State *L) {
-    EseRect *rect = (EseRect *)lua_touserdata(L, lua_upvalueindex(1));
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "rect:area() takes 0 argument");
+    }
+    
+    EseRect *rect = rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "Invalid EseRect object in area method");
     }
@@ -477,17 +492,31 @@ static int _rect_lua_area(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _rect_lua_contains_point(lua_State *L) {
-    EseRect *rect = (EseRect *)lua_touserdata(L, lua_upvalueindex(1));
+    EseRect *rect = rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "Invalid EseRect object in contains_point method");
     }
+
+    float x, y;
     
-    if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2)) {
-        return luaL_error(L, "contains_point(x, y) requires two numbers");
+    int n_args = lua_gettop(L);
+    if (n_args == 3) {
+        if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
+            return luaL_error(L, "rect:contains_point(number, number) arguments must be numbers");
+        }
+        x = (float)lua_tonumber(L, 2);
+        y = (float)lua_tonumber(L, 3);
+    } else if (n_args == 2) {
+        EsePoint *point = point_lua_get(L, 2);
+        if (!point) {
+            return luaL_error(L, "rect:contains_point(point) requires a point");
+        }
+        x = point_get_x(point);
+        y = point_get_y(point);
+    } else {
+        return luaL_error(L, "nrect:contains_point(point) takes 1 argument\nrect:contains_point(number, number) takes 2 arguments");
     }
-    
-    float x = (float)lua_tonumber(L, 1);
-    float y = (float)lua_tonumber(L, 2);
+        
     
     lua_pushboolean(L, rect_contains_point(rect, x, y));
     return 1;
@@ -503,14 +532,20 @@ static int _rect_lua_contains_point(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _rect_lua_intersects(lua_State *L) {
-    EseRect *rect = (EseRect *)lua_touserdata(L, lua_upvalueindex(1));
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
+        return luaL_error(L, "Rect.intersects(rect) takes 1 arguments");
+    }
+
+    EseRect *rect = rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "Invalid EseRect object in intersects method");
     }
     
-    EseRect *other = rect_lua_get(L, 1);
+    EseRect *other = rect_lua_get(L, 2);
     if (!other) {
-        return luaL_error(L, "intersects() requires another EseRect object");
+        return luaL_error(L, "rect:intersects(rect) requires another EseRect object");
     }
     
     lua_pushboolean(L, rect_intersects(rect, other));

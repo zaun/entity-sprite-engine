@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define POINT_PROXY_META "PointProxyMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;

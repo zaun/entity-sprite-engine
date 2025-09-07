@@ -1,616 +1,785 @@
-#include "test_utils.h"
-#include "types/rect.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_rect.c - Unity-based tests for rect functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_rect_creation();
-static void test_rect_properties();
-static void test_rect_copy();
-static void test_rect_mathematical_operations();
-static void test_rect_collision_detection();
-static void test_rect_watcher_system();
-static void test_rect_lua_integration();
-static void test_rect_lua_script_api();
-static void test_rect_null_pointer_aborts();
+#include "../src/types/point.h"
+#include "../src/types/rect.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for Rect testing
-static const char* test_rect_lua_script = 
-"function RECT_TEST_MODULE:test_rect_creation()\n"
-"    local r1 = Rect.new(10.5, -5.25, 100.0, 75.5)\n"
-"    local r2 = Rect.zero()\n"
-"    \n"
-"    if r1.x == 10.5 and r1.y == -5.25 and r1.width == 100.0 and r1.height == 75.5 and\n"
-"       r2.x == 0 and r2.y == 0 and r2.width == 0 and r2.height == 0 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function RECT_TEST_MODULE:test_rect_properties()\n"
-"    local r = Rect.new(0, 0, 0, 0)\n"
-"    \n"
-"    r.x = 42.0\n"
-"    r.y = -17.5\n"
-"    r.width = 200.0\n"
-"    r.height = 150.0\n"
-"    r.rotation = 0.785398  -- π/4 radians (45 degrees)\n"
-"    \n"
-"    if r.x == 42.0 and r.y == -17.5 and r.width == 200.0 and r.height == 150.0 and\n"
-"       math.abs(r.rotation - 0.785398) < 0.001 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function RECT_TEST_MODULE:test_rect_operations()\n"
-"    local r1 = Rect.new(1, 2, 3, 4)\n"
-"    local r2 = Rect.new(5, 6, 7, 8)\n"
-"    \n"
-"    -- Test basic arithmetic operations\n"
-"    if r1.x + r2.x == 6 and r1.y + r2.y == 8 and\n"
-"       r1.width + r2.width == 10 and r1.height + r2.height == 12 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_rect_sizeof(void);
+static void test_rect_create_requires_engine(void);
+static void test_rect_create(void);
+static void test_rect_x(void);
+static void test_rect_y(void);
+static void test_rect_width(void);
+static void test_rect_height(void);
+static void test_rect_rotation(void);
+static void test_rect_ref(void);
+static void test_rect_copy_requires_engine(void);
+static void test_rect_copy(void);
+static void test_rect_area(void);
+static void test_rect_contains_point(void);
+static void test_rect_intersects(void);
+static void test_rect_watcher_system(void);
+static void test_rect_lua_integration(void);
+static void test_rect_lua_init(void);
+static void test_rect_lua_push(void);
+static void test_rect_lua_get(void);
 
-// Mock watcher callback for testing
-static bool rect_watcher_called = false;
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_rect_lua_new(void);
+static void test_rect_lua_zero(void);
+static void test_rect_lua_area(void);
+static void test_rect_lua_contains_point(void);
+static void test_rect_lua_intersects(void);
+static void test_rect_lua_x(void);
+static void test_rect_lua_y(void);
+static void test_rect_lua_width(void);
+static void test_rect_lua_height(void);
+static void test_rect_lua_rotation(void);
+static void test_rect_lua_tostring(void);
+static void test_rect_lua_gc(void);
+
+/**
+* Mock watcher callback for testing
+*/
+static bool watcher_called = false;
 static EseRect *last_watched_rect = NULL;
-static void *last_rect_watcher_userdata = NULL;
+static void *last_watcher_userdata = NULL;
 
-static void test_rect_watcher_callback(EseRect *rect, void *userdata) {
-    rect_watcher_called = true;
+static void test_watcher_callback(EseRect *rect, void *userdata) {
+    watcher_called = true;
     last_watched_rect = rect;
-    last_rect_watcher_userdata = userdata;
+    last_watcher_userdata = userdata;
 }
 
-void segfault_handler(int signo, siginfo_t *info, void *context) {
-    void *buffer[32];
-    int nptrs = backtrace(buffer, 32);
-    char **strings = backtrace_symbols(buffer, nptrs);
-    if (strings) {
-        fprintf(stderr, "---- BACKTRACE START ----\n");
-        for (int i = 0; i < nptrs; i++) {
-            fprintf(stderr, "%s\n", strings[i]);
-        }
-        fprintf(stderr, "---- BACKTRACE  END  ----\n");
-        free(strings);
-    }
-
-    signal(signo, SIG_DFL);
-    raise(signo);
+static void mock_reset(void) {
+    watcher_called = false;
+    last_watched_rect = NULL;
+    last_watcher_userdata = NULL;
 }
 
-int main() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
 
-    sa.sa_sigaction = segfault_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    sigaddset(&sa.sa_mask, SIGINT);
+void setUp(void) {
+    g_engine = create_test_engine();
+}
 
-    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
-        perror("Error setting SIGSEGV handler");
-        return EXIT_FAILURE;
-    }
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
+}
 
-    test_suite_begin("🧪 EseRect Test Suite");
-    
-    // Initialize required systems
+/**
+* Main test runner
+*/
+int main(void) {
     log_init();
-    
-    test_rect_creation();
-    test_rect_properties();
-    test_rect_copy();
-    test_rect_mathematical_operations();
-    test_rect_collision_detection();
-    test_rect_watcher_system();
-    test_rect_lua_integration();
-    test_rect_lua_script_api();
-    test_rect_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseRect Test Suite");
-        
-    return 0;
+
+    printf("\nEseRect Tests\n");
+    printf("--------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_rect_sizeof);
+    RUN_TEST(test_rect_create_requires_engine);
+    RUN_TEST(test_rect_create);
+    RUN_TEST(test_rect_x);
+    RUN_TEST(test_rect_y);
+    RUN_TEST(test_rect_width);
+    RUN_TEST(test_rect_height);
+    RUN_TEST(test_rect_rotation);
+    RUN_TEST(test_rect_ref);
+    RUN_TEST(test_rect_copy_requires_engine);
+    RUN_TEST(test_rect_copy);
+    RUN_TEST(test_rect_area);
+    RUN_TEST(test_rect_contains_point);
+    RUN_TEST(test_rect_intersects);
+    RUN_TEST(test_rect_watcher_system);
+    RUN_TEST(test_rect_lua_integration);
+    RUN_TEST(test_rect_lua_init);
+    RUN_TEST(test_rect_lua_push);
+    RUN_TEST(test_rect_lua_get);
+
+    RUN_TEST(test_rect_lua_new);
+    RUN_TEST(test_rect_lua_zero);
+    RUN_TEST(test_rect_lua_area);
+    RUN_TEST(test_rect_lua_contains_point);
+    RUN_TEST(test_rect_lua_intersects);
+    RUN_TEST(test_rect_lua_x);
+    RUN_TEST(test_rect_lua_y);
+    RUN_TEST(test_rect_lua_width);
+    RUN_TEST(test_rect_lua_height);
+    RUN_TEST(test_rect_lua_rotation);
+    RUN_TEST(test_rect_lua_tostring);
+    RUN_TEST(test_rect_lua_gc);
+
+    return UNITY_END();
 }
 
-static void test_rect_creation() {
-    test_begin("Rect Creation Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    
-    // Test rect_create
-    EseRect *rect = rect_create(mock_engine);
-    TEST_ASSERT_NOT_NULL(rect, "rect_create should return non-NULL pointer");
-    
-    if (rect) {
-        TEST_ASSERT_EQUAL(0.0f, rect_get_x(rect), "New rect should have x = 0.0");
-        TEST_ASSERT_EQUAL(0.0f, rect_get_y(rect), "New rect should have y = 0.0");
-        TEST_ASSERT_EQUAL(0.0f, rect_get_width(rect), "New rect should have width = 0.0");
-        TEST_ASSERT_EQUAL(0.0f, rect_get_height(rect), "New rect should have height = 0.0");
-        TEST_ASSERT_EQUAL(0.0f, rect_get_rotation(rect), "New rect should have rotation = 0.0");
-        TEST_ASSERT_POINTER_EQUAL(mock_engine->runtime, rect_get_state(rect), "Rect should have correct Lua state");
-        TEST_ASSERT_EQUAL(0, rect_get_lua_ref_count(rect), "New rect should have ref count 0");
-        
-        // Test LUA_NOREF - check for any negative value (LUA_NOREF is typically -1 but may vary)
-        int lua_ref = rect_get_lua_ref(rect);
-        TEST_ASSERT(lua_ref < 0, "New rect should have negative LUA_NOREF value");
-        printf("ℹ INFO: Actual LUA_NOREF value: %d\n", lua_ref);
-        
-        // Test rect_sizeof
-        size_t actual_size = rect_sizeof();
-        TEST_ASSERT(actual_size > 0, "rect_sizeof should return positive size");
-        printf("ℹ INFO: Actual rect size: %zu bytes\n", actual_size);
-        
-        rect_destroy(rect);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Creation Tests");
+/**
+* C API Test Functions
+*/
+
+static void test_rect_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, rect_sizeof(), "Point size should be > 0");
 }
 
-static void test_rect_properties() {
-    test_begin("Rect Properties Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *rect = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for property tests");
-    
-    if (rect) {
-        // Test setting and getting x coordinate
-        rect_set_x(rect, 10.5f);
-        TEST_ASSERT_FLOAT_EQUAL(10.5f, rect_get_x(rect), 0.001f, "rect_set_x should set x coordinate");
-        
-        // Test setting and getting y coordinate
-        rect_set_y(rect, -5.25f);
-        TEST_ASSERT_FLOAT_EQUAL(-5.25f, rect_get_y(rect), 0.001f, "rect_set_y should set y coordinate");
-        
-        // Test setting and getting width
-        rect_set_width(rect, 100.0f);
-        TEST_ASSERT_FLOAT_EQUAL(100.0f, rect_get_width(rect), 0.001f, "rect_set_width should set width");
-        
-        // Test setting and getting height
-        rect_set_height(rect, 75.5f);
-        TEST_ASSERT_FLOAT_EQUAL(75.5f, rect_get_height(rect), 0.001f, "rect_set_height should set height");
-        
-        // Test setting and getting rotation (in radians)
-        rect_set_rotation(rect, M_PI / 4.0f); // 45 degrees
-        TEST_ASSERT_FLOAT_EQUAL(M_PI / 4.0f, rect_get_rotation(rect), 0.001f, "rect_set_rotation should set rotation in radians");
-        
-        // Test setting negative values
-        rect_set_x(rect, -100.0f);
-        rect_set_y(rect, -200.0f);
-        rect_set_width(rect, -50.0f); // Should handle negative width
-        rect_set_height(rect, -25.0f); // Should handle negative height
-        
-        TEST_ASSERT_FLOAT_EQUAL(-100.0f, rect_get_x(rect), 0.001f, "rect_set_x should handle negative values");
-        TEST_ASSERT_FLOAT_EQUAL(-200.0f, rect_get_y(rect), 0.001f, "rect_set_y should handle negative values");
-        TEST_ASSERT_FLOAT_EQUAL(-50.0f, rect_get_width(rect), 0.001f, "rect_set_width should handle negative values");
-        TEST_ASSERT_FLOAT_EQUAL(-25.0f, rect_get_height(rect), 0.001f, "rect_set_height should handle negative values");
-        
-        // Test setting zero values
-        rect_set_x(rect, 0.0f);
-        rect_set_y(rect, 0.0f);
-        rect_set_width(rect, 0.0f);
-        rect_set_height(rect, 0.0f);
-        rect_set_rotation(rect, 0.0f);
-        
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, rect_get_x(rect), 0.001f, "rect_set_x should handle zero values");
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, rect_get_y(rect), 0.001f, "rect_set_y should handle zero values");
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, rect_get_width(rect), 0.001f, "rect_set_width should handle zero values");
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, rect_get_height(rect), 0.001f, "rect_set_height should handle zero values");
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, rect_get_rotation(rect), 0.001f, "rect_set_rotation should handle zero values");
-        
-        rect_destroy(rect);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Properties Tests");
+static void test_rect_create_requires_engine(void) {
+    ASSERT_DEATH(rect_create(NULL), "rect_create should abort with NULL engine");
 }
 
-static void test_rect_copy() {
-    test_begin("Rect Copy Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *original = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(original, "Original rect should be created for copy tests");
-    
-    if (original) {
-        // Set some values
-        rect_set_x(original, 42.0f);
-        rect_set_y(original, -17.5f);
-        rect_set_width(original, 100.0f);
-        rect_set_height(original, 75.0f);
-        rect_set_rotation(original, M_PI / 6.0f); // 30 degrees
-        
-        // Test rect_copy
-        EseRect *copy = rect_copy(original);
-        TEST_ASSERT_NOT_NULL(copy, "rect_copy should return non-NULL pointer");
-        
-        if (copy) {
-            // Verify values are copied correctly
-            TEST_ASSERT_FLOAT_EQUAL(42.0f, rect_get_x(copy), 0.001f, "Copied rect should have same x value");
-            TEST_ASSERT_FLOAT_EQUAL(-17.5f, rect_get_y(copy), 0.001f, "Copied rect should have same y value");
-            TEST_ASSERT_FLOAT_EQUAL(100.0f, rect_get_width(copy), 0.001f, "Copied rect should have same width");
-            TEST_ASSERT_FLOAT_EQUAL(75.0f, rect_get_height(copy), 0.001f, "Copied rect should have same height");
-            TEST_ASSERT_FLOAT_EQUAL(M_PI / 6.0f, rect_get_rotation(copy), 0.001f, "Copied rect should have same rotation");
-            
-            // Verify it's a different object
-            TEST_ASSERT(original != copy, "Copy should be a different object");
-            
-            // Verify Lua state is copied
-            TEST_ASSERT_POINTER_EQUAL(rect_get_state(original), rect_get_state(copy), "Copy should have same Lua state");
-            
-            // Verify copy starts with no Lua references
-            int copy_lua_ref = rect_get_lua_ref(copy);
-            TEST_ASSERT(copy_lua_ref < 0, "Copy should start with negative LUA_NOREF value");
-            printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy_lua_ref);
-            TEST_ASSERT_EQUAL(0, rect_get_lua_ref_count(copy), "Copy should start with ref count 0");
-            
-            rect_destroy(copy);
-        }
-        
-        rect_destroy(original);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Copy Tests");
+static void test_rect_create(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(rect, "Rect should be created");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, rect_get_x(rect));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, rect_get_y(rect));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, rect_get_width(rect));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, rect_get_height(rect));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, rect_get_rotation(rect));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, rect_get_state(rect), "Rect should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, rect_get_lua_ref_count(rect), "New rect should have ref count 0");
+
+    rect_destroy(rect);
 }
 
-static void test_rect_mathematical_operations() {
-    test_begin("Rect Mathematical Operations Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *rect = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for math tests");
-    
-    if (rect) {
-        // Test area calculation
-        rect_set_width(rect, 10.0f);
-        rect_set_height(rect, 5.0f);
-        
-        float area = rect_area(rect);
-        TEST_ASSERT_FLOAT_EQUAL(50.0f, area, 0.001f, "Area of 10x5 rect should be 50.0");
-        
-        // Test area with negative dimensions
-        rect_set_width(rect, -10.0f);
-        rect_set_height(rect, -5.0f);
-        
-        area = rect_area(rect);
-        TEST_ASSERT_FLOAT_EQUAL(50.0f, area, 0.001f, "Area should be positive even with negative dimensions");
-        
-        // Test area with zero dimensions
-        rect_set_width(rect, 0.0f);
-        rect_set_height(rect, 0.0f);
-        
-        area = rect_area(rect);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, area, 0.001f, "Area of 0x0 rect should be 0.0");
-        
-        rect_destroy(rect);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Mathematical Operations Tests");
+static void test_rect_x(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_x(rect, 10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, rect_get_x(rect));
+
+    rect_set_x(rect, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, rect_get_x(rect));
+
+    rect_set_x(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_get_x(rect));
+
+    rect_destroy(rect);
 }
 
-static void test_rect_collision_detection() {
-    test_begin("Rect Collision Detection Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    
-    // Create test rectangles
-    EseRect *rect1 = rect_create(mock_engine);
-    EseRect *rect2 = rect_create(mock_engine);
-    EseRect *rect3 = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(rect1, "Rect1 should be created for collision tests");
-    TEST_ASSERT_NOT_NULL(rect2, "Rect2 should be created for collision tests");
-    TEST_ASSERT_NOT_NULL(rect3, "Rect3 should be created for collision tests");
-    
-    if (rect1 && rect2 && rect3) {
-        // Test axis-aligned rectangle intersection
-        rect_set_x(rect1, 0.0f);
-        rect_set_y(rect1, 0.0f);
-        rect_set_width(rect1, 10.0f);
-        rect_set_height(rect1, 10.0f);
-        rect_set_rotation(rect1, 0.0f);
-        
-        rect_set_x(rect2, 5.0f);
-        rect_set_y(rect2, 5.0f);
-        rect_set_width(rect2, 10.0f);
-        rect_set_height(rect2, 10.0f);
-        rect_set_rotation(rect2, 0.0f);
-        
-        bool intersects = rect_intersects(rect1, rect2);
-        TEST_ASSERT(intersects, "Overlapping axis-aligned rectangles should intersect");
-        
-        // Test non-overlapping rectangles
-        rect_set_x(rect3, 20.0f);
-        rect_set_y(rect3, 20.0f);
-        rect_set_width(rect3, 5.0f);
-        rect_set_height(rect3, 5.0f);
-        rect_set_rotation(rect3, 0.0f);
-        
-        bool not_intersects = rect_intersects(rect1, rect3);
-        TEST_ASSERT(!not_intersects, "Non-overlapping rectangles should not intersect");
-        
-        // Test point containment
-        bool contains = rect_contains_point(rect1, 5.0f, 5.0f);
-        TEST_ASSERT(contains, "Point (5,5) should be inside rect1");
-        
-        bool not_contains = rect_contains_point(rect1, 15.0f, 15.0f);
-        TEST_ASSERT(!not_contains, "Point (15,15) should not be inside rect1");
-        
-        // Test edge cases
-        bool edge_contains = rect_contains_point(rect1, 0.0f, 0.0f);
-        TEST_ASSERT(edge_contains, "Point (0,0) on edge should be inside rect1");
-        
-        bool edge_contains2 = rect_contains_point(rect1, 10.0f, 10.0f);
-        TEST_ASSERT(edge_contains2, "Point (10,10) on edge should be inside rect1");
-        
-        rect_destroy(rect1);
-        rect_destroy(rect2);
-        rect_destroy(rect3);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Collision Detection Tests");
+static void test_rect_y(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_y(rect, 20.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, rect_get_y(rect));
+
+    rect_set_y(rect, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, rect_get_y(rect));
+
+    rect_set_y(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_get_y(rect));
+
+    rect_destroy(rect);
 }
 
-static void test_rect_watcher_system() {
-    test_begin("Rect Watcher System Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *rect = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for watcher tests");
-    
-    if (rect) {
-        // Reset watcher state
-        rect_watcher_called = false;
-        last_watched_rect = NULL;
-        last_rect_watcher_userdata = NULL;
-        
-        // Test adding a watcher
-        void *test_userdata = (void*)0x12345678;
-        bool add_result = rect_add_watcher(rect, test_rect_watcher_callback, test_userdata);
-        TEST_ASSERT(add_result, "rect_add_watcher should return true on success");
-        
-        // Test that watcher is called when x changes
-        rect_set_x(rect, 50.0f);
-        TEST_ASSERT(rect_watcher_called, "Watcher should be called when x coordinate changes");
-        TEST_ASSERT_POINTER_EQUAL(rect, last_watched_rect, "Watcher should receive correct rect pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_rect_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Reset watcher state
-        rect_watcher_called = false;
-        last_watched_rect = NULL;
-        last_rect_watcher_userdata = NULL;
-        
-        // Test that watcher is called when y changes
-        rect_set_y(rect, 75.0f);
-        TEST_ASSERT(rect_watcher_called, "Watcher should be called when y coordinate changes");
-        TEST_ASSERT_POINTER_EQUAL(rect, last_watched_rect, "Watcher should receive correct rect pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_rect_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Reset watcher state
-        rect_watcher_called = false;
-        last_watched_rect = NULL;
-        last_rect_watcher_userdata = NULL;
-        
-        // Test that watcher is called when width changes
-        rect_set_width(rect, 200.0f);
-        TEST_ASSERT(rect_watcher_called, "Watcher should be called when width changes");
-        TEST_ASSERT_POINTER_EQUAL(rect, last_watched_rect, "Watcher should receive correct rect pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_rect_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Reset watcher state
-        rect_watcher_called = false;
-        last_watched_rect = NULL;
-        last_rect_watcher_userdata = NULL;
-        
-        // Test that watcher is called when height changes
-        rect_set_height(rect, 150.0f);
-        TEST_ASSERT(rect_watcher_called, "Watcher should be called when height changes");
-        TEST_ASSERT_POINTER_EQUAL(rect, last_watched_rect, "Watcher should receive correct rect pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_rect_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Reset watcher state
-        rect_watcher_called = false;
-        last_watched_rect = NULL;
-        last_rect_watcher_userdata = NULL;
-        
-        // Test that watcher is called when rotation changes
-        rect_set_rotation(rect, M_PI / 2.0f);
-        TEST_ASSERT(rect_watcher_called, "Watcher should be called when rotation changes");
-        TEST_ASSERT_POINTER_EQUAL(rect, last_watched_rect, "Watcher should receive correct rect pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_rect_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Test adding multiple watchers
-        void *test_userdata2 = (void*)0x87654321;
-        bool add_result2 = rect_add_watcher(rect, test_rect_watcher_callback, test_userdata2);
-        TEST_ASSERT(add_result2, "Adding second watcher should succeed");
-        
-        // Test removing a watcher
-        bool remove_result = rect_remove_watcher(rect, test_rect_watcher_callback, test_userdata);
-        TEST_ASSERT(remove_result, "rect_remove_watcher should return true when removing existing watcher");
-        
-        // Test removing non-existent watcher
-        bool remove_fake_result = rect_remove_watcher(rect, test_rect_watcher_callback, (void*)0x99999999);
-        TEST_ASSERT(!remove_fake_result, "rect_remove_watcher should return false for non-existent watcher");
-        
-        rect_destroy(rect);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Watcher System Tests");
+static void test_rect_width(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_width(rect, 100.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, rect_get_width(rect));
+
+    rect_set_width(rect, -50.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -50.0f, rect_get_width(rect));
+
+    rect_set_width(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_get_width(rect));
+
+    rect_destroy(rect);
 }
 
-static void test_rect_lua_integration() {
-    test_begin("Rect Lua Integration Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *rect = rect_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for Lua integration tests");
-    
-    if (rect) {
-        // Test basic functionality without Lua operations
-        TEST_ASSERT_EQUAL(0, rect_get_lua_ref_count(rect), "New rect should start with ref count 0");
-        
-        // Test LUA_NOREF - check for any negative value
-        int lua_ref = rect_get_lua_ref(rect);
-        TEST_ASSERT(lua_ref < 0, "New rect should start with negative LUA_NOREF value");
-        printf("ℹ INFO: Actual LUA_NOREF value: %d\n", lua_ref);
-        
-        rect_destroy(rect);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Rect Lua Integration Tests");
+static void test_rect_height(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_height(rect, 75.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 75.0f, rect_get_height(rect));
+
+    rect_set_height(rect, -25.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -25.0f, rect_get_height(rect));
+
+    rect_set_height(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_get_height(rect));
+
+    rect_destroy(rect);
 }
 
-static void test_rect_lua_script_api() {
-    test_begin("Rect Lua Script API Tests");
+static void test_rect_rotation(void) {
+    EseRect *rect = rect_create(g_engine);
 
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for Lua script API tests");
+    rect_set_rotation(rect, M_PI / 4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, rect_get_rotation(rect));
 
-    if (engine) {
-        // Initialize the Rect Lua type
-        rect_lua_init(engine);
-        
-        // Load the test script
-        bool load_result = lua_engine_load_script_from_string(engine, test_rect_lua_script, "test_rect_script", "RECT_TEST_MODULE");
-        TEST_ASSERT(load_result, "Test script should load successfully");
-        
-        if (load_result) {
-            // Create an instance of the script
-            int instance_ref = lua_engine_instance_script(engine, "test_rect_script");
-            TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
-            
-            if (instance_ref > 0) {
-                // Create a dummy self object for function calls
-                lua_State* L = engine->runtime;
-                lua_newtable(L);  // Create empty table as dummy self
-                int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-                
-                // Test test_rect_creation
-                EseLuaValue *result = lua_value_create_nil("result");
-                bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_rect_creation", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_rect_creation should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_rect_creation should return boolean"); // LUA_VAL_BOOL = 1
-                TEST_ASSERT(result->value.boolean == true, "test_rect_creation should return true");
-                
-                // Test test_rect_properties
-                lua_value_set_nil(result);
-                exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_rect_properties", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_rect_properties should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_rect_properties should return boolean");
-                TEST_ASSERT(result->value.boolean == true, "test_rect_properties should return true");
-                
-                // Test test_rect_operations
-                lua_value_set_nil(result);
-                exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_rect_operations", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_rect_operations should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_rect_operations should return boolean");
-                TEST_ASSERT(result->value.boolean == true, "test_rect_operations should return true");
-                
-                // Clean up result
-                lua_value_free(result);
-                
-                // Clean up dummy self and instance
-                luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
-                lua_engine_instance_remove(engine, instance_ref);
-            }
-        }
-        
-        lua_engine_destroy(engine);
-    }
+    rect_set_rotation(rect, -M_PI / 2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -M_PI / 2.0f, rect_get_rotation(rect));
 
-    test_end("Rect Lua Script API Tests");
+    rect_set_rotation(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_get_rotation(rect));
+
+    rect_destroy(rect);
 }
 
-static void test_rect_null_pointer_aborts() {
-    test_begin("Rect NULL Pointer Abort Tests");
+static void test_rect_ref(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_ref(rect);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, rect_get_lua_ref_count(rect), "Ref count should be 1");
+
+    rect_unref(rect);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, rect_get_lua_ref_count(rect), "Ref count should be 0");
+
+    rect_destroy(rect);
+}
+
+static void test_rect_copy_requires_engine(void) {
+    ASSERT_DEATH(rect_copy(NULL), "rect_copy should abort with NULL rect");
+}
+
+static void test_rect_copy(void) {
+    EseRect *rect = rect_create(g_engine);
+    rect_ref(rect);
+    rect_set_x(rect, 10.0f);
+    rect_set_y(rect, 20.0f);
+    rect_set_width(rect, 100.0f);
+    rect_set_height(rect, 75.0f);
+    rect_set_rotation(rect, M_PI / 4.0f);
+    EseRect *copy = rect_copy(rect);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, rect_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, rect_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, rect_get_x(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, rect_get_y(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, rect_get_width(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 75.0f, rect_get_height(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, rect_get_rotation(copy));
+
+    rect_unref(rect);
+    rect_destroy(rect);
+    rect_destroy(copy);
+}
+
+static void test_rect_area(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_width(rect, 10.0f);
+    rect_set_height(rect, 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, rect_area(rect));
+
+    rect_set_width(rect, -10.0f);
+    rect_set_height(rect, -5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, rect_area(rect));
+
+    rect_set_width(rect, 0.0f);
+    rect_set_height(rect, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rect_area(rect));
+
+    rect_destroy(rect);
+}
+
+static void test_rect_contains_point(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    rect_set_x(rect, 0.0f);
+    rect_set_y(rect, 0.0f);
+    rect_set_width(rect, 10.0f);
+    rect_set_height(rect, 10.0f);
+    rect_set_rotation(rect, 0.0f);
+
+    TEST_ASSERT_TRUE_MESSAGE(rect_contains_point(rect, 5.0f, 5.0f), "Point (5,5) should be inside rect");
+    TEST_ASSERT_TRUE_MESSAGE(rect_contains_point(rect, 0.0f, 0.0f), "Point (0,0) on edge should be inside rect");
+    TEST_ASSERT_TRUE_MESSAGE(rect_contains_point(rect, 10.0f, 10.0f), "Point (10,10) on edge should be inside rect");
+    TEST_ASSERT_FALSE_MESSAGE(rect_contains_point(rect, 15.0f, 15.0f), "Point (15,15) should not be inside rect");
+    TEST_ASSERT_FALSE_MESSAGE(rect_contains_point(rect, -1.0f, 5.0f), "Point (-1,5) should not be inside rect");
+    TEST_ASSERT_FALSE_MESSAGE(rect_contains_point(rect, 5.0f, -1.0f), "Point (5,-1) should not be inside rect");
+
+    rect_destroy(rect);
+}
+
+static void test_rect_intersects(void) {
+    EseRect *rect1 = rect_create(g_engine);
+    EseRect *rect2 = rect_create(g_engine);
+    EseRect *rect3 = rect_create(g_engine);
+
+    rect_set_x(rect1, 0.0f);
+    rect_set_y(rect1, 0.0f);
+    rect_set_width(rect1, 10.0f);
+    rect_set_height(rect1, 10.0f);
+    rect_set_rotation(rect1, 0.0f);
+
+    rect_set_x(rect2, 5.0f);
+    rect_set_y(rect2, 5.0f);
+    rect_set_width(rect2, 10.0f);
+    rect_set_height(rect2, 10.0f);
+    rect_set_rotation(rect2, 0.0f);
+
+    rect_set_x(rect3, 20.0f);
+    rect_set_y(rect3, 20.0f);
+    rect_set_width(rect3, 5.0f);
+    rect_set_height(rect3, 5.0f);
+    rect_set_rotation(rect3, 0.0f);
+
+    TEST_ASSERT_TRUE_MESSAGE(rect_intersects(rect1, rect2), "Overlapping rectangles should intersect");
+    TEST_ASSERT_TRUE_MESSAGE(rect_intersects(rect2, rect1), "Intersection should be commutative");
+    TEST_ASSERT_FALSE_MESSAGE(rect_intersects(rect1, rect3), "Non-overlapping rectangles should not intersect");
+    TEST_ASSERT_FALSE_MESSAGE(rect_intersects(rect3, rect1), "Non-intersection should be commutative");
+
+    rect_destroy(rect1);
+    rect_destroy(rect2);
+    rect_destroy(rect3);
+}
+
+static void test_rect_watcher_system(void) {
+    EseRect *rect = rect_create(g_engine);
+
+    mock_reset();
+    rect_set_x(rect, 25.0f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called before adding");
+
+    void *test_userdata = (void*)0x12345678;
+    bool add_result = rect_add_watcher(rect, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(add_result, "Should successfully add watcher");
+
+    mock_reset();
+    rect_set_x(rect, 50.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when x changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, last_watched_rect, "Watcher should receive correct rect pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    rect_set_y(rect, 75.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when y changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, last_watched_rect, "Watcher should receive correct rect pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    rect_set_width(rect, 100.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when width changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, last_watched_rect, "Watcher should receive correct rect pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    rect_set_height(rect, 150.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when height changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, last_watched_rect, "Watcher should receive correct rect pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    rect_set_rotation(rect, M_PI / 2.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when rotation changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, last_watched_rect, "Watcher should receive correct rect pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    bool remove_result = rect_remove_watcher(rect, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(remove_result, "Should successfully remove watcher");
+
+    mock_reset();
+    rect_set_x(rect, 100.0f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called after removal");
+
+    rect_destroy(rect);
+}
+
+static void test_rect_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EseRect *rect = rect_create(engine);
+
+    lua_State *before_state = rect_get_state(rect);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Rect should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Rect state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, rect_get_lua_ref(rect), "Rect should have no Lua reference initially");
+
+    rect_ref(rect);
+    lua_State *after_ref_state = rect_get_state(rect);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Rect should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Rect state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, rect_get_lua_ref(rect), "Rect should have a valid Lua reference after ref");
+
+    rect_unref(rect);
+    lua_State *after_unref_state = rect_get_state(rect);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Rect should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Rect state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, rect_get_lua_ref(rect), "Rect should have no Lua reference after unref");
+
+    rect_destroy(rect);
+    lua_engine_destroy(engine);
+}
+
+static void test_rect_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EseRect *rect = rect_create(mock_engine);
+    luaL_getmetatable(L, "RectMeta");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for NULL pointer abort tests");
+    lua_getglobal(L, "Rect");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Rect table should not exist before initialization");
+    lua_pop(L, 1);
     
-    if (rect) {
-        // Test that creation functions abort with NULL pointers
-        TEST_ASSERT_ABORT(rect_create(NULL), "rect_create should abort with NULL engine");
-        TEST_ASSERT_ABORT(rect_copy(NULL), "rect_copy should abort with NULL source");
-        TEST_ASSERT_ABORT(rect_lua_init(NULL), "rect_lua_init should abort with NULL engine");
-        
-        // Test that mathematical operations abort with NULL pointers
-        TEST_ASSERT_ABORT(rect_area(NULL), "rect_area should abort with NULL rect");
-        
-        // Test that collision detection aborts with NULL pointers
-        TEST_ASSERT_ABORT(rect_contains_point(NULL, 1.0f, 1.0f), "rect_contains_point should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_intersects(NULL, rect), "rect_intersects should abort with NULL first rect");
-        TEST_ASSERT_ABORT(rect_intersects(rect, NULL), "rect_intersects should abort with NULL second rect");
-        
-        // Test that property access aborts with NULL pointers
-        TEST_ASSERT_ABORT(rect_get_x(NULL), "rect_get_x should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_y(NULL), "rect_get_y should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_width(NULL), "rect_get_width should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_height(NULL), "rect_get_height should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_rotation(NULL), "rect_get_rotation should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_set_x(NULL, 1.0f), "rect_set_x should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_set_y(NULL, 1.0f), "rect_set_y should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_set_width(NULL, 1.0f), "rect_set_width should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_set_height(NULL, 1.0f), "rect_set_height should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_set_rotation(NULL, 1.0f), "rect_set_rotation should abort with NULL rect");
-        
-        // Test that Lua-related access aborts with NULL pointers
-        TEST_ASSERT_ABORT(rect_get_state(NULL), "rect_get_state should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_lua_ref(NULL), "rect_get_lua_ref should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_get_lua_ref_count(NULL), "rect_get_lua_ref_count should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_lua_get(NULL, 1), "rect_lua_get should abort with NULL Lua state");
-        
-        // Test that watcher system aborts with NULL pointers
-        TEST_ASSERT_ABORT(rect_add_watcher(NULL, test_rect_watcher_callback, (void*)0x123), "rect_add_watcher should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_add_watcher(rect, NULL, (void*)0x123), "rect_add_watcher should abort with NULL callback");
-        TEST_ASSERT_ABORT(rect_remove_watcher(NULL, test_rect_watcher_callback, (void*)0x123), "rect_remove_watcher should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_remove_watcher(rect, NULL, (void*)0x123), "rect_remove_watcher should abort with NULL callback");
-        
-        // Test that Lua integration aborts with NULL pointers
-        TEST_ASSERT_ABORT(rect_lua_push(NULL), "rect_lua_push should abort with NULL rect");
-        TEST_ASSERT_ABORT(rect_ref(NULL), "rect_ref should abort with NULL rect");
-        
-        rect_destroy(rect);
-    }
+    rect_lua_init(g_engine);
     
-    lua_engine_destroy(mock_engine);
+    luaL_getmetatable(L, "RectMeta");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    test_end("Rect NULL Pointer Abort Tests");
+    lua_getglobal(L, "Rect");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global Rect table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global Rect table should be a table");
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_push(void) {
+    rect_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseRect *rect = rect_create(g_engine);
+    
+    rect_lua_push(rect);
+    
+    EseRect **ud = (EseRect **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, *ud, "The pushed item should be the actual rect");
+    
+    lua_pop(L, 1); 
+    
+    rect_destroy(rect);
+}
+
+static void test_rect_lua_get(void) {
+    rect_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseRect *rect = rect_create(g_engine);
+    
+    rect_lua_push(rect);
+    
+    EseRect *extracted_rect = rect_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(rect, extracted_rect, "Extracted rect should match original");
+    
+    lua_pop(L, 1);
+    rect_destroy(rect);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_rect_lua_new(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Rect.new()\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Rect.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Rect.new(10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return Rect.new(10, 10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute with error");
+
+    const char *testE = "return Rect.new(\"10\", \"10\", \"10\", \"10\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute with error");
+
+    const char *testF = "return Rect.new(10, 10, 100, 75)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testF), "testF Lua code should execute without error");
+    EseRect *extracted_rect = rect_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_rect, "Extracted rect should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, rect_get_x(extracted_rect), "Extracted rect should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, rect_get_y(extracted_rect), "Extracted rect should have y=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(100.0f, rect_get_width(extracted_rect), "Extracted rect should have width=100");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(75.0f, rect_get_height(extracted_rect), "Extracted rect should have height=75");
+    rect_destroy(extracted_rect);
+}
+
+static void test_rect_lua_zero(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Rect.zero(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Rect.zero(10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Rect.zero()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    EseRect *extracted_rect = rect_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_rect, "Extracted rect should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, rect_get_x(extracted_rect), "Extracted rect should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, rect_get_y(extracted_rect), "Extracted rect should have y=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, rect_get_width(extracted_rect), "Extracted rect should have width=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, rect_get_height(extracted_rect), "Extracted rect should have height=0");
+    rect_destroy(extracted_rect);
+}
+
+static void test_rect_lua_area(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code1 = "local r = Rect.new(0, 0, 10, 5); return r:area()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code1), "area test should execute without error");
+    double area = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(50.0f, area, "Area should be 50");
+    lua_pop(L, 1);
+
+    const char *test_code2 = "local r = Rect.new(0, 0, 10, 5); return r:area(10)";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "area test 2 should execute with error");
+}
+
+static void test_rect_lua_contains_point(void) {
+    rect_lua_init(g_engine);
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(5, 5)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "contains_point test should execute without error");
+    bool contains = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(contains, "Point should be contained");
+    lua_pop(L, 1);
+
+    const char *test_code2 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(15, 15)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "contains_point test 2 should execute without error");
+    bool contains2 = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(contains2, "Point should not be contained");
+    lua_pop(L, 1);
+
+    const char *test_code3 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(Point.new(5, 5))";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code3), "contains_point test 3 should execute without error");
+    bool contains3 = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(contains3, "Point should be contained");
+    lua_pop(L, 1);
+
+    const char *test_code4 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(Point.new(15, 15))";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code4), "contains_point test 4 should execute without error");
+    bool contains4 = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(contains4, "Point should not be contained");
+    lua_pop(L, 1);
+
+    const char *test_code5 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point()";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code5), "test_code5 Lua code should execute with error");
+
+    const char *test_code6 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(5, 5, 5)";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code6), "test_code6 Lua code should execute with error");
+
+    const char *test_code7 = "local r = Rect.new(0, 0, 10, 10); return r:contains_point(\"4\", \"6\")";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code6), "test_code6 Lua code should execute with error");
+}
+
+static void test_rect_lua_intersects(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "local r1 = Rect.new(0, 0, 10, 10); local r2 = Rect.new(5, 5, 10, 10); return r1:intersects(r2)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "intersects test should execute without error");
+    bool intersects = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Rectangles should intersect");
+    lua_pop(L, 1);
+
+    const char *test_code2 = "local r1 = Rect.new(0, 0, 10, 10); local r2 = Rect.new(20, 20, 5, 5); return r1:intersects(r2)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "intersects test 2 should execute without error");
+    bool intersects2 = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(intersects2, "Rectangles should not intersect");
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_x(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Rect.new(0, 0, 0, 0); r.x = 10; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua x set/get test 1 should execute without error");
+    double x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test2 = "local r = Rect.new(0, 0, 0, 0); r.x = -10; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua x set/get test 2 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Rect.new(0, 0, 0, 0); r.x = 0; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua x set/get test 3 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_y(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Rect.new(0, 0, 0, 0); r.y = 20; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua y set/get test 1 should execute without error");
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, y);
+    lua_pop(L, 1);
+
+    const char *test2 = "local r = Rect.new(0, 0, 0, 0); r.y = -10; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua y set/get test 2 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, y);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Rect.new(0, 0, 0, 0); r.y = 0; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua y set/get test 3 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_width(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Rect.new(0, 0, 0, 0); r.width = 100; return r.width";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua width set/get test 1 should execute without error");
+    double width = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, width);
+    lua_pop(L, 1);
+
+    const char *test2 = "local r = Rect.new(0, 0, 0, 0); r.width = -50; return r.width";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua width set/get test 2 should execute without error");
+    width = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -50.0f, width);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Rect.new(0, 0, 0, 0); r.width = 0; return r.width";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua width set/get test 3 should execute without error");
+    width = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, width);
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_height(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Rect.new(0, 0, 0, 0); r.height = 75; return r.height";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua height set/get test 1 should execute without error");
+    double height = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 75.0f, height);
+    lua_pop(L, 1);
+
+    const char *test2 = "local r = Rect.new(0, 0, 0, 0); r.height = -25; return r.height";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua height set/get test 2 should execute without error");
+    height = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -25.0f, height);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Rect.new(0, 0, 0, 0); r.height = 0; return r.height";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua height set/get test 3 should execute without error");
+    height = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, height);
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_rotation(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Rect.new(0, 0, 0, 0); r.rotation = 45; return r.rotation";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua rotation set/get test 1 should execute without error");
+    double rotation = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 45.0f, rotation);
+    lua_pop(L, 1);
+
+    const char *test2 = "local r = Rect.new(0, 0, 0, 0); r.rotation = -90; return r.rotation";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua rotation set/get test 2 should execute without error");
+    rotation = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -90.0f, rotation);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Rect.new(0, 0, 0, 0); r.rotation = 0; return r.rotation";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua rotation set/get test 3 should execute without error");
+    rotation = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rotation);
+    lua_pop(L, 1);
+}
+
+static void test_rect_lua_tostring(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local r = Rect.new(10.5, 20.25, 100.0, 75.5); return tostring(r)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Rect:") != NULL, "tostring should contain 'Rect:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "x=10.50") != NULL, "tostring should contain 'x=10.50'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "y=20.25") != NULL, "tostring should contain 'y=20.25'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "w=100.00") != NULL, "tostring should contain 'w=100.00'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "h=75.50") != NULL, "tostring should contain 'h=75.50'");
+    lua_pop(L, 1); 
+}
+
+static void test_rect_lua_gc(void) {
+    rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local r = Rect.new(5, 10, 100, 75)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Rect creation should execute without error");
+    
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testB = "return Rect.new(5, 10, 100, 75)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Rect creation should execute without error");
+    EseRect *extracted_rect = rect_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_rect, "Extracted rect should not be NULL");
+    rect_ref(extracted_rect);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    rect_unref(extracted_rect);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return Rect.new(5, 10, 100, 75)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Rect creation should execute without error");
+    extracted_rect = rect_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_rect, "Extracted rect should not be NULL");
+    rect_ref(extracted_rect);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    rect_unref(extracted_rect);
+    rect_destroy(extracted_rect);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

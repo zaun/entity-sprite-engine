@@ -43,6 +43,7 @@ static int _point_lua_tostring(lua_State *L);
 // Lua constructors
 static int _point_lua_new(lua_State *L);
 static int _point_lua_zero(lua_State *L);
+static int _point_lua_distance(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -103,7 +104,7 @@ static void _point_notify_watchers(EsePoint *point) {
  */
 static int _point_lua_gc(lua_State *L) {
     // Get from userdata
-    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, "PointMeta");
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, POINT_PROXY_META);
     if (!ud) {
         return 0; // Not our userdata
     }
@@ -172,7 +173,7 @@ static int _point_lua_newindex(lua_State *L) {
     }
 
     if (strcmp(key, "x") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
             return luaL_error(L, "point.x must be a number");
         }
@@ -181,7 +182,7 @@ static int _point_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
             return luaL_error(L, "point.y must be a number");
         }
@@ -233,18 +234,20 @@ static int _point_lua_tostring(lua_State *L) {
 static int _point_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_NEW);
 
-    // Validate arguments
-    if (lua_gettop(L) != 2) {
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
         profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "new(x, y) takes 2 arguments");
+        return luaL_error(L, "Point.new(number, number) takes 2 arguments");
     }
-    if (!lua_isnumber(L, 1)) {
+    
+    if (lua_type(L, 1) != LUA_TNUMBER) {
         profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "x must be a number");
+        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
     }
-    if (!lua_isnumber(L, 2)) {
-        profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "y must be a number");
+    if (lua_type(L, 2) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);  
+        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
     }
 
     float x = (float)lua_tonumber(L, 1);
@@ -261,7 +264,7 @@ static int _point_lua_new(lua_State *L) {
     *ud = point;
 
     // Attach metatable
-    luaL_getmetatable(L, "PointMeta");
+    luaL_getmetatable(L, POINT_PROXY_META);
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
@@ -280,6 +283,14 @@ static int _point_lua_new(lua_State *L) {
  */
 static int _point_lua_zero(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_ZERO);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
+        return luaL_error(L, "Point.zero() takes 0 arguments");
+    }
+    
     // Create the point using the standard creation function
     EsePoint *point = _point_make();  // We'll set the state manually
     point->state = L;
@@ -289,10 +300,35 @@ static int _point_lua_zero(lua_State *L) {
     *ud = point;
 
     // Attach metatable
-    luaL_getmetatable(L, "PointMeta");
+    luaL_getmetatable(L, POINT_PROXY_META);
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
+    return 1;
+}
+
+static int _point_lua_distance(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_ZERO);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
+        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        return luaL_error(L, "Point.distance(point, point) takes 2 arguments");
+    }
+
+    EsePoint *point1 = point_lua_get(L, 1);
+    EsePoint *point2 = point_lua_get(L, 2);
+
+    if (!point1 || !point2) {
+        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        return luaL_error(L, "Point.distance(point, point) arguments must be points");
+    }
+
+    float distance = point_distance(point1, point2);
+    lua_pushnumber(L, (double)distance);
+
+    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_distance");
     return 1;
 }
 
@@ -352,9 +388,9 @@ void point_destroy(EsePoint *point) {
 // Lua integration
 void point_lua_init(EseLuaEngine *engine) {
     log_assert("POINT", engine, "point_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, "PointMeta")) {
+    if (luaL_newmetatable(engine->runtime, POINT_PROXY_META)) {
         log_debug("LUA", "Adding entity PointMeta to engine");
-        lua_pushstring(engine->runtime, "PointMeta");
+        lua_pushstring(engine->runtime, POINT_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _point_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
@@ -379,6 +415,8 @@ void point_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "new");
         lua_pushcfunction(engine->runtime, _point_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
+        lua_pushcfunction(engine->runtime, _point_lua_distance);
+        lua_setfield(engine->runtime, -2, "distance");
         lua_setglobal(engine->runtime, "Point");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing point table
@@ -394,7 +432,7 @@ void point_lua_push(EsePoint *point) {
         *ud = point;
 
         // Attach metatable
-        luaL_getmetatable(point->state, "PointMeta");
+        luaL_getmetatable(point->state, POINT_PROXY_META);
         lua_setmetatable(point->state, -2);
     } else {
         // C-owned: get from registry
@@ -411,7 +449,7 @@ EsePoint *point_lua_get(lua_State *L, int idx) {
     }
     
     // Get the userdata and check metatable
-    EsePoint **ud = (EsePoint **)luaL_testudata(L, idx, "PointMeta");
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, idx, POINT_PROXY_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -428,7 +466,7 @@ void point_ref(EsePoint *point) {
         *ud = point;
 
         // Attach metatable
-        luaL_getmetatable(point->state, "PointMeta");
+        luaL_getmetatable(point->state, POINT_PROXY_META);
         lua_setmetatable(point->state, -2);
 
         // Store hard reference to prevent garbage collection

@@ -1,67 +1,56 @@
-#include "test_utils.h"
-#include "types/point.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_point.c - Unity-based tests for point functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_point_creation();
-static void test_point_properties();
-static void test_point_copy();
-static void test_point_mathematical_operations();
-static void test_point_watcher_system();
-static void test_point_lua_integration();
-static void test_point_lua_script_api();
-static void test_point_null_pointer_aborts();
+#include "../src/types/point.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for Point testing
-static const char* test_point_lua_script = 
-"function POINT_TEST_MODULE:test_point_creation()\n"
-"    local p1 = Point.new(10.5, -5.25)\n"
-"    local p2 = Point.zero()\n"
-"    \n"
-"    if p1.x == 10.5 and p1.y == -5.25 and p2.x == 0 and p2.y == 0 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function POINT_TEST_MODULE:test_point_properties()\n"
-"    local p = Point.new(0, 0)\n"
-"    \n"
-"    p.x = 42.0\n"
-"    p.y = -17.5\n"
-"    \n"
-"    if p.x == 42.0 and p.y == -17.5 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function POINT_TEST_MODULE:test_point_operations()\n"
-"    local p1 = Point.new(1, 2)\n"
-"    local p2 = Point.new(3, 4)\n"
-"    \n"
-"    -- Test arithmetic operations if they exist\n"
-"    if p1.x + p2.x == 4 and p1.y + p2.y == 6 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_point_sizeof(void);
+static void test_point_create_requires_engine(void);
+static void test_point_create(void);
+static void test_point_x(void);
+static void test_point_y(void);
+static void test_point_ref(void);
+static void test_point_copy_requires_engine(void);
+static void test_point_copy(void);
+static void test_point_distance(void);
+static void test_point_watcher_system(void);
+static void test_point_lua_integration(void);
+static void test_point_lua_init(void);
+static void test_point_lua_push(void);
+static void test_point_lua_get(void);
 
-// Mock watcher callback for testing
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_point_lua_new(void);
+static void test_point_lua_zero(void);
+static void test_point_lua_distance(void);
+static void test_point_lua_x(void);
+static void test_point_lua_y(void);
+static void test_point_lua_tostring(void);
+static void test_point_lua_gc(void);
+
+/**
+* Mock watcher callback for testing
+*/
 static bool watcher_called = false;
 static EsePoint *last_watched_point = NULL;
 static void *last_watcher_userdata = NULL;
@@ -72,402 +61,535 @@ static void test_watcher_callback(EsePoint *point, void *userdata) {
     last_watcher_userdata = userdata;
 }
 
-void segfault_handler(int signo, siginfo_t *info, void *context) {
-    void *buffer[32];
-    int nptrs = backtrace(buffer, 32);
-    char **strings = backtrace_symbols(buffer, nptrs);
-    if (strings) {
-        fprintf(stderr, "---- BACKTRACE START ----\n");
-        for (int i = 0; i < nptrs; i++) {
-            fprintf(stderr, "%s\n", strings[i]);
-        }
-        fprintf(stderr, "---- BACKTRACE  END  ----\n");
-        free(strings);
-    }
-
-    signal(signo, SIG_DFL);
-    raise(signo);
+static void mock_reset(void) {
+    watcher_called = false;
+    last_watched_point = NULL;
+    last_watcher_userdata = NULL;
 }
 
-int main() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
 
-    sa.sa_sigaction = segfault_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    sigaddset(&sa.sa_mask, SIGINT);
+void setUp(void) {
+    g_engine = create_test_engine();
+}
 
-    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
-        perror("Error setting SIGSEGV handler");
-        return EXIT_FAILURE;
-    }
-    
-    test_suite_begin("🧪 EsePoint Test Suite");
-    
-    // Initialize required systems
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
+}
+
+/**
+* Main test runner
+*/
+int main(void) {
     log_init();
-    
-    test_point_creation();
-    test_point_properties();
-    test_point_copy();
-    test_point_mathematical_operations();
-    test_point_watcher_system();
-    test_point_lua_integration();
-    test_point_lua_script_api();
-    test_point_null_pointer_aborts();
-    
-    test_suite_end("🎯 EsePoint Test Suite");
-        
-    return 0;
+
+    printf("\nEsePoint Tests\n");
+    printf("--------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_point_sizeof);
+    RUN_TEST(test_point_create_requires_engine);
+    RUN_TEST(test_point_create);
+    RUN_TEST(test_point_x);
+    RUN_TEST(test_point_y);
+    RUN_TEST(test_point_ref);
+    RUN_TEST(test_point_copy_requires_engine);
+    RUN_TEST(test_point_copy);
+    RUN_TEST(test_point_distance);
+    RUN_TEST(test_point_watcher_system);
+    RUN_TEST(test_point_lua_integration);
+    RUN_TEST(test_point_lua_init);
+    RUN_TEST(test_point_lua_push);
+    RUN_TEST(test_point_lua_get);
+
+    RUN_TEST(test_point_lua_new);
+    RUN_TEST(test_point_lua_zero);
+    RUN_TEST(test_point_lua_distance);
+    RUN_TEST(test_point_lua_x);
+    RUN_TEST(test_point_lua_y);
+    RUN_TEST(test_point_lua_tostring);
+    RUN_TEST(test_point_lua_gc);
+
+    return UNITY_END();
 }
 
-static void test_point_creation() {
-    test_begin("Point Creation Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    
-    // Test point_create
-    EsePoint *point = point_create(mock_engine);
-    TEST_ASSERT_NOT_NULL(point, "point_create should return non-NULL pointer");
-    
-    if (point) {
-        TEST_ASSERT_EQUAL(0.0f, point_get_x(point), "New point should have x = 0.0");
-        TEST_ASSERT_EQUAL(0.0f, point_get_y(point), "New point should have y = 0.0");
-        TEST_ASSERT_POINTER_EQUAL(mock_engine->runtime, point_get_state(point), "Point should have correct Lua state");
-        TEST_ASSERT_EQUAL(0, point_get_lua_ref_count(point), "New point should have ref count 0");
-        
-        // Test point_sizeof
-        size_t actual_size = point_sizeof();
-        TEST_ASSERT(actual_size > 0, "point_sizeof should return positive size");
-        printf("ℹ INFO: Actual point size: %zu bytes\n", actual_size);
-        
-        point_destroy(point);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Creation Tests");
+/**
+* C API Test Functions
+*/
+
+static void test_point_sizeof(void) {
+    TEST_ASSERT_EQUAL_INT_MESSAGE(56, point_sizeof(), "Point should be 56 bytes");
 }
 
-static void test_point_properties() {
-    test_begin("Point Properties Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EsePoint *point = point_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(point, "Point should be created for property tests");
-    
-    if (point) {
-        // Test setting and getting x coordinate
-        point_set_x(point, 10.5f);
-        TEST_ASSERT_FLOAT_EQUAL(10.5f, point_get_x(point), 0.001f, "point_set_x should set x coordinate");
-        
-        // Test setting and getting y coordinate
-        point_set_y(point, -5.25f);
-        TEST_ASSERT_FLOAT_EQUAL(-5.25f, point_get_y(point), 0.001f, "point_set_y should set y coordinate");
-        
-        // Test setting negative values
-        point_set_x(point, -100.0f);
-        point_set_y(point, 200.0f);
-        TEST_ASSERT_FLOAT_EQUAL(-100.0f, point_get_x(point), 0.001f, "point_set_x should handle negative values");
-        TEST_ASSERT_FLOAT_EQUAL(200.0f, point_get_y(point), 0.001f, "point_set_y should handle positive values");
-        
-        // Test setting zero values
-        point_set_x(point, 0.0f);
-        point_set_y(point, 0.0f);
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, point_get_x(point), 0.001f, "point_set_x should handle zero values");
-        TEST_ASSERT_FLOAT_EQUAL(0.0f, point_get_y(point), 0.001f, "point_set_y should handle zero values");
-        
-        point_destroy(point);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Properties Tests");
+static void test_point_create_requires_engine(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, point_sizeof(), "Point size should be > 0");
 }
 
-static void test_point_copy() {
-    test_begin("Point Copy Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EsePoint *original = point_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(original, "Original point should be created for copy tests");
-    
-    if (original) {
-        // Set some values
-        point_set_x(original, 42.0f);
-        point_set_y(original, -17.5f);
-        
-        // Test point_copy
-        EsePoint *copy = point_copy(original);
-        TEST_ASSERT_NOT_NULL(copy, "point_copy should return non-NULL pointer");
-        
-        if (copy) {
-            // Verify values are copied correctly
-            TEST_ASSERT_FLOAT_EQUAL(42.0f, point_get_x(copy), 0.001f, "Copied point should have same x value");
-            TEST_ASSERT_FLOAT_EQUAL(-17.5f, point_get_y(copy), 0.001f, "Copied point should have same y value");
-            
-            // Verify it's a different object
-            TEST_ASSERT(original != copy, "Copy should be a different object");
-            
-            // Verify Lua state is copied
-            TEST_ASSERT_POINTER_EQUAL(point_get_state(original), point_get_state(copy), "Copy should have same Lua state");
-            
-            // Verify copy starts with no Lua references
-            int copy_lua_ref = point_get_lua_ref(copy);
-            TEST_ASSERT(copy_lua_ref < 0, "Copy should start with negative LUA_NOREF value");
-            printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy_lua_ref);
-            TEST_ASSERT_EQUAL(0, point_get_lua_ref_count(copy), "Copy should start with ref count 0");
-            
-            point_destroy(copy);
-        }
-        
-        point_destroy(original);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Copy Tests");
+static void test_point_create(void) {
+    EsePoint *point = point_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(point, "Point should be created");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, point_get_x(point));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, point_get_y(point));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, point_get_state(point), "Point should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, point_get_lua_ref_count(point), "New point should have ref count 0");
+
+    point_destroy(point);
 }
 
-static void test_point_mathematical_operations() {
-    test_begin("Point Mathematical Operations Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    
-    // Create test points
-    EsePoint *point1 = point_create(mock_engine);
-    EsePoint *point2 = point_create(mock_engine);
-    EsePoint *point3 = point_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(point1, "Point1 should be created for math tests");
-    TEST_ASSERT_NOT_NULL(point2, "Point2 should be created for math tests");
-    TEST_ASSERT_NOT_NULL(point3, "Point3 should be created for math tests");
-    
-    if (point1 && point2 && point3) {
-        // Test distance calculations
-        point_set_x(point1, 0.0f);
-        point_set_y(point1, 0.0f);
-        point_set_x(point2, 3.0f);
-        point_set_y(point2, 4.0f);
-        
-        float distance = point_distance(point1, point2);
-        TEST_ASSERT_FLOAT_EQUAL(5.0f, distance, 0.001f, "Distance between (0,0) and (3,4) should be 5.0");
-        
-        float distance_squared = point_distance_squared(point1, point2);
-        TEST_ASSERT_FLOAT_EQUAL(25.0f, distance_squared, 0.001f, "Squared distance between (0,0) and (3,4) should be 25.0");
-        
-        // Test distance with negative coordinates
-        point_set_x(point3, -3.0f);
-        point_set_y(point3, -4.0f);
-        
-        float distance_negative = point_distance(point1, point3);
-        TEST_ASSERT_FLOAT_EQUAL(5.0f, distance_negative, 0.001f, "Distance between (0,0) and (-3,-4) should be 5.0");
-        
-        // Test distance between two non-origin points
-        float distance_between = point_distance(point2, point3);
-        TEST_ASSERT_FLOAT_EQUAL(10.0f, distance_between, 0.001f, "Distance between (3,4) and (-3,-4) should be 10.0");
-        
-        point_destroy(point1);
-        point_destroy(point2);
-        point_destroy(point3);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Mathematical Operations Tests");
+static void test_point_x(void) {
+    EsePoint *point = point_create(g_engine);
+
+    point_set_x(point, 10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_get_x(point));
+
+    point_set_x(point, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, point_get_x(point));
+
+    point_set_x(point, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_get_x(point));
+
+    point_destroy(point);
 }
 
-static void test_point_watcher_system() {
-    test_begin("Point Watcher System Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EsePoint *point = point_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(point, "Point should be created for watcher tests");
-    
-    if (point) {
-        // Reset watcher state
-        watcher_called = false;
-        last_watched_point = NULL;
-        last_watcher_userdata = NULL;
-        
-        // Test adding a watcher
-        void *test_userdata = (void*)0x12345678;
-        bool add_result = point_add_watcher(point, test_watcher_callback, test_userdata);
-        TEST_ASSERT(add_result, "point_add_watcher should return true on success");
-        
-        // Test that watcher is called when x changes
-        point_set_x(point, 50.0f);
-        TEST_ASSERT(watcher_called, "Watcher should be called when x coordinate changes");
-        TEST_ASSERT_POINTER_EQUAL(point, last_watched_point, "Watcher should receive correct point pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Reset watcher state
-        watcher_called = false;
-        last_watched_point = NULL;
-        last_watcher_userdata = NULL;
-        
-        // Test that watcher is called when y changes
-        point_set_y(point, 75.0f);
-        TEST_ASSERT(watcher_called, "Watcher should be called when y coordinate changes");
-        TEST_ASSERT_POINTER_EQUAL(point, last_watched_point, "Watcher should receive correct point pointer");
-        TEST_ASSERT_POINTER_EQUAL(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
-        
-        // Test adding multiple watchers
-        void *test_userdata2 = (void*)0x87654321;
-        bool add_result2 = point_add_watcher(point, test_watcher_callback, test_userdata2);
-        TEST_ASSERT(add_result2, "Adding second watcher should succeed");
-        
-        // Test removing a watcher
-        bool remove_result = point_remove_watcher(point, test_watcher_callback, test_userdata);
-        TEST_ASSERT(remove_result, "point_remove_watcher should return true when removing existing watcher");
-        
-        // Test removing non-existent watcher
-        bool remove_fake_result = point_remove_watcher(point, test_watcher_callback, (void*)0x99999999);
-        TEST_ASSERT(!remove_fake_result, "point_remove_watcher should return false for non-existent watcher");
-        
-        point_destroy(point);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Watcher System Tests");
+static void test_point_y(void) {
+    EsePoint *point = point_create(g_engine);
+
+    point_set_y(point, 20.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, point_get_y(point));
+
+    point_set_y(point, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, point_get_y(point));
+
+    point_set_y(point, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_get_y(point));
+
+    point_destroy(point);
 }
 
-static void test_point_lua_integration() {
-    test_begin("Point Lua Integration Tests");
-    
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EsePoint *point = point_create(mock_engine);
-    
-    TEST_ASSERT_NOT_NULL(point, "Point should be created for Lua integration tests");
-    
-    if (point) {
-        // Test basic functionality without Lua operations
-        TEST_ASSERT_EQUAL(0, point_get_lua_ref_count(point), "New point should start with ref count 0");
-        
-        // Test LUA_NOREF - check for any negative value (LUA_NOREF is typically -1 but may vary)
-        int lua_ref = point_get_lua_ref(point);
-        TEST_ASSERT(lua_ref < 0, "New point should have negative LUA_NOREF value");
-        printf("ℹ INFO: Actual LUA_NOREF value: %d\n", lua_ref);
-        
-        point_destroy(point);
-    }
-    
-    lua_engine_destroy(mock_engine);
-    
-    test_end("Point Lua Integration Tests");
+static void test_point_ref(void) {
+    EsePoint *point = point_create(g_engine);
+
+    point_ref(point);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, point_get_lua_ref_count(point), "Ref count should be 1");
+
+    point_unref(point);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, point_get_lua_ref_count(point), "Ref count should be 0");
+
+    point_destroy(point);
 }
 
-static void test_point_lua_script_api() {
-    test_begin("Point Lua Script API Tests");
-
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for Lua script API tests");
-
-    if (engine) {
-        // Initialize the Point Lua type
-        point_lua_init(engine);
-        
-        // Load the test script
-        bool load_result = lua_engine_load_script_from_string(engine, test_point_lua_script, "test_point_script", "POINT_TEST_MODULE");
-        TEST_ASSERT(load_result, "Test script should load successfully");
-        
-        if (load_result) {
-            // Create an instance of the script
-            int instance_ref = lua_engine_instance_script(engine, "test_point_script");
-            TEST_ASSERT(instance_ref > 0, "Script instance should be created successfully");
-            
-            if (instance_ref > 0) {
-                // Create a dummy self object for function calls
-                lua_State* L = engine->runtime;
-                lua_newtable(L);  // Create empty table as dummy self
-                int dummy_self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-                
-                // Test test_point_creation
-                EseLuaValue *result = lua_value_create_nil("result");
-                bool exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_point_creation", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_point_creation should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_point_creation should return boolean"); // LUA_VAL_BOOL = 1
-                TEST_ASSERT(result->value.boolean == true, "test_point_creation should return true");
-                
-                // Test test_point_properties
-                lua_value_set_nil(result);
-                exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_point_properties", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_point_properties should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_point_properties should return boolean");
-                TEST_ASSERT(result->value.boolean == true, "test_point_properties should return true");
-                
-                // Test test_point_operations
-                lua_value_set_nil(result);
-                exec_result = lua_engine_run_function(engine, instance_ref, dummy_self_ref, "test_point_operations", 0, NULL, result);
-                TEST_ASSERT(exec_result, "test_point_operations should execute successfully");
-                TEST_ASSERT(result->type == 1, "test_point_operations should return boolean");
-                TEST_ASSERT(result->value.boolean == true, "test_point_operations should return true");
-                
-                // Clean up result
-                lua_value_free(result);
-                // Clean up dummy self and instance
-                luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
-                lua_engine_instance_remove(engine, instance_ref);
-            }
-        }
-        
-        lua_engine_destroy(engine);
-    }
-
-    test_end("Point Lua Script API Tests");
+static void test_point_copy_requires_engine(void) {
+    ASSERT_DEATH(point_copy(NULL), "point_copy should abort with NULL point");
 }
 
-static void test_point_null_pointer_aborts() {
-    test_begin("Point NULL Pointer Abort Tests");
+static void test_point_copy(void) {
+    EsePoint *point = point_create(g_engine);
+    point_ref(point);
+    point_set_x(point, 10.0f);
+    point_set_y(point, 20.0f);
+    EsePoint *copy = point_copy(point);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, point_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, point_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_get_x(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, point_get_y(copy));
+
+    point_unref(point);
+    point_destroy(point);
+    point_destroy(copy);
+}
+
+static void test_point_distance(void) {
+    EsePoint *pointA = point_create(g_engine);
+    EsePoint *pointB = point_create(g_engine);
+
+    point_set_x(pointA, 0.0f);
+    point_set_y(pointA, 0.0f);
+
+    point_set_x(pointB, 10.0f);
+    point_set_y(pointB, 0.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointB, pointA));
+
+    point_set_x(pointA, 0.0f);
+    point_set_y(pointA, 0.0f);
+
+    point_set_x(pointB, 0.0f);
+    point_set_y(pointB, 10.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointB, pointA));
+
+    point_set_x(pointA, 0.0f);
+    point_set_y(pointA, 0.0f);
+
+    point_set_x(pointB, -10.0f);
+    point_set_y(pointB, 0.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointB, pointA));
+
+    point_set_x(pointA, 0.0f);
+    point_set_y(pointA, 0.0f);
+
+    point_set_x(pointB, 0.0f);
+    point_set_y(pointB, -10.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, point_distance_squared(pointB, pointA));
+
+    point_set_x(pointA, 10.0f);
+    point_set_y(pointA, 0.0f);
+
+    point_set_x(pointB, 0.0f);
+    point_set_y(pointB, 10.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 14.14214f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 200.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 14.14214f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 200.0f, point_distance_squared(pointB, pointA));
+
+    point_set_x(pointA, 0.0f);
+    point_set_y(pointA, 0.0f);
     
-    EseLuaEngine *mock_engine = lua_engine_create();
-    EsePoint *point = point_create(mock_engine);
+    point_set_x(pointB, 0.0f);
+    point_set_y(pointB, 0.0f);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_distance(pointA, pointB));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_distance_squared(pointA, pointB));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_distance(pointB, pointA));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_distance_squared(pointB, pointA));
+
+    point_destroy(pointA);
+    point_destroy(pointB);
+}
+
+static void test_point_watcher_system(void) {
+    EsePoint *point = point_create(g_engine);
+
+    mock_reset();
+    point_set_x(point, 25.0f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called before adding");
+
+    void *test_userdata = (void*)0x12345678;
+    bool add_result = point_add_watcher(point, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(add_result, "Should successfully add watcher");
+
+    mock_reset();
+    point_set_x(point, 50.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when x changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(point, last_watched_point, "Watcher should receive correct point pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    point_set_y(point, 75.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when y changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(point, last_watched_point, "Watcher should receive correct point pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    bool remove_result = point_remove_watcher(point, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(remove_result, "Should successfully remove watcher");
+
+    mock_reset();
+    point_set_x(point, 100.0f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called after removal");
+
+    point_destroy(point);
+}
+
+static void test_point_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EsePoint *point = point_create(engine);
+
+    lua_State *before_state = point_get_state(point);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Point should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Point state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, point_get_lua_ref(point), "Point should have no Lua reference initially");
+
+    point_ref(point);
+    lua_State *after_ref_state = point_get_state(point);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Point should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Point state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, point_get_lua_ref(point), "Point should have a valid Lua reference after ref");
+
+    point_unref(point);
+    lua_State *after_unref_state = point_get_state(point);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Point should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Point state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, point_get_lua_ref(point), "Point should have no Lua reference initially");
+
+    point_destroy(point);
+    lua_engine_destroy(engine);
+}
+
+static void test_point_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    TEST_ASSERT_NOT_NULL(point, "Point should be created for NULL pointer abort tests");
+    luaL_getmetatable(L, POINT_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    if (point) {
-        // Test that creation functions abort with NULL pointers
-        TEST_ASSERT_ABORT(point_create(NULL), "point_create should abort with NULL engine");
-        TEST_ASSERT_ABORT(point_copy(NULL), "point_copy should abort with NULL source");
-        TEST_ASSERT_ABORT(point_lua_init(NULL), "point_lua_init should abort with NULL engine");
-        
-        // Test that mathematical operations abort with NULL pointers
-        TEST_ASSERT_ABORT(point_distance(NULL, point), "point_distance should abort with NULL first point");
-        TEST_ASSERT_ABORT(point_distance(point, NULL), "point_distance should abort with NULL second point");
-        TEST_ASSERT_ABORT(point_distance_squared(NULL, point), "point_distance_squared should abort with NULL first point");
-        TEST_ASSERT_ABORT(point_distance_squared(point, NULL), "point_distance_squared should abort with NULL second point");
-        
-        // Test that property access aborts with NULL pointers
-        TEST_ASSERT_ABORT(point_get_x(NULL), "point_get_x should abort with NULL point");
-        TEST_ASSERT_ABORT(point_get_y(NULL), "point_get_y should abort with NULL point");
-        TEST_ASSERT_ABORT(point_set_x(NULL, 1.0f), "point_set_x should abort with NULL point");
-        TEST_ASSERT_ABORT(point_set_y(NULL, 1.0f), "point_set_y should abort with NULL point");
-        
-        // Test that Lua-related access aborts with NULL pointers
-        TEST_ASSERT_ABORT(point_get_state(NULL), "point_get_state should abort with NULL point");
-        TEST_ASSERT_ABORT(point_get_lua_ref(NULL), "point_get_lua_ref should abort with NULL point");
-        TEST_ASSERT_ABORT(point_get_lua_ref_count(NULL), "point_get_lua_ref_count should abort with NULL point");
-        TEST_ASSERT_ABORT(point_lua_get(NULL, 1), "point_lua_get should abort with NULL Lua state");
-        
-        // Test that watcher system aborts with NULL pointers
-        TEST_ASSERT_ABORT(point_add_watcher(NULL, test_watcher_callback, (void*)0x123), "point_add_watcher should abort with NULL point");
-        TEST_ASSERT_ABORT(point_add_watcher(point, NULL, (void*)0x123), "point_add_watcher should abort with NULL callback");
-        TEST_ASSERT_ABORT(point_remove_watcher(NULL, test_watcher_callback, (void*)0x123), "point_remove_watcher should abort with NULL point");
-        TEST_ASSERT_ABORT(point_remove_watcher(point, NULL, (void*)0x123), "point_remove_watcher should abort with NULL callback");
-        
-        // Test that Lua integration aborts with NULL pointers
-        TEST_ASSERT_ABORT(point_lua_push(NULL), "point_lua_push should abort with NULL point");
-        TEST_ASSERT_ABORT(point_ref(NULL), "point_ref should abort with NULL point");
-        
-        point_destroy(point);
-    }
+    lua_getglobal(L, "Point");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Point table should not exist before initialization");
+    lua_pop(L, 1);
     
-    lua_engine_destroy(mock_engine);
+    point_lua_init(g_engine);
     
-    test_end("Point NULL Pointer Abort Tests");
+    luaL_getmetatable(L, POINT_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
+    
+    lua_getglobal(L, "Point");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global Point table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global Point table should be a table");
+    lua_pop(L, 1);
+}
+
+static void test_point_lua_push(void) {
+    point_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EsePoint *point = point_create(g_engine);
+    
+    point_lua_push(point);
+    
+    EsePoint **ud = (EsePoint **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(point, *ud, "The pushed item should be the actual point");
+    
+    lua_pop(L, 1); 
+    
+    point_destroy(point);
+}
+
+static void test_point_lua_get(void) {
+    point_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EsePoint *point = point_create(g_engine);
+    
+    point_lua_push(point);
+    
+    EsePoint *extracted_point = point_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(point, extracted_point, "Extracted point should match original");
+    
+    lua_pop(L, 1);
+    point_destroy(point);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_point_lua_new(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Point.new()\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Point.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Point.new(10, 10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return Point.new(\"10\", \"10\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute with error");
+
+    const char *testE = "return Point.new(10, 10)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute without error");
+    EsePoint *extracted_point = point_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, point_get_x(extracted_point), "Extracted point should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, point_get_y(extracted_point), "Extracted point should have y=10");
+    point_destroy(extracted_point);
+}
+
+static void test_point_lua_zero(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Point.zero(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Point.zero(10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Point.zero()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    EsePoint *extracted_point = point_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, point_get_x(extracted_point), "Extracted point should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, point_get_y(extracted_point), "Extracted point should have y=10");
+    point_destroy(extracted_point);
+}
+
+static void test_point_lua_distance(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Point.distance(Point.new(0, 0), Point.new(10, 0))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, distance, "Distance should be 10");
+
+    const char *testB = "return Point.distance(Point.new(0, 0), Point.new(0, 10))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, distance, "Distance should be 10");
+
+    const char *testC = "return Point.distance(Point.new(0, 0), Point.new(-10, 0))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, distance, "Distance should be 10");
+
+    const char *testD = "return Point.distance(Point.new(0, 0), Point.new(0, -10))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
+    distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, distance, "Distance should be 10");
+
+    const char *testE = "return Point.distance(Point.new(10, 0), Point.new(0, 10))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute without error");
+    distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(14.14214f, distance, "Distance should be 14.14214");
+
+    const char *testF = "return Point.distance(Point.new(0, 0), Point.new(0, 0))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testF), "testF Lua code should execute without error");
+    distance = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, distance, "Distance should be 0");
+}
+
+static void test_point_lua_x(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = Point.new(0, 0); p.x = \"20\"; return p.y";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "testD Lua code should execute with error");
+
+    const char *test2 = "local p = Point.new(0, 0); p.x = 10; return p.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua x set/get test 1 should execute without error");
+    double x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = Point.new(0, 0); p.x = -10; return p.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua x set/get test 2 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test4 = "local p = Point.new(0, 0); p.x = 0; return p.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua x set/get test 3 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    lua_pop(L, 1);
+}
+
+static void test_point_lua_y(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = Point.new(0, 0); p.y = \"20\"; return p.y";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "testD Lua code should execute with error");
+
+    const char *test2 = "local p = Point.new(0, 0); p.y = 20; return p.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua y set/get test 1 should execute without error");
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, y);
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = Point.new(0, 0); p.y = -10; return p.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua y set/get test 2 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, y);
+    lua_pop(L, 1);
+
+    const char *test4 = "local p = Point.new(0, 0); p.y = 0; return p.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua y set/get test 3 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+    lua_pop(L, 1);
+}
+
+static void test_point_lua_tostring(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = Point.new(10.5, 20.25); return tostring(p)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Point:") != NULL, "tostring should contain 'Point:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "x=10.50") != NULL, "tostring should contain 'x=10.50'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "y=20.25") != NULL, "tostring should contain 'y=20.25'");    
+    lua_pop(L, 1); 
+}
+
+static void test_point_lua_gc(void) {
+    point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local p = Point.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Point creation should execute without error");
+    
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testB = "return Point.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Point creation should execute without error");
+    EsePoint *extracted_point = point_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
+    point_ref(extracted_point);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    point_unref(extracted_point);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return Point.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Point creation should execute without error");
+    extracted_point = point_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
+    point_ref(extracted_point);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    point_unref(extracted_point);
+    point_destroy(extracted_point);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

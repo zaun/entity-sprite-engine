@@ -1,200 +1,118 @@
-# Tests CMakeLists.txt
 cmake_minimum_required(VERSION 3.16)
 
-# Enable testing
+project(entitysprite_tests LANGUAGES C)
+
 enable_testing()
+include(FetchContent)
 
-# Find required packages
-find_package(PkgConfig REQUIRED)
+option(BUILD_COVERAGE "Build tests with coverage flags" OFF)
 
-# Test executables
-add_executable(test_rect test_rect.c)
-add_executable(test_point test_point.c)
-add_executable(test_vector test_vector.c)
-add_executable(test_ray test_ray.c)
-add_executable(test_uuid test_uuid.c)
-add_executable(test_arc test_arc.c)
-add_executable(test_tileset test_tileset.c)
-add_executable(test_camera test_camera.c)
-add_executable(test_display test_display.c)
-add_executable(test_input_state test_input_state.c)
-add_executable(test_map_cell test_map_cell.c)
-add_executable(test_map test_map.c)
-add_executable(test_lua_engine test_lua_engine.c)
-add_executable(test_lua_value test_lua_value.c)
-add_executable(test_log_assert test_log_assert.c)
-add_executable(test_entity test_entity.c)
-add_executable(test_entity_component_lua test_entity_component_lua.c)
-add_executable(test_engine test_engine.c)
-add_executable(test_engine_collision test_engine_collision.c)
-add_executable(test_lua_only test_lua_only.c)
-add_executable(test_bottleneck test_bottleneck.c)
-add_executable(test_audio test_audio.c)
+if (BUILD_COVERAGE)
+    message(STATUS "Building tests with coverage instrumentation")
+    if (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
+        CMAKE_C_COMPILER_ID MATCHES "Clang")
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    else()
+        message(WARNING "Coverage flags requested but unsupported for this compiler")
+    endif()
+endif()
 
-add_dependencies(test_lua_only build_lua)
+# === Fetch Unity (ThrowTheSwitch) ===
+set(UNITY_TAG "v2.5.2") # change tag if you want a different release
 
-# Link against the main library
-target_link_libraries(test_rect entityspriteengine)
-target_link_libraries(test_point entityspriteengine)
-target_link_libraries(test_vector entityspriteengine)
-target_link_libraries(test_ray entityspriteengine)
-target_link_libraries(test_uuid entityspriteengine)
-target_link_libraries(test_arc entityspriteengine)
-target_link_libraries(test_tileset entityspriteengine)
-target_link_libraries(test_camera entityspriteengine)
-target_link_libraries(test_display entityspriteengine)
-target_link_libraries(test_input_state entityspriteengine)
-target_link_libraries(test_map_cell entityspriteengine)
-target_link_libraries(test_map entityspriteengine)
-target_link_libraries(test_lua_engine entityspriteengine)
-target_link_libraries(test_lua_value entityspriteengine)
-target_link_libraries(test_log_assert entityspriteengine)
-target_link_libraries(test_entity entityspriteengine)
-target_link_libraries(test_entity_component_lua entityspriteengine)
-target_link_libraries(test_engine entityspriteengine)
-target_link_libraries(test_engine_collision entityspriteengine)
-target_link_libraries(test_lua_only "${CMAKE_SOURCE_DIR}/src/vendor/lua/src/libluajit.a" entityspriteengine)
-target_link_libraries(test_bottleneck entityspriteengine)
-target_link_libraries(test_audio entityspriteengine)
-
-
-# Include directories
-target_include_directories(test_rect PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_point PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_vector PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_ray PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_uuid PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_arc PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_tileset PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_camera PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_display PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_input_state PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_map_cell PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_map PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_lua_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_lua_value PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_log_assert PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_entity PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_entity_component_lua PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_engine_collision PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_lua_only PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_bottleneck PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_include_directories(test_audio PRIVATE ${CMAKE_SOURCE_DIR}/src)
-
-
-# Add tests
-add_test(NAME RectTests COMMAND test_rect)
-add_test(NAME PointTests COMMAND test_point)
-add_test(NAME VectorTests COMMAND test_vector)
-add_test(NAME RayTests COMMAND test_ray)
-add_test(NAME UUIDTests COMMAND test_uuid)
-add_test(NAME ArcTests COMMAND test_arc)
-add_test(NAME TilesetTests COMMAND test_tileset)
-add_test(NAME CameraTests COMMAND test_camera)
-add_test(NAME DisplayTests COMMAND test_display)
-add_test(NAME InputStateTests COMMAND test_input_state)
-add_test(NAME MapCellTests COMMAND test_map_cell)
-add_test(NAME MapTests COMMAND test_map)
-add_test(NAME LuaEngineTests COMMAND test_lua_engine)
-add_test(NAME LuaValueTests COMMAND test_lua_value)
-add_test(NAME LogAssertTests COMMAND test_log_assert)
-add_test(NAME EntityTests COMMAND test_entity)
-add_test(NAME EntityComponentLuaTests COMMAND test_entity_component_lua)
-add_test(NAME EngineTests COMMAND test_engine)
-add_test(NAME EngineCollisionTests COMMAND test_engine_collision)
-add_test(NAME LuaOnlyTests COMMAND test_lua_only)
-add_test(NAME BottleneckTests COMMAND test_bottleneck)
-add_test(NAME AudioTests COMMAND test_audio)
-
-
-# Set test properties
-set_tests_properties(RectTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
+FetchContent_Declare(
+  unity_src
+  GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
+  GIT_TAG        ${UNITY_TAG}
 )
 
-set_tests_properties(PointTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
+FetchContent_MakeAvailable(unity_src)
+
+# Unity upstream may already create a target named "unity".
+# Only add our own target if one doesn't already exist.
+if (NOT TARGET unity)
+    add_library(unity STATIC "${unity_src_SOURCE_DIR}/src/unity.c")
+    target_include_directories(unity PUBLIC "${unity_src_SOURCE_DIR}/src")
+    target_compile_definitions(unity PUBLIC UNITY_INCLUDE_CONFIG_H=0)
+else()
+    # Ensure include dir is available (some Unity CMake targets may already set it)
+    get_target_property(_unity_inc unity INTERFACE_INCLUDE_DIRECTORIES)
+    if (NOT _unity_inc)
+        target_include_directories(unity PUBLIC "${unity_src_SOURCE_DIR}/src")
+    endif()
+endif()
+
+# === Locate main project library and Lua static lib ===
+set(PROJECT_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+set(LUA_STATIC_LIB "${CMAKE_SOURCE_DIR}/src/vendor/lua/src/libluajit.a")
+
+# === Discover test sources (test_*.c in this directory) ===
+file(GLOB TEST_SOURCES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "test_*.c")
+
+if (TEST_SOURCES STREQUAL "")
+    message(WARNING "No test_*.c sources found in ${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
+
+foreach(test_src IN LISTS TEST_SOURCES)
+    get_filename_component(test_name "${test_src}" NAME_WE)
+    add_executable(${test_name} "${test_src}")
+
+    target_include_directories(${test_name} PRIVATE "${PROJECT_SRC_DIR}")
+    target_link_libraries(${test_name} PRIVATE unity entityspriteengine)
+
+    if ("${test_name}" STREQUAL "test_lua_only")
+        if (EXISTS "${LUA_STATIC_LIB}")
+            target_link_libraries(${test_name} PRIVATE "${LUA_STATIC_LIB}")
+        else()
+            message(WARNING "Lua static lib not found at ${LUA_STATIC_LIB}; test_lua_only may fail to link")
+        endif()
+    endif()
+
+    add_test(NAME ${test_name} COMMAND ${test_name})
+
+    set_tests_properties(${test_name} PROPERTIES
+        ENVIRONMENT "ESETEST=1"
+    )
+endforeach()
+
+# Convenience target to run tests
+add_custom_target(check
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    DEPENDS ${TEST_SOURCES}
 )
 
-set_tests_properties(VectorTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
+# === Coverage target (uses lcov + genhtml if available) ===
+if (BUILD_COVERAGE)
+    find_program(LCOV_EXEC lcov)
+    find_program(GENHTML_EXEC genhtml)
 
-set_tests_properties(RayTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
+    if (NOT LCOV_EXEC)
+        message(WARNING "lcov not found; coverage target will run tests but cannot produce HTML report")
+    endif()
+    if (NOT GENHTML_EXEC)
+        message(WARNING "genhtml not found; coverage HTML report won't be generated")
+    endif()
 
-set_tests_properties(UUIDTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
+    set(COVERAGE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/coverage")
+    set(COVERAGE_INFO "${COVERAGE_OUTPUT_DIR}/coverage.info")
+    set(COVERAGE_FILTERED "${COVERAGE_OUTPUT_DIR}/coverage.filtered.info")
+    set(COVERAGE_HTML_DIR "${COVERAGE_OUTPUT_DIR}/html")
 
-set_tests_properties(ArcTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(TilesetTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(CameraTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(DisplayTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(InputStateTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(MapCellTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(MapTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(LuaEngineTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(LuaValueTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(LogAssertTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(EntityTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(BottleneckTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(EntityComponentLuaTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(EngineTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(EngineCollisionTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(LuaOnlyTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-set_tests_properties(AudioTests PROPERTIES
-    ENVIRONMENT "ESETEST=1"
-)
-
-
+    add_custom_target(coverage
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${COVERAGE_OUTPUT_DIR}
+        # zero counters
+        COMMAND ${LCOV_EXEC} --directory . --zerocounters
+        # capture coverage
+        COMMAND ${LCOV_EXEC} --directory . --capture --output-file ${COVERAGE_INFO}
+        # remove system and test runner files
+        COMMAND ${LCOV_EXEC} --remove ${COVERAGE_INFO} '/usr/*' '${CMAKE_BINARY_DIR}/*' --output-file ${COVERAGE_FILTERED}
+        # optionally generate HTML
+        COMMAND ${GENHTML_EXEC} ${COVERAGE_FILTERED} --output-directory ${COVERAGE_HTML_DIR}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Running tests and generating coverage report (if lcov/genhtml available)"
+        VERBATIM
+        DEPENDS ${TEST_SOURCES}
+    )
+endif()
