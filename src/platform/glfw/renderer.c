@@ -6,6 +6,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "platform/glfw/renderer_private.h"
+#include "platform/default_shader.h"
 #include "platform/renderer.h"
 #include "platform/renderer_private.h"
 #include "core/memory_manager.h"
@@ -118,49 +119,7 @@ EseRenderer* renderer_create(bool hiDPI) {
     internal->vbo = 0;
     internal->vbo_capacity = 0;
 
-    // Set a default shader
-    const char *shaderSource =
-        "#version 450\n"
-        "\n"
-        "#ifdef VERTEX_SHADER\n"
-        "layout(location = 0) in vec3 aPos;\n"
-        "layout(location = 1) in vec2 aTexCoord;\n"
-        "\n"
-        "layout(location = 0) out vec2 TexCoord;\n"
-        "\n"
-        "void main() {\n"
-        "    gl_Position = vec4(aPos, 1.0);\n"
-        "    TexCoord = aTexCoord;\n"
-        "}\n"
-        "#endif\n"
-        "\n"
-        "#ifdef FRAGMENT_SHADER\n"
-        "precision mediump float;\n"
-        "\n"
-        "layout(location = 0) in vec2 TexCoord;\n"
-        "layout(location = 0) out vec4 FragColor;\n"
-        "\n"
-        "layout(binding = 0) uniform sampler2D ourTexture;\n"
-        "\n"
-        "layout(binding = 1) uniform UniformBufferObject {\n"
-        "    bool useTexture;\n"
-        "    vec4 rectColor;\n"
-        "} ubo;\n"
-        "\n"
-        "void main() {\n"
-        "    if (ubo.useTexture) {\n"
-        "        FragColor = texture(ourTexture, TexCoord);\n"
-        "    } else {\n"
-        "        FragColor = ubo.rectColor;\n"
-        "    }\n"
-        "}\n"
-        "#endif\n"
-        "\n"
-        "#ifdef COMPUTE_SHADER\n"
-        "#endif\n"
-        "\n";
-
-    _renderer_shader_compile_source(renderer, "default", shaderSource);
+    _renderer_shader_compile_source(renderer, "default", DEFAULT_SHADER);
     renderer_create_pipeline_state(renderer, "default:vertexShader", "default:fragmentShader");
 
     return renderer;
@@ -524,6 +483,8 @@ void renderer_draw(EseRenderer *renderer) {
         // Get uniform locations ONCE per frame
         GLint useTextureLocation = glGetUniformLocation(internal->shaderProgram, "ubo.useTexture");
         GLint rectColorLocation = glGetUniformLocation(internal->shaderProgram, "ubo.rectColor");
+        GLint tintLocation       = glGetUniformLocation(internal->shaderProgram, "ubo.tint");
+        GLint opacityLocation    = glGetUniformLocation(internal->shaderProgram, "ubo.opacity");
         GLint textureLocation = glGetUniformLocation(internal->shaderProgram, "ourTexture");
         
         // Set the texture sampler to use texture unit 0
@@ -536,6 +497,10 @@ void renderer_draw(EseRenderer *renderer) {
             const EseRenderBatch *batch = render_list_get_batch(renderer->render_list, i);
             
             if (batch->vertex_count == 0) continue;
+
+            // defaults for optional fields
+            float tint_r = 1.0f, tint_g = 1.0f, tint_b = 1.0f, tint_a = 1.0f;
+            float opacity = 1.0f;
 
             if (batch->type == RL_TEXTURE) {
                 // Handle texture batch
@@ -554,6 +519,12 @@ void renderer_draw(EseRenderer *renderer) {
                     glUniform1ui(useTextureLocation, 1);
                 } else {
                     log_debug("GL_RENDERER", "Invalid texture uniform location");
+                }
+                if (tintLocation != -1) {
+                    glUniform4f(tintLocation, tint_r, tint_g, tint_b, tint_a);
+                }
+                if (opacityLocation != -1) {
+                    glUniform1f(opacityLocation, opacity);
                 }
 
                 // Upload vertex data to VBO
@@ -576,6 +547,12 @@ void renderer_draw(EseRenderer *renderer) {
                 // Set uniforms for solid color rendering
                 if (useTextureLocation != -1) {
                     glUniform1ui(useTextureLocation, 0);
+                }
+                if (tintLocation != -1) {
+                    glUniform4f(tintLocation, tint_r, tint_g, tint_b, tint_a);
+                }
+                if (opacityLocation != -1) {
+                    glUniform1f(opacityLocation, opacity);
                 }
                 if (rectColorLocation != -1) {
                     glUniform4f(rectColorLocation, 

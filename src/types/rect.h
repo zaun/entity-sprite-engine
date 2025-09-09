@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#define RECT_PROXY_META "RectProxyMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -31,28 +33,28 @@ typedef void (*EseRectWatcherCallback)(EseRect *rect, void *userdata);
  * 
  * @details Allocates memory for a new EseRect and initializes to (0, 0, 0, 0).
  *          The rect is created without Lua references and must be explicitly
- *          referenced with rect_ref() if Lua access is desired.
+ *          referenced with ese_rect_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseRect object
  * 
- * @warning The returned EseRect must be freed with rect_destroy() to prevent memory leaks
+ * @warning The returned EseRect must be freed with ese_rect_destroy() to prevent memory leaks
  */
-EseRect *rect_create(EseLuaEngine *engine);
+EseRect *ese_rect_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseRect into a new EseRect object.
  * 
  * @details This function creates a deep copy of an EseRect object. It allocates a new EseRect
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with rect_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_rect_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseRect to copy.
  * @return A new, distinct EseRect object that is a copy of the source.
  * 
- * @warning The returned EseRect must be freed with rect_destroy() to prevent memory leaks
+ * @warning The returned EseRect must be freed with ese_rect_destroy() to prevent memory leaks
  */
-EseRect *rect_copy(const EseRect *source);
+EseRect *ese_rect_copy(const EseRect *source);
 
 /**
  * @brief Destroys a EseRect object, managing memory based on Lua references.
@@ -67,14 +69,14 @@ EseRect *rect_copy(const EseRect *source);
  * 
  * @param rect Pointer to the EseRect object to destroy
  */
-void rect_destroy(EseRect *rect);
+void ese_rect_destroy(EseRect *rect);
 
 /**
  * @brief Gets the size of the EseRect structure in bytes.
  * 
  * @return The size of the EseRect structure in bytes
  */
-size_t rect_sizeof(void);
+size_t ese_rect_sizeof(void);
 
 // Property access
 /**
@@ -83,7 +85,7 @@ size_t rect_sizeof(void);
  * @param rect Pointer to the EseRect object
  * @param x The x-coordinate value
  */
-void rect_set_x(EseRect *rect, float x);
+void ese_rect_set_x(EseRect *rect, float x);
 
 /**
  * @brief Gets the x-coordinate of the rectangle's top-left corner.
@@ -91,7 +93,7 @@ void rect_set_x(EseRect *rect, float x);
  * @param rect Pointer to the EseRect object
  * @return The x-coordinate value
  */
-float rect_get_x(const EseRect *rect);
+float ese_rect_get_x(const EseRect *rect);
 
 /**
  * @brief Sets the y-coordinate of the rectangle's top-left corner.
@@ -99,7 +101,7 @@ float rect_get_x(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @param y The y-coordinate value
  */
-void rect_set_y(EseRect *rect, float y);
+void ese_rect_set_y(EseRect *rect, float y);
 
 /**
  * @brief Gets the y-coordinate of the rectangle's top-left corner.
@@ -107,7 +109,7 @@ void rect_set_y(EseRect *rect, float y);
  * @param rect Pointer to the EseRect object
  * @return The y-coordinate value
  */
-float rect_get_y(const EseRect *rect);
+float ese_rect_get_y(const EseRect *rect);
 
 /**
  * @brief Sets the width of the rectangle.
@@ -115,7 +117,7 @@ float rect_get_y(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @param width The width value
  */
-void rect_set_width(EseRect *rect, float width);
+void ese_rect_set_width(EseRect *rect, float width);
 
 /**
  * @brief Gets the width of the rectangle.
@@ -123,7 +125,7 @@ void rect_set_width(EseRect *rect, float width);
  * @param rect Pointer to the EseRect object
  * @return The width value
  */
-float rect_get_width(const EseRect *rect);
+float ese_rect_get_width(const EseRect *rect);
 
 /**
  * @brief Sets the height of the rectangle.
@@ -131,7 +133,7 @@ float rect_get_width(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @param height The height value
  */
-void rect_set_height(EseRect *rect, float height);
+void ese_rect_set_height(EseRect *rect, float height);
 
 /**
  * @brief Gets the height of the rectangle.
@@ -139,7 +141,7 @@ void rect_set_height(EseRect *rect, float height);
  * @param rect Pointer to the EseRect object
  * @return The height value
  */
-float rect_get_height(const EseRect *rect);
+float ese_rect_get_height(const EseRect *rect);
 
 // Lua-related access
 /**
@@ -148,7 +150,7 @@ float rect_get_height(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @return Pointer to the Lua state, or NULL if none
  */
-lua_State *rect_get_state(const EseRect *rect);
+lua_State *ese_rect_get_state(const EseRect *rect);
 
 /**
  * @brief Gets the Lua registry reference for this rectangle.
@@ -156,7 +158,7 @@ lua_State *rect_get_state(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @return The Lua registry reference value
  */
-int rect_get_lua_ref(const EseRect *rect);
+int ese_rect_get_lua_ref(const EseRect *rect);
 
 /**
  * @brief Gets the Lua reference count for this rectangle.
@@ -164,7 +166,7 @@ int rect_get_lua_ref(const EseRect *rect);
  * @param rect Pointer to the EseRect object
  * @return The current reference count
  */
-int rect_get_lua_ref_count(const EseRect *rect);
+int ese_rect_get_lua_ref_count(const EseRect *rect);
 
 /**
  * @brief Adds a watcher callback to be notified when any rect property changes.
@@ -177,7 +179,7 @@ int rect_get_lua_ref_count(const EseRect *rect);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
+bool ese_rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -191,7 +193,7 @@ bool rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *user
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
+bool ese_rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
 
 /**
  * @brief Sets the rotation of the rectangle.
@@ -201,7 +203,7 @@ bool rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *u
  * @param rect Pointer to the EseRect object
  * @param radians Rotation angle in radians
  */
-void rect_set_rotation(EseRect *rect, float radians);
+void ese_rect_set_rotation(EseRect *rect, float radians);
 
 /**
  * @brief Gets the rotation of the rectangle.
@@ -211,7 +213,7 @@ void rect_set_rotation(EseRect *rect, float radians);
  * @param rect Pointer to the EseRect object
  * @return Rotation angle in radians
  */
-float rect_get_rotation(const EseRect *rect);
+float ese_rect_get_rotation(const EseRect *rect);
 
 // Lua integration
 /**
@@ -224,7 +226,7 @@ float rect_get_rotation(const EseRect *rect);
  * 
  * @param engine EseLuaEngine pointer where the EseRect type will be registered
  */
-void rect_lua_init(EseLuaEngine *engine);
+void ese_rect_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseRect object to the Lua stack.
@@ -235,13 +237,13 @@ void rect_lua_init(EseLuaEngine *engine);
  * 
  * @param rect Pointer to the EseRect object to push to Lua
  */
-void rect_lua_push(EseRect *rect);
+void ese_rect_lua_push(EseRect *rect);
 
 /**
  * @brief Extracts a EseRect pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseRect pointer from the "__ptr" field of a Lua
- *          table that was created by rect_lua_push(). Performs
+ *          table that was created by ese_rect_lua_push(). Performs
  *          type checking to ensure the object is a valid EseRect proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -251,7 +253,7 @@ void rect_lua_push(EseRect *rect);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseRect *rect_lua_get(lua_State *L, int idx);
+EseRect *ese_rect_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseRect object for Lua access with reference counting.
@@ -263,7 +265,7 @@ EseRect *rect_lua_get(lua_State *L, int idx);
  * 
  * @param rect Pointer to the EseRect object to reference
  */
-void rect_ref(EseRect *rect);
+void ese_rect_ref(EseRect *rect);
 
 /**
  * @brief Unreferences a EseRect object, decrementing the reference count.
@@ -273,7 +275,7 @@ void rect_ref(EseRect *rect);
  * 
  * @param rect Pointer to the EseRect object to unreference
  */
-void rect_unref(EseRect *rect);
+void ese_rect_unref(EseRect *rect);
 
 // Mathematical operations
 /**
@@ -288,7 +290,7 @@ void rect_unref(EseRect *rect);
  * @param y Y coordinate of the point
  * @return true if point is inside, false otherwise
  */
-bool rect_contains_point(const EseRect *rect, float x, float y);
+bool ese_rect_contains_point(const EseRect *rect, float x, float y);
 
 /**
  * @brief Checks if two rectangles intersect.
@@ -301,7 +303,7 @@ bool rect_contains_point(const EseRect *rect, float x, float y);
  * @param rect2 Pointer to the second EseRect object
  * @return true if rectangles intersect, false otherwise
  */
-bool rect_intersects(const EseRect *rect1, const EseRect *rect2);
+bool ese_rect_intersects(const EseRect *rect1, const EseRect *rect2);
 
 /**
  * @brief Gets the area of the rectangle.
@@ -311,6 +313,6 @@ bool rect_intersects(const EseRect *rect1, const EseRect *rect2);
  * @param rect Pointer to the EseRect object
  * @return The area of the rectangle (width × height)
  */
-float rect_area(const EseRect *rect);
+float ese_rect_area(const EseRect *rect);
 
 #endif // ESE_RECT_H

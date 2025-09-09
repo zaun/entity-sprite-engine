@@ -1,6 +1,11 @@
 #ifndef ESE_VECTOR_H
 #define ESE_VECTOR_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
+#define VECTOR_PROXY_META "VectorProxyMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -10,14 +15,7 @@ typedef struct EseLuaEngine EseLuaEngine;
  * 
  * @details This structure stores the x and y components of a vector in 2D space.
  */
-typedef struct EseVector {
-    float x;            /**< The x-component of the vector */
-    float y;            /**< The y-component of the vector */
-
-    lua_State *state;   /**< Lua State this EseVector belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this vector has been referenced in C */
-} EseVector;
+typedef struct EseVector EseVector;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -29,28 +27,28 @@ typedef struct EseVector {
  * 
  * @details Allocates memory for a new EseVector and initializes to (0, 0).
  *          The vector is created without Lua references and must be explicitly
- *          referenced with vector_ref() if Lua access is desired.
+ *          referenced with ese_vector_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseVector object
  * 
- * @warning The returned EseVector must be freed with vector_destroy() to prevent memory leaks
+ * @warning The returned EseVector must be freed with ese_vector_destroy() to prevent memory leaks
  */
-EseVector *vector_create(EseLuaEngine *engine);
+EseVector *ese_vector_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseVector into a new EseVector object.
  * 
  * @details This function creates a deep copy of an EseVector object. It allocates a new EseVector
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with vector_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_vector_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseVector to copy.
  * @return A new, distinct EseVector object that is a copy of the source.
  * 
- * @warning The returned EseVector must be freed with vector_destroy() to prevent memory leaks.
+ * @warning The returned EseVector must be freed with ese_vector_destroy() to prevent memory leaks.
  */
-EseVector *vector_copy(const EseVector *source);
+EseVector *ese_vector_copy(const EseVector *source);
 
 /**
  * @brief Destroys a EseVector object, managing memory based on Lua references.
@@ -65,7 +63,72 @@ EseVector *vector_copy(const EseVector *source);
  * 
  * @param vector Pointer to the EseVector object to destroy
  */
-void vector_destroy(EseVector *vector);
+void ese_vector_destroy(EseVector *vector);
+
+/**
+ * @brief Gets the size of the EseVector structure in bytes.
+ * 
+ * @return The size of the EseVector structure in bytes
+ */
+size_t ese_vector_sizeof(void);
+
+// Property access
+/**
+ * @brief Sets the x-component of the vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @param x The x-component value
+ */
+void ese_vector_set_x(EseVector *vector, float x);
+
+/**
+ * @brief Gets the x-component of the vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @return The x-component value
+ */
+float ese_vector_get_x(const EseVector *vector);
+
+/**
+ * @brief Sets the y-component of the vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @param y The y-component value
+ */
+void ese_vector_set_y(EseVector *vector, float y);
+
+/**
+ * @brief Gets the y-component of the vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @return The y-component value
+ */
+float ese_vector_get_y(const EseVector *vector);
+
+// Lua-related access
+/**
+ * @brief Gets the Lua state associated with this vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *ese_vector_get_state(const EseVector *vector);
+
+/**
+ * @brief Gets the Lua registry reference for this vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @return The Lua registry reference value
+ */
+int ese_vector_get_lua_ref(const EseVector *vector);
+
+/**
+ * @brief Gets the Lua reference count for this vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @return The current reference count
+ */
+int ese_vector_get_lua_ref_count(const EseVector *vector);
 
 // Lua integration
 /**
@@ -78,7 +141,7 @@ void vector_destroy(EseVector *vector);
  * 
  * @param engine EseLuaEngine pointer where the EseVector type will be registered
  */
-void vector_lua_init(EseLuaEngine *engine);
+void ese_vector_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseVector object to the Lua stack.
@@ -89,15 +152,15 @@ void vector_lua_init(EseLuaEngine *engine);
  * 
  * @param vector Pointer to the EseVector object to push to Lua
  */
-void vector_lua_push(EseVector *vector);
+void ese_vector_lua_push(EseVector *vector);
 
 /**
  * @brief Extracts a EseVector pointer from a Lua userdata object with type safety.
  * 
- * @details Retrieves the C EseVector pointer from the "__ptr" field of a Lua
- *          table that was created by vector_lua_push(). Performs
- *          type checking to ensure the object is a valid EseVector proxy table
- *          with the correct metatable and userdata pointer.
+ * @details Retrieves the C EseVector pointer from the userdata
+ *          that was created by ese_vector_lua_push(). Performs
+ *          type checking to ensure the object is a valid EseVector userdata
+ *          with the correct metatable.
  * 
  * @param L Lua state pointer
  * @param idx Stack index of the Lua EseVector object
@@ -105,7 +168,7 @@ void vector_lua_push(EseVector *vector);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseVector *vector_lua_get(lua_State *L, int idx);
+EseVector *ese_vector_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseVector object for Lua access with reference counting.
@@ -117,7 +180,7 @@ EseVector *vector_lua_get(lua_State *L, int idx);
  * 
  * @param vector Pointer to the EseVector object to reference
  */
-void vector_ref(EseVector *vector);
+void ese_vector_ref(EseVector *vector);
 
 /**
  * @brief Unreferences a EseVector object, decrementing the reference count.
@@ -137,7 +200,7 @@ void vector_unref(EseVector *vector);
  * @param direction Direction character: 'n', 's', 'e', 'w', or combinations like "nw"
  * @param magnitude Length of the resulting vector
  */
-void vector_set_direction(EseVector *vector, const char *direction, float magnitude);
+void ese_vector_set_direction(EseVector *vector, const char *direction, float magnitude);
 
 /**
  * @brief Calculates the magnitude (length) of the vector.
@@ -145,13 +208,13 @@ void vector_set_direction(EseVector *vector, const char *direction, float magnit
  * @param vector Pointer to the EseVector object
  * @return The magnitude of the vector
  */
-float vector_magnitude(const EseVector *vector);
+float ese_vector_magnitude(const EseVector *vector);
 
 /**
  * @brief Normalizes the vector to unit length.
  * 
  * @param vector Pointer to the EseVector object to normalize
  */
-void vector_normalize(EseVector *vector);
+void ese_vector_normalize(EseVector *vector);
 
 #endif // ESE_VECTOR_H

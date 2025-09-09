@@ -42,8 +42,8 @@ static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, con
     EseEntityComponentText *component = memory_manager.malloc(sizeof(EseEntityComponentText), MMTAG_ENTITY);
     component->base.data = component;
     component->base.active = true;
-    component->base.id = uuid_create(engine);
-    uuid_ref(component->base.id);
+    component->base.id = ese_uuid_create(engine);
+    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_TEXT;
@@ -61,8 +61,8 @@ static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, con
     // Initialize with default values
     component->justify = TEXT_JUSTIFY_LEFT;
     component->align = TEXT_ALIGN_TOP;
-    component->offset = point_create(engine);
-    point_ref(component->offset);
+    component->offset = ese_point_create(engine);
+    ese_point_ref(component->offset);
 
     return &component->base;
 }
@@ -78,8 +78,8 @@ EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *sr
     text_copy->align = src->align;
     
     // Copy offset
-    point_set_x(text_copy->offset, point_get_x(src->offset));
-    point_set_y(text_copy->offset, point_get_y(src->offset));
+    ese_point_set_x(text_copy->offset, ese_point_get_x(src->offset));
+    ese_point_set_y(text_copy->offset, ese_point_get_y(src->offset));
 
     return copy;
 }
@@ -88,8 +88,8 @@ void _entity_component_text_destroy(EseEntityComponentText *component) {
     log_assert("ENTITY_COMP", component, "_entity_component_text_destroy called with NULL src");
 
     memory_manager.free(component->text);
-    point_destroy(component->offset);
-    uuid_destroy(component->base.id);
+    ese_point_destroy(component->offset);
+    ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
 }
 
@@ -175,8 +175,8 @@ static int _entity_component_text_newindex(lua_State *L) {
             if (lua_islightuserdata(L, -1)) {
                 EsePoint *new_offset = (EsePoint *)lua_touserdata(L, -1);
                 if (new_offset) {
-                    point_set_x(component->offset, point_get_x(new_offset));
-                    point_set_y(component->offset, point_get_y(new_offset));
+                    ese_point_set_x(component->offset, ese_point_get_x(new_offset));
+                    ese_point_set_y(component->offset, ese_point_get_y(new_offset));
                 }
             }
             lua_pop(L, 1);
@@ -218,7 +218,7 @@ static int _entity_component_text_tostring(lua_State *L) {
     char buf[256];
     snprintf(buf, sizeof(buf), "EntityComponentText: %p (id=%s active=%s text='%s' justify=%d align=%d)", 
              (void*)component,
-             component->base.id->value,
+             ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
              component->text ? component->text : "",
              (int)component->justify,
@@ -342,8 +342,8 @@ void _entity_component_text_draw(EseEntityComponentText *component, float screen
     int text_height = FONT_CHAR_HEIGHT;
 
     // Apply offset
-    float final_x = screen_x + point_get_x(component->offset);
-    float final_y = screen_y + point_get_y(component->offset);
+    float final_x = screen_x + ese_point_get_x(component->offset);
+    float final_y = screen_y + ese_point_get_y(component->offset);
 
     // Apply justification (horizontal alignment)
     switch (component->justify) {

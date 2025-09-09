@@ -531,7 +531,7 @@ else if (strcmp(key, "position") == 0) {
         return 0;
     }
     
-    Point *new_position_point = point_lua_get(L, 3);
+    Point *new_position_point = ese_point_lua_get(L, 3);
     if (!new_position_point) {
         // Try to extract numbers directly
         if (lua_istable(L, 3)) {

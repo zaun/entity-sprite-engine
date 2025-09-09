@@ -5,6 +5,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/input_state.h"
+#include "types/input_state_private.h"
 
 /**
  * @private
@@ -51,6 +52,7 @@ static int _input_state_lua_tostring(lua_State *L);
 // Lua helpers
 static int _input_state_keys_index(lua_State *L);
 static int _input_state_mouse_buttons_index(lua_State *L);
+static int _input_state_key_index(lua_State *L);
 static int _input_state_readonly_error(lua_State *L);
 
 // ========================================
@@ -95,7 +97,7 @@ static EseInputState *_input_state_make() {
  */
 static int _input_state_lua_gc(lua_State *L) {
     // Get from userdata
-    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, "InputStateMeta");
+    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, INPUT_STATE_PROXY_META);
     if (!ud) {
         return 0; // Not our userdata
     }
@@ -106,7 +108,7 @@ static int _input_state_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this input was referenced from C and should not be freed.
         if (input->lua_ref == LUA_NOREF) {
-            input_state_destroy(input);
+            ese_input_state_destroy(input);
         }
     }
 
@@ -125,7 +127,7 @@ static int _input_state_lua_gc(lua_State *L) {
  */
 static int _input_state_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_INPUT_STATE_INDEX);
-    EseInputState *input = input_state_lua_get(L, 1);
+    EseInputState *input = ese_input_state_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!input || !key) {
         profile_cancel(PROFILE_LUA_INPUT_STATE_INDEX);
@@ -187,9 +189,6 @@ static int _input_state_lua_index(lua_State *L) {
 
     // mouse_buttons table proxy (read-only)
     if (strcmp(key, "mouse_buttons") == 0) {
-        // Create the table
-        lua_newtable(L);
-
         // Create and set the metatable
         lua_newtable(L);
         
@@ -211,11 +210,15 @@ static int _input_state_lua_index(lua_State *L) {
 
     // KEY table with constants
     if (strcmp(key, "KEY") == 0) {
+        // Create empty table
         lua_newtable(L);
-        for (int i = 0; i < InputKey_MAX; i++) {
-            lua_pushinteger(L, i);
-            lua_setfield(L, -2, input_state_key_names[i]);
+
+        // Attach KEY metatable
+        luaL_getmetatable(L, INPUT_STATE_PROXY_META "_KEY");
+        if (lua_setmetatable(L, -2) == 0) {
+            log_assert("INPUT_STATE", 0, "Failed to get metatable for KEY table");
         }
+
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (KEY_table)");
         return 1;
     }
@@ -249,7 +252,7 @@ static int _input_state_lua_newindex(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1)
  */
 static int _input_state_lua_tostring(lua_State *L) {
-    EseInputState *input = input_state_lua_get(L, 1);
+    EseInputState *input = ese_input_state_lua_get(L, 1);
     if (!input) {
         lua_pushstring(L, "Input: (invalid)");
         return 1;
@@ -341,6 +344,33 @@ static int _input_state_mouse_buttons_index(lua_State *L) {
     return 1;
 }
 
+
+/**
+ * @brief Lua helper function for accessing KEY constants
+ * 
+ * Provides read-only access to key constants. This function is used as the
+ * __index metamethod for the KEY table.
+ * 
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - integer key value)
+ */
+static int _input_state_key_index(lua_State *L) {
+    const char *key_name = lua_tostring(L, 2);
+    if (!key_name) {
+        return luaL_error(L, "Key name must be a string");
+    }
+    
+    // Find the key name in the array
+    for (int i = 0; i < InputKey_MAX; i++) {
+        if (strcmp(input_state_key_names[i], key_name) == 0) {
+            lua_pushinteger(L, i);
+            return 1;
+        }
+    }
+    
+    return luaL_error(L, "Unknown key name: %s", key_name);
+}
+
 /**
  * @brief Lua helper function for read-only error handling
  * 
@@ -358,24 +388,90 @@ static int _input_state_readonly_error(lua_State *L) {
 // PUBLIC FUNCTIONS
 // ========================================
 
-// Core lifecycle
-// We support a NULL engine. 
-EseInputState *input_state_create(EseLuaEngine *engine) {
+// Size and basic accessors
+size_t ese_input_state_sizeof(void) {
+    return sizeof(EseInputState);
+}
 
+// Mouse position getters
+int ese_input_state_get_mouse_x(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_x called with NULL input");
+    return input->mouse_x;
+}
+
+int ese_input_state_get_mouse_y(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_y called with NULL input");
+    return input->mouse_y;
+}
+
+int ese_input_state_get_mouse_scroll_dx(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_scroll_dx called with NULL input");
+    return input->mouse_scroll_dx;
+}
+
+int ese_input_state_get_mouse_scroll_dy(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_scroll_dy called with NULL input");
+    return input->mouse_scroll_dy;
+}
+
+// Key state getters
+bool ese_input_state_get_key_down(const EseInputState *input, EseInputKey key) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_key_down called with NULL input");
+    log_assert("INPUT_STATE", (key >= 0 && key < InputKey_MAX), "ese_input_state_get_key_down called with invalid key");
+    return input->keys_down[key];
+}
+
+bool ese_input_state_get_key_pressed(const EseInputState *input, EseInputKey key) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_key_pressed called with NULL input");
+    log_assert("INPUT_STATE", (key >= 0 && key < InputKey_MAX), "ese_input_state_get_key_pressed called with invalid key");
+    return input->keys_pressed[key];
+}
+
+bool ese_input_state_get_key_released(const EseInputState *input, EseInputKey key) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_key_released called with NULL input");
+    log_assert("INPUT_STATE", (key >= 0 && key < InputKey_MAX), "ese_input_state_get_key_released called with invalid key");
+    return input->keys_released[key];
+}
+
+// Mouse button getters
+bool ese_input_state_get_mouse_button(const EseInputState *input, int button) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_button called with NULL input");
+    log_assert("INPUT_STATE", (button >= 0 && button < MOUSE_BUTTON_COUNT), "ese_input_state_get_mouse_button called with invalid button");
+    return input->mouse_buttons[button];
+}
+
+// Lua state getters
+lua_State *ese_input_state_get_state(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_state called with NULL input");
+    return input->state;
+}
+
+int ese_input_state_get_lua_ref_count(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_lua_ref_count called with NULL input");
+    return input->lua_ref_count;
+}
+
+int ese_input_state_get_lua_ref(const EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_lua_ref called with NULL input");
+    return input->lua_ref;
+}
+
+
+// Core lifecycle
+EseInputState *ese_input_state_create(EseLuaEngine *engine) {
     EseInputState *input = _input_state_make();
     if (engine) {
         input->state = engine->runtime;
     }
-
     return input;
 }
 
-EseInputState *input_state_copy(const EseInputState *src) {
-    log_assert("INPUT_STATE", src, "input_state_copy called with NULL src");
+EseInputState *ese_input_state_copy(const EseInputState *src) {
+    log_assert("INPUT_STATE", src, "ese_input_state_copy called with NULL src");
     log_assert("INPUT_STATE", memory_manager.malloc, "memory_manager.malloc is NULL");
 
     EseInputState *copy = (EseInputState *)memory_manager.malloc(sizeof(EseInputState), MMTAG_INPUT_STATE);
-    log_assert("INPUT_STATE", copy, "input_state_copy failed to allocate memory");
+    log_assert("INPUT_STATE", copy, "ese_input_state_copy failed to allocate memory");
 
     memcpy(copy->keys_down, src->keys_down, sizeof(src->keys_down));
     memcpy(copy->keys_pressed, src->keys_pressed, sizeof(src->keys_pressed));
@@ -394,27 +490,27 @@ EseInputState *input_state_copy(const EseInputState *src) {
     return copy;
 }
 
-void input_state_destroy(EseInputState *input) {
+void ese_input_state_destroy(EseInputState *input) {
     if (!input) return;
     
     if (input->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
         memory_manager.free(input);
     } else {
-        input_state_unref(input);
+        ese_input_state_unref(input);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
 }
 
 // Lua integration
-void input_state_lua_init(EseLuaEngine *engine) {
-    log_assert("INPUT_STATE", engine, "input_state_lua_init called with NULL engine");
-    log_assert("INPUT_STATE", engine->runtime, "input_state_lua_init called with NULL engine->runtime");
+void ese_input_state_lua_init(EseLuaEngine *engine) {
+    log_assert("INPUT_STATE", engine, "ese_input_state_lua_init called with NULL engine");
+    log_assert("INPUT_STATE", engine->runtime, "ese_input_state_lua_init called with NULL engine->runtime");
 
-    if (luaL_newmetatable(engine->runtime, "InputStateMeta")) {
+    if (luaL_newmetatable(engine->runtime, INPUT_STATE_PROXY_META)) {
         log_debug("LUA", "Adding InputStateMeta to engine");
-        lua_pushstring(engine->runtime, "InputStateMeta");
+        lua_pushstring(engine->runtime, INPUT_STATE_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _input_state_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -428,10 +524,23 @@ void input_state_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "__metatable");
     }
     lua_pop(engine->runtime, 1);
+
+    // Create KEY table metatable
+    if (luaL_newmetatable(engine->runtime, INPUT_STATE_PROXY_META "_KEY")) {
+        lua_pushstring(engine->runtime, INPUT_STATE_PROXY_META "_KEY");
+        lua_setfield(engine->runtime, -2, "__name");
+        lua_pushcfunction(engine->runtime, _input_state_key_index);
+        lua_setfield(engine->runtime, -2, "__index");
+        lua_pushcfunction(engine->runtime, _input_state_readonly_error);
+        lua_setfield(engine->runtime, -2, "__newindex");
+        lua_pushstring(engine->runtime, "locked");
+        lua_setfield(engine->runtime, -2, "__metatable");
+    }
+    lua_pop(engine->runtime, 1);
 }
 
-void input_state_lua_push(EseInputState *input) {
-    log_assert("INPUT_STATE", input, "input_state_lua_push called with NULL input");
+void ese_input_state_lua_push(EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_lua_push called with NULL input");
 
     if (input->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -439,7 +548,7 @@ void input_state_lua_push(EseInputState *input) {
         *ud = input;
 
         // Attach metatable
-        luaL_getmetatable(input->state, "InputStateMeta");
+        luaL_getmetatable(input->state, INPUT_STATE_PROXY_META);
         lua_setmetatable(input->state, -2);
     } else {
         // C-owned: get from registry
@@ -447,8 +556,8 @@ void input_state_lua_push(EseInputState *input) {
     }
 }
 
-EseInputState *input_state_lua_get(lua_State *L, int idx) {
-    log_assert("INPUT_STATE", L, "input_state_lua_get called with NULL Lua state");
+EseInputState *ese_input_state_lua_get(lua_State *L, int idx) {
+    log_assert("INPUT_STATE", L, "ese_input_state_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -456,7 +565,7 @@ EseInputState *input_state_lua_get(lua_State *L, int idx) {
     }
     
     // Get the userdata and check metatable
-    EseInputState **ud = (EseInputState **)luaL_testudata(L, idx, "InputStateMeta");
+    EseInputState **ud = (EseInputState **)luaL_testudata(L, idx, INPUT_STATE_PROXY_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -464,9 +573,9 @@ EseInputState *input_state_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void input_state_ref(EseInputState *input) {
-    log_assert("INPUT_STATE", input, "input_state_ref called with NULL input");
-    log_assert("INPUT_STATE", input->state, "input_state_ref called with C only input");
+void ese_input_state_ref(EseInputState *input) {
+    log_assert("INPUT_STATE", input, "ese_input_state_ref called with NULL input");
+    log_assert("INPUT_STATE", input->state, "ese_input_state_ref called with C only input");
     
     if (input->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -474,7 +583,7 @@ void input_state_ref(EseInputState *input) {
         *ud = input;
 
         // Attach metatable
-        luaL_getmetatable(input->state, "InputStateMeta");
+        luaL_getmetatable(input->state, INPUT_STATE_PROXY_META);
         lua_setmetatable(input->state, -2);
 
         // Store hard reference to prevent garbage collection
@@ -485,12 +594,12 @@ void input_state_ref(EseInputState *input) {
         input->lua_ref_count++;
     }
 
-    profile_count_add("input_state_ref_count");
+    profile_count_add("ese_input_state_ref_count");
 }
 
-void input_state_unref(EseInputState *input) {
+void ese_input_state_unref(EseInputState *input) {
     if (!input) return;
-    log_assert("INPUT_STATE", input->state, "input_state_unref called with C only input");
+    log_assert("INPUT_STATE", input->state, "ese_input_state_unref called with C only input");
 
     if (input->lua_ref != LUA_NOREF && input->lua_ref_count > 0) {
         input->lua_ref_count--;
@@ -502,5 +611,5 @@ void input_state_unref(EseInputState *input) {
         }
     }
 
-    profile_count_add("input_state_unref_count");
+    profile_count_add("ese_input_state_unref_count");
 }

@@ -8,21 +8,15 @@ typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseRect EseRect;
 
+#define RAY_PROXY_META "RayProxyMeta"
+
 /**
- * @brief Represents a ray with floating-point origin and direction.
+ * @brief Opaque ray structure.
  * 
  * @details This structure stores a ray defined by an origin point and direction vector.
+ *          The internal structure is hidden from the public API.
  */
-typedef struct EseRay {
-    float x;  /**< The x-coordinate of the ray's origin */
-    float y;  /**< The y-coordinate of the ray's origin */
-    float dx; /**< The x-component of the ray's direction vector */
-    float dy; /**< The y-component of the ray's direction vector */
-
-    lua_State *state;   /**< Lua State this EseRay belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this ray has been referenced in C */
-} EseRay;
+typedef struct EseRay EseRay;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -34,28 +28,28 @@ typedef struct EseRay {
  * 
  * @details Allocates memory for a new EseRay and initializes to origin (0,0) with direction (1,0).
  *          The ray is created without Lua references and must be explicitly
- *          referenced with ray_ref() if Lua access is desired.
+ *          referenced with ese_ray_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseRay object
  * 
- * @warning The returned EseRay must be freed with ray_destroy() to prevent memory leaks
+ * @warning The returned EseRay must be freed with ese_ray_destroy() to prevent memory leaks
  */
-EseRay *ray_create(EseLuaEngine *engine);
+EseRay *ese_ray_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseRay into a new EseRay object.
  * 
  * @details This function creates a deep copy of an EseRay object. It allocates a new EseRay
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with ray_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_ray_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseRay to copy.
  * @return A new, distinct EseRay object that is a copy of the source.
  * 
- * @warning The returned EseRay must be freed with ray_destroy() to prevent memory leaks.
+ * @warning The returned EseRay must be freed with ese_ray_destroy() to prevent memory leaks.
  */
-EseRay *ray_copy(const EseRay *source);
+EseRay *ese_ray_copy(const EseRay *source);
 
 /**
  * @brief Destroys a EseRay object, managing memory based on Lua references.
@@ -70,7 +64,103 @@ EseRay *ray_copy(const EseRay *source);
  * 
  * @param ray Pointer to the EseRay object to destroy
  */
-void ray_destroy(EseRay *ray);
+void ese_ray_destroy(EseRay *ray);
+
+// Property accessors
+/**
+ * @brief Gets the x-coordinate of the ray's origin.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The x-coordinate of the ray's origin
+ */
+float ese_ray_get_x(const EseRay *ray);
+
+/**
+ * @brief Sets the x-coordinate of the ray's origin.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @param x The new x-coordinate value
+ */
+void ese_ray_set_x(EseRay *ray, float x);
+
+/**
+ * @brief Gets the y-coordinate of the ray's origin.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The y-coordinate of the ray's origin
+ */
+float ese_ray_get_y(const EseRay *ray);
+
+/**
+ * @brief Sets the y-coordinate of the ray's origin.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @param y The new y-coordinate value
+ */
+void ese_ray_set_y(EseRay *ray, float y);
+
+/**
+ * @brief Gets the x-component of the ray's direction vector.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The x-component of the ray's direction vector
+ */
+float ese_ray_get_dx(const EseRay *ray);
+
+/**
+ * @brief Sets the x-component of the ray's direction vector.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @param dx The new x-component value
+ */
+void ese_ray_set_dx(EseRay *ray, float dx);
+
+/**
+ * @brief Gets the y-component of the ray's direction vector.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The y-component of the ray's direction vector
+ */
+float ese_ray_get_dy(const EseRay *ray);
+
+/**
+ * @brief Sets the y-component of the ray's direction vector.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @param dy The new y-component value
+ */
+void ese_ray_set_dy(EseRay *ray, float dy);
+
+/**
+ * @brief Gets the Lua state associated with the ray.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The Lua state pointer
+ */
+lua_State *ese_ray_get_state(const EseRay *ray);
+
+/**
+ * @brief Gets the Lua reference count for the ray.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The current reference count
+ */
+int ese_ray_get_lua_ref_count(const EseRay *ray);
+
+/**
+ * @brief Gets the Lua reference for the ray.
+ * 
+ * @param ray Pointer to the EseRay object
+ * @return The Lua reference value
+ */
+int ese_ray_get_lua_ref(const EseRay *ray);
+
+/**
+ * @brief Gets the size of the EseRay structure.
+ * 
+ * @return The size in bytes of the EseRay structure
+ */
+size_t ese_ray_sizeof(void);
 
 // Lua integration
 /**
@@ -83,7 +173,7 @@ void ray_destroy(EseRay *ray);
  * 
  * @param engine EseLuaEngine pointer where the EseRay type will be registered
  */
-void ray_lua_init(EseLuaEngine *engine);
+void ese_ray_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseRay object to the Lua stack.
@@ -94,13 +184,13 @@ void ray_lua_init(EseLuaEngine *engine);
  * 
  * @param ray Pointer to the EseRay object to push to Lua
  */
-void ray_lua_push(EseRay *ray);
+void ese_ray_lua_push(EseRay *ray);
 
 /**
  * @brief Extracts a EseRay pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseRay pointer from the "__ptr" field of a Lua
- *          table that was created by ray_lua_push(). Performs
+ *          table that was created by ese_ray_lua_push(). Performs
  *          type checking to ensure the object is a valid EseRay proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -110,7 +200,7 @@ void ray_lua_push(EseRay *ray);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseRay *ray_lua_get(lua_State *L, int idx);
+EseRay *ese_ray_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseRay object for Lua access with reference counting.
@@ -122,7 +212,7 @@ EseRay *ray_lua_get(lua_State *L, int idx);
  * 
  * @param ray Pointer to the EseRay object to reference
  */
-void ray_ref(EseRay *ray);
+void ese_ray_ref(EseRay *ray);
 
 /**
  * @brief Unreferences a EseRay object, decrementing the reference count.
@@ -132,7 +222,7 @@ void ray_ref(EseRay *ray);
  * 
  * @param ray Pointer to the EseRay object to unreference
  */
-void ray_unref(EseRay *ray);
+void ese_ray_unref(EseRay *ray);
 
 // Mathematical operations
 /**
@@ -142,7 +232,7 @@ void ray_unref(EseRay *ray);
  * @param rect Pointer to the EseRect object
  * @return true if ray intersects rectangle, false otherwise
  */
-bool ray_intersects_rect(const EseRay *ray, const EseRect *rect);
+bool ese_ray_intersects_rect(const EseRay *ray, const EseRect *rect);
 
 /**
  * @brief Gets a point along the ray at a given distance from the origin.
@@ -152,13 +242,13 @@ bool ray_intersects_rect(const EseRay *ray, const EseRect *rect);
  * @param out_x Pointer to store the resulting x coordinate
  * @param out_y Pointer to store the resulting y coordinate
  */
-void ray_get_point_at_distance(const EseRay *ray, float distance, float *out_x, float *out_y);
+void ese_ray_get_point_at_distance(const EseRay *ray, float distance, float *out_x, float *out_y);
 
 /**
  * @brief Normalizes the ray's direction vector.
  * 
  * @param ray Pointer to the EseRay object to normalize
  */
-void ray_normalize(EseRay *ray);
+void ese_ray_normalize(EseRay *ray);
 
 #endif // ESE_RAY_H

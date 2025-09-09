@@ -45,6 +45,9 @@ int _lua_print(lua_State *L) {
     }
     buffer[sizeof(buffer) - 1] = '\0';
     log_debug("LUA_SCRIPT", "%s", buffer);
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    engine_add_to_console(engine, ESE_CONSOLE_NORMAL, "LUA", buffer);
     return 0;
 }
 
@@ -247,7 +250,7 @@ int _lua_detect_collision(lua_State *L) {
 
     // If the table is a Rect
     if (strcmp(tname, "RectProxyMeta") == 0) {
-        EseRect *rect = rect_lua_get (L, 1);
+        EseRect *rect = ese_rect_lua_get (L, 1);
         EseEntity **entities = engine_detect_collision_rect(engine, rect, max_results);
 
         // build Lua table

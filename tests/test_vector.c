@@ -1,280 +1,655 @@
-#include "test_utils.h"
-#include "types/vector.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_ese_vector.c - Unity-based tests for vector functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_vector_creation();
-static void test_vector_properties();
-static void test_vector_copy();
-static void test_vector_mathematical_operations();
-static void test_vector_watcher_system();
-static void test_vector_lua_integration();
-static void test_vector_lua_script_api();
-static void test_vector_null_pointer_aborts();
+#include "../src/types/vector.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for Vector testing
-static const char* test_vector_lua_script = 
-"function VECTOR_TEST_MODULE:test_vector_creation()\n"
-"    local v1 = Vector.new(10.5, -5.25)\n"
-"    local v2 = Vector.zero()\n"
-"    \n"
-"    if v1.x == 10.5 and v1.y == -5.25 and v2.x == 0 and v2.y == 0 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function VECTOR_TEST_MODULE:test_vector_properties()\n"
-"    local v = Vector.new(0, 0)\n"
-"    \n"
-"    v.x = 42.0\n"
-"    v.y = -17.5\n"
-"    \n"
-"    if v.x == 42.0 and v.y == -17.5 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function VECTOR_TEST_MODULE:test_vector_operations()\n"
-"    local v1 = Vector.new(3, 4)\n"
-"    local v2 = Vector.new(1, 2)\n"
-"    \n"
-"    -- Test magnitude\n"
-"    local mag = v1:magnitude()\n"
-"    if math.abs(mag - 5.0) > 0.001 then\n"
-"        return false\n"
-"    end\n"
-"    \n"
-"    -- Test normalization\n"
-"    local normalized = v1:normalized()\n"
-"    if math.abs(normalized.x - 0.6) > 0.001 or math.abs(normalized.y - 0.8) > 0.001 then\n"
-"        return false\n"
-"    end\n"
-"    \n"
-"    return true\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_vector_sizeof(void);
+static void test_ese_vector_create_requires_engine(void);
+static void test_ese_vector_create(void);
+static void test_ese_vector_x(void);
+static void test_ese_vector_y(void);
+static void test_ese_vector_ref(void);
+static void test_ese_vector_copy_requires_engine(void);
+static void test_ese_vector_copy(void);
+static void test_ese_vector_magnitude(void);
+static void test_ese_vector_normalize(void);
+static void test_ese_vector_set_direction(void);
+static void test_ese_vector_lua_integration(void);
+static void test_ese_vector_lua_init(void);
+static void test_ese_vector_lua_push(void);
+static void test_ese_vector_lua_get(void);
 
-// Signal handler for testing aborts
-static void segfault_handler(int sig) {
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    fprintf(stderr, "---- BACKTRACE START ----\n");
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    fprintf(stderr, "---- BACKTRACE  END  ----\n");
-    exit(1);
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_vector_lua_new(void);
+static void test_ese_vector_lua_zero(void);
+static void test_ese_vector_lua_magnitude(void);
+static void test_ese_vector_lua_normalize(void);
+static void test_ese_vector_lua_set_direction(void);
+static void test_ese_vector_lua_x(void);
+static void test_ese_vector_lua_y(void);
+static void test_ese_vector_lua_tostring(void);
+static void test_ese_vector_lua_gc(void);
+
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-int main() {
-    // Set up signal handler for testing aborts
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
-    test_suite_begin("🧪 EseVector Test Suite");
-    
-    test_vector_creation();
-    test_vector_properties();
-    test_vector_copy();
-    test_vector_mathematical_operations();
-    test_vector_lua_integration();
-    test_vector_lua_script_api();
-    test_vector_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseVector Test Suite");
-    
-    return 0;
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-static void test_vector_creation() {
-    test_begin("Vector Creation Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector creation tests");
-    
-    EseVector *vector = vector_create(engine);
-    TEST_ASSERT_NOT_NULL(vector, "vector_create should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(0.0f, vector->x, "New vector should have x = 0.0");
-    TEST_ASSERT_EQUAL(0.0f, vector->y, "New vector should have y = 0.0");
-    TEST_ASSERT_POINTER_EQUAL(engine->runtime, vector->state, "Vector should have correct Lua state");
-    TEST_ASSERT_EQUAL(0, vector->lua_ref_count, "New vector should have ref count 0");
-    TEST_ASSERT(vector->lua_ref == LUA_NOREF, "New vector should have negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", vector->lua_ref);
-    TEST_ASSERT(sizeof(EseVector) > 0, "EseVector should have positive size");
-    printf("ℹ INFO: Actual vector size: %zu bytes\n", sizeof(EseVector));
-    
-    vector_destroy(vector);
+/**
+* Main test runner
+*/
+int main(void) {
+    log_init();
+
+    printf("\nEseVector Tests\n");
+    printf("---------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_ese_vector_sizeof);
+    RUN_TEST(test_ese_vector_create_requires_engine);
+    RUN_TEST(test_ese_vector_create);
+    RUN_TEST(test_ese_vector_x);
+    RUN_TEST(test_ese_vector_y);
+    RUN_TEST(test_ese_vector_ref);
+    RUN_TEST(test_ese_vector_copy_requires_engine);
+    RUN_TEST(test_ese_vector_copy);
+    RUN_TEST(test_ese_vector_magnitude);
+    RUN_TEST(test_ese_vector_normalize);
+    RUN_TEST(test_ese_vector_set_direction);
+    RUN_TEST(test_ese_vector_lua_integration);
+    RUN_TEST(test_ese_vector_lua_init);
+    RUN_TEST(test_ese_vector_lua_push);
+    RUN_TEST(test_ese_vector_lua_get);
+
+    RUN_TEST(test_ese_vector_lua_new);
+    RUN_TEST(test_ese_vector_lua_zero);
+    RUN_TEST(test_ese_vector_lua_magnitude);
+    RUN_TEST(test_ese_vector_lua_normalize);
+    RUN_TEST(test_ese_vector_lua_set_direction);
+    RUN_TEST(test_ese_vector_lua_x);
+    RUN_TEST(test_ese_vector_lua_y);
+    RUN_TEST(test_ese_vector_lua_tostring);
+    RUN_TEST(test_ese_vector_lua_gc);
+
+    return UNITY_END();
+}
+
+/**
+* C API Test Functions
+*/
+
+static void test_ese_vector_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_vector_sizeof(), "Vector size should be > 0");
+}
+
+static void test_ese_vector_create_requires_engine(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_vector_sizeof(), "Vector size should be > 0");
+}
+
+static void test_ese_vector_create(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(vector, "Vector should be created");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_vector_get_y(vector));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_vector_get_state(vector), "Vector should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_vector_get_lua_ref_count(vector), "New vector should have ref count 0");
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_x(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    ese_vector_set_x(vector, 10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_vector_get_x(vector));
+
+    ese_vector_set_x(vector, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_vector_get_x(vector));
+
+    ese_vector_set_x(vector, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_y(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    ese_vector_set_y(vector, 20.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_y(vector, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_y(vector, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_ref(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    ese_vector_ref(vector);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_vector_get_lua_ref_count(vector), "Ref count should be 1");
+
+    vector_unref(vector);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_vector_get_lua_ref_count(vector), "Ref count should be 0");
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_copy_requires_engine(void) {
+    ASSERT_DEATH(ese_vector_copy(NULL), "ese_vector_copy should abort with NULL vector");
+}
+
+static void test_ese_vector_copy(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+    ese_vector_ref(vector);
+    ese_vector_set_x(vector, 10.0f);
+    ese_vector_set_y(vector, 20.0f);
+    EseVector *copy = ese_vector_copy(vector);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_vector_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_vector_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_vector_get_x(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_vector_get_y(copy));
+
+    vector_unref(vector);
+    ese_vector_destroy(vector);
+    ese_vector_destroy(copy);
+}
+
+static void test_ese_vector_magnitude(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    // Test zero vector
+    ese_vector_set_x(vector, 0.0f);
+    ese_vector_set_y(vector, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_magnitude(vector));
+
+    // Test unit vectors
+    ese_vector_set_x(vector, 1.0f);
+    ese_vector_set_y(vector, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    ese_vector_set_x(vector, 0.0f);
+    ese_vector_set_y(vector, 1.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    // Test 3-4-5 triangle
+    ese_vector_set_x(vector, 3.0f);
+    ese_vector_set_y(vector, 4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_vector_magnitude(vector));
+
+    // Test negative components
+    ese_vector_set_x(vector, -3.0f);
+    ese_vector_set_y(vector, -4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_vector_magnitude(vector));
+
+    // Test mixed signs
+    ese_vector_set_x(vector, 3.0f);
+    ese_vector_set_y(vector, -4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_vector_magnitude(vector));
+
+    // Test decimal values
+    ese_vector_set_x(vector, 1.5f);
+    ese_vector_set_y(vector, 2.0f);
+    float expected = sqrtf(1.5f * 1.5f + 2.0f * 2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, ese_vector_magnitude(vector));
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_normalize(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    // Test zero vector (should not change)
+    ese_vector_set_x(vector, 0.0f);
+    ese_vector_set_y(vector, 0.0f);
+    ese_vector_normalize(vector);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    // Test 3-4-5 triangle
+    ese_vector_set_x(vector, 3.0f);
+    ese_vector_set_y(vector, 4.0f);
+    ese_vector_normalize(vector);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.6f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, ese_vector_get_y(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    // Test negative components
+    ese_vector_set_x(vector, -3.0f);
+    ese_vector_set_y(vector, -4.0f);
+    ese_vector_normalize(vector);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.6f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.8f, ese_vector_get_y(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    // Test mixed signs
+    ese_vector_set_x(vector, 3.0f);
+    ese_vector_set_y(vector, -4.0f);
+    ese_vector_normalize(vector);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.6f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.8f, ese_vector_get_y(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    // Test already normalized vector
+    ese_vector_set_x(vector, 1.0f);
+    ese_vector_set_y(vector, 0.0f);
+    ese_vector_normalize(vector);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_magnitude(vector));
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_set_direction(void) {
+    EseVector *vector = ese_vector_create(g_engine);
+
+    // Test cardinal directions
+    ese_vector_set_direction(vector, "n", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "s", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -5.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "e", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "w", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -5.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    // Test diagonal directions
+    ese_vector_set_direction(vector, "ne", 5.0f);
+    float expected = 5.0f / sqrtf(2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "nw", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -expected, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "se", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -expected, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "sw", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -expected, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -expected, ese_vector_get_y(vector));
+
+    // Test case insensitive
+    ese_vector_set_direction(vector, "N", 3.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, ese_vector_get_y(vector));
+
+    ese_vector_set_direction(vector, "E", 3.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    // Test zero magnitude
+    ese_vector_set_direction(vector, "n", 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_vector_get_y(vector));
+
+    // Test invalid direction do nothing
+    ese_vector_set_x(vector, 1.0f);
+    ese_vector_set_y(vector, 2.0f);
+    ese_vector_set_direction(vector, "invalid", 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_vector_get_x(vector));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0f, ese_vector_get_y(vector));
+
+    ese_vector_destroy(vector);
+}
+
+static void test_ese_vector_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EseVector *vector = ese_vector_create(engine);
+
+    lua_State *before_state = ese_vector_get_state(vector);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Vector should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Vector state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_vector_get_lua_ref(vector), "Vector should have no Lua reference initially");
+
+    ese_vector_ref(vector);
+    lua_State *after_ref_state = ese_vector_get_state(vector);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Vector should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Vector state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_vector_get_lua_ref(vector), "Vector should have a valid Lua reference after ref");
+
+    vector_unref(vector);
+    lua_State *after_unref_state = ese_vector_get_state(vector);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Vector should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Vector state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_vector_get_lua_ref(vector), "Vector should have no Lua reference after unref");
+
+    ese_vector_destroy(vector);
     lua_engine_destroy(engine);
-    
-    test_end("Vector Creation Tests");
 }
 
-static void test_vector_properties() {
-    test_begin("Vector Properties Tests");
+static void test_ese_vector_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector property tests");
+    luaL_getmetatable(L, VECTOR_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    EseVector *vector = vector_create(engine);
-    TEST_ASSERT_NOT_NULL(vector, "Vector should be created for property tests");
+    lua_getglobal(L, "Vector");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Vector table should not exist before initialization");
+    lua_pop(L, 1);
     
-    vector->x = 10.5f;
-    vector->y = -5.25f;
-    TEST_ASSERT_EQUAL(10.5f, vector->x, "Direct field access should set x coordinate");
-    TEST_ASSERT_EQUAL(-5.25f, vector->y, "Direct field access should set y coordinate");
+    ese_vector_lua_init(g_engine);
     
-    vector->x = -100.0f;
-    vector->y = 200.0f;
-    TEST_ASSERT_EQUAL(-100.0f, vector->x, "Direct field access should handle negative values");
-    TEST_ASSERT_EQUAL(200.0f, vector->y, "Direct field access should handle negative values");
+    luaL_getmetatable(L, VECTOR_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    vector->x = 0.0f;
-    vector->y = 0.0f;
-    TEST_ASSERT_EQUAL(0.0f, vector->x, "Direct field access should handle zero values");
-    TEST_ASSERT_EQUAL(0.0f, vector->y, "Direct field access should handle zero values");
-    
-    vector_destroy(vector);
-    lua_engine_destroy(engine);
-    
-    test_end("Vector Properties Tests");
+    lua_getglobal(L, "Vector");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global Vector table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global Vector table should be a table");
+    lua_pop(L, 1);
 }
 
-static void test_vector_copy() {
-    test_begin("Vector Copy Tests");
+static void test_ese_vector_lua_push(void) {
+    ese_vector_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseVector *vector = ese_vector_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector copy tests");
+    ese_vector_lua_push(vector);
     
-    EseVector *original = vector_create(engine);
-    TEST_ASSERT_NOT_NULL(original, "Original vector should be created for copy tests");
+    EseVector **ud = (EseVector **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(vector, *ud, "The pushed item should be the actual vector");
     
-    original->x = 42.0f;
-    original->y = -17.5f;
+    lua_pop(L, 1); 
     
-    EseVector *copy = vector_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "vector_copy should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(42.0f, copy->x, "Copied vector should have same x value");
-    TEST_ASSERT_EQUAL(-17.5f, copy->y, "Copied vector should have same y value");
-    TEST_ASSERT(original != copy, "Copy should be a different object");
-    TEST_ASSERT_POINTER_EQUAL(original->state, copy->state, "Copy should have same Lua state");
-    TEST_ASSERT(copy->lua_ref == LUA_NOREF, "Copy should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy->lua_ref);
-    TEST_ASSERT_EQUAL(0, copy->lua_ref_count, "Copy should start with ref count 0");
-    
-    vector_destroy(original);
-    vector_destroy(copy);
-    lua_engine_destroy(engine);
-    
-    test_end("Vector Copy Tests");
+    ese_vector_destroy(vector);
 }
 
-static void test_vector_mathematical_operations() {
-    test_begin("Vector Mathematical Operations Tests");
+static void test_ese_vector_lua_get(void) {
+    ese_vector_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseVector *vector = ese_vector_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector math tests");
+    ese_vector_lua_push(vector);
     
-    EseVector *vector1 = vector_create(engine);
-    EseVector *vector2 = vector_create(engine);
+    EseVector *extracted_vector = ese_vector_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(vector, extracted_vector, "Extracted vector should match original");
     
-    TEST_ASSERT_NOT_NULL(vector1, "Vector1 should be created for math tests");
-    TEST_ASSERT_NOT_NULL(vector2, "Vector2 should be created for math tests");
-    
-    // Test magnitude
-    vector1->x = 3.0f;
-    vector1->y = 4.0f;
-    float magnitude = vector_magnitude(vector1);
-    TEST_ASSERT_FLOAT_EQUAL(5.0f, magnitude, 0.001f, "Magnitude of (3,4) should be 5.0");
-    
-    // Test normalization
-    vector2->x = 3.0f;
-    vector2->y = 4.0f;
-    vector_normalize(vector2);
-    TEST_ASSERT_FLOAT_EQUAL(0.6f, vector2->x, 0.001f, "Normalized x should be 0.6");
-    TEST_ASSERT_FLOAT_EQUAL(0.8f, vector2->y, 0.001f, "Normalized y should be 0.8");
-    
-    // Test direction setting
-    vector_set_direction(vector1, "e", 5.0f);
-    TEST_ASSERT_FLOAT_EQUAL(5.0f, vector1->x, 0.001f, "East direction should set x to 5.0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, vector1->y, 0.001f, "East direction should set y to 0.0");
-    
-    vector_destroy(vector1);
-    vector_destroy(vector2);
-    lua_engine_destroy(engine);
-    
-    test_end("Vector Mathematical Operations Tests");
+    lua_pop(L, 1);
+    ese_vector_destroy(vector);
 }
 
+/**
+* Lua API Test Functions
+*/
 
+static void test_ese_vector_lua_new(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Vector.new()\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
 
-static void test_vector_lua_integration() {
-    test_begin("Vector Lua Integration Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector Lua integration tests");
-    
-    EseVector *vector = vector_create(engine);
-    TEST_ASSERT_NOT_NULL(vector, "Vector should be created for Lua integration tests");
-    TEST_ASSERT_EQUAL(0, vector->lua_ref_count, "New vector should start with ref count 0");
-    TEST_ASSERT(vector->lua_ref == LUA_NOREF, "New vector should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", vector->lua_ref);
-    
-    vector_destroy(vector);
-    lua_engine_destroy(engine);
-    
-    test_end("Vector Lua Integration Tests");
+    const char *testB = "return Vector.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Vector.new(10, 10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return Vector.new(\"10\", \"10\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute with error");
+
+    const char *testE = "return Vector.new(10, 10)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute without error");
+    EseVector *extracted_vector = ese_vector_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_vector, "Extracted vector should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_vector_get_x(extracted_vector), "Extracted vector should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_vector_get_y(extracted_vector), "Extracted vector should have y=10");
+    ese_vector_destroy(extracted_vector);
 }
 
-static void test_vector_lua_script_api() {
-    test_begin("Vector Lua Script API Tests");
+static void test_ese_vector_lua_zero(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector Lua script API tests");
-    
-    vector_lua_init(engine);
-    printf("ℹ INFO: Vector Lua integration initialized\n");
-    
-    // For now, just test that the Lua integration initializes without errors
-    TEST_ASSERT(true, "Vector Lua integration should initialize successfully");
-    
-    lua_engine_destroy(engine);
-    
-    test_end("Vector Lua Script API Tests");
+    const char *testA = "return Vector.zero(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Vector.zero(10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Vector.zero()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    EseVector *extracted_vector = ese_vector_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_vector, "Extracted vector should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_vector_get_x(extracted_vector), "Extracted vector should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_vector_get_y(extracted_vector), "Extracted vector should have y=0");
+    ese_vector_destroy(extracted_vector);
 }
 
-static void test_vector_null_pointer_aborts() {
-    test_begin("Vector NULL Pointer Abort Tests");
+static void test_ese_vector_lua_magnitude(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for vector NULL pointer abort tests");
+    const char *testA = "return Vector.new(3, 4):magnitude()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double magnitude = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(5.0f, magnitude, "Magnitude should be 5");
+
+    const char *testB = "return Vector.new(0, 0):magnitude()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    magnitude = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, magnitude, "Magnitude should be 0");
+
+    const char *testC = "return Vector.new(-3, -4):magnitude()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    magnitude = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(5.0f, magnitude, "Magnitude should be 5");
+}
+
+static void test_ese_vector_lua_normalize(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseVector *vector = vector_create(engine);
-    TEST_ASSERT_NOT_NULL(vector, "Vector should be created for vector NULL pointer abort tests");
+    const char *testA = "local v = Vector.new(3, 4); v:normalize(); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double x = lua_tonumber(L, -2);
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.6f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, y);
+
+    const char *testB = "local v = Vector.new(0, 0); v:normalize(); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+}
+
+static void test_ese_vector_lua_set_direction(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    TEST_ASSERT_ABORT(vector_create(NULL), "vector_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(vector_copy(NULL), "vector_copy should abort with NULL source");
-    TEST_ASSERT_ABORT(vector_lua_init(NULL), "vector_lua_init should abort with NULL engine");
-    TEST_ASSERT_ABORT(vector_magnitude(NULL), "vector_magnitude should abort with NULL vector");
-    TEST_ASSERT_ABORT(vector_normalize(NULL), "vector_normalize should abort with NULL vector");
-    TEST_ASSERT_ABORT(vector_set_direction(NULL, "e", 1.0f), "vector_set_direction should abort with NULL vector");
-    TEST_ASSERT_ABORT(vector_lua_get(NULL, 1), "vector_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(vector_lua_push(NULL), "vector_lua_push should abort with NULL vector");
-    TEST_ASSERT_ABORT(vector_ref(NULL), "vector_ref should abort with NULL vector");
+    const char *testA = "local v = Vector.new(0, 0); v:set_direction(\"n\", 5); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double x = lua_tonumber(L, -2);
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, y);
+
+    const char *testB = "local v = Vector.new(0, 0); v:set_direction(\"e\", 3); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+
+    const char *testC = "local v = Vector.new(0, 0); v:set_direction(\"ne\", 5); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    float expected = 5.0f / sqrtf(2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expected, y);
+
+    const char *testD = "local v = Vector.new(0, 1); v:set_direction(\"invalid\", 5); return v.x, v.y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, y);
+}
+
+static void test_ese_vector_lua_x(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local v = Vector.new(0, 0); v.x = \"20\"; return v.x";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local v = Vector.new(0, 0); v.x = 10; return v.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua x set/get test 1 should execute without error");
+    double x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test3 = "local v = Vector.new(0, 0); v.x = -10; return v.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua x set/get test 2 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test4 = "local v = Vector.new(0, 0); v.x = 0; return v.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua x set/get test 3 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    lua_pop(L, 1);
+}
+
+static void test_ese_vector_lua_y(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local v = Vector.new(0, 0); v.y = \"20\"; return v.y";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local v = Vector.new(0, 0); v.y = 20; return v.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua y set/get test 1 should execute without error");
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, y);
+    lua_pop(L, 1);
+
+    const char *test3 = "local v = Vector.new(0, 0); v.y = -10; return v.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua y set/get test 2 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, y);
+    lua_pop(L, 1);
+
+    const char *test4 = "local v = Vector.new(0, 0); v.y = 0; return v.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua y set/get test 3 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+    lua_pop(L, 1);
+}
+
+static void test_ese_vector_lua_tostring(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local v = Vector.new(10.5, 20.25); return tostring(v)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Vector:") != NULL, "tostring should contain 'Vector:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "x=10.50") != NULL, "tostring should contain 'x=10.50'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "y=20.25") != NULL, "tostring should contain 'y=20.25'");    
+    lua_pop(L, 1); 
+}
+
+static void test_ese_vector_lua_gc(void) {
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local v = Vector.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Vector creation should execute without error");
     
-    vector_destroy(vector);
-    lua_engine_destroy(engine);
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
-    test_end("Vector NULL Pointer Abort Tests");
+    const char *testB = "return Vector.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Vector creation should execute without error");
+    EseVector *extracted_vector = ese_vector_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_vector, "Extracted vector should not be NULL");
+    ese_vector_ref(extracted_vector);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    vector_unref(extracted_vector);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return Vector.new(5, 10)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Vector creation should execute without error");
+    extracted_vector = ese_vector_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_vector, "Extracted vector should not be NULL");
+    ese_vector_ref(extracted_vector);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    vector_unref(extracted_vector);
+    ese_vector_destroy(extracted_vector);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

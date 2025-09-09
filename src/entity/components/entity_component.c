@@ -9,6 +9,7 @@
 #include "entity/components/entity_component_lua.h"
 #include "entity/components/entity_component_map.h"
 #include "entity/components/entity_component_private.h"
+#include "entity/components/entity_component_shape.h"
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component.h"
@@ -20,6 +21,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     _entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
     _entity_component_map_init(engine);
+    _entity_component_shape_init(engine);
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);
     
@@ -41,6 +43,9 @@ EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
             break;
         case ENTITY_COMPONENT_MAP:
             result = _entity_component_map_copy((EseEntityComponentMap*)component->data);
+            break;
+        case ENTITY_COMPONENT_SHAPE:
+            result = _entity_component_shape_copy((EseEntityComponentShape*)component->data);
             break;
         case ENTITY_COMPONENT_SPRITE:
             result = _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
@@ -76,6 +81,9 @@ void entity_component_destroy(EseEntityComponent* component) {
             break;
         case ENTITY_COMPONENT_MAP:
             _entity_component_map_destroy((EseEntityComponentMap*)component->data);
+            break;
+        case ENTITY_COMPONENT_SHAPE:
+            _entity_component_shape_destroy((EseEntityComponentShape*)component->data);
             break;
         case ENTITY_COMPONENT_SPRITE:
             _entity_component_sprite_destroy((EseEntityComponentSprite*)component->data);
@@ -126,6 +134,9 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
             _entity_component_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
             profile_stop(PROFILE_ENTITY_COMP_MAP_UPDATE, "entity_component_map_update");
             break;
+        case ENTITY_COMPONENT_SHAPE:
+            // Shape component has no update function
+            break;
         case ENTITY_COMPONENT_SPRITE:
             profile_start(PROFILE_ENTITY_COMP_SPRITE_UPDATE);
             _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
@@ -137,7 +148,7 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
             profile_stop(PROFILE_ENTITY_COMP_TEXT_UPDATE, "entity_component_text_update");
             break;
         default:
-            log_debug("ENTITY_COMP", "Unknown TYPE updaging EseEntityComponent %s", component->id->value);
+            log_debug("ENTITY_COMP", "Unknown TYPE updaging EseEntityComponent %s", ese_uuid_get_value(component->id));
             break;
     }
     
@@ -159,24 +170,24 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
     EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
 
     // Get entity positions once
-    float pos_a_x = point_get_x(a->entity->position);
-    float pos_a_y = point_get_y(a->entity->position);
-    float pos_b_x = point_get_x(b->entity->position);
-    float pos_b_y = point_get_y(b->entity->position);
+    float pos_a_x = ese_point_get_x(a->entity->position);
+    float pos_a_y = ese_point_get_y(a->entity->position);
+    float pos_b_x = ese_point_get_x(b->entity->position);
+    float pos_b_y = ese_point_get_y(b->entity->position);
 
     for (size_t i = 0; i < colliderA->rects_count; i++) {
         EseRect *rect_a = colliderA->rects[i];
-        float a_x = rect_get_x(rect_a) + pos_a_x;
-        float a_y = rect_get_y(rect_a) + pos_a_y;
-        float a_w = rect_get_width(rect_a);
-        float a_h = rect_get_height(rect_a);
+        float a_x = ese_rect_get_x(rect_a) + pos_a_x;
+        float a_y = ese_rect_get_y(rect_a) + pos_a_y;
+        float a_w = ese_rect_get_width(rect_a);
+        float a_h = ese_rect_get_height(rect_a);
         
         for (size_t j = 0; j < colliderB->rects_count; j++) {
             EseRect *rect_b = colliderB->rects[j];
-            float b_x = rect_get_x(rect_b) + pos_b_x;
-            float b_y = rect_get_y(rect_b) + pos_b_y;
-            float b_w = rect_get_width(rect_b);
-            float b_h = rect_get_height(rect_b);
+            float b_x = ese_rect_get_x(rect_b) + pos_b_x;
+            float b_y = ese_rect_get_y(rect_b) + pos_b_y;
+            float b_w = ese_rect_get_width(rect_b);
+            float b_h = ese_rect_get_height(rect_b);
             
             // Direct AABB intersection test without creating rect objects
             if (a_x < b_x + b_w && a_x + a_w > b_x && a_y < b_y + b_h && a_y + a_h > b_y) {
@@ -198,15 +209,15 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
 
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
-        EseRect *colliderRect = rect_copy(collider->rects[i]);
-        rect_set_x(colliderRect, rect_get_x(colliderRect) + point_get_x(component->entity->position));
-        rect_set_y(colliderRect, rect_get_y(colliderRect) + point_get_y(component->entity->position));
-        if (rect_intersects(colliderRect, rect)) {
-            rect_destroy(colliderRect);
+        EseRect *colliderRect = ese_rect_copy(collider->rects[i]);
+        ese_rect_set_x(colliderRect, ese_rect_get_x(colliderRect) + ese_point_get_x(component->entity->position));
+        ese_rect_set_y(colliderRect, ese_rect_get_y(colliderRect) + ese_point_get_y(component->entity->position));
+        if (ese_rect_intersects(colliderRect, rect)) {
+            ese_rect_destroy(colliderRect);
             profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
             return true;
         }
-        rect_destroy(colliderRect);
+        ese_rect_destroy(colliderRect);
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
@@ -224,8 +235,8 @@ void entity_component_draw(
     profile_start(PROFILE_ENTITY_DRAW_SECTION);
     
     profile_start(PROFILE_ENTITY_DRAW_SCREEN_POS);
-    float entity_x = point_get_x(component->entity->position);
-    float entity_y = point_get_y(component->entity->position);
+    float entity_x = ese_point_get_x(component->entity->position);
+    float entity_y = ese_point_get_y(component->entity->position);
 
     float view_left   = camera_x - view_width  / 2.0f;
     float view_top    = camera_y - view_height / 2.0f;
@@ -253,6 +264,15 @@ void entity_component_draw(
                 screen_x, screen_y, texCallback, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_map_draw");
+            break;
+        }
+        case ENTITY_COMPONENT_SHAPE: {
+            profile_start(PROFILE_ENTITY_COMP_SHAPE_DRAW);
+            _entity_component_shape_draw(
+                (EseEntityComponentShape*)component->data,
+                screen_x, screen_y, texCallback, callback_user_data
+            );
+            profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
             break;
         }
         case ENTITY_COMPONENT_SPRITE: {
@@ -358,6 +378,13 @@ EseEntityComponent *entity_component_get(lua_State *L) {
             return NULL;
         }
         return &map_comp->base;
+    } else if (strcmp(metatable_name, SHAPE_PROXY_META) == 0) {
+        EseEntityComponentShape *shape_comp = _entity_component_shape_get(L, 1);
+        if (shape_comp == NULL) {
+            luaL_error(L, "internal error: Shape metatable name identified, but _get returned NULL.");
+            return NULL;
+        }
+        return &shape_comp->base;
     } else if (strcmp(metatable_name, SPRITE_PROXY_META) == 0) {
         EseEntityComponentSprite *sprite_comp = _entity_component_sprite_get(L, 1);
         if (sprite_comp == NULL) {

@@ -11,7 +11,7 @@ struct EseArray {
     ArrayFreeFn free_fn;      // Function to free individual elements
 };
 
-EseArray *array_create(size_t initial_capacity, ArrayFreeFn free_fn) {
+EseArray *arese_ray_create(size_t initial_capacity, ArrayFreeFn free_fn) {
     EseArray *array = memory_manager.malloc(sizeof(EseArray), MMTAG_ARRAY);
     if (!array) return NULL;
     
@@ -28,7 +28,7 @@ EseArray *array_create(size_t initial_capacity, ArrayFreeFn free_fn) {
     return array;
 }
 
-void array_destroy(EseArray *array) {
+void arese_ray_destroy(EseArray *array) {
     if (!array) return;
     
     if (array->free_fn) {

@@ -16,6 +16,7 @@
 #include "scripting/lua_value.h"
 #include "platform/time.h"
 #include "types/types.h"
+#include "types/input_state.h"
 
 #define TOTAL_CALLS 1000
 
@@ -124,8 +125,8 @@ static void test_lua_engine() {
     TEST_ASSERT_NOT_NULL(engine->internal, "Engine internal should not be NULL");
 
     // Add types
-    vector_lua_init(engine);
-    point_lua_init(engine);
+    ese_vector_lua_init(engine);
+    ese_point_lua_init(engine);
     display_state_lua_init(engine);
     entity_lua_init(engine);
 
@@ -206,8 +207,8 @@ static void test_lua_component() {
     TEST_ASSERT_NOT_NULL(engine->internal, "Engine internal should not be NULL");
 
     // Add types
-    vector_lua_init(engine);
-    point_lua_init(engine);
+    ese_vector_lua_init(engine);
+    ese_point_lua_init(engine);
     display_state_lua_init(engine);
     entity_lua_init(engine);
 
@@ -284,8 +285,8 @@ static void test_entity_update() {
     TEST_ASSERT_NOT_NULL(engine->internal, "Engine internal should not be NULL");
 
     // Add types
-    vector_lua_init(engine);
-    point_lua_init(engine);
+    ese_vector_lua_init(engine);
+    ese_point_lua_init(engine);
     display_state_lua_init(engine);
     entity_lua_init(engine);
 
@@ -364,8 +365,7 @@ static void test_engine_update() {
     display_state_set_dimensions(engine->display_state, 800, 600);
     display_state_set_viewport(engine->display_state, 800, 600);
 
-    EseInputState input_state;
-    memset(&input_state, 0, sizeof(EseInputState));
+    EseInputState *input_state = ese_input_state_create(NULL);
 
     // Create an entity
     EseEntity *entity = entity_create(engine->lua_engine);
@@ -408,10 +408,11 @@ static void test_engine_update() {
     int max_stack_top = 0;
     for (int i = 0; i < TOTAL_CALLS; i++) {
         max_stack_top = MAX(max_stack_top, lua_gettop(engine->lua_engine->runtime));
-        engine_update(engine, 0.016, &input_state);
+        engine_update(engine, 0.016, input_state);
     }
     printf("Stack top: %d\n", max_stack_top);
     engine_destroy(engine);
+    ese_input_state_destroy(input_state);
 
     profile_display();
     profile_reset_all();

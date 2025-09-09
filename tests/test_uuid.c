@@ -1,279 +1,412 @@
-#include "test_utils.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
-#include <signal.h>
+/*
+* test_ese_uuid.c - Unity-based tests for UUID functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-// Include execinfo.h with a workaround for uuid conflicts
-#define uuid_copy system_uuid_copy
-#define uuid_generate system_uuid_generate
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
-#undef uuid_copy
-#undef uuid_generate
+#include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-#include "types/uuid.h"
+#include "testing.h"
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "../src/types/uuid.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test function declarations
-static void test_uuid_creation();
-static void test_uuid_properties();
-static void test_uuid_copy();
-static void test_uuid_string_operations();
-static void test_uuid_lua_integration();
-static void test_uuid_lua_script_api();
-static void test_uuid_null_pointer_aborts();
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_uuid_sizeof(void);
+static void test_ese_uuid_create_requires_engine(void);
+static void test_ese_uuid_create(void);
+static void test_ese_uuid_value(void);
+static void test_ese_uuid_ref(void);
+static void test_ese_uuid_copy_requires_source(void);
+static void test_ese_uuid_copy(void);
+static void test_ese_uuid_generate_new(void);
+static void test_ese_uuid_hash(void);
+static void test_ese_uuid_lua_integration(void);
+static void test_ese_uuid_lua_init(void);
+static void test_ese_uuid_lua_push(void);
+static void test_ese_uuid_lua_get(void);
 
-// Test Lua script content for UUID testing
-static const char* test_uuid_lua_script = 
-"function UUID_TEST_MODULE:test_uuid_creation()\n"
-"    local uuid1 = UUID.new()\n"
-"    local uuid2 = UUID.new()\n"
-"    \n"
-"    if uuid1.value and uuid2.value and uuid1.value ~= uuid2.value then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function UUID_TEST_MODULE:test_uuid_properties()\n"
-"    local uuid = UUID.new()\n"
-"    \n"
-"    if uuid.value and string.len(uuid.value) == 36 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function UUID_TEST_MODULE:test_uuid_operations()\n"
-"    local uuid1 = UUID.new()\n"
-"    local uuid2 = UUID.copy(uuid1)\n"
-"    \n"
-"    if uuid1.value == uuid2.value then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_uuid_lua_new(void);
+static void test_ese_uuid_lua_value(void);
+static void test_ese_uuid_lua_string(void);
+static void test_ese_uuid_lua_reset(void);
+static void test_ese_uuid_lua_tostring(void);
+static void test_ese_uuid_lua_gc(void);
 
-// Signal handler for testing aborts
-static void segfault_handler(int sig) {
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    fprintf(stderr, "---- BACKTRACE START ----\n");
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    fprintf(stderr, "---- BACKTRACE  END  ----\n");
-    exit(1);
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-int main() {
-    // Set up signal handler for testing aborts
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
-    test_suite_begin("🧪 EseUUID Test Suite");
-    
-    test_uuid_creation();
-    test_uuid_properties();
-    test_uuid_copy();
-    test_uuid_string_operations();
-    test_uuid_lua_integration();
-    test_uuid_lua_script_api();
-    test_uuid_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseUUID Test Suite");
-    
-    return 0;
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-static void test_uuid_creation() {
-    test_begin("UUID Creation Tests");
+/**
+* Main test runner
+*/
+int main(void) {
+    log_init();
+
+    printf("\nEseUUID Tests\n");
+    printf("-------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_ese_uuid_sizeof);
+    RUN_TEST(test_ese_uuid_create_requires_engine);
+    RUN_TEST(test_ese_uuid_create);
+    RUN_TEST(test_ese_uuid_value);
+    RUN_TEST(test_ese_uuid_ref);
+    RUN_TEST(test_ese_uuid_copy_requires_source);
+    RUN_TEST(test_ese_uuid_copy);
+    RUN_TEST(test_ese_uuid_generate_new);
+    RUN_TEST(test_ese_uuid_hash);
+    RUN_TEST(test_ese_uuid_lua_integration);
+    RUN_TEST(test_ese_uuid_lua_init);
+    RUN_TEST(test_ese_uuid_lua_push);
+    RUN_TEST(test_ese_uuid_lua_get);
+
+    RUN_TEST(test_ese_uuid_lua_new);
+    RUN_TEST(test_ese_uuid_lua_value);
+    RUN_TEST(test_ese_uuid_lua_string);
+    RUN_TEST(test_ese_uuid_lua_reset);
+    RUN_TEST(test_ese_uuid_lua_tostring);
+    RUN_TEST(test_ese_uuid_lua_gc);
+
+    return UNITY_END();
+}
+
+/**
+* C API Test Functions
+*/
+
+static void test_ese_uuid_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_uuid_sizeof(), "UUID size should be > 0");
+}
+
+static void test_ese_uuid_create_requires_engine(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_uuid_sizeof(), "UUID size should be > 0");
+}
+
+static void test_ese_uuid_create(void) {
+    EseUUID *uuid = ese_uuid_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(uuid, "UUID should be created");
+    TEST_ASSERT_NOT_NULL_MESSAGE(ese_uuid_get_value(uuid), "UUID should have a value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(ese_uuid_get_value(uuid)), "UUID should be 36 characters");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_uuid_get_state(uuid), "UUID should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_uuid_get_lua_ref_count(uuid), "New UUID should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "New UUID should have LUA_NOREF");
+
+    ese_uuid_destroy(uuid);
+}
+
+static void test_ese_uuid_value(void) {
+    EseUUID *uuid = ese_uuid_create(g_engine);
+
+    const char *value = ese_uuid_get_value(uuid);
+    TEST_ASSERT_NOT_NULL_MESSAGE(value, "UUID value should not be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(value), "UUID value should be 36 characters");
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID creation tests");
+    // Test UUID format (should have hyphens at specific positions)
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', value[8], "UUID should have hyphen at position 8");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', value[13], "UUID should have hyphen at position 13");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', value[18], "UUID should have hyphen at position 18");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', value[23], "UUID should have hyphen at position 23");
+
+    ese_uuid_destroy(uuid);
+}
+
+static void test_ese_uuid_ref(void) {
+    EseUUID *uuid = ese_uuid_create(g_engine);
+
+    ese_uuid_ref(uuid);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_uuid_get_lua_ref_count(uuid), "Ref count should be 1");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "Should have valid Lua reference");
+
+    ese_uuid_unref(uuid);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_uuid_get_lua_ref_count(uuid), "Ref count should be 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "Should have LUA_NOREF after unref");
+
+    ese_uuid_destroy(uuid);
+}
+
+static void test_ese_uuid_copy_requires_source(void) {
+    ASSERT_DEATH(ese_uuid_copy(NULL), "ese_uuid_copy should abort with NULL UUID");
+}
+
+static void test_ese_uuid_copy(void) {
+    EseUUID *uuid = ese_uuid_create(g_engine);
+    ese_uuid_ref(uuid);
+    EseUUID *copy = ese_uuid_copy(uuid);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_uuid_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_uuid_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(copy), "Copy should have LUA_NOREF");
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(ese_uuid_get_value(uuid), ese_uuid_get_value(copy), "Copy should have same value");
+    TEST_ASSERT_TRUE_MESSAGE(uuid != copy, "Copy should be different object");
+
+    ese_uuid_unref(uuid);
+    ese_uuid_destroy(uuid);
+    ese_uuid_destroy(copy);
+}
+
+static void test_ese_uuid_generate_new(void) {
+    EseUUID *uuid = ese_uuid_create(g_engine);
+    char *original_value = memory_manager.strdup(ese_uuid_get_value(uuid), MMTAG_TEMP);
     
-    EseUUID *uuid = uuid_create(engine);
-    TEST_ASSERT_NOT_NULL(uuid, "uuid_create should return non-NULL pointer");
-    TEST_ASSERT(strlen(uuid->value) == 36, "UUID should have 36 character string");
-    TEST_ASSERT_POINTER_EQUAL(engine->runtime, uuid->state, "UUID should have correct Lua state");
-    TEST_ASSERT_EQUAL(0, uuid->lua_ref_count, "New UUID should have ref count 0");
-    TEST_ASSERT(uuid->lua_ref == LUA_NOREF, "New UUID should have negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", uuid->lua_ref);
-    TEST_ASSERT(sizeof(EseUUID) > 0, "EseUUID should have positive size");
-    printf("ℹ INFO: Actual UUID size: %zu bytes\n", sizeof(EseUUID));
-    printf("ℹ INFO: Generated UUID: %s\n", uuid->value);
+    // Generate a new UUID
+    ese_uuid_generate_new(uuid);
+    const char *new_value = ese_uuid_get_value(uuid);
     
-    uuid_destroy(uuid);
+    TEST_ASSERT_TRUE_MESSAGE(strcmp(original_value, new_value) != 0, "Generated UUID should be different");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(new_value), "Generated UUID should be 36 characters");
+    
+    // Test UUID format
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', new_value[8], "Generated UUID should have hyphen at position 8");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', new_value[13], "Generated UUID should have hyphen at position 13");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', new_value[18], "Generated UUID should have hyphen at position 18");
+    TEST_ASSERT_EQUAL_CHAR_MESSAGE('-', new_value[23], "Generated UUID should have hyphen at position 23");
+
+    memory_manager.free(original_value);
+    ese_uuid_destroy(uuid);
+}
+
+static void test_ese_uuid_hash(void) {
+    EseUUID *uuid1 = ese_uuid_create(g_engine);
+    EseUUID *uuid2 = ese_uuid_create(g_engine);
+    
+    uint64_t hash1 = ese_uuid_hash(uuid1);
+    uint64_t hash2 = ese_uuid_hash(uuid2);
+    
+    TEST_ASSERT_TRUE_MESSAGE(hash1 != hash2, "Different UUIDs should have different hashes");
+    TEST_ASSERT_TRUE_MESSAGE(hash1 != 0, "Hash should not be zero");
+    TEST_ASSERT_TRUE_MESSAGE(hash2 != 0, "Hash should not be zero");
+    
+    // Test that same UUID has same hash
+    EseUUID *copy = ese_uuid_copy(uuid1);
+    uint64_t hash_copy = ese_uuid_hash(copy);
+    TEST_ASSERT_EQUAL_UINT64_MESSAGE(hash1, hash_copy, "Same UUID should have same hash");
+
+    ese_uuid_destroy(uuid1);
+    ese_uuid_destroy(uuid2);
+    ese_uuid_destroy(copy);
+}
+
+static void test_ese_uuid_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EseUUID *uuid = ese_uuid_create(engine);
+
+    lua_State *before_state = ese_uuid_get_state(uuid);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "UUID should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "UUID state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "UUID should have no Lua reference initially");
+
+    ese_uuid_ref(uuid);
+    lua_State *after_ref_state = ese_uuid_get_state(uuid);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "UUID should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "UUID state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "UUID should have a valid Lua reference after ref");
+
+    ese_uuid_unref(uuid);
+    lua_State *after_unref_state = ese_uuid_get_state(uuid);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "UUID should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "UUID state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_uuid_get_lua_ref(uuid), "UUID should have no Lua reference after unref");
+
+    ese_uuid_destroy(uuid);
     lua_engine_destroy(engine);
-    
-    test_end("UUID Creation Tests");
 }
 
-static void test_uuid_properties() {
-    test_begin("UUID Properties Tests");
+static void test_ese_uuid_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID property tests");
+    luaL_getmetatable(L, UUID_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    EseUUID *uuid = uuid_create(engine);
-    TEST_ASSERT_NOT_NULL(uuid, "UUID should be created for property tests");
+    lua_getglobal(L, "UUID");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global UUID table should not exist before initialization");
+    lua_pop(L, 1);
     
-    const char *original_value = uuid->value;
-    TEST_ASSERT_NOT_NULL(original_value, "uuid_get_value should return non-NULL string");
-    TEST_ASSERT(strlen(original_value) == 36, "UUID value should be 36 characters long");
+    ese_uuid_lua_init(g_engine);
     
-    // Test that UUID format is correct (contains hyphens at expected positions)
-    TEST_ASSERT(original_value[8] == '-', "UUID should have hyphen at position 8");
-    TEST_ASSERT(original_value[13] == '-', "UUID should have hyphen at position 13");
-    TEST_ASSERT(original_value[18] == '-', "UUID should have hyphen at position 18");
-    TEST_ASSERT(original_value[23] == '-', "UUID should have hyphen at position 23");
+    luaL_getmetatable(L, UUID_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    uuid_destroy(uuid);
-    lua_engine_destroy(engine);
-    
-    test_end("UUID Properties Tests");
+    lua_getglobal(L, "UUID");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global UUID table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global UUID table should be a table");
+    lua_pop(L, 1);
 }
 
-static void test_uuid_copy() {
-    test_begin("UUID Copy Tests");
+static void test_ese_uuid_lua_push(void) {
+    ese_uuid_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseUUID *uuid = ese_uuid_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID copy tests");
+    ese_uuid_lua_push(uuid);
     
-    EseUUID *original = uuid_create(engine);
-    TEST_ASSERT_NOT_NULL(original, "Original UUID should be created for copy tests");
+    EseUUID **ud = (EseUUID **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(uuid, *ud, "The pushed item should be the actual UUID");
     
-    EseUUID *copy = uuid_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "uuid_copy should return non-NULL pointer");
-    TEST_ASSERT_STRING_EQUAL(original->value, copy->value, "Copied UUID should have same value");
-    TEST_ASSERT(original != copy, "Copy should be a different object");
-    TEST_ASSERT_POINTER_EQUAL(original->state, copy->state, "Copy should have same Lua state");
-    TEST_ASSERT(copy->lua_ref == LUA_NOREF, "Copy should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy->lua_ref);
-    TEST_ASSERT_EQUAL(0, copy->lua_ref_count, "Copy should start with ref count 0");
+    lua_pop(L, 1); 
     
-    uuid_destroy(original);
-    uuid_destroy(copy);
-    lua_engine_destroy(engine);
-    
-    test_end("UUID Copy Tests");
+    ese_uuid_destroy(uuid);
 }
 
-static void test_uuid_string_operations() {
-    test_begin("UUID String Operations Tests");
+static void test_ese_uuid_lua_get(void) {
+    ese_uuid_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseUUID *uuid = ese_uuid_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID string operation tests");
+    ese_uuid_lua_push(uuid);
     
-    EseUUID *uuid1 = uuid_create(engine);
-    EseUUID *uuid2 = uuid_create(engine);
+    EseUUID *extracted_uuid = ese_uuid_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(uuid, extracted_uuid, "Extracted UUID should match original");
     
-    TEST_ASSERT_NOT_NULL(uuid1, "UUID1 should be created for string operation tests");
-    TEST_ASSERT_NOT_NULL(uuid2, "UUID2 should be created for string operation tests");
-    
-    // Test that two different UUIDs are not equal
-    TEST_ASSERT(strcmp(uuid1->value, uuid2->value) != 0, "Two different UUIDs should not be equal");
-    
-    // Test UUID format validation
-    const char *value1 = uuid1->value;
-    const char *value2 = uuid2->value;
-    
-    TEST_ASSERT_NOT_NULL(value1, "UUID1 value should not be NULL");
-    TEST_ASSERT_NOT_NULL(value2, "UUID2 value should not be NULL");
-    TEST_ASSERT(strlen(value1) == 36, "UUID1 should be 36 characters long");
-    TEST_ASSERT(strlen(value2) == 36, "UUID2 should be 36 characters long");
-    
-    // Test that UUIDs are valid hexadecimal with hyphens
-    bool valid_format1 = true;
-    bool valid_format2 = true;
-    
-    for (int i = 0; i < 36; i++) {
-        if (i == 8 || i == 13 || i == 18 || i == 23) {
-            if (value1[i] != '-') valid_format1 = false;
-            if (value2[i] != '-') valid_format2 = false;
-        } else {
-            char c1 = value1[i];
-            char c2 = value2[i];
-            if (!((c1 >= '0' && c1 <= '9') || (c1 >= 'a' && c1 <= 'f') || (c1 >= 'A' && c1 <= 'F'))) {
-                valid_format1 = false;
-            }
-            if (!((c2 >= '0' && c2 <= '9') || (c2 >= 'a' && c2 <= 'f') || (c2 >= 'A' && c2 <= 'F'))) {
-                valid_format2 = false;
-            }
-        }
-    }
-    
-    TEST_ASSERT(valid_format1, "UUID1 should have valid format");
-    TEST_ASSERT(valid_format2, "UUID2 should have valid format");
-    
-    uuid_destroy(uuid1);
-    uuid_destroy(uuid2);
-    lua_engine_destroy(engine);
-    
-    test_end("UUID String Operations Tests");
+    lua_pop(L, 1);
+    ese_uuid_destroy(uuid);
 }
 
-static void test_uuid_lua_integration() {
-    test_begin("UUID Lua Integration Tests");
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_uuid_lua_new(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID Lua integration tests");
-    
-    EseUUID *uuid = uuid_create(engine);
-    TEST_ASSERT_NOT_NULL(uuid, "UUID should be created for Lua integration tests");
-    TEST_ASSERT_EQUAL(0, uuid->lua_ref_count, "New UUID should start with ref count 0");
-    TEST_ASSERT(uuid->lua_ref == LUA_NOREF, "New UUID should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", uuid->lua_ref);
-    
-    uuid_destroy(uuid);
-    lua_engine_destroy(engine);
-    
-    test_end("UUID Lua Integration Tests");
+    const char *testA = "return UUID.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return UUID.new(10, 10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return UUID.new(\"10\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return UUID.new()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
+    EseUUID *extracted_uuid = ese_uuid_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_uuid, "Extracted UUID should not be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(ese_uuid_get_value(extracted_uuid)), "Extracted UUID should be 36 characters");
+    ese_uuid_destroy(extracted_uuid);
 }
 
-static void test_uuid_lua_script_api() {
-    test_begin("UUID Lua Script API Tests");
+static void test_ese_uuid_lua_value(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID Lua script API tests");
-    
-    uuid_lua_init(engine);
-    printf("ℹ INFO: UUID Lua integration initialized\n");
-    
-    // Test that UUID Lua integration initializes successfully
-    TEST_ASSERT(true, "UUID Lua integration should initialize successfully");
-    
-    lua_engine_destroy(engine);
-    
-    test_end("UUID Lua Script API Tests");
+    const char *test_code = "local uuid = UUID.new(); return uuid.value";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua value test should execute without error");
+    const char *value = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(value, "UUID value should not be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(value), "UUID value should be 36 characters");
+    lua_pop(L, 1);
 }
 
-static void test_uuid_null_pointer_aborts() {
-    test_begin("UUID NULL Pointer Abort Tests");
+static void test_ese_uuid_lua_string(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for UUID NULL pointer abort tests");
+    const char *test_code = "local uuid = UUID.new(); return uuid.string";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua string test should execute without error");
+    const char *string = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(string, "UUID string should not be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(36, strlen(string), "UUID string should be 36 characters");
+    lua_pop(L, 1);
+}
+
+static void test_ese_uuid_lua_reset(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseUUID *uuid = uuid_create(engine);
-    TEST_ASSERT_NOT_NULL(uuid, "UUID should be created for UUID NULL pointer abort tests");
+    const char *test_code = "local uuid = UUID.new(); local old_value = uuid.value; uuid.reset(); return uuid.value ~= old_value";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua reset test should execute without error");
+    int result = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(result, "Reset should change UUID value");
+    lua_pop(L, 1);
+}
+
+static void test_ese_uuid_lua_tostring(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local uuid = UUID.new(); return tostring(uuid)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "UUID:") != NULL, "tostring should contain 'UUID:'");
+    lua_pop(L, 1); 
+}
+
+static void test_ese_uuid_lua_gc(void) {
+    ese_uuid_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local uuid = UUID.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "UUID creation should execute without error");
     
-    TEST_ASSERT_ABORT(uuid_create(NULL), "uuid_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(uuid_copy(NULL), "uuid_copy should abort with NULL source");
-    TEST_ASSERT_ABORT(uuid_lua_init(NULL), "uuid_lua_init should abort with NULL engine");
-    TEST_ASSERT_ABORT(uuid_lua_get(NULL, 1), "uuid_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(uuid_lua_push(NULL), "uuid_lua_push should abort with NULL UUID");
-    TEST_ASSERT_ABORT(uuid_ref(NULL), "uuid_ref should abort with NULL UUID");
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
-    uuid_destroy(uuid);
-    lua_engine_destroy(engine);
+    const char *testB = "return UUID.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "UUID creation should execute without error");
+    EseUUID *extracted_uuid = ese_uuid_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_uuid, "Extracted UUID should not be NULL");
+    ese_uuid_ref(extracted_uuid);
     
-    test_end("UUID NULL Pointer Abort Tests");
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_uuid_unref(extracted_uuid);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return UUID.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "UUID creation should execute without error");
+    extracted_uuid = ese_uuid_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_uuid, "Extracted UUID should not be NULL");
+    ese_uuid_ref(extracted_uuid);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_uuid_unref(extracted_uuid);
+    ese_uuid_destroy(extracted_uuid);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

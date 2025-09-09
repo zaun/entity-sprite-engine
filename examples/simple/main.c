@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     uint32_t timebase_numer, timebase_denom;
     time_get_conversion_factor(&timebase_numer, &timebase_denom);
 
-    EseInputState input_state;
+    EseInputState *input_state = ese_input_state_create(NULL);
     while(!window_should_close(window)) {
         // Calculate delta time in seconds
         uint64_t now = time_now();
@@ -61,16 +61,16 @@ int main(int argc, char *argv[]) {
                         (double)timebase_denom / 1e9;
         prev_time = now;
 
-        window_process(window, &input_state);
-        engine_update(engine, (float)delta, &input_state);
+        window_process(window, input_state);
+        engine_update(engine, (float)delta, input_state);
 
-        if (input_state.keys_pressed[InputKey_ESCAPE]) {
+        if (ese_input_state_get_key_pressed(input_state, InputKey_ESCAPE)) {
             printf("exit\n");
             window_close(window);
         }
     }
 
-
+    ese_input_state_destroy(input_state);
     engine_set_renderer(engine, NULL);
     window_set_renderer(window, NULL);
 

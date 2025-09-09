@@ -371,7 +371,7 @@ static int _arc_lua_intersects_rect(lua_State *L) {
         return luaL_error(L, "Invalid EseArc object in intersects_rect method");
     }
     
-    EseRect *rect = rect_lua_get(L, 1);
+    EseRect *rect = ese_rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "intersects_rect() requires an EseRect object");
     }
@@ -660,10 +660,10 @@ bool arc_intersects_rect(const EseArc *arc, const EseRect *rect) {
     float arc_top = arc->y - arc->radius;
     float arc_bottom = arc->y + arc->radius;
     
-    float rect_left = rect_get_x(rect);
-    float rect_right = rect_get_x(rect) + rect_get_width(rect);
-    float rect_top = rect_get_y(rect);
-    float rect_bottom = rect_get_y(rect) + rect_get_height(rect);
+    float rect_left = ese_rect_get_x(rect);
+    float rect_right = ese_rect_get_x(rect) + ese_rect_get_width(rect);
+    float rect_top = ese_rect_get_y(rect);
+    float rect_bottom = ese_rect_get_y(rect) + ese_rect_get_height(rect);
     
     return !(arc_right < rect_left || arc_left > rect_right ||
              arc_bottom < rect_top || arc_top > rect_bottom);

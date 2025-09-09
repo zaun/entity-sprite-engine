@@ -39,6 +39,8 @@ typedef enum {
     MMTAG_VECTOR,
     MMTAG_AUDIO,
     MMTAG_COLLISION_INDEX,
+    MMTAG_COLOR,
+    MMTAG_POLY_LINE,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

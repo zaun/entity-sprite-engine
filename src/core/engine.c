@@ -5,6 +5,7 @@
 #include "core/memory_manager.h"
 #include "entity/entity.h"
 #include "types/types.h"
+#include "types/input_state_private.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 #include "entity/entity_private.h"
@@ -23,6 +24,7 @@
 #include "utility/hashmap.h"
 #include "utility/double_linked_list.h"
 #include "utility/profile.h"
+#include "types/input_state.h"
  
 
 EseEngine *engine_create(const char *startup_script) {
@@ -59,15 +61,15 @@ EseEngine *engine_create(const char *startup_script) {
     arc_lua_init(engine->lua_engine);
     camera_state_lua_init(engine->lua_engine);
     display_state_lua_init(engine->lua_engine);
-    input_state_lua_init(engine->lua_engine);
+    ese_input_state_lua_init(engine->lua_engine);
     map_lua_init(engine->lua_engine);
     mapcell_lua_init(engine->lua_engine);
-    point_lua_init(engine->lua_engine);
-    ray_lua_init(engine->lua_engine);
-    rect_lua_init(engine->lua_engine);
+    ese_point_lua_init(engine->lua_engine);
+    ese_ray_lua_init(engine->lua_engine);
+    ese_rect_lua_init(engine->lua_engine);
     tileset_lua_init(engine->lua_engine);
-    vector_lua_init(engine->lua_engine);
-    uuid_lua_init(engine->lua_engine);
+    ese_vector_lua_init(engine->lua_engine);
+    ese_uuid_lua_init(engine->lua_engine);
 
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
@@ -82,8 +84,8 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "scene_reset", _lua_scene_reset);
     
     // Add globals
-    engine->input_state = input_state_create(engine->lua_engine);
-    input_state_ref(engine->input_state);
+    engine->input_state = ese_input_state_create(engine->lua_engine);
+    ese_input_state_ref(engine->input_state);
     lua_engine_add_global(engine->lua_engine, "InputState", engine->input_state->lua_ref);
 
     engine->display_state = display_state_create(engine->lua_engine);
@@ -130,7 +132,7 @@ void engine_destroy(EseEngine *engine) {
     if (engine->asset_manager) {
         asset_manager_destroy(engine->asset_manager);
     }
-    input_state_destroy(engine->input_state);
+    ese_input_state_destroy(engine->input_state);
     display_state_destroy(engine->display_state);
     camera_state_destroy(engine->camera_state);
     console_destroy(engine->console);
@@ -149,7 +151,7 @@ void engine_add_entity(EseEngine *engine, EseEntity *entity) {
     log_assert("ENGINE", engine, "engine_add_entity called with NULL engine");
     log_assert("ENGINE", entity, "engine_add_entity called with NULL entity");
 
-    log_debug("ENGINE", "Added entity %s", entity->id->value);
+    log_debug("ENGINE", "Added entity %s", ese_uuid_get_value(entity->id));
     dlist_append(engine->entities, entity);
 }
 
@@ -157,7 +159,7 @@ void engine_remove_entity(EseEngine *engine, EseEntity *entity) {
     log_assert("ENGINE", engine, "engine_remove_entity called with NULL engine");
     log_assert("ENGINE", entity, "engine_remove_entity called with NULL entity");
 
-    log_debug("ENGINE", "Removed entity %s", entity->id->value);
+    log_debug("ENGINE", "Removed entity %s", ese_uuid_get_value(entity->id));
     dlist_append(engine->del_entities, entity);
 }
 
@@ -247,13 +249,26 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     engine->input_state->mouse_scroll_dy = state->mouse_scroll_dy;
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_input_state");
 
+    // hardcodes engine inputs
+    if (
+        (engine->input_state->keys_down[InputKey_LCMD] ||
+        engine->input_state->keys_down[InputKey_RCMD]) &&
+        (engine->input_state->keys_down[InputKey_LALT] ||
+        engine->input_state->keys_down[InputKey_RALT]) &&
+        engine->input_state->keys_pressed[InputKey_C]
+    ) {
+        log_debug("ENGINE", "Toggle console");
+        engine->draw_console = !engine->draw_console;
+        return;
+    }
+
     // Display and camera updates
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     // Camera's view rectangle (centered)
-    float view_left   = point_get_x(engine->camera_state->position) - engine->display_state->viewport.width  / 2.0f;
-    float view_right  = point_get_x(engine->camera_state->position) + engine->display_state->viewport.width  / 2.0f;
-    float view_top    = point_get_y(engine->camera_state->position) - engine->display_state->viewport.height / 2.0f;
-    float view_bottom = point_get_y(engine->camera_state->position) + engine->display_state->viewport.height / 2.0f;
+    float view_left   = ese_point_get_x(engine->camera_state->position) - engine->display_state->viewport.width  / 2.0f;
+    float view_right  = ese_point_get_x(engine->camera_state->position) + engine->display_state->viewport.width  / 2.0f;
+    float view_top    = ese_point_get_y(engine->camera_state->position) - engine->display_state->viewport.height / 2.0f;
+    float view_bottom = ese_point_get_y(engine->camera_state->position) + engine->display_state->viewport.height / 2.0f;
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_display_camera");
 
     // Entity PASS ONE - Update each active entity.
@@ -344,8 +359,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
         entity_draw(
             entity,
-            point_get_x(engine->camera_state->position),
-            point_get_y(engine->camera_state->position),
+            ese_point_get_x(engine->camera_state->position),
+            ese_point_get_y(engine->camera_state->position),
             engine->display_state->viewport.width,
             engine->display_state->viewport.height,
             _engine_add_texture_to_draw_list,
@@ -520,7 +535,7 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 
     while (dlist_iter_next(iter, &entity_value)) {
         EseEntity *entity = (EseEntity*)entity_value;
-        if (entity && entity->active && strcmp(entity->id->value, uuid_string) == 0) {
+        if (entity && entity->active && strcmp(ese_uuid_get_value(entity->id), uuid_string) == 0) {
             dlist_iter_free(iter);
             return entity;
         }

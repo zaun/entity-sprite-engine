@@ -8,6 +8,7 @@
 #import "platform/renderer_private.h"
 #import "core/memory_manager.h"
 #import "types/input_state.h"
+#import "types/input_state_private.h"
 
 /**
  * @brief Platform-specific window structure for macOS Metal implementation.
@@ -123,7 +124,7 @@ EseWindow* window_create(int width, int height, const char* title) {
     // Create window + engine structs
     EseWindow* window = (EseWindow*)memory_manager.malloc(sizeof(EseWindow), MMTAG_WINDOW);
     EseMetalWindow* metalWindow = (EseMetalWindow*)memory_manager.malloc(sizeof(EseMetalWindow), MMTAG_WINDOW);
-    metalWindow->inputState = input_state_create(nil);
+    metalWindow->inputState = ese_input_state_create(nil);
 
     // Create window
     NSRect frame = NSMakeRect(100, 100, width, height);
@@ -159,7 +160,7 @@ void window_destroy(EseWindow* window) {
         EseMetalWindow* metalWindow = (EseMetalWindow*)window->platform_window;
         [metalWindow->window close];
 
-        input_state_destroy(metalWindow->inputState);
+        ese_input_state_destroy(metalWindow->inputState);
         memory_manager.free(metalWindow);
     }
     memory_manager.free(window);

@@ -2,6 +2,10 @@
 #define ESE_UUID_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#define UUID_PROXY_META "UUIDProxyMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -14,13 +18,7 @@ typedef struct EseLuaEngine EseLuaEngine;
  *          format (36 characters plus null terminator). Example format:
  *          "550e8400-e29b-41d4-a716-446655440000"
  */
-typedef struct EseUUID {
-    char value[37]; /**< The string EseUUID */
-
-    lua_State *state;   /**< Lua State this EseUUID belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this uuid has been referenced in C */
-} EseUUID;
+typedef struct EseUUID EseUUID;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -32,29 +30,29 @@ typedef struct EseUUID {
  * 
  * @details Allocates memory for a new EseUUID and initializes it with a
  *          randomly generated EseUUID v4 string. The uuid is created without
- *          Lua references and must be explicitly referenced with uuid_ref()
+ *          Lua references and must be explicitly referenced with ese_uuid_ref()
  *          if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseUUID object
  * 
- * @warning The returned EseUUID must be freed with uuid_destroy() to prevent memory leaks
+ * @warning The returned EseUUID must be freed with ese_uuid_destroy() to prevent memory leaks
  */
-EseUUID *uuid_create(EseLuaEngine *engine);
+EseUUID *ese_uuid_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseUUID into a new EseUUID object.
  * 
  * @details This function creates a deep copy of an EseUUID object. It allocates a new EseUUID
  *          struct and copies all string members. The copy is created without Lua references
- *          and must be explicitly referenced with uuid_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_uuid_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseUUID to copy.
  * @return A new, distinct EseUUID object that is a copy of the source.
  * 
- * @warning The returned EseUUID must be freed with uuid_destroy() to prevent memory leaks.
+ * @warning The returned EseUUID must be freed with ese_uuid_destroy() to prevent memory leaks.
  */
-EseUUID *uuid_copy(const EseUUID *source);
+EseUUID *ese_uuid_copy(const EseUUID *source);
 
 /**
  * @brief Destroys a EseUUID object, managing memory based on Lua references.
@@ -69,7 +67,48 @@ EseUUID *uuid_copy(const EseUUID *source);
  * 
  * @param uuid Pointer to the EseUUID object to destroy
  */
-void uuid_destroy(EseUUID *uuid);
+void ese_uuid_destroy(EseUUID *uuid);
+
+/**
+ * @brief Gets the size of the EseUUID structure in bytes.
+ * 
+ * @return The size of the EseUUID structure in bytes
+ */
+size_t ese_uuid_sizeof(void);
+
+// Property access
+/**
+ * @brief Gets the UUID string value.
+ * 
+ * @param uuid Pointer to the EseUUID object
+ * @return The UUID string value (36 characters)
+ */
+const char *ese_uuid_get_value(const EseUUID *uuid);
+
+// Lua-related access
+/**
+ * @brief Gets the Lua state associated with this UUID.
+ * 
+ * @param uuid Pointer to the EseUUID object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *ese_uuid_get_state(const EseUUID *uuid);
+
+/**
+ * @brief Gets the Lua registry reference for this UUID.
+ * 
+ * @param uuid Pointer to the EseUUID object
+ * @return The Lua registry reference value
+ */
+int ese_uuid_get_lua_ref(const EseUUID *uuid);
+
+/**
+ * @brief Gets the Lua reference count for this UUID.
+ * 
+ * @param uuid Pointer to the EseUUID object
+ * @return The current reference count
+ */
+int ese_uuid_get_lua_ref_count(const EseUUID *uuid);
 
 // Lua integration
 /**
@@ -82,7 +121,7 @@ void uuid_destroy(EseUUID *uuid);
  * 
  * @param engine EseLuaEngine pointer where the EseUUID type will be registered
  */
-void uuid_lua_init(EseLuaEngine *engine);
+void ese_uuid_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseUUID object to the Lua stack.
@@ -93,13 +132,13 @@ void uuid_lua_init(EseLuaEngine *engine);
  * 
  * @param uuid Pointer to the EseUUID object to push to Lua
  */
-void uuid_lua_push(EseUUID *uuid);
+void ese_uuid_lua_push(EseUUID *uuid);
 
 /**
  * @brief Extracts a EseUUID pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseUUID pointer from the "__ptr" field of a Lua
- *          table that was created by uuid_lua_push(). Performs type checking
+ *          table that was created by ese_uuid_lua_push(). Performs type checking
  *          to ensure the object is a valid EseUUID proxy table.
  * 
  * @param L Lua state pointer
@@ -108,7 +147,7 @@ void uuid_lua_push(EseUUID *uuid);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseUUID *uuid_lua_get(lua_State *L, int idx);
+EseUUID *ese_uuid_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseUUID object for Lua access with reference counting.
@@ -120,7 +159,7 @@ EseUUID *uuid_lua_get(lua_State *L, int idx);
  * 
  * @param uuid Pointer to the EseUUID object to reference
  */
-void uuid_ref(EseUUID *uuid);
+void ese_uuid_ref(EseUUID *uuid);
 
 /**
  * @brief Unreferences a EseUUID object, decrementing the reference count.
@@ -130,7 +169,7 @@ void uuid_ref(EseUUID *uuid);
  * 
  * @param uuid Pointer to the EseUUID object to unreference
  */
-void uuid_unref(EseUUID *uuid);
+void ese_uuid_unref(EseUUID *uuid);
 
 // Utility functions
 /**
@@ -141,7 +180,7 @@ void uuid_unref(EseUUID *uuid);
  * 
  * @param uuid Pointer to EseUUID object to generate value for
  */
-void uuid_generate(EseUUID *uuid);
+void ese_uuid_generate_new(EseUUID *uuid);
 
 /**
  * @brief Computes a hash value for the EseUUID.
@@ -152,6 +191,6 @@ void uuid_generate(EseUUID *uuid);
  * @param uuid Pointer to the EseUUID object
  * @return Hash value as uint64_t
  */
-uint64_t uuid_hash(const EseUUID* uuid);
+uint64_t ese_uuid_hash(const EseUUID* uuid);
 
 #endif // ESE_UUID_H

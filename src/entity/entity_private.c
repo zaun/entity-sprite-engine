@@ -22,17 +22,17 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     profile_start(PROFILE_ENTITY_CREATE);
     
     EseEntity *entity = memory_manager.malloc(sizeof(EseEntity), MMTAG_ENTITY);
-    entity->position = point_create(engine);
-    point_ref(entity->position);
+    entity->position = ese_point_create(engine);
+    ese_point_ref(entity->position);
 
-    entity->id = uuid_create(engine);
-    uuid_ref(entity->id);
+    entity->id = ese_uuid_create(engine);
+    ese_uuid_ref(entity->id);
     entity->active = true;
     entity->visible = true;
     entity->persistent = false;
     entity->destroyed = false;
-    point_set_x(entity->position, 0.0f);
-    point_set_y(entity->position, 0.0f);
+    ese_point_set_x(entity->position, 0.0f);
+    ese_point_set_y(entity->position, 0.0f);
     entity->draw_order = 0;
 
     // Not storing any values, so no free function needed
@@ -66,7 +66,7 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
 
     for (size_t i = 0; i < entity->component_count; ++i) {
         EseEntityComponent *comp = entity->components[i];
-        if (strcmp(comp->id->value, id) == 0) {
+        if (strcmp(ese_uuid_get_value(comp->id), id) == 0) {
             return (int)i;
         }
     }
@@ -74,8 +74,8 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
 }
 
 const char* _get_collision_key(EseUUID *a, EseUUID *b) {
-    const char* ida = a->value;
-    const char* idb = b->value;
+    const char* ida = ese_uuid_get_value(a);
+    const char* idb = ese_uuid_get_value(b);
     const char* first = ida;
     const char* second = idb;
     if (strcmp(ida, idb) > 0) { first = idb; second = ida; }

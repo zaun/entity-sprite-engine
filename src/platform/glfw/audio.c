@@ -418,7 +418,7 @@ void audio_sound_set_max_distance(EseSound *sound, float max_dist, EseAudioAtten
     
     // Set OpenAL distance model
     ALenum distance_model = (attenuation == AUDIO_ATTENUATION_LINEAR) ? 
-                           AL_LINEAR_DISTANCE : AL_EXPONENTIAL_DISTANCE;
+                           AL_LINEAR_DISTANCE : AL_EXPONENT_DISTANCE;
     alDistanceModel(distance_model);
     check_al_error("alDistanceModel");
     

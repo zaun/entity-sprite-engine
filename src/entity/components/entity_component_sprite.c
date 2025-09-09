@@ -35,8 +35,8 @@ static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, c
     EseEntityComponentSprite *component = memory_manager.malloc(sizeof(EseEntityComponentSprite), MMTAG_ENTITY);
     component->base.data = component;
     component->base.active = true;
-    component->base.id = uuid_create(engine);
-    uuid_ref(component->base.id);
+    component->base.id = ese_uuid_create(engine);
+    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_SPRITE;
@@ -75,7 +75,7 @@ void _entity_component_sprite_destroy(EseEntityComponentSprite *component) {
     // We dont "own" the sprite so dont free it
 
     memory_manager.free(component->sprite_name);
-    uuid_destroy(component->base.id);
+    ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
 }
 
@@ -198,7 +198,7 @@ static int _entity_component_sprite_index(lua_State *L) {
         lua_pushboolean(L, component->base.active);
         return 1;
     } else if (strcmp(key, "id") == 0) {
-        lua_pushstring(L, component->base.id->value);
+        lua_pushstring(L, ese_uuid_get_value(component->base.id));
         return 1;
     } else if (strcmp(key, "sprite") == 0) {
         lua_pushstring(L, component->sprite_name);
@@ -301,7 +301,7 @@ static int _entity_component_sprite_tostring(lua_State *L) {
     char buf[128];
     snprintf(buf, sizeof(buf), "EntityComponentSprite: %p (id=%s active=%s sprite=%p)", 
              (void*)component,
-             component->base.id->value,
+             ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
              component->sprite);
     lua_pushstring(L, buf);

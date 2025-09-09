@@ -35,28 +35,28 @@ typedef void (*EsePointWatcherCallback)(EsePoint *point, void *userdata);
  * 
  * @details Allocates memory for a new EsePoint and initializes to (0, 0).
  *          The point is created without Lua references and must be explicitly
- *          referenced with point_ref() if Lua access is desired.
+ *          referenced with ese_point_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EsePoint object
  * 
- * @warning The returned EsePoint must be freed with point_destroy() to prevent memory leaks
+ * @warning The returned EsePoint must be freed with ese_point_destroy() to prevent memory leaks
  */
-EsePoint *point_create(EseLuaEngine *engine);
+EsePoint *ese_point_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EsePoint into a new EsePoint object.
  * 
  * @details This function creates a deep copy of an EsePoint object. It allocates a new EsePoint
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with point_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_point_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EsePoint to copy.
  * @return A new, distinct EsePoint object that is a copy of the source.
  * 
- * @warning The returned EsePoint must be freed with point_destroy() to prevent memory leaks.
+ * @warning The returned EsePoint must be freed with ese_point_destroy() to prevent memory leaks.
  */
-EsePoint *point_copy(const EsePoint *source);
+EsePoint *ese_point_copy(const EsePoint *source);
 
 /**
  * @brief Destroys a EsePoint object, managing memory based on Lua references.
@@ -71,14 +71,14 @@ EsePoint *point_copy(const EsePoint *source);
  * 
  * @param point Pointer to the EsePoint object to destroy
  */
-void point_destroy(EsePoint *point);
+void ese_point_destroy(EsePoint *point);
 
 /**
  * @brief Gets the size of the EsePoint structure in bytes.
  * 
  * @return The size of the EsePoint structure in bytes
  */
-size_t point_sizeof(void);
+size_t ese_point_sizeof(void);
 
 // Property access
 /**
@@ -87,7 +87,7 @@ size_t point_sizeof(void);
  * @param point Pointer to the EsePoint object
  * @param x The x-coordinate value
  */
-void point_set_x(EsePoint *point, float x);
+void ese_point_set_x(EsePoint *point, float x);
 
 /**
  * @brief Gets the x-coordinate of the point.
@@ -95,7 +95,7 @@ void point_set_x(EsePoint *point, float x);
  * @param point Pointer to the EsePoint object
  * @return The x-coordinate value
  */
-float point_get_x(const EsePoint *point);
+float ese_point_get_x(const EsePoint *point);
 
 /**
  * @brief Sets the y-coordinate of the point.
@@ -103,7 +103,7 @@ float point_get_x(const EsePoint *point);
  * @param point Pointer to the EsePoint object
  * @param y The y-coordinate value
  */
-void point_set_y(EsePoint *point, float y);
+void ese_point_set_y(EsePoint *point, float y);
 
 /**
  * @brief Gets the y-coordinate of the point.
@@ -111,7 +111,7 @@ void point_set_y(EsePoint *point, float y);
  * @param point Pointer to the EsePoint object
  * @return The y-coordinate value
  */
-float point_get_y(const EsePoint *point);
+float ese_point_get_y(const EsePoint *point);
 
 // Lua-related access
 /**
@@ -120,7 +120,7 @@ float point_get_y(const EsePoint *point);
  * @param point Pointer to the EsePoint object
  * @return Pointer to the Lua state, or NULL if none
  */
-lua_State *point_get_state(const EsePoint *point);
+lua_State *ese_point_get_state(const EsePoint *point);
 
 /**
  * @brief Gets the Lua registry reference for this point.
@@ -128,7 +128,7 @@ lua_State *point_get_state(const EsePoint *point);
  * @param point Pointer to the EsePoint object
  * @return The Lua registry reference value
  */
-int point_get_lua_ref(const EsePoint *point);
+int ese_point_get_lua_ref(const EsePoint *point);
 
 /**
  * @brief Gets the Lua reference count for this point.
@@ -136,7 +136,7 @@ int point_get_lua_ref(const EsePoint *point);
  * @param point Pointer to the EsePoint object
  * @return The current reference count
  */
-int point_get_lua_ref_count(const EsePoint *point);
+int ese_point_get_lua_ref_count(const EsePoint *point);
 
 /**
  * @brief Adds a watcher callback to be notified when any point property changes.
@@ -149,7 +149,7 @@ int point_get_lua_ref_count(const EsePoint *point);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
+bool ese_point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -163,7 +163,7 @@ bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
+bool ese_point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
@@ -176,7 +176,7 @@ bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, voi
  * 
  * @param engine EseLuaEngine pointer where the EsePoint type will be registered
  */
-void point_lua_init(EseLuaEngine *engine);
+void ese_point_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EsePoint object to the Lua stack.
@@ -187,13 +187,13 @@ void point_lua_init(EseLuaEngine *engine);
  * 
  * @param point Pointer to the EsePoint object to push to Lua
  */
-void point_lua_push(EsePoint *point);
+void ese_point_lua_push(EsePoint *point);
 
 /**
  * @brief Extracts a EsePoint pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EsePoint pointer from the "__ptr" field of a Lua
- *          table that was created by point_lua_push(). Performs
+ *          table that was created by ese_point_lua_push(). Performs
  *          type checking to ensure the object is a valid EsePoint proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -203,7 +203,7 @@ void point_lua_push(EsePoint *point);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EsePoint *point_lua_get(lua_State *L, int idx);
+EsePoint *ese_point_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EsePoint object for Lua access with reference counting.
@@ -215,7 +215,7 @@ EsePoint *point_lua_get(lua_State *L, int idx);
  * 
  * @param point Pointer to the EsePoint object to reference
  */
-void point_ref(EsePoint *point);
+void ese_point_ref(EsePoint *point);
 
 /**
  * @brief Unreferences a EsePoint object, decrementing the reference count.
@@ -225,7 +225,7 @@ void point_ref(EsePoint *point);
  * 
  * @param point Pointer to the EsePoint object to unreference
  */
-void point_unref(EsePoint *point);
+void ese_point_unref(EsePoint *point);
 
 // Mathematical operations
 /**
@@ -235,7 +235,7 @@ void point_unref(EsePoint *point);
  * @param point2 Pointer to the second EsePoint object
  * @return The Euclidean distance between the two points
  */
-float point_distance(const EsePoint *point1, const EsePoint *point2);
+float ese_point_distance(const EsePoint *point1, const EsePoint *point2);
 
 /**
  * @brief Calculates the squared distance between two points.
@@ -244,6 +244,6 @@ float point_distance(const EsePoint *point1, const EsePoint *point2);
  * @param point2 Pointer to the second EsePoint object
  * @return The squared Euclidean distance between the two points
  */
-float point_distance_squared(const EsePoint *point1, const EsePoint *point2);
+float ese_point_distance_squared(const EsePoint *point1, const EsePoint *point2);
 
 #endif // ESE_POINT_H

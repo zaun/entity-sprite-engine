@@ -856,7 +856,7 @@ static int _entity_lua_index(lua_State *L) {
     if (!key) return 0;
 
     if (strcmp(key, "id") == 0) {
-        lua_pushstring(L, entity->id->value);
+        lua_pushstring(L, ese_uuid_get_value(entity->id));
         return 1;
     } else if (strcmp(key, "active") == 0) {
         lua_pushboolean(L, entity->active);
@@ -871,8 +871,8 @@ static int _entity_lua_index(lua_State *L) {
         lua_pushinteger(L, entity->draw_order);
         return 1;
     } else if (strcmp(key, "position") == 0) {
-        if (entity->position != NULL && point_get_lua_ref(entity->position) != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, point_get_lua_ref(entity->position));
+        if (entity->position != NULL && ese_point_get_lua_ref(entity->position) != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, ese_point_get_lua_ref(entity->position));
             return 1;
         } else {
             lua_pushnil(L);
@@ -974,13 +974,13 @@ static int _entity_lua_newindex(lua_State *L) {
         entity->draw_order = (int)lua_tointeger(L, 3);
         return 0;
     } else if (strcmp(key, "position") == 0) {
-        EsePoint *new_position_point = point_lua_get(L, 3);
+        EsePoint *new_position_point = ese_point_lua_get(L, 3);
         if (!new_position_point) {
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        point_set_x(entity->position, point_get_x(new_position_point));
-        point_set_y(entity->position, point_get_y(new_position_point));
+        ese_point_set_x(entity->position, ese_point_get_x(new_position_point));
+        ese_point_set_y(entity->position, ese_point_get_y(new_position_point));
         // Pop the point off the stack
         lua_pop(L, 1);
         return 0;
@@ -1032,7 +1032,7 @@ static int _entity_lua_tostring(lua_State *L) {
     }
 
     char buf[128];
-    snprintf(buf, sizeof(buf), "Entity: %p (id=%s active=%s components=%zu)", (void*)entity, entity->id->value, entity->active ? "true" : "false", entity->component_count);
+    snprintf(buf, sizeof(buf), "Entity: %p (id=%s active=%s components=%zu)", (void*)entity, ese_uuid_get_value(entity->id), entity->active ? "true" : "false", entity->component_count);
     lua_pushstring(L, buf);
 
     return 1;

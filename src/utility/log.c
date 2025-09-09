@@ -25,8 +25,7 @@ void log_init(void) {
 
 static int log_category_enabled(const char *category) {
     if (!log_enabled_categories) {
-        // If not set, allow no categories
-        return 1;
+        return 0;
     }
     
     // Check if "ALL" is specified to enable all categories

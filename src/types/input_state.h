@@ -11,6 +11,9 @@
 #define ESE_INPUT_STATE_H
 
 #include <stdbool.h>
+#include <stddef.h>
+
+#define INPUT_STATE_PROXY_META "InputStateProxyMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -78,22 +81,108 @@ typedef enum {
 } EseInputKey;
 
 /**
- * @brief A structure to hold the current state of all inputs.
+ * @brief An opaque structure to hold the current state of all inputs.
  */
-typedef struct EseInputState {
-    bool keys_down[InputKey_MAX];           /**< State of keys currently held down. */
-    bool keys_pressed[InputKey_MAX];        /**< Keys that were pressed this frame. */
-    bool keys_released[InputKey_MAX];       /**< Keys that were released this frame. */
-    int mouse_x;                            /**< The current X coordinate of the mouse cursor. */
-    int mouse_y;                            /**< The current Y coordinate of the mouse cursor. */
-    int mouse_scroll_dx;                    /**< The horizontal scroll delta this frame. */
-    int mouse_scroll_dy;                    /**< The vertical scroll delta this frame. */
-    bool mouse_buttons[MOUSE_BUTTON_COUNT]; /**< State of mouse buttons currently held down. */
+typedef struct EseInputState EseInputState;
 
-    lua_State *state;                       /**< A pointer to the Lua state. */
-    int lua_ref;                            /**< A reference to the Lua userdata object . */
-    int lua_ref_count;                      /**< Number of times this input state has been referenced in C */
-} EseInputState;
+/**
+ * @brief Returns the size of the EseInputState structure in bytes.
+ * 
+ * @return The size of the EseInputState structure in bytes.
+ */
+size_t ese_input_state_sizeof(void);
+
+/**
+ * @brief Gets the current X coordinate of the mouse cursor.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The current X coordinate of the mouse cursor.
+ */
+int ese_input_state_get_mouse_x(const EseInputState *input);
+
+/**
+ * @brief Gets the current Y coordinate of the mouse cursor.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The current Y coordinate of the mouse cursor.
+ */
+int ese_input_state_get_mouse_y(const EseInputState *input);
+
+/**
+ * @brief Gets the horizontal scroll delta for this frame.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The horizontal scroll delta for this frame.
+ */
+int ese_input_state_get_mouse_scroll_dx(const EseInputState *input);
+
+/**
+ * @brief Gets the vertical scroll delta for this frame.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The vertical scroll delta for this frame.
+ */
+int ese_input_state_get_mouse_scroll_dy(const EseInputState *input);
+
+/**
+ * @brief Gets the state of a specific key (whether it's currently held down).
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param key The input key to check.
+ * @return true if the key is currently held down, false otherwise.
+ */
+bool ese_input_state_get_key_down(const EseInputState *input, EseInputKey key);
+
+/**
+ * @brief Gets the state of a specific key (whether it was pressed this frame).
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param key The input key to check.
+ * @return true if the key was pressed this frame, false otherwise.
+ */
+bool ese_input_state_get_key_pressed(const EseInputState *input, EseInputKey key);
+
+/**
+ * @brief Gets the state of a specific key (whether it was released this frame).
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param key The input key to check.
+ * @return true if the key was released this frame, false otherwise.
+ */
+bool ese_input_state_get_key_released(const EseInputState *input, EseInputKey key);
+
+/**
+ * @brief Gets the state of a specific mouse button.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param button The mouse button index (0-7).
+ * @return true if the mouse button is currently held down, false otherwise.
+ */
+bool ese_input_state_get_mouse_button(const EseInputState *input, int button);
+
+/**
+ * @brief Gets the Lua state associated with this input state.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return A pointer to the Lua state, or NULL if not set.
+ */
+lua_State *ese_input_state_get_state(const EseInputState *input);
+
+/**
+ * @brief Gets the Lua reference count for this input state.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The current Lua reference count.
+ */
+int ese_input_state_get_lua_ref_count(const EseInputState *input);
+
+/**
+ * @brief Gets the Lua reference for this input state.
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @return The Lua reference, or LUA_NOREF if not referenced.
+ */
+int ese_input_state_get_lua_ref(const EseInputState *input);
 
 /**
  * @brief Initializes the Input userdata type in the Lua state.
@@ -106,7 +195,7 @@ typedef struct EseInputState {
  * 
  * @note This function should be called once during engine initialization.
  */
-void input_state_lua_init(EseLuaEngine *engine);
+void ese_input_state_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Creates a new EseInputState object with a zeroed state.
@@ -118,9 +207,9 @@ void input_state_lua_init(EseLuaEngine *engine);
  * @param engine A pointer to the `EseLuaEngine` for the Lua state.
  * @return A pointer to the newly allocated `EseInputState` object.
  * 
- * @warning The caller is responsible for freeing the returned memory with `input_state_destroy`.
+ * @warning The caller is responsible for freeing the returned memory with `ese_input_state_destroy`.
  */
-EseInputState *input_state_create(EseLuaEngine *engine);
+EseInputState *ese_input_state_create(EseLuaEngine *engine);
 
 /**
  * @brief Creates a deep copy of an EseInputState object.
@@ -132,9 +221,9 @@ EseInputState *input_state_create(EseLuaEngine *engine);
  * @return A pointer to the new copied `EseInputState`.
  * 
  * @note This function performs a memory allocation and a deep copy of the data.
- * @warning The caller is responsible for freeing the returned memory with `input_state_destroy`.
+ * @warning The caller is responsible for freeing the returned memory with `ese_input_state_destroy`.
  */
-EseInputState *input_state_copy(const EseInputState *src);
+EseInputState *ese_input_state_copy(const EseInputState *src);
 
 /**
  * @brief Destroys and frees the memory for an EseInputState object.
@@ -147,7 +236,7 @@ EseInputState *input_state_copy(const EseInputState *src);
  * 
  * @note This function uses `log_assert` to check for a `NULL` input pointer.
  */
-void input_state_destroy(EseInputState *input);
+void ese_input_state_destroy(EseInputState *input);
 
 /**
  * @private
@@ -156,7 +245,7 @@ void input_state_destroy(EseInputState *input);
  * @param input A pointer to the `EseInputState` object to be pushed.
  * @return void
  */
-static void input_state_lua_push(EseInputState *input);
+void ese_input_state_lua_push(EseInputState *input);
 
 /**
  * @brief Gets an EseInputState pointer from a Lua object.
@@ -165,7 +254,7 @@ static void input_state_lua_push(EseInputState *input);
  * @param idx The stack index of the Lua Input object.
  * @return A pointer to the `EseInputState` object, or `NULL` if the object is invalid.
  */
-EseInputState *input_state_lua_get(lua_State *L, int idx);
+EseInputState *ese_input_state_lua_get(lua_State *L, int idx);
 
 /**
  * @brief Increments the reference count for an EseInputState object.
@@ -176,7 +265,7 @@ EseInputState *input_state_lua_get(lua_State *L, int idx);
  * @param input A pointer to the `EseInputState` object to reference.
  * @return void
  */
-void input_state_ref(EseInputState *input);
+void ese_input_state_ref(EseInputState *input);
 
 /**
  * @brief Decrements the reference count for an EseInputState object.
@@ -188,6 +277,6 @@ void input_state_ref(EseInputState *input);
  * @param input A pointer to the `EseInputState` object to unreference.
  * @return void
  */
-void input_state_unref(EseInputState *input);
+void ese_input_state_unref(EseInputState *input);
 
 #endif // ESE_INPUT_STATE_H

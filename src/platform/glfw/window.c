@@ -9,6 +9,7 @@
 #include "platform/window.h"
 #include "core/memory_manager.h"
 #include "types/input_state.h"
+#include "types/input_state_private.h"
 #include "utility/log.h"
 
 /**
@@ -219,7 +220,7 @@ EseWindow *window_create(int width, int height, const char *title) {
 
     pw->glfw_window = glfwWin;
     // create input state
-    pw->inputState = input_state_create(NULL);
+    pw->inputState = ese_input_state_create(NULL);
 
     // attach user pointer and callbacks
     glfwSetWindowUserPointer(glfwWin, pw);
@@ -246,7 +247,7 @@ void window_destroy(EseWindow *window) {
             pw->glfw_window = NULL;
         }
         if (pw->inputState) {
-            input_state_destroy(pw->inputState);
+            ese_input_state_destroy(pw->inputState);
             pw->inputState = NULL;
         }
         memory_manager.free(pw);

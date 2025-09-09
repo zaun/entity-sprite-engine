@@ -48,8 +48,8 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     EseEntityComponentLua *component = memory_manager.malloc(sizeof(EseEntityComponentLua), MMTAG_ENTITY_COMP_LUA);
     component->base.data = component;
     component->base.active = true;
-    component->base.id = uuid_create(engine);
-    uuid_ref(component->base.id);
+    component->base.id = ese_uuid_create(engine);
+    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_LUA;
@@ -94,7 +94,7 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
     }
 
     memory_manager.free(component->script);
-    uuid_destroy(component->base.id);
+    ese_uuid_destroy(component->base.id);
     lua_value_free(component->arg);
 
     memory_manager.free(component);
@@ -451,7 +451,7 @@ static int _entity_component_lua_index(lua_State *L) {
         lua_pushboolean(L, component->base.active);
         return 1;
     } else if (strcmp(key, "id") == 0) {
-        lua_pushstring(L, component->base.id->value);
+        lua_pushstring(L, ese_uuid_get_value(component->base.id));
         return 1;
     } else if (strcmp(key, "script") == 0) {
         lua_pushstring(L, component->script ? component->script : "");
@@ -560,7 +560,7 @@ static int _entity_component_lua_tostring(lua_State *L) {
     char buf[128];
     snprintf(buf, sizeof(buf), "EntityComponentLua: %p (id=%s active=%s script=%s)", 
              (void*)component,
-             component->base.id->value,
+             ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
              component->script ? component->script : "none");
     lua_pushstring(L, buf);

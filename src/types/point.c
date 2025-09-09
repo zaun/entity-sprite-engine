@@ -29,21 +29,21 @@ typedef struct EsePoint {
 // ========================================
 
 // Core helpers
-static EsePoint *_point_make(void);
+static EsePoint *_ese_point_make(void);
 
 // Watcher system
-static void _point_notify_watchers(EsePoint *point);
+static void _ese_point_make_point_notify_watchers(EsePoint *point);
 
 // Lua metamethods
-static int _point_lua_gc(lua_State *L);
-static int _point_lua_index(lua_State *L);
-static int _point_lua_newindex(lua_State *L);
-static int _point_lua_tostring(lua_State *L);
+static int _ese_point_lua_gc(lua_State *L);
+static int _ese_point_lua_index(lua_State *L);
+static int _ese_point_lua_newindex(lua_State *L);
+static int _ese_point_lua_tostring(lua_State *L);
 
 // Lua constructors
-static int _point_lua_new(lua_State *L);
-static int _point_lua_zero(lua_State *L);
-static int _point_lua_distance(lua_State *L);
+static int _ese_point_lua_new(lua_State *L);
+static int _ese_point_lua_zero(lua_State *L);
+static int _ese_point_lua_distance(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -58,7 +58,7 @@ static int _point_lua_distance(lua_State *L);
  * 
  * @return Pointer to the newly created EsePoint, or NULL on allocation failure
  */
-static EsePoint *_point_make() {
+static EsePoint *_ese_point_make() {
     EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     point->x = 0.0f;
     point->y = 0.0f;
@@ -82,7 +82,7 @@ static EsePoint *_point_make() {
  * 
  * @param point Pointer to the EsePoint that has changed
  */
-static void _point_notify_watchers(EsePoint *point) {
+static void _ese_point_make_point_notify_watchers(EsePoint *point) {
     if (!point || point->watcher_count == 0) return;
     
     for (size_t i = 0; i < point->watcher_count; i++) {
@@ -102,7 +102,7 @@ static void _point_notify_watchers(EsePoint *point) {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _point_lua_gc(lua_State *L) {
+static int _ese_point_lua_gc(lua_State *L) {
     // Get from userdata
     EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, POINT_PROXY_META);
     if (!ud) {
@@ -115,7 +115,7 @@ static int _point_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this point was referenced from C and should not be freed.
         if (point->lua_ref == LUA_NOREF) {
-            point_destroy(point);
+            ese_point_destroy(point);
         }
     }
 
@@ -131,9 +131,9 @@ static int _point_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _point_lua_index(lua_State *L) {
+static int _ese_point_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_INDEX);
-    EsePoint *point = point_lua_get(L, 1);
+    EsePoint *point = ese_point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!point || !key) {
         profile_cancel(PROFILE_LUA_POINT_INDEX);
@@ -163,9 +163,9 @@ static int _point_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _point_lua_newindex(lua_State *L) {
+static int _ese_point_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_NEWINDEX);
-    EsePoint *point = point_lua_get(L, 1);
+    EsePoint *point = ese_point_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!point || !key) {
         profile_cancel(PROFILE_LUA_POINT_INDEX);
@@ -178,7 +178,7 @@ static int _point_lua_newindex(lua_State *L) {
             return luaL_error(L, "point.x must be a number");
         }
         point->x = (float)lua_tonumber(L, 3);
-        _point_notify_watchers(point);
+        _ese_point_make_point_notify_watchers(point);
         profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "y") == 0) {
@@ -187,7 +187,7 @@ static int _point_lua_newindex(lua_State *L) {
             return luaL_error(L, "point.y must be a number");
         }
         point->y = (float)lua_tonumber(L, 3);
-        _point_notify_watchers(point);
+        _ese_point_make_point_notify_watchers(point);
         profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
         return 0;
     }
@@ -204,8 +204,8 @@ static int _point_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _point_lua_tostring(lua_State *L) {
-    EsePoint *point = point_lua_get(L, 1);
+static int _ese_point_lua_tostring(lua_State *L) {
+    EsePoint *point = ese_point_lua_get(L, 1);
 
     if (!point) {
         lua_pushstring(L, "Point: (invalid)");
@@ -231,7 +231,7 @@ static int _point_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _point_lua_new(lua_State *L) {
+static int _ese_point_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_NEW);
 
     // Get argument count
@@ -254,7 +254,7 @@ static int _point_lua_new(lua_State *L) {
     float y = (float)lua_tonumber(L, 2);
 
     // Create the point
-    EsePoint *point = _point_make();
+    EsePoint *point = _ese_point_make();
     point->x = x;
     point->y = y;
     point->state = L;
@@ -281,7 +281,7 @@ static int _point_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _point_lua_zero(lua_State *L) {
+static int _ese_point_lua_zero(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_ZERO);
 
     // Get argument count
@@ -292,7 +292,7 @@ static int _point_lua_zero(lua_State *L) {
     }
     
     // Create the point using the standard creation function
-    EsePoint *point = _point_make();  // We'll set the state manually
+    EsePoint *point = _ese_point_make();  // We'll set the state manually
     point->state = L;
 
     // Create userdata directly
@@ -307,7 +307,7 @@ static int _point_lua_zero(lua_State *L) {
     return 1;
 }
 
-static int _point_lua_distance(lua_State *L) {
+static int _ese_point_lua_distance(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_ZERO);
 
     // Get argument count
@@ -317,15 +317,15 @@ static int _point_lua_distance(lua_State *L) {
         return luaL_error(L, "Point.distance(point, point) takes 2 arguments");
     }
 
-    EsePoint *point1 = point_lua_get(L, 1);
-    EsePoint *point2 = point_lua_get(L, 2);
+    EsePoint *point1 = ese_point_lua_get(L, 1);
+    EsePoint *point2 = ese_point_lua_get(L, 2);
 
     if (!point1 || !point2) {
         profile_cancel(PROFILE_LUA_POINT_ZERO);
         return luaL_error(L, "Point.distance(point, point) arguments must be points");
     }
 
-    float distance = point_distance(point1, point2);
+    float distance = ese_point_distance(point1, point2);
     lua_pushnumber(L, (double)distance);
 
     profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_distance");
@@ -337,15 +337,15 @@ static int _point_lua_distance(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EsePoint *point_create(EseLuaEngine *engine) {
-    log_assert("POINT", engine, "point_create called with NULL engine");
-    EsePoint *point = _point_make();
+EsePoint *ese_point_create(EseLuaEngine *engine) {
+    log_assert("POINT", engine, "ese_point_create called with NULL engine");
+    EsePoint *point = _ese_point_make();
     point->state = engine->runtime;
     return point;
 }
 
-EsePoint *point_copy(const EsePoint *source) {
-    log_assert("POINT", source, "point_copy called with NULL source");
+EsePoint *ese_point_copy(const EsePoint *source) {
+    log_assert("POINT", source, "ese_point_copy called with NULL source");
     
     EsePoint *copy = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     copy->x = source->x;
@@ -360,7 +360,7 @@ EsePoint *point_copy(const EsePoint *source) {
     return copy;
 }
 
-void point_destroy(EsePoint *point) {
+void ese_point_destroy(EsePoint *point) {
     if (!point) return;
     
     // Free watcher arrays if they exist
@@ -381,24 +381,24 @@ void point_destroy(EsePoint *point) {
     } else {
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
-        point_unref(point);
+        ese_point_unref(point);
     }
 }
 
 // Lua integration
-void point_lua_init(EseLuaEngine *engine) {
-    log_assert("POINT", engine, "point_lua_init called with NULL engine");
+void ese_point_lua_init(EseLuaEngine *engine) {
+    log_assert("POINT", engine, "ese_point_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, POINT_PROXY_META)) {
         log_debug("LUA", "Adding entity PointMeta to engine");
         lua_pushstring(engine->runtime, POINT_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _point_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _point_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _point_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _point_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -411,11 +411,11 @@ void point_lua_init(EseLuaEngine *engine) {
         lua_pop(engine->runtime, 1); // Pop the nil value
         log_debug("LUA", "Creating global point table");
         lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _point_lua_new);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_new);
         lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _point_lua_zero);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
-        lua_pushcfunction(engine->runtime, _point_lua_distance);
+        lua_pushcfunction(engine->runtime, _ese_point_lua_distance);
         lua_setfield(engine->runtime, -2, "distance");
         lua_setglobal(engine->runtime, "Point");
     } else {
@@ -423,8 +423,8 @@ void point_lua_init(EseLuaEngine *engine) {
     }
 }
 
-void point_lua_push(EsePoint *point) {
-    log_assert("POINT", point, "point_lua_push called with NULL point");
+void ese_point_lua_push(EsePoint *point) {
+    log_assert("POINT", point, "ese_point_lua_push called with NULL point");
 
     if (point->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -440,8 +440,8 @@ void point_lua_push(EsePoint *point) {
     }
 }
 
-EsePoint *point_lua_get(lua_State *L, int idx) {
-    log_assert("POINT", L, "point_lua_get called with NULL Lua state");
+EsePoint *ese_point_lua_get(lua_State *L, int idx) {
+    log_assert("POINT", L, "ese_point_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -457,8 +457,8 @@ EsePoint *point_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void point_ref(EsePoint *point) {
-    log_assert("POINT", point, "point_ref called with NULL point");
+void ese_point_ref(EsePoint *point) {
+    log_assert("POINT", point, "ese_point_ref called with NULL point");
     
     if (point->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -477,10 +477,10 @@ void point_ref(EsePoint *point) {
         point->lua_ref_count++;
     }
 
-    profile_count_add("point_ref_count");
+    profile_count_add("ese_point_ref_count");
 }
 
-void point_unref(EsePoint *point) {
+void ese_point_unref(EsePoint *point) {
     if (!point) return;
     
     if (point->lua_ref != LUA_NOREF && point->lua_ref_count > 0) {
@@ -493,22 +493,22 @@ void point_unref(EsePoint *point) {
         }
     }
 
-    profile_count_add("point_unref_count");
+    profile_count_add("ese_point_unref_count");
 }
 
 // Mathematical operations
-float point_distance(const EsePoint *point1, const EsePoint *point2) {
-    log_assert("POINT", point1, "point_distance called with NULL first point");
-    log_assert("POINT", point2, "point_distance called with NULL second point");
+float ese_point_distance(const EsePoint *point1, const EsePoint *point2) {
+    log_assert("POINT", point1, "ese_point_distance called with NULL first point");
+    log_assert("POINT", point2, "ese_point_distance called with NULL second point");
     
     float dx = point2->x - point1->x;
     float dy = point2->y - point1->y;
     return sqrtf(dx * dx + dy * dy);
 }
 
-float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
-    log_assert("POINT", point1, "point_distance_squared called with NULL first point");
-    log_assert("POINT", point2, "point_distance_squared called with NULL second point");
+float ese_point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
+    log_assert("POINT", point1, "ese_point_distance_squared called with NULL first point");
+    log_assert("POINT", point2, "ese_point_distance_squared called with NULL second point");
     
     float dx = point2->x - point1->x;
     float dy = point2->y - point1->y;
@@ -516,48 +516,48 @@ float point_distance_squared(const EsePoint *point1, const EsePoint *point2) {
 }
 
 // Property access
-void point_set_x(EsePoint *point, float x) {
-    log_assert("POINT", point, "point_set_x called with NULL point");
+void ese_point_set_x(EsePoint *point, float x) {
+    log_assert("POINT", point, "ese_point_set_x called with NULL point");
     point->x = x;
-    _point_notify_watchers(point);
+    _ese_point_make_point_notify_watchers(point);
 }
 
-float point_get_x(const EsePoint *point) {
-    log_assert("POINT", point, "point_get_x called with NULL point");
+float ese_point_get_x(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_get_x called with NULL point");
     return point->x;
 }
 
-void point_set_y(EsePoint *point, float y) {
-    log_assert("POINT", point, "point_set_y called with NULL point");
+void ese_point_set_y(EsePoint *point, float y) {
+    log_assert("POINT", point, "ese_point_set_y called with NULL point");
     point->y = y;
-    _point_notify_watchers(point);
+    _ese_point_make_point_notify_watchers(point);
 }
 
-float point_get_y(const EsePoint *point) {
-    log_assert("POINT", point, "point_get_y called with NULL point");
+float ese_point_get_y(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_get_y called with NULL point");
     return point->y;
 }
 
 // Lua-related access
-lua_State *point_get_state(const EsePoint *point) {
-    log_assert("POINT", point, "point_get_state called with NULL point");
+lua_State *ese_point_get_state(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_get_state called with NULL point");
     return point->state;
 }
 
-int point_get_lua_ref(const EsePoint *point) {
-    log_assert("POINT", point, "point_get_lua_ref called with NULL point");
+int ese_point_get_lua_ref(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_get_lua_ref called with NULL point");
     return point->lua_ref;
 }
 
-int point_get_lua_ref_count(const EsePoint *point) {
-    log_assert("POINT", point, "point_get_lua_ref_count called with NULL point");
+int ese_point_get_lua_ref_count(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_get_lua_ref_count called with NULL point");
     return point->lua_ref_count;
 }
 
 // Watcher system
-bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
-    log_assert("POINT", point, "point_add_watcher called with NULL point");
-    log_assert("POINT", callback, "point_add_watcher called with NULL callback");
+bool ese_point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
+    log_assert("POINT", point, "ese_point_add_watcher called with NULL point");
+    log_assert("POINT", callback, "ese_point_add_watcher called with NULL callback");
     
     // Initialize watcher arrays if this is the first watcher
     if (point->watcher_count == 0) {
@@ -596,9 +596,9 @@ bool point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *
     return true;
 }
 
-bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
-    log_assert("POINT", point, "point_remove_watcher called with NULL point");
-    log_assert("POINT", callback, "point_remove_watcher called with NULL callback");
+bool ese_point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata) {
+    log_assert("POINT", point, "ese_point_remove_watcher called with NULL point");
+    log_assert("POINT", callback, "ese_point_remove_watcher called with NULL callback");
     
     for (size_t i = 0; i < point->watcher_count; i++) {
         if (point->watchers[i] == callback && point->watcher_userdata[i] == userdata) {
@@ -615,6 +615,6 @@ bool point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, voi
     return false;
 }
 
-size_t point_sizeof(void) {
+size_t ese_point_sizeof(void) {
     return sizeof(EsePoint);
 }

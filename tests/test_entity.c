@@ -421,18 +421,18 @@ static void test_entity_collision() {
         entity_component_add(entity1, collider1);
         entity_component_add(entity2, collider2);
 
-        EseRect *rect1 = rect_create(engine);
-        EseRect *rect2 = rect_create(engine);
+        EseRect *rect1 = ese_rect_create(engine);
+        EseRect *rect2 = ese_rect_create(engine);
 
-        rect_set_x(rect1, 0);
-        rect_set_y(rect1, 0);
-        rect_set_width(rect1, 100);
-        rect_set_height(rect1, 100);
+        ese_rect_set_x(rect1, 0);
+        ese_rect_set_y(rect1, 0);
+        ese_rect_set_width(rect1, 100);
+        ese_rect_set_height(rect1, 100);
 
-        rect_set_x(rect2, 0);
-        rect_set_y(rect2, 0);
-        rect_set_width(rect2, 100);
-        rect_set_height(rect2, 100);
+        ese_rect_set_x(rect2, 0);
+        ese_rect_set_y(rect2, 0);
+        ese_rect_set_width(rect2, 100);
+        ese_rect_set_height(rect2, 100);
 
         entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider1), rect1);
         entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider2), rect2);
@@ -521,11 +521,11 @@ static void test_entity_draw() {
     EseEntityComponent *collider = entity_component_collider_create(engine);
     entity_component_add(entity, collider);
 
-    EseRect *rect = rect_create(engine);
-    rect_set_x(rect, 0);
-    rect_set_y(rect, 0);
-    rect_set_width(rect, 100);
-    rect_set_height(rect, 100);
+    EseRect *rect = ese_rect_create(engine);
+    ese_rect_set_x(rect, 0);
+    ese_rect_set_y(rect, 0);
+    ese_rect_set_width(rect, 100);
+    ese_rect_set_height(rect, 100);
     entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider), rect);
 
     entity_component_collider_set_draw_debug((EseEntityComponentCollider *)entity_component_get_data(collider), true);
@@ -757,9 +757,9 @@ static void test_entity_dispatch() {
         entity_component_add(entity2, lua_compB);
         
         // Update entities to trigger the dispatch
-        EseInputState input_state;
-        memset(&input_state, 0, sizeof(EseInputState));
-        engine_update(engine, 0.016f, &input_state);
+        EseInputState *input_state = ese_input_state_create(NULL);
+        engine_update(engine, 0.016f, input_state);
+        ese_input_state_destroy(input_state);
         
         // Check that entity2 has the tags added by all dispatch calls
         TEST_ASSERT(entity_has_tag(entity2, "dispatched_tag"), "Entity2 should have the dispatched_tag from colon syntax");
@@ -770,7 +770,7 @@ static void test_entity_dispatch() {
     
     // Clean up - entities are managed by the engine
     engine_destroy(engine);
-    
+
     test_end("Entity Dispatch");
 }
 
@@ -867,12 +867,12 @@ static void test_entity_data_in_init_lua_created() {
                 TEST_ASSERT(true, "Create script should run successfully");
                 
                 // Update entities to trigger entity_init
-                EseInputState input_state;
-                memset(&input_state, 0, sizeof(EseInputState));
-                engine_update(engine, 0.016f, &input_state);
-                engine_update(engine, 0.016f, &input_state);
-                engine_update(engine, 0.016f, &input_state);
-                
+                EseInputState *input_state = ese_input_state_create(NULL);
+                engine_update(engine, 0.016f, input_state);
+                engine_update(engine, 0.016f, input_state);
+                engine_update(engine, 0.016f, input_state);
+                ese_input_state_destroy(input_state);
+
                 // Check if any entity has the data_working tag
                 // We need to find the entity that was created
                 // For now, just check that the engine has entities

@@ -9,23 +9,41 @@
 #include "types/uuid.h"
 
 // ========================================
+// PRIVATE STRUCT DEFINITION
+// ========================================
+
+/**
+ * @brief Internal structure for EseUUID
+ * 
+ * @details This structure is only visible within this implementation file.
+ *          External code must use the provided getter/setter functions.
+ */
+struct EseUUID {
+    char value[37];     /**< The string EseUUID */
+
+    lua_State *state;   /**< Lua State this EseUUID belongs to */
+    int lua_ref;        /**< Lua registry reference to its own proxy table */
+    int lua_ref_count;  /**< Number of times this uuid has been referenced in C */
+};
+
+// ========================================
 // PRIVATE FORWARD DECLARATIONS
 // ========================================
 
 // Core helpers
-static EseUUID *_uuid_make(void);
+static EseUUID *_ese_uuid_make(void);
 
 // Lua metamethods
-static int _uuid_lua_gc(lua_State *L);
-static int _uuid_lua_index(lua_State *L);
-static int _uuid_lua_newindex(lua_State *L);
-static int _uuid_lua_tostring(lua_State *L);
+static int _ese_uuid_lua_gc(lua_State *L);
+static int _ese_uuid_lua_index(lua_State *L);
+static int _ese_uuid_lua_newindex(lua_State *L);
+static int _ese_uuid_lua_tostring(lua_State *L);
 
 // Lua constructors
-static int _uuid_lua_new(lua_State *L);
+static int _ese_uuid_lua_new(lua_State *L);
 
 // Lua methods
-static int _uuid_lua_reset_method(lua_State *L);
+static int _ese_uuid_lua_reset_method(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -40,12 +58,12 @@ static int _uuid_lua_reset_method(lua_State *L);
  * 
  * @return Pointer to the newly created EseUUID, or NULL on allocation failure
  */
-static EseUUID *_uuid_make() {
+static EseUUID *_ese_uuid_make() {
     EseUUID *uuid = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_UUID);
     uuid->state = NULL;
     uuid->lua_ref = LUA_NOREF;
     uuid->lua_ref_count = 0;
-    uuid_generate(uuid);
+    ese_uuid_generate_new(uuid);
     return uuid;
 }
 
@@ -59,9 +77,9 @@ static EseUUID *_uuid_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _uuid_lua_gc(lua_State *L) {
+static int _ese_uuid_lua_gc(lua_State *L) {
     // Get from userdata
-    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, "UUIDMeta");
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, UUID_PROXY_META);
     if (!ud) {
         return 0; // Not our userdata
     }
@@ -72,7 +90,7 @@ static int _uuid_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this uuid was referenced from C and should not be freed.
         if (uuid->lua_ref == LUA_NOREF) {
-            uuid_destroy(uuid);
+            ese_uuid_destroy(uuid);
         }
     }
 
@@ -89,9 +107,9 @@ static int _uuid_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
  */
-static int _uuid_lua_index(lua_State *L) {
+static int _ese_uuid_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_UUID_INDEX);
-    EseUUID *uuid = uuid_lua_get(L, 1);
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!uuid || !key) {
         profile_cancel(PROFILE_LUA_UUID_INDEX);
@@ -105,7 +123,7 @@ static int _uuid_lua_index(lua_State *L) {
     } else if (strcmp(key, "reset") == 0) {
         // Return a reset function for this EseUUID instance
         lua_pushlightuserdata(L, uuid);
-        lua_pushcclosure(L, _uuid_lua_reset_method, 1);
+        lua_pushcclosure(L, _ese_uuid_lua_reset_method, 1);
         profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
         return 1;
     }
@@ -123,9 +141,9 @@ static int _uuid_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Never returns (always calls luaL_error)
  */
-static int _uuid_lua_newindex(lua_State *L) {
+static int _ese_uuid_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_UUID_NEWINDEX);
-    EseUUID *uuid = uuid_lua_get(L, 1);
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!uuid || !key) {
         profile_cancel(PROFILE_LUA_UUID_NEWINDEX);
@@ -145,8 +163,8 @@ static int _uuid_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _uuid_lua_tostring(lua_State *L) {
-    EseUUID *uuid = uuid_lua_get(L, 1);
+static int _ese_uuid_lua_tostring(lua_State *L) {
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
 
     if (!uuid) {
         lua_pushstring(L, "UUID: (invalid)");
@@ -172,10 +190,18 @@ static int _uuid_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _uuid_lua_new(lua_State *L) {
+static int _ese_uuid_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_UUID_NEW);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        profile_cancel(PROFILE_LUA_UUID_NEW);
+        return luaL_error(L, "UUID.new() takes 0 argument");
+    }
+
     // Create the uuid using the standard creation function
-    EseUUID *uuid = _uuid_make();
+    EseUUID *uuid = _ese_uuid_make();
     uuid->state = L;
     
     // Create userdata directly
@@ -183,7 +209,7 @@ static int _uuid_lua_new(lua_State *L) {
     *ud = uuid;
 
     // Attach metatable
-    luaL_getmetatable(L, "UUIDMeta");
+    luaL_getmetatable(L, UUID_PROXY_META);
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_UUID_NEW, "uuid_lua_new");
@@ -200,14 +226,14 @@ static int _uuid_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _uuid_lua_reset_method(lua_State *L) {
+static int _ese_uuid_lua_reset_method(lua_State *L) {
     // Get the EseUUID from the closure's upvalue
     EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
     if (!uuid) {
         return luaL_error(L, "Invalid EseUUID object in reset method");
     }
     
-    uuid_generate(uuid);
+    ese_uuid_generate_new(uuid);
     return 0;
 }
 
@@ -216,16 +242,16 @@ static int _uuid_lua_reset_method(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseUUID *uuid_create(EseLuaEngine *engine) {
-    EseUUID *uuid = _uuid_make();
+EseUUID *ese_uuid_create(EseLuaEngine *engine) {
+    log_assert("UUID", engine, "ese_uuid_create called with NULL engine");
+
+    EseUUID *uuid = _ese_uuid_make();
     uuid->state = engine->runtime;
     return uuid;
 }
 
-EseUUID *uuid_copy(const EseUUID *source) {
-    if (source == NULL) {
-        return NULL;
-    }
+EseUUID *ese_uuid_copy(const EseUUID *source) {
+    log_assert("UUID", source, "ese_uuid_copy called with NULL source");
 
     EseUUID *copy = (EseUUID *)memory_manager.malloc(sizeof(EseUUID), MMTAG_UUID);
     strcpy(copy->value, source->value);
@@ -235,32 +261,34 @@ EseUUID *uuid_copy(const EseUUID *source) {
     return copy;
 }
 
-void uuid_destroy(EseUUID *uuid) {
+void ese_uuid_destroy(EseUUID *uuid) {
     if (!uuid) return;
     
     if (uuid->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
         memory_manager.free(uuid);
     } else {
-        uuid_unref(uuid);
+        ese_uuid_unref(uuid);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
 }
 
 // Lua integration
-void uuid_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "UUIDMeta")) {
-        log_debug("LUA", "Adding entity UUIDMeta to engine");
-        lua_pushstring(engine->runtime, "UUIDMeta");
+void ese_uuid_lua_init(EseLuaEngine *engine) {
+    log_assert("UUID", engine, "ese_uuid_lua_init called with NULL engine");
+
+    if (luaL_newmetatable(engine->runtime, UUID_PROXY_META)) {
+        log_debug("LUA", "Adding entity UUIDProxyMeta to engine");
+        lua_pushstring(engine->runtime, UUID_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _uuid_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _uuid_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _uuid_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _uuid_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -273,7 +301,7 @@ void uuid_lua_init(EseLuaEngine *engine) {
         lua_pop(engine->runtime, 1); // Pop the nil value
         log_debug("LUA", "Creating global EseUUID table");
         lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _uuid_lua_new);
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_new);
         lua_setfield(engine->runtime, -2, "new");
         lua_setglobal(engine->runtime, "UUID");
     } else {
@@ -281,8 +309,8 @@ void uuid_lua_init(EseLuaEngine *engine) {
     }
 }
 
-void uuid_lua_push(EseUUID *uuid) {
-    log_assert("UUID", uuid, "uuid_lua_push called with NULL uuid");
+void ese_uuid_lua_push(EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_lua_push called with NULL uuid");
 
     if (uuid->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -290,7 +318,7 @@ void uuid_lua_push(EseUUID *uuid) {
         *ud = uuid;
 
         // Attach metatable
-        luaL_getmetatable(uuid->state, "UUIDMeta");
+        luaL_getmetatable(uuid->state, UUID_PROXY_META);
         lua_setmetatable(uuid->state, -2);
     } else {
         // C-owned: get from registry
@@ -298,14 +326,14 @@ void uuid_lua_push(EseUUID *uuid) {
     }
 }
 
-EseUUID *uuid_lua_get(lua_State *L, int idx) {
+EseUUID *ese_uuid_lua_get(lua_State *L, int idx) {
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
     // Get the userdata and check metatable
-    EseUUID **ud = (EseUUID **)luaL_testudata(L, idx, "UUIDMeta");
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, idx, UUID_PROXY_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -313,8 +341,8 @@ EseUUID *uuid_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void uuid_ref(EseUUID *uuid) {
-    log_assert("UUID", uuid, "uuid_ref called with NULL uuid");
+void ese_uuid_ref(EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_ref called with NULL uuid");
     
     if (uuid->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -322,7 +350,7 @@ void uuid_ref(EseUUID *uuid) {
         *ud = uuid;
 
         // Attach metatable
-        luaL_getmetatable(uuid->state, "UUIDMeta");
+        luaL_getmetatable(uuid->state, UUID_PROXY_META);
         lua_setmetatable(uuid->state, -2);
 
         // Store hard reference to prevent garbage collection
@@ -333,10 +361,10 @@ void uuid_ref(EseUUID *uuid) {
         uuid->lua_ref_count++;
     }
 
-    profile_count_add("uuid_ref_count");
+    profile_count_add("ese_uuid_ref_count");
 }
 
-void uuid_unref(EseUUID *uuid) {
+void ese_uuid_unref(EseUUID *uuid) {
     if (!uuid) return;
     
     if (uuid->lua_ref != LUA_NOREF && uuid->lua_ref_count > 0) {
@@ -349,11 +377,11 @@ void uuid_unref(EseUUID *uuid) {
         }
     }
 
-    profile_count_add("uuid_unref_count");
+    profile_count_add("ese_uuid_unref_count");
 }
 
 // Utility functions
-void uuid_generate(EseUUID *uuid) {
+void ese_uuid_generate_new(EseUUID *uuid) {
     log_assert("ENGINE", uuid, "uuid_generate called with NULL uuid");
 
     unsigned char bytes[16]; // A EseUUID is 128 bits, which is 16 bytes
@@ -377,7 +405,7 @@ void uuid_generate(EseUUID *uuid) {
              bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]); // 6 bytes = 12 hex digits
 }
 
-uint64_t uuid_hash(const EseUUID* uuid) {
+uint64_t ese_uuid_hash(const EseUUID* uuid) {
     uint64_t hash = 5381;
     const char* str = uuid->value;
     int c;
@@ -387,4 +415,32 @@ uint64_t uuid_hash(const EseUUID* uuid) {
     }
 
     return hash;
+}
+
+// ========================================
+// OPQUE ACCESSOR FUNCTIONS
+// ========================================
+
+size_t ese_uuid_sizeof(void) {
+    return sizeof(struct EseUUID);
+}
+
+const char *ese_uuid_get_value(const EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_get_value called with NULL uuid");
+    return uuid->value;
+}
+
+lua_State *ese_uuid_get_state(const EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_get_state called with NULL uuid");
+    return uuid->state;
+}
+
+int ese_uuid_get_lua_ref(const EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_get_lua_ref called with NULL uuid");
+    return uuid->lua_ref;
+}
+
+int ese_uuid_get_lua_ref_count(const EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_get_lua_ref_count called with NULL uuid");
+    return uuid->lua_ref_count;
 }

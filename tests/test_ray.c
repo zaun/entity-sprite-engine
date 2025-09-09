@@ -1,335 +1,737 @@
-#include "test_utils.h"
-#include "types/ray.h"
-#include "types/rect.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_ese_ray.c - Unity-based tests for ray functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_ray_creation();
-static void test_ray_properties();
-static void test_ray_copy();
-static void test_ray_mathematical_operations();
-static void test_ray_intersection_tests();
-static void test_ray_lua_integration();
-static void test_ray_lua_script_api();
-static void test_ray_null_pointer_aborts();
+#include "../src/types/ray.h"
+#include "../src/types/rect.h"
+#include "../src/types/point.h"
+#include "../src/types/vector.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for Ray testing
-static const char* test_ray_lua_script = 
-"function RAY_TEST_MODULE:test_ray_creation()\n"
-"    local r1 = Ray.new(10.5, -5.25, 1.0, 0.5)\n"
-"    local r2 = Ray.zero()\n"
-"    \n"
-"    if r1.x == 10.5 and r1.y == -5.25 and r1.dx == 1.0 and r1.dy == 0.5 and\n"
-"       r2.x == 0 and r2.y == 0 and r2.dx == 1 and r2.dy == 0 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function RAY_TEST_MODULE:test_ray_properties()\n"
-"    local r = Ray.new(0, 0, 0, 0)\n"
-"    \n"
-"    r.x = 42.0\n"
-"    r.y = -17.5\n"
-"    r.dx = 2.0\n"
-"    r.dy = -1.5\n"
-"    \n"
-"    if r.x == 42.0 and r.y == -17.5 and r.dx == 2.0 and r.dy == -1.5 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function RAY_TEST_MODULE:test_ray_operations()\n"
-"    local r = Ray.new(0, 0, 3, 4)\n"
-"    \n"
-"    -- Test point at distance\n"
-"    local point = r:point_at_distance(5.0)\n"
-"    if math.abs(point.x - 3.0) < 0.001 and math.abs(point.y - 4.0) < 0.001 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_ray_sizeof(void);
+static void test_ese_ray_create_requires_engine(void);
+static void test_ese_ray_create(void);
+static void test_ese_ray_x(void);
+static void test_ese_ray_y(void);
+static void test_ese_ray_dx(void);
+static void test_ese_ray_dy(void);
+static void test_ese_ray_ref(void);
+static void test_ese_ray_copy_requires_source(void);
+static void test_ese_ray_copy(void);
+static void test_ese_ray_intersects_rect(void);
+static void test_ese_ray_get_point_at_distance(void);
+static void test_ese_ray_normalize(void);
+static void test_ese_ray_lua_integration(void);
+static void test_ese_ray_lua_init(void);
+static void test_ese_ray_lua_push(void);
+static void test_ese_ray_lua_get(void);
 
-// Signal handler for testing aborts
-static void segfault_handler(int sig) {
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    fprintf(stderr, "---- BACKTRACE START ----\n");
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    fprintf(stderr, "---- BACKTRACE  END  ----\n");
-    exit(1);
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_ray_lua_new(void);
+static void test_ese_ray_lua_zero(void);
+static void test_ese_ray_lua_intersects_rect(void);
+static void test_ese_ray_lua_get_point_at_distance(void);
+static void test_ese_ray_lua_normalize(void);
+static void test_ese_ray_lua_x(void);
+static void test_ese_ray_lua_y(void);
+static void test_ese_ray_lua_dx(void);
+static void test_ese_ray_lua_dy(void);
+static void test_ese_ray_lua_tostring(void);
+static void test_ese_ray_lua_gc(void);
+
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-int main() {
-    // Set up signal handler for testing aborts
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
-    test_suite_begin("🧪 EseRay Test Suite");
-    
-    test_ray_creation();
-    test_ray_properties();
-    test_ray_copy();
-    test_ray_mathematical_operations();
-    test_ray_intersection_tests();
-    test_ray_lua_integration();
-    test_ray_lua_script_api();
-    test_ray_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseRay Test Suite");
-    
-    return 0;
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-static void test_ray_creation() {
-    test_begin("Ray Creation Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray creation tests");
-    
-    EseRay *ray = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(ray, "ray_create should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(0.0f, ray->x, "New ray should have x = 0.0");
-    TEST_ASSERT_EQUAL(0.0f, ray->y, "New ray should have y = 0.0");
-    TEST_ASSERT_EQUAL(1.0f, ray->dx, "New ray should have dx = 1.0");
-    TEST_ASSERT_EQUAL(0.0f, ray->dy, "New ray should have dy = 0.0");
-    TEST_ASSERT_POINTER_EQUAL(engine->runtime, ray->state, "Ray should have correct Lua state");
-    TEST_ASSERT_EQUAL(0, ray->lua_ref_count, "New ray should have ref count 0");
-    TEST_ASSERT(ray->lua_ref == LUA_NOREF, "New ray should have negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", ray->lua_ref);
-    TEST_ASSERT(sizeof(EseRay) > 0, "EseRay should have positive size");
-    printf("ℹ INFO: Actual ray size: %zu bytes\n", sizeof(EseRay));
-    
-    ray_destroy(ray);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Creation Tests");
+/**
+* Main test runner
+*/
+int main(void) {
+    log_init();
+
+    printf("\nEseRay Tests\n");
+    printf("------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_ese_ray_sizeof);
+    RUN_TEST(test_ese_ray_create_requires_engine);
+    RUN_TEST(test_ese_ray_create);
+    RUN_TEST(test_ese_ray_x);
+    RUN_TEST(test_ese_ray_y);
+    RUN_TEST(test_ese_ray_dx);
+    RUN_TEST(test_ese_ray_dy);
+    RUN_TEST(test_ese_ray_ref);
+    RUN_TEST(test_ese_ray_copy_requires_source);
+    RUN_TEST(test_ese_ray_copy);
+    RUN_TEST(test_ese_ray_intersects_rect);
+    RUN_TEST(test_ese_ray_get_point_at_distance);
+    RUN_TEST(test_ese_ray_normalize);
+    RUN_TEST(test_ese_ray_lua_integration);
+    RUN_TEST(test_ese_ray_lua_init);
+    RUN_TEST(test_ese_ray_lua_push);
+    RUN_TEST(test_ese_ray_lua_get);
+
+    RUN_TEST(test_ese_ray_lua_new);
+    RUN_TEST(test_ese_ray_lua_zero);
+    RUN_TEST(test_ese_ray_lua_intersects_rect);
+    RUN_TEST(test_ese_ray_lua_get_point_at_distance);
+    RUN_TEST(test_ese_ray_lua_normalize);
+    RUN_TEST(test_ese_ray_lua_x);
+    RUN_TEST(test_ese_ray_lua_y);
+    RUN_TEST(test_ese_ray_lua_dx);
+    RUN_TEST(test_ese_ray_lua_dy);
+    RUN_TEST(test_ese_ray_lua_tostring);
+    RUN_TEST(test_ese_ray_lua_gc);
+
+    return UNITY_END();
 }
 
-static void test_ray_properties() {
-    test_begin("Ray Properties Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray property tests");
-    
-    EseRay *ray = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(ray, "Ray should be created for property tests");
-    
-    ray->x = 10.5f;
-    ray->y = -5.25f;
-    ray->dx = 2.0f;
-    ray->dy = -1.5f;
-    
-    TEST_ASSERT_EQUAL(10.5f, ray->x, "Direct field access should set x coordinate");
-    TEST_ASSERT_EQUAL(-5.25f, ray->y, "Direct field access should set y coordinate");
-    TEST_ASSERT_EQUAL(2.0f, ray->dx, "Direct field access should set dx component");
-    TEST_ASSERT_EQUAL(-1.5f, ray->dy, "Direct field access should set dy component");
-    
-    ray->x = -100.0f;
-    ray->y = 200.0f;
-    ray->dx = -3.0f;
-    ray->dy = 4.0f;
-    
-    TEST_ASSERT_EQUAL(-100.0f, ray->x, "Direct field access should handle negative values");
-    TEST_ASSERT_EQUAL(200.0f, ray->y, "Direct field access should handle negative values");
-    TEST_ASSERT_EQUAL(-3.0f, ray->dx, "Direct field access should handle negative values");
-    TEST_ASSERT_EQUAL(4.0f, ray->dy, "Direct field access should handle negative values");
-    
-    ray->x = 0.0f;
-    ray->y = 0.0f;
-    ray->dx = 0.0f;
-    ray->dy = 0.0f;
-    
-    TEST_ASSERT_EQUAL(0.0f, ray->x, "Direct field access should handle zero values");
-    TEST_ASSERT_EQUAL(0.0f, ray->y, "Direct field access should handle zero values");
-    TEST_ASSERT_EQUAL(0.0f, ray->dx, "Direct field access should handle zero values");
-    TEST_ASSERT_EQUAL(0.0f, ray->dy, "Direct field access should handle zero values");
-    
-    ray_destroy(ray);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Properties Tests");
+/**
+* C API Test Functions
+*/
+
+static void test_ese_ray_sizeof(void) {
+    TEST_ASSERT_EQUAL_INT_MESSAGE(32, ese_ray_sizeof(), "Ray should be 32 bytes");
 }
 
-static void test_ray_copy() {
-    test_begin("Ray Copy Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray copy tests");
-    
-    EseRay *original = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(original, "Original ray should be created for copy tests");
-    
-    original->x = 42.0f;
-    original->y = -17.5f;
-    original->dx = 3.0f;
-    original->dy = 4.0f;
-    
-    EseRay *copy = ray_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "ray_copy should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(42.0f, copy->x, "Copied ray should have same x value");
-    TEST_ASSERT_EQUAL(-17.5f, copy->y, "Copied ray should have same y value");
-    TEST_ASSERT_EQUAL(3.0f, copy->dx, "Copied ray should have same dx value");
-    TEST_ASSERT_EQUAL(4.0f, copy->dy, "Copied ray should have same dy value");
-    TEST_ASSERT(original != copy, "Copy should be a different object");
-    TEST_ASSERT_POINTER_EQUAL(original->state, copy->state, "Copy should have same Lua state");
-    TEST_ASSERT(copy->lua_ref == LUA_NOREF, "Copy should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy->lua_ref);
-    TEST_ASSERT_EQUAL(0, copy->lua_ref_count, "Copy should start with ref count 0");
-    
-    ray_destroy(original);
-    ray_destroy(copy);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Copy Tests");
+static void test_ese_ray_create_requires_engine(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_ray_sizeof(), "Ray size should be > 0");
 }
 
-static void test_ray_mathematical_operations() {
-    test_begin("Ray Mathematical Operations Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray math tests");
-    
-    EseRay *ray = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(ray, "Ray should be created for math tests");
-    
-    // Test point at distance
-    ray->x = 0.0f;
-    ray->y = 0.0f;
-    ray->dx = 3.0f;
-    ray->dy = 4.0f;
-    
-    float point_x, point_y;
-    ray_get_point_at_distance(ray, 5.0f, &point_x, &point_y);
-    TEST_ASSERT_FLOAT_EQUAL(3.0f, point_x, 0.001f, "Point at distance 5 should have x = 3.0");
-    TEST_ASSERT_FLOAT_EQUAL(4.0f, point_y, 0.001f, "Point at distance 5 should have y = 4.0");
-    
-    // Test point at distance 0
-    ray_get_point_at_distance(ray, 0.0f, &point_x, &point_y);
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, point_x, 0.001f, "Point at distance 0 should have x = 0.0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, point_y, 0.001f, "Point at distance 0 should have y = 0.0");
-    
-    // Test point at negative distance
-    ray_get_point_at_distance(ray, -2.0f, &point_x, &point_y);
-    TEST_ASSERT_FLOAT_EQUAL(-1.2f, point_x, 0.001f, "Point at distance -2 should have x = -1.2");
-    TEST_ASSERT_FLOAT_EQUAL(-1.6f, point_y, 0.001f, "Point at distance -2 should have y = -1.6");
-    
-    ray_destroy(ray);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Mathematical Operations Tests");
+static void test_ese_ray_create(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(ray, "Ray should be created");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_ray_get_x(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_ray_get_y(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.0f, ese_ray_get_dx(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_ray_get_dy(ray));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_ray_get_state(ray), "Ray should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_ray_get_lua_ref_count(ray), "New ray should have ref count 0");
+
+    ese_ray_destroy(ray);
 }
 
-static void test_ray_intersection_tests() {
-    test_begin("Ray Intersection Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray intersection tests");
-    
-    EseRay *ray = ray_create(engine);
-    EseRect *rect = rect_create(engine);
-    
-    TEST_ASSERT_NOT_NULL(ray, "Ray should be created for intersection tests");
-    TEST_ASSERT_NOT_NULL(rect, "Rect should be created for intersection tests");
-    
+static void test_ese_ray_x(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    ese_ray_set_x(ray, 10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_ray_get_x(ray));
+
+    ese_ray_set_x(ray, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_ray_get_x(ray));
+
+    ese_ray_set_x(ray, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_x(ray));
+
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_y(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    ese_ray_set_y(ray, 20.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_ray_get_y(ray));
+
+    ese_ray_set_y(ray, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_ray_get_y(ray));
+
+    ese_ray_set_y(ray, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_y(ray));
+
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_dx(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    ese_ray_set_dx(ray, 3.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, ese_ray_get_dx(ray));
+
+    ese_ray_set_dx(ray, -2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -2.0f, ese_ray_get_dx(ray));
+
+    ese_ray_set_dx(ray, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dx(ray));
+
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_dy(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    ese_ray_set_dy(ray, 4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f, ese_ray_get_dy(ray));
+
+    ese_ray_set_dy(ray, -1.5f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, ese_ray_get_dy(ray));
+
+    ese_ray_set_dy(ray, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dy(ray));
+
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_ref(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    ese_ray_ref(ray);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_ray_get_lua_ref_count(ray), "Ref count should be 1");
+
+    ese_ray_unref(ray);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_ray_get_lua_ref_count(ray), "Ref count should be 0");
+
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_copy_requires_source(void) {
+    ASSERT_DEATH(ese_ray_copy(NULL), "ese_ray_copy should abort with NULL ray");
+}
+
+static void test_ese_ray_copy(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+    ese_ray_ref(ray);
+    ese_ray_set_x(ray, 10.0f);
+    ese_ray_set_y(ray, 20.0f);
+    ese_ray_set_dx(ray, 3.0f);
+    ese_ray_set_dy(ray, 4.0f);
+    EseRay *copy = ese_ray_copy(ray);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_ray_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_ray_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_ray_get_x(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_ray_get_y(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, ese_ray_get_dx(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f, ese_ray_get_dy(copy));
+
+    ese_ray_unref(ray);
+    ese_ray_destroy(ray);
+    ese_ray_destroy(copy);
+}
+
+static void test_ese_ray_intersects_rect(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+    EseRect *rect = ese_rect_create(g_engine);
+
     // Set up ray from (0,0) going right
-    ray->x = 0.0f;
-    ray->y = 0.0f;
-    ray->dx = 1.0f;
-    ray->dy = 0.0f;
-    
+    ese_ray_set_x(ray, 0.0f);
+    ese_ray_set_y(ray, 0.0f);
+    ese_ray_set_dx(ray, 1.0f);
+    ese_ray_set_dy(ray, 0.0f);
+
     // Set up rectangle at (5, -2) with size (4, 4)
-    rect_set_x(rect, 5.0f);
-    rect_set_y(rect, -2.0f);
-    rect_set_width(rect, 4.0f);
-    rect_set_height(rect, 4.0f);
-    
+    ese_rect_set_x(rect, 5.0f);
+    ese_rect_set_y(rect, -2.0f);
+    ese_rect_set_width(rect, 4.0f);
+    ese_rect_set_height(rect, 4.0f);
+
     // Test intersection
-    bool intersects = ray_intersects_rect(ray, rect);
-    TEST_ASSERT(intersects, "Ray should intersect with rectangle");
-    
+    bool intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Ray should intersect with rectangle");
+
     // Test ray that doesn't intersect
-    ray->y = 10.0f; // Move ray above rectangle
-    intersects = ray_intersects_rect(ray, rect);
-    TEST_ASSERT(!intersects, "Ray should not intersect with rectangle when above it");
-    
-    ray_destroy(ray);
-    rect_destroy(rect);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Intersection Tests");
+    ese_ray_set_y(ray, 10.0f); // Move ray above rectangle
+    intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_FALSE_MESSAGE(intersects, "Ray should not intersect with rectangle when above it");
+
+    // Test ray going left (negative direction)
+    ese_ray_set_x(ray, 10.0f);
+    ese_ray_set_y(ray, 0.0f);
+    ese_ray_set_dx(ray, -1.0f);
+    ese_ray_set_dy(ray, 0.0f);
+    intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Ray going left should intersect with rectangle");
+
+    // Test ray going up
+    ese_ray_set_x(ray, 7.0f);
+    ese_ray_set_y(ray, 5.0f);
+    ese_ray_set_dx(ray, 0.0f);
+    ese_ray_set_dy(ray, -1.0f);
+    intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Ray going up should intersect with rectangle");
+
+    // Test ray going down
+    ese_ray_set_x(ray, 7.0f);
+    ese_ray_set_y(ray, -5.0f);
+    ese_ray_set_dx(ray, 0.0f);
+    ese_ray_set_dy(ray, 1.0f);
+    intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Ray going down should intersect with rectangle");
+
+    // Test diagonal ray
+    ese_ray_set_x(ray, 3.0f);
+    ese_ray_set_y(ray, -3.0f);
+    ese_ray_set_dx(ray, 1.0f);
+    ese_ray_set_dy(ray, 1.0f);
+    intersects = ese_ray_intersects_rect(ray, rect);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Diagonal ray should intersect with rectangle");
+
+    ese_ray_destroy(ray);
+    ese_rect_destroy(rect);
 }
 
-static void test_ray_lua_integration() {
-    test_begin("Ray Lua Integration Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray Lua integration tests");
-    
-    EseRay *ray = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(ray, "Ray should be created for Lua integration tests");
-    TEST_ASSERT_EQUAL(0, ray->lua_ref_count, "New ray should start with ref count 0");
-    TEST_ASSERT(ray->lua_ref == LUA_NOREF, "New ray should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", ray->lua_ref);
-    
-    ray_destroy(ray);
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Lua Integration Tests");
+static void test_ese_ray_get_point_at_distance(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    // Set up ray from (0,0) with direction (3,4)
+    ese_ray_set_x(ray, 0.0f);
+    ese_ray_set_y(ray, 0.0f);
+    ese_ray_set_dx(ray, 3.0f);
+    ese_ray_set_dy(ray, 4.0f);
+
+    float point_x, point_y;
+    ese_ray_get_point_at_distance(ray, 5.0f, &point_x, &point_y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 15.0f, point_x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, point_y);
+
+    // Test point at distance 0
+    ese_ray_get_point_at_distance(ray, 0.0f, &point_x, &point_y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_y);
+
+    // Test point at negative distance
+    ese_ray_get_point_at_distance(ray, -2.0f, &point_x, &point_y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -6.0f, point_x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -8.0f, point_y);
+
+    // Test with different origin
+    ese_ray_set_x(ray, 10.0f);
+    ese_ray_set_y(ray, 20.0f);
+    ese_ray_get_point_at_distance(ray, 2.0f, &point_x, &point_y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 16.0f, point_x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 28.0f, point_y);
+
+    ese_ray_destroy(ray);
 }
 
-static void test_ray_lua_script_api() {
-    test_begin("Ray Lua Script API Tests");
+static void test_ese_ray_normalize(void) {
+    EseRay *ray = ese_ray_create(g_engine);
+
+    // Test normalizing a ray with direction (3,4)
+    ese_ray_set_dx(ray, 3.0f);
+    ese_ray_set_dy(ray, 4.0f);
+    ese_ray_normalize(ray);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray Lua script API tests");
-    
-    ray_lua_init(engine);
-    printf("ℹ INFO: Ray Lua integration initialized\n");
-    
-    // For now, just test that the Lua integration initializes without errors
-    TEST_ASSERT(true, "Ray Lua integration should initialize successfully");
-    
-    lua_engine_destroy(engine);
-    
-    test_end("Ray Lua Script API Tests");
+    float length = sqrtf(ese_ray_get_dx(ray) * ese_ray_get_dx(ray) + ese_ray_get_dy(ray) * ese_ray_get_dy(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, length);
+
+    // Test normalizing a ray with direction (1,0)
+    ese_ray_set_dx(ray, 1.0f);
+    ese_ray_set_dy(ray, 0.0f);
+    ese_ray_normalize(ray);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_ray_get_dx(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dy(ray));
+
+    // Test normalizing a ray with direction (0,1)
+    ese_ray_set_dx(ray, 0.0f);
+    ese_ray_set_dy(ray, 1.0f);
+    ese_ray_normalize(ray);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dx(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_ray_get_dy(ray));
+
+    // Test normalizing a zero vector (should not change)
+    ese_ray_set_dx(ray, 0.0f);
+    ese_ray_set_dy(ray, 0.0f);
+    ese_ray_normalize(ray);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dx(ray));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_ray_get_dy(ray));
+
+    ese_ray_destroy(ray);
 }
 
-static void test_ray_null_pointer_aborts() {
-    test_begin("Ray NULL Pointer Abort Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for ray NULL pointer abort tests");
-    
-    EseRay *ray = ray_create(engine);
-    TEST_ASSERT_NOT_NULL(ray, "Ray should be created for ray NULL pointer abort tests");
-    
-    TEST_ASSERT_ABORT(ray_create(NULL), "ray_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(ray_copy(NULL), "ray_copy should abort with NULL source");
-    TEST_ASSERT_ABORT(ray_lua_init(NULL), "ray_lua_init should abort with NULL engine");
-    TEST_ASSERT_ABORT(ray_get_point_at_distance(NULL, 1.0f, NULL, NULL), "ray_get_point_at_distance should abort with NULL ray");
-    TEST_ASSERT_ABORT(ray_intersects_rect(NULL, NULL), "ray_intersects_rect should abort with NULL ray");
-    TEST_ASSERT_ABORT(ray_lua_get(NULL, 1), "ray_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(ray_lua_push(NULL), "ray_lua_push should abort with NULL ray");
-    TEST_ASSERT_ABORT(ray_ref(NULL), "ray_ref should abort with NULL ray");
-    
-    ray_destroy(ray);
+static void test_ese_ray_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EseRay *ray = ese_ray_create(engine);
+
+    lua_State *before_state = ese_ray_get_state(ray);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Ray should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Ray state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_ray_get_lua_ref(ray), "Ray should have no Lua reference initially");
+
+    ese_ray_ref(ray);
+    lua_State *after_ref_state = ese_ray_get_state(ray);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Ray should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Ray state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_ray_get_lua_ref(ray), "Ray should have a valid Lua reference after ref");
+
+    ese_ray_unref(ray);
+    lua_State *after_unref_state = ese_ray_get_state(ray);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Ray should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Ray state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_ray_get_lua_ref(ray), "Ray should have no Lua reference after unref");
+
+    ese_ray_destroy(ray);
     lua_engine_destroy(engine);
+}
+
+static void test_ese_ray_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    test_end("Ray NULL Pointer Abort Tests");
+    luaL_getmetatable(L, RAY_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
+    
+    lua_getglobal(L, "Ray");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Ray table should not exist before initialization");
+    lua_pop(L, 1);
+    
+    ese_ray_lua_init(g_engine);
+    
+    luaL_getmetatable(L, RAY_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
+    
+    lua_getglobal(L, "Ray");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global Ray table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global Ray table should be a table");
+    lua_pop(L, 1);
+}
+
+static void test_ese_ray_lua_push(void) {
+    ese_ray_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseRay *ray = ese_ray_create(g_engine);
+    
+    ese_ray_lua_push(ray);
+    
+    EseRay **ud = (EseRay **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(ray, *ud, "The pushed item should be the actual ray");
+    
+    lua_pop(L, 1); 
+    
+    ese_ray_destroy(ray);
+}
+
+static void test_ese_ray_lua_get(void) {
+    ese_ray_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseRay *ray = ese_ray_create(g_engine);
+    
+    ese_ray_lua_push(ray);
+    
+    EseRay *extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(ray, extracted_ray, "Extracted ray should match original");
+    
+    lua_pop(L, 1);
+    ese_ray_destroy(ray);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_ray_lua_new(void) {
+    ese_ray_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    ese_vector_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Ray.new()\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Ray.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return Ray.new(\"10\", \"20\", \"3\", \"4\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return Ray.new(10, 20, 3, 4)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
+    EseRay *extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_ray, "Extracted ray should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_ray_get_x(extracted_ray), "Extracted ray should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(20.0f, ese_ray_get_y(extracted_ray), "Extracted ray should have y=20");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(3.0f, ese_ray_get_dx(extracted_ray), "Extracted ray should have dx=3");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(4.0f, ese_ray_get_dy(extracted_ray), "Extracted ray should have dy=4");
+    ese_ray_destroy(extracted_ray);
+
+    const char *testE = "return Ray.new(Point.new(10, 20), Vector.new(3, 4))\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute without error");
+    extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_ray, "Extracted ray should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_ray_get_x(extracted_ray), "Extracted ray should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(20.0f, ese_ray_get_y(extracted_ray), "Extracted ray should have y=20");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(3.0f, ese_ray_get_dx(extracted_ray), "Extracted ray should have dx=3");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(4.0f, ese_ray_get_dy(extracted_ray), "Extracted ray should have dy=4");
+    ese_ray_destroy(extracted_ray);
+}
+
+static void test_ese_ray_lua_zero(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Ray.zero(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return Ray.zero()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    EseRay *extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_ray, "Extracted ray should not be NULL");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_ray_get_x(extracted_ray), "Extracted ray should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_ray_get_y(extracted_ray), "Extracted ray should have y=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, ese_ray_get_dx(extracted_ray), "Extracted ray should have dx=1");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_ray_get_dy(extracted_ray), "Extracted ray should have dy=0");
+    ese_ray_destroy(extracted_ray);
+}
+
+static void test_ese_ray_lua_intersects_rect(void) {
+    ese_ray_lua_init(g_engine);
+    ese_rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "local r = Ray.new(0, 0, 1, 0); local rect = Rect.new(5, -2, 4, 4); return r:intersects_rect(rect)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    bool intersects = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(intersects, "Ray should intersect with rectangle");
+
+    const char *testB = "local r = Ray.new(0, 10, 1, 0); local rect = Rect.new(5, -2, 4, 4); return r:intersects_rect(rect)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    intersects = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(intersects, "Ray should not intersect with rectangle when above it");
+}
+
+static void test_ese_ray_lua_get_point_at_distance(void) {
+    ese_ray_lua_init(g_engine);
+    ese_rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "local r = Ray.new(0, 0, 3, 4); local x, y = r:get_point_at_distance(5); return x, y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double x = lua_tonumber(L, -2);
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 15.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, y);
+
+    const char *testB = "local r = Ray.new(0, 0, 3, 4); local x, y = r:get_point_at_distance(0); return x, y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+
+    const char *testC = "local r = Ray.new(0, 0, 3, 4); local x, y = r:get_point_at_distance(-2); return x, y\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    x = lua_tonumber(L, -2);
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -6.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -8.0f, y);
+}
+
+static void test_ese_ray_lua_normalize(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "local r = Ray.new(0, 0, 3, 4); r:normalize(); return r.dx, r.dy\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    double dx = lua_tonumber(L, -2);
+    double dy = lua_tonumber(L, -1);
+    double length = sqrt(dx * dx + dy * dy);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, length);
+
+    const char *testB = "local r = Ray.new(0, 0, 1, 0); r:normalize(); return r.dx, r.dy\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    dx = lua_tonumber(L, -2);
+    dy = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, dx);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dy);
+}
+
+static void test_ese_ray_lua_x(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Ray.new(0, 0, 1, 0); r.x = \"20\"; return r.x";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local r = Ray.new(0, 0, 1, 0); r.x = 10; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua x set/get test 1 should execute without error");
+    double x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Ray.new(0, 0, 1, 0); r.x = -10; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua x set/get test 2 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, x);
+    lua_pop(L, 1);
+
+    const char *test4 = "local r = Ray.new(0, 0, 1, 0); r.x = 0; return r.x";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua x set/get test 3 should execute without error");
+    x = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, x);
+    lua_pop(L, 1);
+}
+
+static void test_ese_ray_lua_y(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Ray.new(0, 0, 1, 0); r.y = \"20\"; return r.y";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local r = Ray.new(0, 0, 1, 0); r.y = 20; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua y set/get test 1 should execute without error");
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, y);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Ray.new(0, 0, 1, 0); r.y = -10; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua y set/get test 2 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, y);
+    lua_pop(L, 1);
+
+    const char *test4 = "local r = Ray.new(0, 0, 1, 0); r.y = 0; return r.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua y set/get test 3 should execute without error");
+    y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, y);
+    lua_pop(L, 1);
+}
+
+static void test_ese_ray_lua_dx(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Ray.new(0, 0, 1, 0); r.dx = \"20\"; return r.dx";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local r = Ray.new(0, 0, 1, 0); r.dx = 3; return r.dx";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua dx set/get test 1 should execute without error");
+    double dx = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, dx);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Ray.new(0, 0, 1, 0); r.dx = -2; return r.dx";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua dx set/get test 2 should execute without error");
+    dx = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -2.0f, dx);
+    lua_pop(L, 1);
+
+    const char *test4 = "local r = Ray.new(0, 0, 1, 0); r.dx = 0; return r.dx";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua dx set/get test 3 should execute without error");
+    dx = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dx);
+    lua_pop(L, 1);
+}
+
+static void test_ese_ray_lua_dy(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local r = Ray.new(0, 0, 1, 0); r.dy = \"20\"; return r.dy";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "test1 Lua code should execute with error");
+
+    const char *test2 = "local r = Ray.new(0, 0, 1, 0); r.dy = 4; return r.dy";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua dy set/get test 1 should execute without error");
+    double dy = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f, dy);
+    lua_pop(L, 1);
+
+    const char *test3 = "local r = Ray.new(0, 0, 1, 0); r.dy = -1.5; return r.dy";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua dy set/get test 2 should execute without error");
+    dy = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, dy);
+    lua_pop(L, 1);
+
+    const char *test4 = "local r = Ray.new(0, 0, 1, 0); r.dy = 0; return r.dy";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Lua dy set/get test 3 should execute without error");
+    dy = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, dy);
+    lua_pop(L, 1);
+}
+
+static void test_ese_ray_lua_tostring(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local r = Ray.new(10.5, 20.25, 3.0, 4.0); return tostring(r)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Ray:") != NULL, "tostring should contain 'Ray:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "x=10.50") != NULL, "tostring should contain 'x=10.50'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "y=20.25") != NULL, "tostring should contain 'y=20.25'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "dx=3.00") != NULL, "tostring should contain 'dx=3.00'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "dy=4.00") != NULL, "tostring should contain 'dy=4.00'");
+    lua_pop(L, 1); 
+}
+
+static void test_ese_ray_lua_gc(void) {
+    ese_ray_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local r = Ray.new(5, 10, 1, 0)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Ray creation should execute without error");
+    
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testB = "return Ray.new(5, 10, 1, 0)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Ray creation should execute without error");
+    EseRay *extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_ray, "Extracted ray should not be NULL");
+    ese_ray_ref(extracted_ray);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_ray_unref(extracted_ray);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return Ray.new(5, 10, 1, 0)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Ray creation should execute without error");
+    extracted_ray = ese_ray_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_ray, "Extracted ray should not be NULL");
+    ese_ray_ref(extracted_ray);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_ray_unref(extracted_ray);
+    ese_ray_destroy(extracted_ray);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

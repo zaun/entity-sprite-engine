@@ -76,7 +76,7 @@ int _engine_entity_find(void* data, void *user_data) {
     log_assert("ENGINE", user_data, "_engine_entity_find called with NULL user_data");
 
     EseEntity *entity = (EseEntity*) data;
-    return strcmp(entity->id->value, (const char*)user_data) == 0;
+    return strcmp(ese_uuid_get_value(entity->id), (const char*)user_data) == 0;
 }
 
 EseEntity *_engine_new_entity(EseEngine *engine, const char *id) {

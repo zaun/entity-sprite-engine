@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     double total_time_seconds = 0;
     double updates_per_second_average = 0;
 
-    EseInputState input_state;
+    EseInputState *input_state = ese_input_state_create(NULL);
     int snap = 0;
     while(!window_should_close(window)) {
         // Calculate delta time in seconds
@@ -52,10 +52,10 @@ int main(int argc, char *argv[]) {
         updates_per_second_average += 1 / delta;
         updates_per_second_average /= 2;
 
-        window_process(window, &input_state);
-        engine_update(engine, (float)delta, &input_state);
+        window_process(window, input_state);
+        engine_update(engine, (float)delta, input_state);
 
-        if (input_state.keys_pressed[InputKey_ESCAPE]) {
+        if (ese_input_state_get_key_pressed(input_state, InputKey_ESCAPE)) {
             printf("exit\n");
             window_close(window);
         }
@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
     engine_set_renderer(engine, NULL);
     window_set_renderer(window, NULL);
 
+    ese_input_state_destroy(input_state);
     engine_destroy(engine);
     renderer_destroy(renderer);
     window_destroy(window);

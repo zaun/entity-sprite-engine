@@ -120,18 +120,18 @@ static void test_engine_collision_detection() {
         entity_component_add(entity1, collider1);
         entity_component_add(entity2, collider2);
 
-        EseRect *rect1 = rect_create(lua_engine);
-        EseRect *rect2 = rect_create(lua_engine);
+        EseRect *rect1 = ese_rect_create(lua_engine);
+        EseRect *rect2 = ese_rect_create(lua_engine);
 
-        rect_set_x(rect1, 0);
-        rect_set_y(rect1, 0);
-        rect_set_width(rect1, 100);
-        rect_set_height(rect1, 100);
+        ese_rect_set_x(rect1, 0);
+        ese_rect_set_y(rect1, 0);
+        ese_rect_set_width(rect1, 100);
+        ese_rect_set_height(rect1, 100);
 
-        rect_set_x(rect2, 0);
-        rect_set_y(rect2, 0);
-        rect_set_width(rect2, 100);
-        rect_set_height(rect2, 100);
+        ese_rect_set_x(rect2, 0);
+        ese_rect_set_y(rect2, 0);
+        ese_rect_set_width(rect2, 100);
+        ese_rect_set_height(rect2, 100);
 
         entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider1), rect1);
         entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider2), rect2);
@@ -141,7 +141,7 @@ static void test_engine_collision_detection() {
         engine_add_entity(engine, entity2);
 
         // Create input state for engine_update
-        EseInputState *input_state = input_state_create(lua_engine);
+        EseInputState *input_state = ese_input_state_create(lua_engine);
         TEST_ASSERT_NOT_NULL(input_state, "Input state should be created");
 
         // Test 1: No collisions - entities far apart
@@ -197,7 +197,7 @@ static void test_engine_collision_detection() {
         TEST_ASSERT(entity_has_tag(entity2, "exit"), "Entity should have the exit tag after collision exit");
 
         // Clean up
-        input_state_destroy(input_state);
+        ese_input_state_destroy(input_state);
     }
     
     engine_destroy(engine);
@@ -234,17 +234,17 @@ static void test_no_self_collision() {
     entity_component_add(entity, collider);
 
     // Add a single rect to the collider
-    EseRect *rect = rect_create(lua_engine);
-    rect_set_x(rect, 0);
-    rect_set_y(rect, 0);
-    rect_set_width(rect, 64);
-    rect_set_height(rect, 64);
+    EseRect *rect = ese_rect_create(lua_engine);
+    ese_rect_set_x(rect, 0);
+    ese_rect_set_y(rect, 0);
+    ese_rect_set_width(rect, 64);
+    ese_rect_set_height(rect, 64);
     entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider), rect);
 
     engine_add_entity(engine, entity);
 
     // Run an update and ensure no collision tags appear (self-pairs would create them)
-    EseInputState *input_state = input_state_create(lua_engine);
+    EseInputState *input_state = ese_input_state_create(lua_engine);
     TEST_ASSERT_NOT_NULL(input_state, "Input state should be created");
 
     entity_set_position(entity, 100, 100);
@@ -255,7 +255,7 @@ static void test_no_self_collision() {
     TEST_ASSERT(!entity_has_tag(entity, "exit"), "Entity must not receive 'exit' from self-collision");
 
     // Clean up
-    input_state_destroy(input_state);
+    ese_input_state_destroy(input_state);
     engine_destroy(engine);
 
     test_end("No Self-Collision Emitted");

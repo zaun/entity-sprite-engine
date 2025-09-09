@@ -89,10 +89,10 @@ static DBVHNode *_dbvh_node_create(EseEntity *entity) {
     node->region_center_y = INT_MIN;
     if (entity && entity->collision_world_bounds) {
         EseRect *r = entity->collision_world_bounds;
-        node->bounds_x = rect_get_x(r);
-        node->bounds_y = rect_get_y(r);
-        node->bounds_width = rect_get_width(r);
-        node->bounds_height = rect_get_height(r);
+        node->bounds_x = ese_rect_get_x(r);
+        node->bounds_y = ese_rect_get_y(r);
+        node->bounds_width = ese_rect_get_width(r);
+        node->bounds_height = ese_rect_get_height(r);
     } else {
         node->bounds_x = node->bounds_y = node->bounds_width = node->bounds_height = 0;
     }
@@ -113,10 +113,10 @@ static void _dbvh_update_bounds(DBVHNode *node) {
     if (!node) return;
     if (node->entity && node->entity->collision_world_bounds) {
         EseRect *b = node->entity->collision_world_bounds;
-        node->bounds_x = rect_get_x(b);
-        node->bounds_y = rect_get_y(b);
-        node->bounds_width = rect_get_width(b);
-        node->bounds_height = rect_get_height(b);
+        node->bounds_x = ese_rect_get_x(b);
+        node->bounds_y = ese_rect_get_y(b);
+        node->bounds_width = ese_rect_get_width(b);
+        node->bounds_height = ese_rect_get_height(b);
         return;
     }
     if (node->left && node->right) {
@@ -211,10 +211,10 @@ static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashM
 
     // Skip if the same entity
     if (a == b) return;
-    if (a->id && b->id && strcmp(a->id->value, b->id->value) == 0) return;
+    if (a->id && b->id && strcmp(ese_uuid_get_value(a->id), ese_uuid_get_value(b->id)) == 0) return;
 
-    const char *ida = a->id->value;
-    const char *idb = b->id->value;
+    const char *ida = ese_uuid_get_value(a->id);
+    const char *idb = ese_uuid_get_value(b->id);
     const char *first = ida;
     const char *second = idb;
 
@@ -250,7 +250,7 @@ static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashM
 // DBVH query: internal pairs + DBVH entities vs neighboring grid bins
 static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex *index, EseHashMap *seen) {
     if (!root || !index || !pairs) return;
-    EseArray *entities = array_create(64, NULL);
+    EseArray *entities = arese_ray_create(64, NULL);
     _dbvh_collect_entities(root, entities);
     // internal pairs
     for (size_t i = 0; i < array_size(entities); i++) {
@@ -288,7 +288,7 @@ static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex
             }
         }
     }
-    array_destroy(entities);
+    arese_ray_destroy(entities);
 }
 
 // Convert center+8 neighbors to DBVH and take ownership of those bins
@@ -304,7 +304,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
         }
     }
     // collect entities
-    EseArray *entities = array_create(64, NULL);
+    EseArray *entities = arese_ray_create(64, NULL);
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
             int cell_x = center_x + dx;
@@ -318,7 +318,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
             dlist_iter_free(it);
         }
     }
-    if (array_size(entities) == 0) { array_destroy(entities); return; }
+    if (array_size(entities) == 0) { arese_ray_destroy(entities); return; }
     // build DBVH
     DBVHNode *root = NULL;
     for (size_t i = 0; i < array_size(entities); i++) {
@@ -347,7 +347,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
         int_hashmap_set(index->dbvh_regions, center_key, root);
         log_debug("COLLISION_INDEX", "Converted 3x3 centered (%d,%d) to DBVH with %zu entities", center_x, center_y, array_size(entities));
     }
-    array_destroy(entities);
+    arese_ray_destroy(entities);
 }
 
 // ==================== Public API ====================
@@ -357,7 +357,7 @@ EseCollisionIndex *collision_index_create(void) {
     index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE;
     index->bins = int_hashmap_create((EseIntHashMapFreeFn)dlist_free);
     index->dbvh_regions = int_hashmap_create((EseIntHashMapFreeFn)_dbvh_node_destroy);
-    index->collision_pairs = array_create(128, _free_collision_pair);
+    index->collision_pairs = arese_ray_create(128, _free_collision_pair);
     index->last_auto_tune_time = 0.0;
     return index;
 }
@@ -366,7 +366,7 @@ void collision_index_destroy(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "destroy called with NULL index");
     int_hashmap_free(index->bins);
     int_hashmap_free(index->dbvh_regions);
-    array_destroy(index->collision_pairs);
+    arese_ray_destroy(index->collision_pairs);
     memory_manager.free(index);
 }
 
@@ -383,10 +383,10 @@ void collision_index_insert(EseCollisionIndex *index, EseEntity *entity) {
     if (!entity->active) return;
     if (!entity->collision_world_bounds) return;
     EseRect *bounds = entity->collision_world_bounds;
-    float x0 = rect_get_x(bounds);
-    float y0 = rect_get_y(bounds);
-    float x1 = x0 + rect_get_width(bounds);
-    float y1 = y0 + rect_get_height(bounds);
+    float x0 = ese_rect_get_x(bounds);
+    float y0 = ese_rect_get_y(bounds);
+    float x1 = x0 + ese_rect_get_width(bounds);
+    float y1 = y0 + ese_rect_get_height(bounds);
     int min_cell_x = (int)floorf(x0 / index->cell_size);
     int min_cell_y = (int)floorf(y0 / index->cell_size);
     int max_cell_x = (int)floorf((x1) / index->cell_size);
@@ -453,7 +453,7 @@ void collision_index_auto_tune(EseCollisionIndex *index) {
                 EseEntity *e = (EseEntity*)val;
                 if (e->collision_world_bounds) {
                     EseRect *r = e->collision_world_bounds;
-                    float diag = sqrtf(rect_get_width(r)*rect_get_width(r) + rect_get_height(r)*rect_get_height(r));
+                    float diag = sqrtf(ese_rect_get_width(r)*ese_rect_get_width(r) + ese_rect_get_height(r)*ese_rect_get_height(r));
                     total += diag;
                     samples++;
                 }

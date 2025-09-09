@@ -37,15 +37,15 @@ static EseEntityComponent *_entity_component_map_make(EseLuaEngine *engine)
     EseEntityComponentMap *component = memory_manager.malloc(sizeof(EseEntityComponentMap), MMTAG_ENTITY);
     component->base.data = component;
     component->base.active = true;
-    component->base.id = uuid_create(engine);
-    uuid_ref(component->base.id);
+    component->base.id = ese_uuid_create(engine);
+    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_MAP;
 
     component->map = NULL;
-    component->map_pos = point_create(engine);
-    point_ref(component->map_pos);
+    component->map_pos = ese_point_create(engine);
+    ese_point_ref(component->map_pos);
     component->size = 128;
     component->seed = 1000;
 
@@ -61,17 +61,17 @@ EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
     EseEntityComponentMap *copy = memory_manager.malloc(sizeof(EseEntityComponentMap), MMTAG_ENTITY);
     copy->base.data = copy;
     copy->base.active = true;
-    copy->base.id = uuid_create(src->base.lua);
-    uuid_ref(copy->base.id);
+    copy->base.id = ese_uuid_create(src->base.lua);
+    ese_uuid_ref(copy->base.id);
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_MAP;
 
     copy->map = src->map;
-    copy->map_pos = point_create(src->base.lua);
-    point_ref(copy->map_pos);
-    point_set_x(copy->map_pos, point_get_x(src->map_pos));
-    point_set_y(copy->map_pos, point_get_y(src->map_pos));
+    copy->map_pos = ese_point_create(src->base.lua);
+    ese_point_ref(copy->map_pos);
+    ese_point_set_x(copy->map_pos, ese_point_get_x(src->map_pos));
+    ese_point_set_y(copy->map_pos, ese_point_get_y(src->map_pos));
 
     size_t cells = copy->map->width * copy->map->height;
     copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
@@ -85,8 +85,8 @@ void _entity_component_map_destroy(EseEntityComponentMap *component)
     log_assert("ENTITY_COMP", component, "_entity_component_map_destroy called with NULL src");
 
     // we don't own component->map
-    uuid_destroy(component->base.id);
-    point_destroy(component->map_pos);
+    ese_uuid_destroy(component->base.id);
+    ese_point_destroy(component->map_pos);
 
     memory_manager.free(component->sprite_frames);
 
@@ -208,7 +208,7 @@ static int _entity_component_map_index(lua_State *L)
     }
     else if (strcmp(key, "id") == 0)
     {
-        lua_pushstring(L, component->base.id->value);
+        lua_pushstring(L, ese_uuid_get_value(component->base.id));
         return 1;
     }
     else if (strcmp(key, "map") == 0)
@@ -225,7 +225,7 @@ static int _entity_component_map_index(lua_State *L)
     }
     else if (strcmp(key, "position") == 0)
     {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, point_get_lua_ref(component->map_pos));
+        lua_rawgeti(L, LUA_REGISTRYINDEX, ese_point_get_lua_ref(component->map_pos));
         return 1;
     }
     else if (strcmp(key, "size") == 0)
@@ -294,14 +294,14 @@ static int _entity_component_map_newindex(lua_State *L)
     }
     else if (strcmp(key, "position") == 0)
     {
-        EsePoint *new_position_point = point_lua_get(L, 3);
+        EsePoint *new_position_point = ese_point_lua_get(L, 3);
         if (!new_position_point)
         {
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        point_set_x(component->map_pos, point_get_x(new_position_point));
-        point_set_y(component->map_pos, point_get_y(new_position_point));
+        ese_point_set_x(component->map_pos, ese_point_get_x(new_position_point));
+        ese_point_set_y(component->map_pos, ese_point_get_y(new_position_point));
         return 0;
     }
     else if (strcmp(key, "size") == 0)
@@ -385,7 +385,7 @@ static int _entity_component_map_tostring(lua_State *L)
     char buf[128];
     snprintf(buf, sizeof(buf), "EseEntityComponentMap: %p (id=%s active=%s ma[]=%p)",
              (void *)component,
-             component->base.id->value,
+             ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
              component->map);
     lua_pushstring(L, buf);
@@ -447,8 +447,8 @@ void _entity_component_map_draw_grid(
     const int tw = component->size, th = component->size;
 
     // center cell
-    float cx = point_get_x(component->map_pos);
-    float cy = point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->map_pos);
+    float cy = ese_point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -508,8 +508,8 @@ void _entity_component_map_draw_hex_point_up(
     const int tw = (int)(th * 0.866025f); // sqrt(3) / 2 ≈ 0.866025
 
     // center cell
-    float cx = point_get_x(component->map_pos);
-    float cy = point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->map_pos);
+    float cy = ese_point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -576,8 +576,8 @@ void _entity_component_map_draw_hex_flat_up(
     const int tw = (int)(th * 1.154701f); // 2 / sqrt(3) ≈ 1.154701
 
     // center cell
-    float cx = point_get_x(component->map_pos);
-    float cy = point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->map_pos);
+    float cy = ese_point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -644,8 +644,8 @@ void _entity_component_map_draw_iso(
     const int tw = th * 2;
 
     // center cell
-    float cx = point_get_x(component->map_pos);
-    float cy = point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->map_pos);
+    float cy = ese_point_get_y(component->map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {

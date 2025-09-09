@@ -78,7 +78,7 @@ Example output:
 🧪 Starting EsePoint Unit Tests
 
 === Point Creation Tests ===
-✓ PASS: point_create should return non-NULL pointer
+✓ PASS: ese_point_create should return non-NULL pointer
 ✓ PASS: New point should have x = 0.0
 ✓ PASS: New point should have y = 0.0
 

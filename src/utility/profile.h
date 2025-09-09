@@ -78,64 +78,88 @@ extern "C" {
 #define PROFILE_ENTITY_COMP_COLLIDER_UPDATE     41
 #define PROFILE_ENTITY_COMP_LUA_UPDATE          42
 #define PROFILE_ENTITY_COMP_MAP_UPDATE          43
-#define PROFILE_ENTITY_COMP_SPRITE_UPDATE       44
-#define PROFILE_ENTITY_COMP_TEXT_UPDATE         45
-#define PROFILE_ENTITY_COMP_COLLIDER_DRAW       46
-#define PROFILE_ENTITY_COMP_MAP_DRAW            47
-#define PROFILE_ENTITY_COMP_SPRITE_DRAW         48
-#define PROFILE_ENTITY_COMP_TEXT_DRAW           49
+#define PROFILE_ENTITY_COMP_SHAPE_UPDATE        44
+#define PROFILE_ENTITY_COMP_SPRITE_UPDATE       45
+#define PROFILE_ENTITY_COMP_TEXT_UPDATE         46
+#define PROFILE_ENTITY_COMP_COLLIDER_DRAW       47
+#define PROFILE_ENTITY_COMP_MAP_DRAW            48
+#define PROFILE_ENTITY_COMP_SHAPE_DRAW          49
+#define PROFILE_ENTITY_COMP_SPRITE_DRAW         50
+#define PROFILE_ENTITY_COMP_TEXT_DRAW           51
 
 // Timer ID constants for entity Lua operations
-#define PROFILE_ENTITY_LUA_REGISTER             50
-#define PROFILE_ENTITY_LUA_FUNCTION_CALL        51
-#define PROFILE_ENTITY_LUA_PROPERTY_ACCESS      52
+#define PROFILE_ENTITY_LUA_REGISTER             52
+#define PROFILE_ENTITY_LUA_FUNCTION_CALL        53
+#define PROFILE_ENTITY_LUA_PROPERTY_ACCESS      54
 
 // Timer ID constants for point Lua operations
-#define PROFILE_LUA_POINT_INDEX                 53
-#define PROFILE_LUA_POINT_NEWINDEX              54
-#define PROFILE_LUA_POINT_NEW                   55
-#define PROFILE_LUA_POINT_ZERO                  56
+#define PROFILE_LUA_POINT_INDEX                 55
+#define PROFILE_LUA_POINT_NEWINDEX              56
+#define PROFILE_LUA_POINT_NEW                   57
+#define PROFILE_LUA_POINT_ZERO                  58
 
 // Timer ID constants for rect Lua operations
-#define PROFILE_LUA_RECT_INDEX                  57
-#define PROFILE_LUA_RECT_NEWINDEX               58
-#define PROFILE_LUA_RECT_NEW                    59
-#define PROFILE_LUA_RECT_ZERO                   60
+#define PROFILE_LUA_RECT_INDEX                  59
+#define PROFILE_LUA_RECT_NEWINDEX               60
+#define PROFILE_LUA_RECT_NEW                    61
+#define PROFILE_LUA_RECT_ZERO                   62
 
 // Timer ID constants for uuid Lua operations
-#define PROFILE_LUA_UUID_INDEX                  61
-#define PROFILE_LUA_UUID_NEWINDEX               62
-#define PROFILE_LUA_UUID_NEW                    63
+#define PROFILE_LUA_UUID_INDEX                  63
+#define PROFILE_LUA_UUID_NEWINDEX               64
+#define PROFILE_LUA_UUID_NEW                    65
 
 // Timer ID constants for ray Lua operations
-#define PROFILE_LUA_RAY_INDEX                   64
-#define PROFILE_LUA_RAY_NEWINDEX                65
-#define PROFILE_LUA_RAY_NEW                     66
-#define PROFILE_LUA_RAY_ZERO                    67
+#define PROFILE_LUA_RAY_INDEX                   66
+#define PROFILE_LUA_RAY_NEWINDEX                67
+#define PROFILE_LUA_RAY_NEW                     68
+#define PROFILE_LUA_RAY_ZERO                    69
 
 // Timer ID constants for input_state Lua operations
-#define PROFILE_LUA_INPUT_STATE_INDEX           68
-#define PROFILE_LUA_INPUT_STATE_NEWINDEX        69
+#define PROFILE_LUA_INPUT_STATE_INDEX           70
+#define PROFILE_LUA_INPUT_STATE_NEWINDEX        71
 
 // Timer ID constants for display Lua operations
-#define PROFILE_LUA_DISPLAY_INDEX               70
-#define PROFILE_LUA_DISPLAY_NEWINDEX            71
+#define PROFILE_LUA_DISPLAY_INDEX               72
+#define PROFILE_LUA_DISPLAY_NEWINDEX            73
 
 // Timer ID constants for camera Lua operations
-#define PROFILE_LUA_CAMERA_INDEX                72
-#define PROFILE_LUA_CAMERA_NEWINDEX             73
+#define PROFILE_LUA_CAMERA_INDEX                74
+#define PROFILE_LUA_CAMERA_NEWINDEX             75
 
 // Timer ID constants for arc Lua operations
-#define PROFILE_LUA_ARC_INDEX                   74
-#define PROFILE_LUA_ARC_NEWINDEX                75
-#define PROFILE_LUA_ARC_NEW                     76
-#define PROFILE_LUA_ARC_ZERO                    77
+#define PROFILE_LUA_ARC_INDEX                   76
+#define PROFILE_LUA_ARC_NEWINDEX                77
+#define PROFILE_LUA_ARC_NEW                     78
+#define PROFILE_LUA_ARC_ZERO                    79
 
 // Timer ID constants for vector Lua operations
-#define PROFILE_LUA_VECTOR_INDEX                78
-#define PROFILE_LUA_VECTOR_NEWINDEX             79
-#define PROFILE_LUA_VECTOR_NEW                  80
-#define PROFILE_LUA_VECTOR_ZERO                 81
+#define PROFILE_LUA_VECTOR_INDEX                80
+#define PROFILE_LUA_VECTOR_NEWINDEX             81
+#define PROFILE_LUA_VECTOR_NEW                  82
+#define PROFILE_LUA_VECTOR_ZERO                 83
+
+// Timer ID constants for color Lua operations
+#define PROFILE_LUA_COLOR_INDEX                 84
+#define PROFILE_LUA_COLOR_NEWINDEX              85
+#define PROFILE_LUA_COLOR_NEW                   86
+#define PROFILE_LUA_COLOR_WHITE                 87
+#define PROFILE_LUA_COLOR_BLACK                 88
+#define PROFILE_LUA_COLOR_RED                   89
+#define PROFILE_LUA_COLOR_GREEN                 90
+#define PROFILE_LUA_COLOR_BLUE                  91
+#define PROFILE_LUA_COLOR_SET_HEX               92
+#define PROFILE_LUA_COLOR_SET_BYTE              93
+
+// Timer ID constants for poly_line Lua operations
+#define PROFILE_LUA_POLY_LINE_INDEX             94
+#define PROFILE_LUA_POLY_LINE_NEWINDEX          95
+#define PROFILE_LUA_POLY_LINE_NEW               96
+#define PROFILE_LUA_POLY_LINE_ADD_POINT         97
+#define PROFILE_LUA_POLY_LINE_REMOVE_POINT      98
+#define PROFILE_LUA_POLY_LINE_GET_POINT         99
+#define PROFILE_LUA_POLY_LINE_GET_POINT_COUNT   100
+#define PROFILE_LUA_POLY_LINE_CLEAR_POINTS      101
 
 
 #ifdef ESE_PROFILE_ENABLED

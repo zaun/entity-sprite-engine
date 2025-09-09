@@ -39,8 +39,8 @@ EseEntity *entity_copy(EseEntity *entity) {
 
     // Copy all fields
     copy->active = entity->active;
-    point_set_x(copy->position, point_get_x(entity->position));
-    point_set_y(copy->position, point_get_y(entity->position));
+    ese_point_set_x(copy->position, ese_point_get_x(entity->position));
+    ese_point_set_y(copy->position, ese_point_get_y(entity->position));
     copy->draw_order = entity->draw_order;
 
     // Copy components
@@ -91,16 +91,16 @@ void entity_destroy(EseEntity *entity) {
 
     profile_start(PROFILE_ENTITY_DESTROY);
 
-    uuid_destroy(entity->id);
-    point_destroy(entity->position);
+    ese_uuid_destroy(entity->id);
+    ese_point_destroy(entity->position);
 
     hashmap_free(entity->current_collisions);
     hashmap_free(entity->previous_collisions);
     if (entity->collision_bounds) {
-        rect_destroy(entity->collision_bounds);
+        ese_rect_destroy(entity->collision_bounds);
     }
     if (entity->collision_world_bounds) {
-        rect_destroy(entity->collision_world_bounds);
+        ese_rect_destroy(entity->collision_world_bounds);
     }
 
     for (size_t i = 0; i < entity->component_count; ++i) {
@@ -150,8 +150,8 @@ void entity_update(EseEntity *entity, float delta_time) {
 void entity_set_position(EseEntity *entity, float x, float y) {
     log_assert("ENTITY", entity, "entity_set_position called with NULL entity");
     
-    point_set_x(entity->position, x);
-    point_set_y(entity->position, y);
+    ese_point_set_x(entity->position, x);
+    ese_point_set_y(entity->position, y);
     
     // Update collision bounds for all collider components
     for (size_t i = 0; i < entity->component_count; i++) {
@@ -370,7 +370,7 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
 
     profile_stop(PROFILE_ENTITY_COMPONENT_ADD, "entity_component_add");
     profile_count_add("entity_comp_add_count");
-    return comp->id->value;
+    return ese_uuid_get_value(comp->id);
 }
 
 bool entity_component_remove(EseEntity *entity, const char *id) {
@@ -528,19 +528,19 @@ EseRect *entity_get_collision_bounds(EseEntity *entity, bool to_world_coords) {
     if (to_world_coords) {
         // Use the pre-computed world bounds if available
         if (entity->collision_world_bounds) {
-            return rect_copy(entity->collision_world_bounds);
+            return ese_rect_copy(entity->collision_world_bounds);
         } else {
             // Fallback: create a copy of the bounds in world coordinates
-            EseRect *world_bounds = rect_copy(entity->collision_bounds);
+            EseRect *world_bounds = ese_rect_copy(entity->collision_bounds);
             if (world_bounds) {
-                rect_set_x(world_bounds, rect_get_x(world_bounds) + point_get_x(entity->position));
-                rect_set_y(world_bounds, rect_get_y(world_bounds) + point_get_y(entity->position));
+                ese_rect_set_x(world_bounds, ese_rect_get_x(world_bounds) + ese_point_get_x(entity->position));
+                ese_rect_set_y(world_bounds, ese_rect_get_y(world_bounds) + ese_point_get_y(entity->position));
             }
             return world_bounds;
         }
     } else {
         // Always return a copy for consistency - caller must free both cases
-        return rect_copy(entity->collision_bounds);
+        return ese_rect_copy(entity->collision_bounds);
     }
 }
 

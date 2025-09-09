@@ -7,6 +7,7 @@
 #import "platform/mac/renderer_delegate.h"
 #import "platform/mac/renderer_private.h"
 #import "platform/renderer_private.h"
+#import "platform/default_shader.h"
 #import "core/memory_manager.h"
 #import "utility/log.h"
 #import "graphics/render_list.h"
@@ -96,6 +97,8 @@ bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_
     grouped_hashmap_set(renderer->shaders, library_name, "vertexShader", [vertexLibrary retain]);
     grouped_hashmap_set(renderer->shadersSources, library_name, "vertexShader", [shaderSourceString retain]);
 
+    log_debug("RENDERER", "Vertex shader source: %s.", shaderSourceString.UTF8String);
+
     shaderSourceString = [NSString stringWithUTF8String:fs.data];
     id<MTLLibrary> fragmentLibrary = [internal->device newLibraryWithSource:shaderSourceString options:nil error:&error];
     if (!fragmentLibrary) {
@@ -107,6 +110,8 @@ bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_
     }
     grouped_hashmap_set(renderer->shaders, library_name, "fragmentShader", [fragmentLibrary retain]);
     grouped_hashmap_set(renderer->shadersSources, library_name, "fragmentShader", [shaderSourceString retain]);
+
+    log_debug("RENDERER", "Fragment shader source: %s.", shaderSourceString.UTF8String);
 
     if (cs.data) {
         shaderSourceString = [NSString stringWithUTF8String:fs.data];
@@ -268,51 +273,9 @@ EseRenderer* renderer_create(bool hiDPI) {
     // Create initial vertex ring buffer with default per-frame size.
     _ensure_vertex_ring_buffer(internal, 1 << 20);    
 
-    // Default shader source
-    const char *shaderSource =
-    "#version 450\n"
-    "\n"
-    "#ifdef VERTEX_SHADER\n"
-    "layout(location = 0) in vec3 aPos;\n"
-    "layout(location = 1) in vec2 aTexCoord;\n"
-    "\n"
-    "layout(location = 0) out vec2 TexCoord;\n"
-    "\n"
-    "void main() {\n"
-    "    gl_Position = vec4(aPos, 1.0);\n"
-    "    TexCoord = aTexCoord;\n"
-    "}\n"
-    "#endif\n"
-    "\n"
-    "#ifdef FRAGMENT_SHADER\n"
-    "precision mediump float;\n"
-    "\n"
-    "layout(location = 0) in vec2 TexCoord;\n"
-    "layout(location = 0) out vec4 FragColor;\n"
-    "\n"
-    "layout(binding = 0) uniform sampler2D ourTexture;\n"
-    "\n"
-    "layout(binding = 1) uniform UniformBufferObject {\n"
-    "    bool useTexture;\n"
-    "    vec4 rectColor;\n"
-    "} ubo;\n"
-    "\n"
-    "void main() {\n"
-    "    if (ubo.useTexture) {\n"
-    "        FragColor = texture(ourTexture, TexCoord);\n"
-    "    } else {\n"
-    "        FragColor = ubo.rectColor;\n"
-    "    }\n"
-    "}\n"
-    "#endif\n"
-    "\n"
-    "#ifdef COMPUTE_SHADER\n"
-    "#endif\n"
-    "\n";
-
     // Compile default shader
     _renderer_shader_compile_source(
-        renderer, "default", [NSString stringWithUTF8String:shaderSource]
+        renderer, "default", [NSString stringWithUTF8String: DEFAULT_SHADER]
     );
 
     // Create default pipeline
@@ -568,6 +531,11 @@ void renderer_draw(EseRenderer *renderer) {
 
             // prepare and set small UBO via setFragmentBytes (avoids MTLBuffer reuse races)
             UniformBufferObject ubo;
+
+            // Just hard code defaults for now
+            ubo.tint = (EseVector4){1.0f, 1.0f, 1.0f, 1.0f};
+            ubo.opacity = 1.0f;
+
             if (batch->type == RL_TEXTURE) {
                 ubo.useTexture.x = 1;
                 ubo.rectColor.x = 0.0f;

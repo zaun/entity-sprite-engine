@@ -93,7 +93,9 @@ file(GLOB ENGINE_CORE_SOURCES
 set(ENGINE_SOURCES ${ENGINE_CORE_SOURCES} ${PLATFORM_SOURCES})
 
 # Create a custom target to build the Lua library.
-if(PLATFORM STREQUAL "MAC")
+# If we are forcing linux n a mac to get OpenGL we still need to
+# build the Lua library for Apple.
+if(PLATFORM STREQUAL "MAC" OR APPLE)
     add_custom_target(build_lua
         COMMAND ${CMAKE_COMMAND} -E env MACOSX_DEPLOYMENT_TARGET=15.0 make
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/src/vendor/lua/src"
@@ -169,7 +171,7 @@ elseif(PLATFORM STREQUAL "LINUX")
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(OPENAL REQUIRED openal)
+    find_library(OPENAL_LIB REQUIRED)
 
     target_include_directories(entityspriteengine PRIVATE
         ${OPENGL_INCLUDE_DIR}

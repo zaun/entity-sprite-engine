@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "entity/entity.h"
 
+#define SHAPE_PROXY_META "EntityComponentShapeProxyMeta"
 #define SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
 
 // Forward declarations
@@ -15,6 +16,7 @@ typedef enum {
     ENTITY_COMPONENT_COLLIDER,
     ENTITY_COMPONENT_LUA,
     ENTITY_COMPONENT_MAP,
+    ENTITY_COMPONENT_SHAPE,
     ENTITY_COMPONENT_SPRITE,
     ENTITY_COMPONENT_TEXT,
 } EntityComponentType;
