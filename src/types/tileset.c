@@ -37,6 +37,7 @@ typedef struct EseTileSet {
     lua_State *state;        /**< Lua State this EseTileSet belongs to */
     int lua_ref;             /**< Lua registry reference to its own userdata */
     int lua_ref_count;       /**< Number of times this tileset has been referenced in C */
+    bool destroyed;          /**< Flag to track if tileset has been destroyed */
 } EseTileSet;
 
 /* ----------------- RNG ----------------- */
@@ -94,6 +95,7 @@ static EseTileSet *_tileset_make() {
     tiles->state = NULL;
     tiles->lua_ref = LUA_NOREF;
     tiles->lua_ref_count = 0;
+    tiles->destroyed = false;
     return tiles;
 }
 
@@ -115,7 +117,7 @@ static int _tileset_lua_gc(lua_State *L) {
     }
     
     EseTileSet *tiles = *ud;
-    if (tiles) {
+    if (tiles && !tiles->destroyed) {
         // If lua_ref == LUA_NOREF, there are no more references to this tileset, 
         // so we can free it.
         // If lua_ref != LUA_NOREF, this tileset was referenced from C and should not be freed.
@@ -380,6 +382,7 @@ EseTileSet *tileset_copy(const EseTileSet *source) {
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     copy->lua_ref_count = 0;
+    copy->destroyed = false;
     
     // Deep copy mappings
     for (int i = 0; i < 256; i++) {
@@ -445,7 +448,9 @@ EseTileSet *tileset_copy(const EseTileSet *source) {
 }
 
 void tileset_destroy(EseTileSet *tiles) {
-    if (!tiles) return;
+    if (!tiles || tiles->destroyed) return;
+    
+    tiles->destroyed = true;
     
     if (tiles->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately

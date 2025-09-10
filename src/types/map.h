@@ -54,6 +54,7 @@ typedef struct EseMap {
     EseLuaEngine *engine;            /**< Engine reference for creating cells */
     int lua_ref;                     /**< Lua registry reference to its own userdata */
     int lua_ref_count;               /**< Number of times this map has been referenced in C */
+    bool destroyed;                  /**< Flag to track if map has been destroyed */
 } EseMap;
 
 /* ----------------- Lua API ----------------- */

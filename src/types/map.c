@@ -63,6 +63,7 @@ static EseMap *_map_make(uint32_t width, uint32_t height, EseMapType type) {
     map->cells = NULL;
     map->lua_ref = LUA_NOREF;
     map->lua_ref_count = 0;
+    map->destroyed = false;
     
     return map;
 }
@@ -244,7 +245,7 @@ static int _map_lua_gc(lua_State *L) {
     }
     
     EseMap *map = *ud;
-    if (map) {
+    if (map && !map->destroyed) {
         // If lua_ref == LUA_NOREF, there are no more references to this map, 
         // so we can free it.
         // If lua_ref != LUA_NOREF, this map was referenced from C and should not be freed.
@@ -360,7 +361,9 @@ EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMap
 }
 
 void map_destroy(EseMap *map) {
-    if (!map) return;
+    if (!map || map->destroyed) return;
+    
+    map->destroyed = true;
     
     _free_cells_array(map);
     if (map->tileset) tileset_destroy(map->tileset);
