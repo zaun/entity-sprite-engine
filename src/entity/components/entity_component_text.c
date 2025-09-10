@@ -31,7 +31,7 @@ static void _entity_component_text_register(EseEntityComponentText *component, b
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, TEXT_PROXY_META);
+    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_TEXT_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -280,9 +280,9 @@ void _entity_component_text_init(EseLuaEngine *engine) {
     lua_State *L = engine->runtime;
     
     // Register EntityComponentText metatable
-    if (luaL_newmetatable(L, TEXT_PROXY_META)) {
+    if (luaL_newmetatable(L, ENTITY_COMPONENT_TEXT_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentTextProxyMeta to engine");  
-        lua_pushstring(L, TEXT_PROXY_META);
+        lua_pushstring(L, ENTITY_COMPONENT_TEXT_PROXY_META);
         lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_text_index);
         lua_setfield(L, -2, "__index");

@@ -357,42 +357,42 @@ EseEntityComponent *entity_component_get(lua_State *L) {
 
     lua_pop(L, 2);
 
-    if (strcmp(metatable_name, COLLIDER_PROXY_META) == 0) {
+    if (strcmp(metatable_name, ENTITY_COMPONENT_COLLIDER_PROXY_META) == 0) {
         EseEntityComponentCollider *collider_comp = _entity_component_collider_get(L, 1);
         if (collider_comp == NULL) {
             luaL_error(L, "internal error: Collider metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &collider_comp->base;
-    } else if (strcmp(metatable_name, "EntityComponentLuaProxyMeta") == 0) {
+    } else if (strcmp(metatable_name, ENTITY_COMPONENT_LUA_PROXY_META) == 0) {
         EseEntityComponentLua *lua_comp = _entity_component_lua_get(L, 1);
         if (lua_comp == NULL) {
             luaL_error(L, "internal error: Lua Base metatable name identified, but _get returned NULL.");
             return  NULL;
         }
         return &lua_comp->base;
-    } else if (strcmp(metatable_name, MAP_PROXY_META) == 0) {
+    } else if (strcmp(metatable_name, ENTITY_COMPONENT_MAP_PROXY_META) == 0) {
         EseEntityComponentMap *map_comp = _entity_component_map_get(L, 1);
         if (map_comp == NULL) {
             luaL_error(L, "internal error: Map metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &map_comp->base;
-    } else if (strcmp(metatable_name, SHAPE_PROXY_META) == 0) {
+    } else if (strcmp(metatable_name, ENTITY_COMPONENT_SHAPE_PROXY_META) == 0) {
         EseEntityComponentShape *shape_comp = _entity_component_shape_get(L, 1);
         if (shape_comp == NULL) {
             luaL_error(L, "internal error: Shape metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &shape_comp->base;
-    } else if (strcmp(metatable_name, SPRITE_PROXY_META) == 0) {
+    } else if (strcmp(metatable_name, ENTITY_COMPONENT_SPRITE_PROXY_META) == 0) {
         EseEntityComponentSprite *sprite_comp = _entity_component_sprite_get(L, 1);
         if (sprite_comp == NULL) {
             luaL_error(L, "internal error: Sprite metatable name identified, but _get returned NULL.");
             return NULL;
         }
         return &sprite_comp->base;
-    } else if (strcmp(metatable_name, TEXT_PROXY_META) == 0) {
+    } else if (strcmp(metatable_name, ENTITY_COMPONENT_TEXT_PROXY_META) == 0) {
         EseEntityComponentText *text_comp = _entity_component_text_get(L, 1);
         if (text_comp == NULL) {
             luaL_error(L, "internal error: Text metatable name identified, but _get returned NULL.");

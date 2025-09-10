@@ -1,231 +1,532 @@
-#include "test_utils.h"
-#include "types/map_cell.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_ese_mapcell.c - Unity-based tests for map cell functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_map_cell_creation();
-static void test_map_cell_properties();
-static void test_map_cell_copy();
-static void test_map_cell_lua_integration();
-static void test_map_cell_lua_script_api();
-static void test_map_cell_null_pointer_aborts();
+#include "../src/types/map_cell.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for MapCell testing
-static const char* test_map_cell_lua_script = 
-"function MAP_CELL_TEST_MODULE:test_map_cell_creation()\n"
-"    local mc1 = MapCell.new(10, 5, 1, 0.5)\n"
-"    local mc2 = MapCell.zero()\n"
-"    \n"
-"    if mc1.x == 10 and mc1.y == 5 and mc1.tile_id == 1 and mc1.alpha == 0.5 and\n"
-"       mc2.x == 0 and mc2.y == 0 and mc2.tile_id == 0 and mc2.alpha == 1.0 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function MAP_CELL_TEST_MODULE:test_map_cell_properties()\n"
-"    local mc = MapCell.new(0, 0, 0, 1)\n"
-"    \n"
-"    mc.x = 42\n"
-"    mc.y = 17\n"
-"    mc.tile_id = 5\n"
-"    mc.alpha = 0.8\n"
-"    \n"
-"    if mc.x == 42 and mc.y == 17 and mc.tile_id == 5 and mc.alpha == 0.8 then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_mapcell_sizeof(void);
+static void test_ese_mapcell_create_requires_engine(void);
+static void test_ese_mapcell_create(void);
+static void test_ese_mapcell_copy_requires_source(void);
+static void test_ese_mapcell_copy(void);
+static void test_ese_mapcell_layers(void);
+static void test_ese_mapcell_flags(void);
+static void test_ese_mapcell_properties(void);
+static void test_ese_mapcell_ref(void);
+static void test_ese_mapcell_lua_integration(void);
+static void test_ese_mapcell_lua_init(void);
+static void test_ese_mapcell_lua_push(void);
+static void test_ese_mapcell_lua_get(void);
 
-// Signal handler for testing aborts
-static void segfault_handler(int sig) {
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    fprintf(stderr, "---- BACKTRACE START ----\n");
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    fprintf(stderr, "---- BACKTRACE  END  ----\n");
-    exit(1);
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_mapcell_lua_new(void);
+static void test_ese_mapcell_lua_properties(void);
+static void test_ese_mapcell_lua_methods(void);
+static void test_ese_mapcell_lua_tostring(void);
+static void test_ese_mapcell_lua_gc(void);
+
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-int main() {
-    // Set up signal handler for testing aborts
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
-    test_suite_begin("🧪 EseMapCell Test Suite");
-    
-    test_map_cell_creation();
-    test_map_cell_properties();
-    test_map_cell_copy();
-    test_map_cell_lua_integration();
-    test_map_cell_lua_script_api();
-    test_map_cell_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseMapCell Test Suite");
-    
-    return 0;
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-static void test_map_cell_creation() {
-    test_begin("MapCell Creation Tests");
+/**
+* Main test runner
+*/
+int main(void) {
+    log_init();
+
+    printf("\nEseMapCell Tests\n");
+    printf("----------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_ese_mapcell_sizeof);
+    RUN_TEST(test_ese_mapcell_create_requires_engine);
+    RUN_TEST(test_ese_mapcell_create);
+    RUN_TEST(test_ese_mapcell_copy_requires_source);
+    RUN_TEST(test_ese_mapcell_copy);
+    RUN_TEST(test_ese_mapcell_layers);
+    RUN_TEST(test_ese_mapcell_flags);
+    RUN_TEST(test_ese_mapcell_properties);
+    RUN_TEST(test_ese_mapcell_ref);
+    RUN_TEST(test_ese_mapcell_lua_integration);
+    RUN_TEST(test_ese_mapcell_lua_init);
+    RUN_TEST(test_ese_mapcell_lua_push);
+    RUN_TEST(test_ese_mapcell_lua_get);
+
+    RUN_TEST(test_ese_mapcell_lua_new);
+    RUN_TEST(test_ese_mapcell_lua_properties);
+    RUN_TEST(test_ese_mapcell_lua_methods);
+    RUN_TEST(test_ese_mapcell_lua_tostring);
+    RUN_TEST(test_ese_mapcell_lua_gc);
+
+    return UNITY_END();
+}
+
+/**
+* C API Test Functions
+*/
+
+static void test_ese_mapcell_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_mapcell_sizeof(), "MapCell size should be > 0");
+}
+
+static void test_ese_mapcell_create_requires_engine(void) {
+    ASSERT_DEATH(ese_mapcell_create(NULL), "ese_mapcell_create should abort with NULL engine");
+}
+
+static void test_ese_mapcell_create(void) {
+    EseMapCell *cell = ese_mapcell_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(cell, "MapCell should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_mapcell_get_state(cell), "MapCell should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_mapcell_get_lua_ref_count(cell), "New map cell should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "New map cell should have LUA_NOREF");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_layer_count(cell), "New map cell should have 0 layers");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_get_is_dynamic(cell), "New map cell should not be dynamic");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_flags(cell), "New map cell should have 0 flags");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_layers(cell), "New map cell should not have layers");
+
+    ese_mapcell_destroy(cell);
+}
+
+static void test_ese_mapcell_copy_requires_source(void) {
+    ASSERT_DEATH(ese_mapcell_copy(NULL), "ese_mapcell_copy should abort with NULL source");
+}
+
+static void test_ese_mapcell_copy(void) {
+    EseMapCell *original = ese_mapcell_create(g_engine);
+    ese_mapcell_ref(original);
+    ese_mapcell_add_layer(original, 5);
+    ese_mapcell_add_layer(original, 10);
+    ese_mapcell_set_is_dynamic(original, true);
+    ese_mapcell_set_flags(original, 0x42);
+
+    EseMapCell *copy = ese_mapcell_copy(original);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_mapcell_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_mapcell_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(copy), "Copy should have LUA_NOREF");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_mapcell_get_layer_count(copy), "Copy should have same layer count");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(5, ese_mapcell_get_layer(copy, 0), "Copy should have same first layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(10, ese_mapcell_get_layer(copy, 1), "Copy should have same second layer");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_get_is_dynamic(copy), "Copy should have same isDynamic value");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0x42, ese_mapcell_get_flags(copy), "Copy should have same flags value");
+
+    ese_mapcell_unref(original);
+    ese_mapcell_destroy(original);
+    ese_mapcell_destroy(copy);
+}
+
+static void test_ese_mapcell_layers(void) {
+    EseMapCell *cell = ese_mapcell_create(g_engine);
+
+    // Test adding layers
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_add_layer(cell, 1), "Should add first layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_mapcell_get_layer_count(cell), "Should have 1 layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_mapcell_get_layer(cell, 0), "First layer should be 1");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_layers(cell), "Should have layers");
+
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_add_layer(cell, 2), "Should add second layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_mapcell_get_layer_count(cell), "Should have 2 layers");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_mapcell_get_layer(cell, 1), "Second layer should be 2");
+
+    // Test setting layers
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_set_layer(cell, 0, 10), "Should set first layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(10, ese_mapcell_get_layer(cell, 0), "First layer should be 10");
+
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_set_layer(cell, 1, 20), "Should set second layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(20, ese_mapcell_get_layer(cell, 1), "Second layer should be 20");
+
+    // Test out of bounds access
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_layer(cell, 2), "Out of bounds should return 0");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_set_layer(cell, 2, 30), "Out of bounds set should fail");
+
+    // Test removing layers
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_remove_layer(cell, 0), "Should remove first layer");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_mapcell_get_layer_count(cell), "Should have 1 layer after removal");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(20, ese_mapcell_get_layer(cell, 0), "Remaining layer should be 20");
+
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_remove_layer(cell, 1), "Out of bounds removal should fail");
+
+    // Test clearing layers
+    ese_mapcell_clear_layers(cell);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_layer_count(cell), "Should have 0 layers after clear");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_layers(cell), "Should not have layers after clear");
+
+    ese_mapcell_destroy(cell);
+}
+
+static void test_ese_mapcell_flags(void) {
+    EseMapCell *cell = ese_mapcell_create(g_engine);
+
+    // Test initial state
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_flags(cell), "Initial flags should be 0");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_flag(cell, 0x01), "Should not have flag 0x01");
+
+    // Test setting flags
+    ese_mapcell_set_flag(cell, 0x01);
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x01), "Should have flag 0x01");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_flag(cell, 0x02), "Should not have flag 0x02");
+
+    ese_mapcell_set_flag(cell, 0x04);
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x01), "Should still have flag 0x01");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x04), "Should have flag 0x04");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_flag(cell, 0x02), "Should not have flag 0x02");
+
+    // Test clearing flags
+    ese_mapcell_clear_flag(cell, 0x01);
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_has_flag(cell, 0x01), "Should not have flag 0x01 after clear");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x04), "Should still have flag 0x04");
+
+    // Test setting all flags at once
+    ese_mapcell_set_flags(cell, 0xFF);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0xFF, ese_mapcell_get_flags(cell), "Should have all flags set");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x01), "Should have flag 0x01");
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_has_flag(cell, 0x80), "Should have flag 0x80");
+
+    ese_mapcell_destroy(cell);
+}
+
+static void test_ese_mapcell_properties(void) {
+    EseMapCell *cell = ese_mapcell_create(g_engine);
+
+    // Test isDynamic property
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_get_is_dynamic(cell), "Initial isDynamic should be false");
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell creation tests");
+    ese_mapcell_set_is_dynamic(cell, true);
+    TEST_ASSERT_TRUE_MESSAGE(ese_mapcell_get_is_dynamic(cell), "isDynamic should be true after set");
     
-    EseMapCell *map_cell = mapcell_create(engine, false);
-    TEST_ASSERT_NOT_NULL(map_cell, "mapcell_create should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(0, map_cell->layer_count, "New map cell should have layer_count = 0");
-    TEST_ASSERT(!map_cell->isDynamic, "New map cell should have isDynamic = false");
-    TEST_ASSERT_EQUAL(0, map_cell->flags, "New map cell should have flags = 0");
-    TEST_ASSERT_POINTER_EQUAL(engine->runtime, map_cell->state, "MapCell should have correct Lua state");
-    TEST_ASSERT(map_cell->lua_ref == LUA_NOREF, "New map cell should have negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", map_cell->lua_ref);
-    TEST_ASSERT(sizeof(EseMapCell) > 0, "EseMapCell should have positive size");
-    printf("ℹ INFO: Actual map cell size: %zu bytes\n", sizeof(EseMapCell));
+    ese_mapcell_set_is_dynamic(cell, false);
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_get_is_dynamic(cell), "isDynamic should be false after set");
+
+    // Test flags property
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_flags(cell), "Initial flags should be 0");
     
-    mapcell_destroy(map_cell);
+    ese_mapcell_set_flags(cell, 0x12345678);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0x12345678, ese_mapcell_get_flags(cell), "Flags should be set correctly");
+
+    ese_mapcell_destroy(cell);
+}
+
+static void test_ese_mapcell_ref(void) {
+    EseMapCell *cell = ese_mapcell_create(g_engine);
+
+    // Test initial state
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_mapcell_get_lua_ref_count(cell), "Initial ref count should be 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "Initial lua_ref should be LUA_NOREF");
+
+    // Test ref/unref
+    ese_mapcell_ref(cell);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_mapcell_get_lua_ref_count(cell), "Ref count should be 1 after ref");
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "lua_ref should not be LUA_NOREF after ref");
+
+    ese_mapcell_ref(cell);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, ese_mapcell_get_lua_ref_count(cell), "Ref count should be 2 after second ref");
+
+    ese_mapcell_unref(cell);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_mapcell_get_lua_ref_count(cell), "Ref count should be 1 after unref");
+
+    ese_mapcell_unref(cell);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_mapcell_get_lua_ref_count(cell), "Ref count should be 0 after second unref");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "lua_ref should be LUA_NOREF after unref");
+
+    ese_mapcell_destroy(cell);
+}
+
+static void test_ese_mapcell_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
+    EseMapCell *cell = ese_mapcell_create(engine);
+
+    lua_State *before_state = ese_mapcell_get_state(cell);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "MapCell should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "MapCell state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "MapCell should have no Lua reference initially");
+
+    ese_mapcell_ref(cell);
+    lua_State *after_ref_state = ese_mapcell_get_state(cell);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "MapCell should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "MapCell state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "MapCell should have a valid Lua reference after ref");
+
+    ese_mapcell_unref(cell);
+    lua_State *after_unref_state = ese_mapcell_get_state(cell);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "MapCell should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "MapCell state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_mapcell_get_lua_ref(cell), "MapCell should have no Lua reference after unref");
+
+    ese_mapcell_destroy(cell);
     lua_engine_destroy(engine);
-    
-    test_end("MapCell Creation Tests");
 }
 
-static void test_map_cell_properties() {
-    test_begin("MapCell Properties Tests");
+static void test_ese_mapcell_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell property tests");
+    luaL_getmetatable(L, MAP_CELL_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    EseMapCell *map_cell = mapcell_create(engine, false);
-    TEST_ASSERT_NOT_NULL(map_cell, "MapCell should be created for property tests");
+    lua_getglobal(L, "MapCell");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global MapCell table should not exist before initialization");
+    lua_pop(L, 1);
     
-    // Test layer operations
-    bool result = mapcell_add_layer(map_cell, 5);
-    TEST_ASSERT(result, "mapcell_add_layer should succeed");
-    TEST_ASSERT_EQUAL(1, map_cell->layer_count, "mapcell_add_layer should increment layer_count");
-    TEST_ASSERT_EQUAL(5, mapcell_get_layer(map_cell, 0), "mapcell_get_layer should return correct tile id");
+    ese_mapcell_lua_init(g_engine);
     
-    result = mapcell_add_layer(map_cell, 10);
-    TEST_ASSERT(result, "mapcell_add_layer should succeed for second layer");
-    TEST_ASSERT_EQUAL(2, map_cell->layer_count, "mapcell_add_layer should increment layer_count");
-    TEST_ASSERT_EQUAL(10, mapcell_get_layer(map_cell, 1), "mapcell_get_layer should return correct tile id for second layer");
+    luaL_getmetatable(L, MAP_CELL_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    // Test flag operations
-    mapcell_set_flag(map_cell, 0x01);
-    TEST_ASSERT(mapcell_has_flag(map_cell, 0x01), "mapcell_has_flag should return true for set flag");
-    
-    mapcell_clear_flag(map_cell, 0x01);
-    TEST_ASSERT(!mapcell_has_flag(map_cell, 0x01), "mapcell_has_flag should return false for cleared flag");
-    
-    // Test dynamic flag
-    map_cell->isDynamic = true;
-    TEST_ASSERT(map_cell->isDynamic, "map cell isDynamic should be settable");
-    
-    mapcell_destroy(map_cell);
-    lua_engine_destroy(engine);
-    
-    test_end("MapCell Properties Tests");
+    lua_getglobal(L, "MapCell");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global MapCell table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global MapCell table should be a table");
+    lua_pop(L, 1);
 }
 
-static void test_map_cell_copy() {
-    test_begin("MapCell Copy Tests");
+static void test_ese_mapcell_lua_push(void) {
+    ese_mapcell_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseMapCell *cell = ese_mapcell_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell copy tests");
+    ese_mapcell_lua_push(cell);
     
-    EseMapCell *original = mapcell_create(engine, false);
-    TEST_ASSERT_NOT_NULL(original, "Original map cell should be created for copy tests");
+    EseMapCell **ud = (EseMapCell **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(cell, *ud, "The pushed item should be the actual map cell");
     
-    mapcell_add_layer(original, 7);
-    mapcell_add_layer(original, 14);
-    mapcell_set_flag(original, 0x02);
-    original->isDynamic = true;
+    lua_pop(L, 1); 
     
-    EseMapCell *copy = mapcell_copy(original, false);
-    TEST_ASSERT_NOT_NULL(copy, "mapcell_copy should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(2, copy->layer_count, "Copied map cell should have same layer count");
-    TEST_ASSERT_EQUAL(7, mapcell_get_layer(copy, 0), "Copied map cell should have same first layer");
-    TEST_ASSERT_EQUAL(14, mapcell_get_layer(copy, 1), "Copied map cell should have same second layer");
-    TEST_ASSERT(mapcell_has_flag(copy, 0x02), "Copied map cell should have same flags");
-    TEST_ASSERT(copy->isDynamic, "Copied map cell should have same isDynamic value");
-    TEST_ASSERT(original != copy, "Copy should be a different object");
-    TEST_ASSERT_POINTER_EQUAL(original->state, copy->state, "Copy should have same Lua state");
-    TEST_ASSERT(copy->lua_ref == LUA_NOREF, "Copy should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy->lua_ref);
-    TEST_ASSERT_EQUAL(2, copy->layer_count, "Copy should have same layer count as original");
-    
-    mapcell_destroy(original);
-    mapcell_destroy(copy);
-    lua_engine_destroy(engine);
-    
-    test_end("MapCell Copy Tests");
+    ese_mapcell_destroy(cell);
 }
 
-static void test_map_cell_lua_integration() {
-    test_begin("MapCell Lua Integration Tests");
+static void test_ese_mapcell_lua_get(void) {
+    ese_mapcell_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseMapCell *cell = ese_mapcell_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell Lua integration tests");
+    ese_mapcell_lua_push(cell);
     
-    EseMapCell *map_cell = mapcell_create(engine, false);
-    TEST_ASSERT_NOT_NULL(map_cell, "MapCell should be created for Lua integration tests");
-    TEST_ASSERT_EQUAL(0, map_cell->layer_count, "New map cell should start with layer count 0");
-    TEST_ASSERT(map_cell->lua_ref == LUA_NOREF, "New map cell should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", map_cell->lua_ref);
+    EseMapCell *extracted_cell = ese_mapcell_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(cell, extracted_cell, "Extracted map cell should match original");
     
-    mapcell_destroy(map_cell);
-    lua_engine_destroy(engine);
-    
-    test_end("MapCell Lua Integration Tests");
+    lua_pop(L, 1);
+    ese_mapcell_destroy(cell);
 }
 
-static void test_map_cell_lua_script_api() {
-    test_begin("MapCell Lua Script API Tests");
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_mapcell_lua_new(void) {
+    ese_mapcell_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell Lua script API tests");
-    
-    mapcell_lua_init(engine);
-    printf("ℹ INFO: MapCell Lua integration initialized\n");
-    
-    // Test that map cell Lua integration initializes successfully
-    TEST_ASSERT(true, "MapCell Lua integration should initialize successfully");
-    
-    lua_engine_destroy(engine);
-    
-    test_end("MapCell Lua Script API Tests");
+    const char *testA = "return MapCell.new(10)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
+
+    const char *testB = "return MapCell.new(10, 20)\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute with error");
+
+    const char *testC = "return MapCell.new(\"invalid\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute with error");
+
+    const char *testD = "return MapCell.new()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
+    EseMapCell *extracted_cell = ese_mapcell_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_cell, "Extracted map cell should not be NULL");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_layer_count(extracted_cell), "New map cell should have 0 layers");
+    TEST_ASSERT_FALSE_MESSAGE(ese_mapcell_get_is_dynamic(extracted_cell), "New map cell should not be dynamic");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_mapcell_get_flags(extracted_cell), "New map cell should have 0 flags");
+    ese_mapcell_destroy(extracted_cell);
 }
 
-static void test_map_cell_null_pointer_aborts() {
-    test_begin("MapCell NULL Pointer Abort Tests");
+static void test_ese_mapcell_lua_properties(void) {
+    ese_mapcell_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test isDynamic property
+    const char *test1 = "local mc = MapCell.new(); mc.isDynamic = \"true\"; return mc.isDynamic";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "isDynamic string assignment should fail");
+
+    const char *test2 = "local mc = MapCell.new(); mc.isDynamic = true; return mc.isDynamic";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "isDynamic boolean assignment should work");
+    bool isDynamic = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(isDynamic, "isDynamic should be true");
+    lua_pop(L, 1);
+
+    const char *test3 = "local mc = MapCell.new(); mc.isDynamic = false; return mc.isDynamic";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "isDynamic false assignment should work");
+    isDynamic = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(isDynamic, "isDynamic should be false");
+    lua_pop(L, 1);
+
+    // Test flags property
+    const char *test4 = "local mc = MapCell.new(); mc.flags = \"42\"; return mc.flags";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "flags string assignment should fail");
+
+    const char *test5 = "local mc = MapCell.new(); mc.flags = 42; return mc.flags";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test5), "flags number assignment should work");
+    double flags = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(42.0, flags, "flags should be 42");
+    lua_pop(L, 1);
+
+    // Test layer_count property (read-only)
+    const char *test6 = "local mc = MapCell.new(); return mc.layer_count";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test6), "layer_count read should work");
+    double layer_count = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0, layer_count, "layer_count should be 0");
+    lua_pop(L, 1);
+}
+
+static void test_ese_mapcell_lua_methods(void) {
+    ese_mapcell_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test add_layer method
+    const char *test1 = "local mc = MapCell.new(); mc:add_layer(5); return mc.layer_count";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "add_layer should work");
+    double layer_count = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0, layer_count, "layer_count should be 1 after add_layer");
+    lua_pop(L, 1);
+
+    // Test get_layer method
+    const char *test2 = "local mc = MapCell.new(); mc:add_layer(10); mc:add_layer(20); return mc:get_layer(0), mc:get_layer(1)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "get_layer should work");
+    double layer0 = lua_tonumber(L, -2);
+    double layer1 = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0, layer0, "first layer should be 10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(20.0, layer1, "second layer should be 20");
+    lua_pop(L, 2);
+
+    // Test set_layer method
+    const char *test3 = "local mc = MapCell.new(); mc:add_layer(5); mc:set_layer(0, 15); return mc:get_layer(0)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "set_layer should work");
+    double layer = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(15.0, layer, "layer should be 15 after set_layer");
+    lua_pop(L, 1);
+
+    // Test remove_layer method
+    const char *test4 = "local mc = MapCell.new(); mc:add_layer(10); mc:add_layer(20); mc:remove_layer(0); return mc.layer_count, mc:get_layer(0)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "remove_layer should work");
+    double count = lua_tonumber(L, -2);
+    double remaining = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0, count, "layer_count should be 1 after remove_layer");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(20.0, remaining, "remaining layer should be 20");
+    lua_pop(L, 2);
+
+    // Test clear_layers method
+    const char *test5 = "local mc = MapCell.new(); mc:add_layer(10); mc:add_layer(20); mc:clear_layers(); return mc.layer_count";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test5), "clear_layers should work");
+    double cleared_count = lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0, cleared_count, "layer_count should be 0 after clear_layers");
+    lua_pop(L, 1);
+
+    // Test flag methods
+    const char *test6 = "local mc = MapCell.new(); mc:set_flag(1); return mc:has_flag(1), mc:has_flag(2)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test6), "flag methods should work");
+    bool has_flag1 = lua_toboolean(L, -2);
+    bool has_flag2 = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(has_flag1, "should have flag 1");
+    TEST_ASSERT_FALSE_MESSAGE(has_flag2, "should not have flag 2");
+    lua_pop(L, 2);
+
+    // Test clear_flag method
+    const char *test7 = "local mc = MapCell.new(); mc:set_flag(1); mc:clear_flag(1); return mc:has_flag(1)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test7), "clear_flag should work");
+    bool has_flag = lua_toboolean(L, -1);
+    TEST_ASSERT_FALSE_MESSAGE(has_flag, "should not have flag 1 after clear");
+    lua_pop(L, 1);
+}
+
+static void test_ese_mapcell_lua_tostring(void) {
+    ese_mapcell_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local mc = MapCell.new(); mc:add_layer(5); mc:set_flag(1); mc.isDynamic = true; return tostring(mc)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "MapCell:") != NULL, "tostring should contain 'MapCell:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "layers=1") != NULL, "tostring should contain 'layers=1'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "flags=1") != NULL, "tostring should contain 'flags=1'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "dynamic=1") != NULL, "tostring should contain 'dynamic=1'");
+    lua_pop(L, 1);
+}
+
+static void test_ese_mapcell_lua_gc(void) {
+    ese_mapcell_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local mc = MapCell.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "MapCell creation should execute without error");
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for map cell NULL pointer abort tests");
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
-    EseMapCell *map_cell = mapcell_create(engine, false);
-    TEST_ASSERT_NOT_NULL(map_cell, "MapCell should be created for map cell NULL pointer abort tests");
+    const char *testB = "return MapCell.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "MapCell creation should execute without error");
+    EseMapCell *extracted_cell = ese_mapcell_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_cell, "Extracted map cell should not be NULL");
+    ese_mapcell_ref(extracted_cell);
     
-    TEST_ASSERT_ABORT(mapcell_create(NULL, false), "mapcell_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(mapcell_copy(NULL, false), "mapcell_copy should abort with NULL source");
-    TEST_ASSERT_ABORT(mapcell_lua_init(NULL), "mapcell_lua_init should abort with NULL engine");
-    // Test that functions abort with NULL map cell
-    TEST_ASSERT_ABORT(mapcell_lua_get(NULL, 1), "mapcell_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(mapcell_lua_push(NULL), "mapcell_lua_push should abort with NULL map cell");
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_mapcell_unref(extracted_cell);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
-    mapcell_destroy(map_cell);
-    lua_engine_destroy(engine);
+    const char *testC = "return MapCell.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "MapCell creation should execute without error");
+    extracted_cell = ese_mapcell_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_cell, "Extracted map cell should not be NULL");
+    ese_mapcell_ref(extracted_cell);
     
-    test_end("MapCell NULL Pointer Abort Tests");
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_mapcell_unref(extracted_cell);
+    ese_mapcell_destroy(extracted_cell);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

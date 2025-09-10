@@ -453,7 +453,7 @@ static void test_component_lua_integration() {
         lua_pop(L, 1);
         
         // Test that metatable was registered
-        luaL_getmetatable(L, LUA_PROXY_META);
+        luaL_getmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META);
         TEST_ASSERT(lua_istable(L, -1), "EntityComponentLuaProxyMeta metatable should exist");
         lua_pop(L, 1);
         
@@ -539,7 +539,7 @@ static void test_component_property_access() {
                     if (lua_istable(L, i)) {
                         // Check if it has the right metatable
                         if (lua_getmetatable(L, i)) {
-                            luaL_getmetatable(L, LUA_PROXY_META);
+                            luaL_getmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META);
                             if (lua_rawequal(L, -1, -2)) {
                                 component_index = i;
                                 lua_pop(L, 2); // Pop both metatables

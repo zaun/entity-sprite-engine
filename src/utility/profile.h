@@ -161,6 +161,18 @@ extern "C" {
 #define PROFILE_LUA_POLY_LINE_GET_POINT_COUNT   100
 #define PROFILE_LUA_POLY_LINE_CLEAR_POINTS      101
 
+// MapCell profiling
+#define PROFILE_LUA_MAPCELL_INDEX               102
+#define PROFILE_LUA_MAPCELL_NEWINDEX            103
+#define PROFILE_LUA_MAPCELL_NEW                 104
+
+// Tileset profiling
+#define PROFILE_LUA_TILESET_INDEX               105
+#define PROFILE_LUA_TILESET_NEWINDEX            106
+#define PROFILE_LUA_TILESET_NEW                 107
+
+#define PROFILE_LUA_MAP_NEW                     108
+
 
 #ifdef ESE_PROFILE_ENABLED
 

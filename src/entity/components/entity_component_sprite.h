@@ -7,7 +7,7 @@
 #include <string.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
-#define SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
+#define ENTITY_COMPONENT_SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;

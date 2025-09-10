@@ -3,30 +3,15 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stddef.h>
+
+#define TILESET_PROXY_META "TilesetProxyMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
 
-/**
- * @brief Represents a weighted sprite entry for tile mapping.
- */
-typedef struct EseSpriteWeight {
-    char *sprite_id;   /**< The sprite string (heap-allocated) */
-    uint16_t weight;   /**< Weight for random selection (must be > 0) */
-} EseSpriteWeight;
-
-/**
- * @brief Represents a mapping for a single tile ID to weighted sprites.
- */
-typedef struct EseTileMapping {
-    EseSpriteWeight *sprites;  /**< Array of weighted sprites */
-    size_t sprite_count;       /**< Number of sprites in this mapping */
-    size_t sprite_capacity;    /**< Allocated capacity for sprites array */
-    uint32_t total_weight;     /**< Sum of all weights for fast selection */
-} EseTileMapping;
 
 /**
  * @brief Tile system that maps tile IDs to weighted sprite lists.
@@ -34,16 +19,9 @@ typedef struct EseTileMapping {
  * @details
  * This structure provides a mapping from tile_id (uint8_t) to weighted
  * lists of sprite_ids (strings). Supports weighted random selection.
- * Integrated with Lua via proxy tables.
+ * Integrated with Lua via userdata with reference counting.
  */
-typedef struct EseTileSet {
-    EseTileMapping mappings[256]; /**< Mappings indexed by tile_id */
-    uint32_t rng_seed;
-
-    // Lua integration
-    lua_State *state;  /**< Lua State this EseTileSet belongs to */
-    int lua_ref;       /**< Lua registry reference to its own proxy table */
-} EseTileSet;
+typedef struct EseTileSet EseTileSet;
 
 /* ----------------- Lua API ----------------- */
 
@@ -51,7 +29,7 @@ typedef struct EseTileSet {
  * @brief Initializes the EseTileSet userdata type in the Lua state.
  *
  * @details
- * Creates and registers the "TilesProxyMeta" metatable with
+ * Creates and registers the "TilesetProxyMeta" metatable with
  * __index, __newindex, __gc, and __tostring metamethods.
  * This allows EseTileSet objects to be used naturally from Lua
  * with dot notation and automatic garbage collection.
@@ -61,59 +39,138 @@ typedef struct EseTileSet {
 void tileset_lua_init(EseLuaEngine *engine);
 
 /**
- * @brief Pushes a registered EseTileSet proxy table back onto the Lua stack.
- *
- * @param tiles Pointer to the EseTileSet object
+ * @brief Pushes a EseTileSet object to the Lua stack.
+ * 
+ * @details If the tileset has no Lua references (lua_ref == LUA_NOREF), creates a new
+ *          userdata. If the tileset has Lua references, retrieves the existing
+ *          userdata from the registry.
+ * 
+ * @param tiles Pointer to the EseTileSet object to push to Lua
  */
 void tileset_lua_push(EseTileSet *tiles);
 
 /**
- * @brief Extracts a EseTileSet pointer from a Lua proxy table with type safety.
- *
- * @details
- * Retrieves the C EseTileSet pointer from the "__ptr" field of a Lua
- * table that was created by tileset_lua_push(). Performs type checking
- * to ensure the object is a valid EseTileSet proxy table with the correct
- * metatable and userdata pointer.
- *
+ * @brief Extracts a EseTileSet pointer from a Lua userdata object with type safety.
+ * 
+ * @details Retrieves the C EseTileSet pointer from the userdata
+ *          that was created by tileset_lua_push(). Performs
+ *          type checking to ensure the object is a valid EseTileSet userdata
+ *          with the correct metatable.
+ * 
  * @param L Lua state pointer
  * @param idx Stack index of the Lua EseTileSet object
- * @return Pointer to the EseTileSet object, or NULL if extraction fails
- *
- * @warning Returns NULL for invalid objects — always check return value before use.
+ * @return Pointer to the EseTileSet object, or NULL if extraction fails or type check fails
+ * 
+ * @warning Returns NULL for invalid objects - always check return value before use
  */
 EseTileSet *tileset_lua_get(lua_State *L, int idx);
+
+/**
+ * @brief References a EseTileSet object for Lua access with reference counting.
+ * 
+ * @details If tiles->lua_ref is LUA_NOREF, pushes the tileset to Lua and references it,
+ *          setting lua_ref_count to 1. If tiles->lua_ref is already set, increments
+ *          the reference count by 1. This prevents the tileset from being garbage
+ *          collected while C code holds references to it.
+ * 
+ * @param tiles Pointer to the EseTileSet object to reference
+ */
+void tileset_ref(EseTileSet *tiles);
+
+/**
+ * @brief Unreferences a EseTileSet object, decrementing the reference count.
+ * 
+ * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua reference
+ *          is removed from the registry. This function does NOT free memory.
+ * 
+ * @param tiles Pointer to the EseTileSet object to unreference
+ */
+void tileset_unref(EseTileSet *tiles);
 
 /* ----------------- C API ----------------- */
 
 /**
  * @brief Creates a new EseTileSet object.
- *
- * @details
- * Allocates memory for a new EseTileSet and initializes all mappings to empty.
- * If `c_only` is false, the object is also registered with Lua and
- * wrapped in a proxy table. If true, the object exists only in C.
- *
+ * 
+ * @details Allocates memory for a new EseTileSet and initializes all mappings to empty.
+ *          The tileset is created without Lua references and must be explicitly
+ *          referenced with tileset_ref() if Lua access is desired.
+ * 
  * @param engine Pointer to a EseLuaEngine
- * @param c_only True if this object won't be accessible in Lua
  * @return Pointer to newly created EseTileSet object
- *
- * @warning The returned EseTileSet must be freed with tileset_destroy()
- *          to prevent memory leaks.
+ * 
+ * @warning The returned EseTileSet must be freed with tileset_destroy() to prevent memory leaks
  */
-EseTileSet *tileset_create(EseLuaEngine *engine, bool c_only);
+EseTileSet *tileset_create(EseLuaEngine *engine);
 
 /**
- * @brief Destroys a EseTileSet object and frees its memory.
- *
- * @details
- * Frees the memory allocated by tileset_create(), including all sprite strings
- * and arrays. If the object was registered with Lua, its registry reference
- * is also released.
- *
+ * @brief Copies a source EseTileSet into a new EseTileSet object.
+ * 
+ * @details This function creates a deep copy of an EseTileSet object. It allocates a new EseTileSet
+ *          struct and copies all members, including the sprite mappings. The copy is created without 
+ *          Lua references and must be explicitly referenced with tileset_ref() if Lua access is desired.
+ * 
+ * @param source Pointer to the source EseTileSet to copy.
+ * @return A new, distinct EseTileSet object that is a copy of the source.
+ * 
+ * @warning The returned EseTileSet must be freed with tileset_destroy() to prevent memory leaks.
+ */
+EseTileSet *tileset_copy(const EseTileSet *source);
+
+/**
+ * @brief Destroys a EseTileSet object, managing memory based on Lua references.
+ * 
+ * @details If the tileset has no Lua references (lua_ref == LUA_NOREF), frees memory immediately.
+ *          If the tileset has Lua references, decrements the reference counter.
+ *          When the counter reaches 0, removes the Lua reference and lets
+ *          Lua's garbage collector handle final cleanup.
+ * 
+ * @note If the tileset is Lua-owned, memory may not be freed immediately.
+ *       Lua's garbage collector will finalize it once no references remain.
+ * 
  * @param tiles Pointer to the EseTileSet object to destroy
  */
 void tileset_destroy(EseTileSet *tiles);
+
+/**
+ * @brief Gets the size of the EseTileSet structure in bytes.
+ * 
+ * @return The size of the EseTileSet structure in bytes
+ */
+size_t tileset_sizeof(void);
+
+// Lua-related access
+/**
+ * @brief Gets the Lua state associated with this tileset.
+ * 
+ * @param tiles Pointer to the EseTileSet object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *tileset_get_state(const EseTileSet *tiles);
+
+/**
+ * @brief Gets the Lua registry reference for this tileset.
+ * 
+ * @param tiles Pointer to the EseTileSet object
+ * @return The Lua registry reference value
+ */
+int tileset_get_lua_ref(const EseTileSet *tiles);
+
+/**
+ * @brief Gets the Lua reference count for this tileset.
+ * 
+ * @param tiles Pointer to the EseTileSet object
+ * @return The current reference count
+ */
+int tileset_get_lua_ref_count(const EseTileSet *tiles);
+
+/**
+ * @brief Gets the RNG seed of the tileset
+ * 
+ * @param tiles Pointer to the EseTileSet
+ * @return The current RNG seed value
+ */
+uint32_t tileset_get_rng_seed(const EseTileSet *tiles);
 
 /* ----------------- Sprite Management ----------------- */
 

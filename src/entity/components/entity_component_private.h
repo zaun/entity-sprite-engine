@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include "entity/entity.h"
 
-#define SHAPE_PROXY_META "EntityComponentShapeProxyMeta"
-#define SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;

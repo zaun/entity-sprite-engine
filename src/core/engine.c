@@ -63,7 +63,7 @@ EseEngine *engine_create(const char *startup_script) {
     display_state_lua_init(engine->lua_engine);
     ese_input_state_lua_init(engine->lua_engine);
     map_lua_init(engine->lua_engine);
-    mapcell_lua_init(engine->lua_engine);
+    ese_mapcell_lua_init(engine->lua_engine);
     ese_point_lua_init(engine->lua_engine);
     ese_ray_lua_init(engine->lua_engine);
     ese_rect_lua_init(engine->lua_engine);
@@ -90,7 +90,7 @@ EseEngine *engine_create(const char *startup_script) {
 
     engine->display_state = display_state_create(engine->lua_engine);
     display_state_ref(engine->display_state);
-    lua_engine_add_global(engine->lua_engine, "Display", engine->display_state->lua_ref);
+    lua_engine_add_global(engine->lua_engine, "Display", display_state_get_lua_ref(engine->display_state));
 
     engine->camera_state = camera_state_create(engine->lua_engine);
     camera_state_ref(engine->camera_state);
@@ -265,10 +265,10 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Display and camera updates
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     // Camera's view rectangle (centered)
-    float view_left   = ese_point_get_x(engine->camera_state->position) - engine->display_state->viewport.width  / 2.0f;
-    float view_right  = ese_point_get_x(engine->camera_state->position) + engine->display_state->viewport.width  / 2.0f;
-    float view_top    = ese_point_get_y(engine->camera_state->position) - engine->display_state->viewport.height / 2.0f;
-    float view_bottom = ese_point_get_y(engine->camera_state->position) + engine->display_state->viewport.height / 2.0f;
+    float view_left   = ese_point_get_x(engine->camera_state->position) - display_state_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_right  = ese_point_get_x(engine->camera_state->position) + display_state_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_top    = ese_point_get_y(engine->camera_state->position) - display_state_get_viewport_height(engine->display_state) / 2.0f;
+    float view_bottom = ese_point_get_y(engine->camera_state->position) + display_state_get_viewport_height(engine->display_state) / 2.0f;
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_display_camera");
 
     // Entity PASS ONE - Update each active entity.
@@ -361,8 +361,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
             entity,
             ese_point_get_x(engine->camera_state->position),
             ese_point_get_y(engine->camera_state->position),
-            engine->display_state->viewport.width,
-            engine->display_state->viewport.height,
+            display_state_get_viewport_width(engine->display_state),
+            display_state_get_viewport_height(engine->display_state),
             _engine_add_texture_to_draw_list,
             _engine_add_rect_to_draw_list,
             engine->draw_list
@@ -377,8 +377,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         console_draw(
             engine->console,
             engine->asset_manager,
-            engine->display_state->viewport.width,
-            engine->display_state->viewport.height,
+            display_state_get_viewport_width(engine->display_state),
+            display_state_get_viewport_height(engine->display_state),
             _engine_add_texture_to_draw_list,
             _engine_add_rect_to_draw_list,
             engine->draw_list
@@ -391,7 +391,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     EseRenderList *render_list = _engine_get_render_list(engine);
     render_list_clear(render_list);
-    render_list_set_size(render_list, engine->display_state->viewport.width, engine->display_state->viewport.height);
+    render_list_set_size(render_list, display_state_get_viewport_width(engine->display_state), display_state_get_viewport_height(engine->display_state));
     render_list_fill(render_list, engine->draw_list);
 
     // Flip the updated render list to be active

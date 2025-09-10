@@ -30,7 +30,7 @@ static void _entity_component_collider_register(EseEntityComponentCollider *comp
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, COLLIDER_PROXY_META);
+    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_COLLIDER_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -155,7 +155,7 @@ EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx
     }
     
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, COLLIDER_PROXY_META);
+    luaL_getmetatable(L, ENTITY_COMPONENT_COLLIDER_PROXY_META);
     
     // Compare metatables
     if (!lua_rawequal(L, -1, -2)) {
@@ -604,9 +604,9 @@ void _entity_component_collider_init(EseLuaEngine *engine) {
     lua_State *L = engine->runtime;
     
     // Register EseEntityComponentCollider metatable
-    if (luaL_newmetatable(L, COLLIDER_PROXY_META)) {
+    if (luaL_newmetatable(L, ENTITY_COMPONENT_COLLIDER_PROXY_META)) {
         log_debug("LUA", "Adding EntityComponentColliderProxyMeta to engine");
-        lua_pushstring(L, COLLIDER_PROXY_META);
+        lua_pushstring(L, ENTITY_COMPONENT_COLLIDER_PROXY_META);
         lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_collider_index);
         lua_setfield(L, -2, "__index");

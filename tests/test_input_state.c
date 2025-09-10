@@ -411,6 +411,10 @@ static void test_ese_input_state_lua_init(void) {
     luaL_getmetatable(L, INPUT_STATE_PROXY_META);
     TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
     lua_pop(L, 1);
+
+    luaL_getmetatable(L, INPUT_STATE_PROXY_META "_KEY");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Key Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
     lua_getglobal(L, "Input");
     TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Input table should not exist before initialization");
@@ -421,6 +425,11 @@ static void test_ese_input_state_lua_init(void) {
     luaL_getmetatable(L, INPUT_STATE_PROXY_META);
     TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
     TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
+    
+    luaL_getmetatable(L, INPUT_STATE_PROXY_META "_KEY");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Key Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Key Metatable should be a table");
     lua_pop(L, 1);
     
     // No global Input table should exist after initialization
@@ -783,7 +792,6 @@ static void test_ese_input_state_lua_tostring(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
     const char *result = lua_tostring(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
-    printf("tostring result: %s\n", result);
     TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Input:") != NULL, "tostring should contain 'Input:'");
     lua_pop(L, 1); 
 

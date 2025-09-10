@@ -4,7 +4,7 @@
 #include <string.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
-#define LUA_PROXY_META "EntityComponentLuaProxyMeta"
+#define ENTITY_COMPONENT_LUA_PROXY_META "EntityComponentLuaProxyMeta"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;

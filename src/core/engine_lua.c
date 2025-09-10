@@ -181,10 +181,9 @@ int _lua_asset_get_map(lua_State *L) {
     // Get engine reference
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseMap *found = asset_manager_get_map(engine->asset_manager, map_id);
-    log_debug("ENGINE", "Map %p %d", found, found->lua_ref);
     
     if (found) {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, found->lua_ref);
+        map_lua_push(found);
     } else {
         lua_pushnil(L);
     }

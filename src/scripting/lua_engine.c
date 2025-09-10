@@ -636,7 +636,7 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
         lua_pop(L, 1); // error message
         
         // Log the error first
-        log_error("LUA_ENGINE", "Error running function: %s", error_message);
+        log_error("LUA_ENGINE", "(lua_engine_run_function_ref) Error running function: %s", error_message);
         
         // Try to add to console if engine is available
         lua_pushlightuserdata(L, (void*)ENGINE_KEY);
@@ -906,7 +906,10 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
                 lua_pop(L, 1);
             }
             
+            profile_cancel(PROFILE_LUA_ENGINE_RUN_FUNCTION);
+            profile_count_add("lua_eng_run_func_failed");
             ok = false;
+            return ok;
         }
     } else {
         // Standard path: use engine wrapper
@@ -922,7 +925,7 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
             lua_pop(L, 1); // error message
             
             // Log the error first
-            log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, error_message);
+            log_error("LUA_ENGINE", "(lua_engine_run_function) Standard path, Error running function '%s': %s", func_name, error_message);
             
             // Try to add to console if engine is available
             lua_pushlightuserdata(L, (void*)ENGINE_KEY);
@@ -979,7 +982,7 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
         lua_pop(L, 1); // error message
         
         // Log the error first
-        log_error("LUA_ENGINE", "Error running function '%s': %s", func_name, error_message);
+        log_error("LUA_ENGINE", "(lua_engine_run_function) Fast path Error running function '%s': %s", func_name, error_message);
         
         // Try to add to console if engine is available
         lua_pushlightuserdata(L, (void*)ENGINE_KEY);

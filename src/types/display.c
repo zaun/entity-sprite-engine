@@ -5,6 +5,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/display.h"
+#include "types/display_private.h"
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
@@ -413,4 +414,54 @@ void display_state_set_viewport(EseDisplay *display, int width, int height) {
     
     display->viewport.width = width;
     display->viewport.height = height;
+}
+
+// Getter functions
+bool display_state_get_fullscreen(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_fullscreen called with NULL display");
+    return display->fullscreen;
+}
+
+int display_state_get_width(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_width called with NULL display");
+    return display->width;
+}
+
+int display_state_get_height(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_height called with NULL display");
+    return display->height;
+}
+
+float display_state_get_aspect_ratio(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_aspect_ratio called with NULL display");
+    return display->aspect_ratio;
+}
+
+int display_state_get_viewport_width(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_viewport_width called with NULL display");
+    return display->viewport.width;
+}
+
+int display_state_get_viewport_height(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_viewport_height called with NULL display");
+    return display->viewport.height;
+}
+
+lua_State *display_state_get_state(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_state called with NULL display");
+    return display->state;
+}
+
+int display_state_get_lua_ref_count(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_lua_ref_count called with NULL display");
+    return display->lua_ref_count;
+}
+
+int display_state_get_lua_ref(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "display_state_get_lua_ref called with NULL display");
+    return display->lua_ref;
+}
+
+size_t display_state_sizeof(void) {
+    return sizeof(EseDisplay);
 }

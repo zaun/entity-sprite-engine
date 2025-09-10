@@ -652,7 +652,7 @@ bool asset_manager_load_map(
     }
 
     // Create a tileset (C-only, not Lua-registered)
-    EseTileSet *tileset = tileset_create(lua, true);
+    EseTileSet *tileset = tileset_create(lua);
     if (!tileset) {
         log_error("ASSET_MANAGER", "Failed to create tileset for %s", filename);
         cJSON_Delete(json);
@@ -745,12 +745,6 @@ bool asset_manager_load_map(
 
     // Create map (C-only, not Lua-registered)
     EseMap *map = map_create(lua, (uint32_t)width, (uint32_t)height, map_type, false);
-    if (!map) {
-        log_error("ASSET_MANAGER", "Failed to create map struct for %s", filename);
-        tileset_destroy(tileset);
-        cJSON_Delete(json);
-        return false;
-    }
 
     // Set metadata if present
     cJSON *title_item = cJSON_GetObjectItem(json, "title");
@@ -829,7 +823,7 @@ bool asset_manager_load_map(
                 return false;
             }
 
-            if (!mapcell_add_layer(dst, tile_id)) {
+            if (!ese_mapcell_add_layer(dst, tile_id)) {
                 log_error("ASSET_MANAGER", "Failed to add layer for tile %d at cell %d in %s",
                           tile_id, ci, filename);
                 map_destroy(map);
@@ -842,15 +836,15 @@ bool asset_manager_load_map(
         // Optional flags
         cJSON *flags_item = cJSON_GetObjectItem(cell_obj, "flags");
         if (flags_item && cJSON_IsNumber(flags_item)) {
-            dst->flags = (uint32_t)flags_item->valueint;
+            ese_mapcell_set_flags(dst, (uint32_t)flags_item->valueint);
         }
 
         // Optional isDynamic
         cJSON *dyn_item = cJSON_GetObjectItem(cell_obj, "isDynamic");
         if (dyn_item) {
-            if (dyn_item->type == cJSON_True) dst->isDynamic = true;
-            else if (dyn_item->type == cJSON_False) dst->isDynamic = false;
-            else if (cJSON_IsNumber(dyn_item)) dst->isDynamic = (dyn_item->valueint != 0);
+            if (dyn_item->type == cJSON_True) ese_mapcell_set_is_dynamic(dst, true);
+            else if (dyn_item->type == cJSON_False) ese_mapcell_set_is_dynamic(dst, false);
+            else if (cJSON_IsNumber(dyn_item)) ese_mapcell_set_is_dynamic(dst, (dyn_item->valueint != 0));
         }
     }
 

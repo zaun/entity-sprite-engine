@@ -23,7 +23,7 @@ static void _entity_component_map_register(EseEntityComponentMap *component, boo
     lua_pushboolean(component->base.lua->runtime, is_lua_owned);
     lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
 
-    luaL_getmetatable(component->base.lua->runtime, MAP_PROXY_META);
+    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_MAP_PROXY_META);
     lua_setmetatable(component->base.lua->runtime, -2);
 
     // Store a reference to this proxy table in the Lua registry
@@ -150,7 +150,7 @@ EseEntityComponentMap *_entity_component_map_get(lua_State *L, int idx)
     }
 
     // Get the expected metatable for comparison
-    luaL_getmetatable(L, MAP_PROXY_META);
+    luaL_getmetatable(L, ENTITY_COMPONENT_MAP_PROXY_META);
 
     // Compare metatables
     if (!lua_rawequal(L, -1, -2))
@@ -280,7 +280,16 @@ static int _entity_component_map_newindex(lua_State *L)
     }
     else if (strcmp(key, "map") == 0)
     {
+        if (component->map) {
+            map_unref(component->map);
+        }
+        printf("Setting map\n");
         component->map = map_lua_get(L, 3);
+        if (!component->map) {
+            return luaL_error(L, "map must be a Map object");
+        }
+
+        map_ref(component->map);
 
         if (component->sprite_frames) {
             memory_manager.free(component->sprite_frames);
@@ -400,10 +409,10 @@ void _entity_component_map_init(EseLuaEngine *engine)
     lua_State *L = engine->runtime;
 
     // Register EntityComponentMap metatable
-    if (luaL_newmetatable(L, MAP_PROXY_META))
+    if (luaL_newmetatable(L, ENTITY_COMPONENT_MAP_PROXY_META))
     {
-        log_debug("LUA", "Adding %s to engine", MAP_PROXY_META);
-        lua_pushstring(L, MAP_PROXY_META);
+        log_debug("LUA", "Adding %s to engine", ENTITY_COMPONENT_MAP_PROXY_META);
+        lua_pushstring(L, ENTITY_COMPONENT_MAP_PROXY_META);
         lua_setfield(L, -2, "__name");
         lua_pushcfunction(L, _entity_component_map_index);
         lua_setfield(L, -2, "__index");
@@ -458,9 +467,9 @@ void _entity_component_map_draw_grid(
             float dx = screen_x + (x - cx) * tw;
             float dy = screen_y + (y - cy) * th;
 
-            for (size_t i = 0; i < cell->layer_count; i++)
+            for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = cell->tile_ids[i];
+                uint8_t tid = ese_mapcell_get_layer(cell, i);
                 const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
@@ -526,9 +535,9 @@ void _entity_component_map_draw_hex_point_up(
                 dx += tw / 2.0f;
             }
 
-            for (size_t i = 0; i < cell->layer_count; i++)
+            for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = cell->tile_ids[i];
+                uint8_t tid = ese_mapcell_get_layer(cell, i);
                 const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
@@ -594,9 +603,9 @@ void _entity_component_map_draw_hex_flat_up(
                 dy += th / 2.0f;
             }
 
-            for (size_t i = 0; i < cell->layer_count; i++)
+            for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = cell->tile_ids[i];
+                uint8_t tid = ese_mapcell_get_layer(cell, i);
                 const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
@@ -657,9 +666,9 @@ void _entity_component_map_draw_iso(
             float dx = screen_x + (x - cx) * (tw / 2.0f) - (y - cy) * (tw / 2.0f);
             float dy = screen_y + (x - cx) * (th / 2.0f) + (y - cy) * (th / 2.0f);
 
-            for (size_t i = 0; i < cell->layer_count; i++)
+            for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = cell->tile_ids[i];
+                uint8_t tid = ese_mapcell_get_layer(cell, i);
                 const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {

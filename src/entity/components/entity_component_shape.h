@@ -5,7 +5,7 @@
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 #include "types/poly_line.h" // EsePolyLine
 
-#define SHAPE_PROXY_META "EntityComponentShapeProxyMeta"
+#define ENTITY_COMPONENT_SHAPE_PROXY_META "EntityComponentShapeProxyMeta"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;

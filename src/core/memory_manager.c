@@ -10,6 +10,7 @@
 
 #define DEBUG_MEMORY_MANAGER 0
 #define MEMORY_TRACKING 1
+#define MEMORY_TRACK_FREE 1
 
 #if DEBUG_MEMORY_MANAGER
 #define DEBUG_PRINTF(fmt, ...) do { printf(fmt, ##__VA_ARGS__); fflush(stdout); } while(0)
@@ -43,6 +44,9 @@ typedef struct {
 
 struct MemoryManager {
     AllocEntry *alloc_table[ALLOC_TABLE_SIZE];  /**< Hash table for tracking allocations */
+#if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
+    AllocEntry *freed_table[ALLOC_TABLE_SIZE];  /**< Hash table for tracking freed allocations */
+#endif
     MemStats global;                            /**< Global memory usage statistics */
     MemStats tags[MMTAG_COUNT];                 /**< Per-tag memory usage statistics */
 };
@@ -108,6 +112,57 @@ static AllocEntry *_find_and_remove_alloc(MemoryManager *manager, void *ptr) {
     DEBUG_PRINTF("TRACK_FREE: WARNING - %p not found in allocation table\n", ptr);
     return NULL;
 }
+
+#if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
+static AllocEntry *_find_in_freed_table(MemoryManager *manager, void *ptr) {
+    size_t hash = _hash_ptr(ptr);
+    
+    AllocEntry *entry = manager->freed_table[hash];
+    while (entry) {
+        if (entry->ptr == ptr) {
+            return entry;
+        }
+        entry = entry->next;
+    }
+    return NULL;
+}
+
+static void _add_to_freed_table(MemoryManager *manager, AllocEntry *entry) {
+    size_t hash = _hash_ptr(entry->ptr);
+    
+    // Create a copy of the entry for the freed table
+    AllocEntry *freed_entry = (AllocEntry *)malloc(sizeof(AllocEntry));
+    if (!freed_entry) return; // Tracking failure, but don't fail the free
+    
+    // Copy all the data
+    freed_entry->ptr = entry->ptr;
+    freed_entry->size = entry->size;
+    freed_entry->tag = entry->tag;
+    freed_entry->next = manager->freed_table[hash];
+#if MEMORY_TRACKING == 1
+    // Copy backtrace data
+    freed_entry->bt_size = entry->bt_size;
+    for (int i = 0; i < entry->bt_size && i < 16; i++) {
+        freed_entry->bt[i] = entry->bt[i];
+    }
+#endif
+    
+    manager->freed_table[hash] = freed_entry;
+}
+
+static void _print_backtrace(AllocEntry *entry) {
+    if (entry->bt_size > 0) {
+        char **symbols = backtrace_symbols(entry->bt, entry->bt_size);
+        if (symbols) {
+            fprintf(stderr, "      Backtrace (most recent first):\n");
+            for (int bi = 0; bi < entry->bt_size; bi++) {
+                fprintf(stderr, "        %s\n", symbols[bi]);
+            }
+            free(symbols);
+        }
+    }
+}
+#endif
 
 static void _abort_with_report(MemoryManager *manager, const char *msg) {
     if (manager) {
@@ -207,9 +262,37 @@ static void _mm_free(void *ptr) {
     DEBUG_PRINTF("FREE: freeing ptr=%p\n", ptr);
     
     MemoryManager *manager = _get_manager();
+    AllocEntry *entry = NULL;
     
-    // Find and remove the allocation entry
-    AllocEntry *entry = _find_and_remove_alloc(manager, ptr);
+#if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
+    // Check for double-free: pointer must be in freed table AND not in allocation table
+    AllocEntry *freed_entry = _find_in_freed_table(manager, ptr);
+    if (freed_entry) {
+        // Double-check that it's not currently allocated (realloc case)
+        AllocEntry *current_entry = _find_and_remove_alloc(manager, ptr);
+        if (!current_entry) {
+            // Not currently allocated, so this is a true double-free
+            const char *tagname = (freed_entry->tag >= 0 && freed_entry->tag < MMTAG_COUNT) ? 
+                                 mem_tag_names[freed_entry->tag] : "UNKNOWN";
+            fprintf(stderr, "\n=== DOUBLE-FREE DETECTED ===\n");
+            fprintf(stderr, "Pointer: %p\n", ptr);
+            fprintf(stderr, "Size: %zu bytes\n", freed_entry->size);
+            fprintf(stderr, "Tag: %s\n", tagname);
+            fprintf(stderr, "This pointer was already freed previously.\n");
+            _print_backtrace(freed_entry);
+            _abort_with_report(manager, "Double-free detected");
+        } else {
+            // It was in allocation table, so this is a legitimate free
+            // We already removed it above, so continue with normal free processing
+            entry = current_entry;
+        }
+    }
+#endif
+
+    // Find and remove the allocation entry (if not already found above)
+    if (!entry) {
+        entry = _find_and_remove_alloc(manager, ptr);
+    }
     if (entry) {
         size_t size = entry->size;
         MemTag tag = entry->tag;
@@ -224,12 +307,16 @@ static void _mm_free(void *ptr) {
             s->total_frees++;
         }
         
-        free(entry); // Free the tracking entry
+#if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
+        // Add to freed table for double-free detection
+        _add_to_freed_table(manager, entry);
+        DEBUG_PRINTF("FREE: added to freed table for double-free detection\n");
+#endif
+        free(entry); // Free the original tracking entry
         DEBUG_PRINTF("FREE: updated stats for %zu bytes, tag %d\n", size, tag);
     } else {
-        // Not tracked (shouldn't happen) - just count the free
-        manager->global.total_frees++;
-        DEBUG_PRINTF("FREE: untracked pointer freed\n");
+        // Not tracked (shouldn't happen) - this should never happen
+        log_assert(0, "Attempting to free untracked pointer %p", ptr);
     }
     
     free(ptr);
@@ -384,6 +471,18 @@ static void _mm_destroy(void) {
             entry = next;
         }
     }
+    
+#if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
+    // Free any remaining freed tracking entries
+    for (size_t i = 0; i < ALLOC_TABLE_SIZE; i++) {
+        AllocEntry *entry = g_memory_manager->freed_table[i];
+        while (entry) {
+            AllocEntry *next = entry->next;
+            free(entry);
+            entry = next;
+        }
+    }
+#endif
     
     free(g_memory_manager);
     g_memory_manager = NULL;

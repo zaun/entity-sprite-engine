@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define MAP_PROXY_META "MapProxyMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -50,7 +52,8 @@ typedef struct EseMap {
     // Lua integration
     lua_State *state;                /**< Lua State this EseMap belongs to */
     EseLuaEngine *engine;            /**< Engine reference for creating cells */
-    int lua_ref;                     /**< Lua registry reference to its own proxy table */
+    int lua_ref;                     /**< Lua registry reference to its own userdata */
+    int lua_ref_count;               /**< Number of times this map has been referenced in C */
 } EseMap;
 
 /* ----------------- Lua API ----------------- */
@@ -91,6 +94,29 @@ void map_lua_push(EseMap *map);
  * @warning Returns NULL for invalid objects — always check return value before use.
  */
 EseMap *map_lua_get(lua_State *L, int idx);
+
+/**
+ * @brief Increments the reference count for a EseMap object.
+ *
+ * @details
+ * When a EseMap is referenced from C code, this function should be called
+ * to prevent it from being garbage collected by Lua. Each call to map_ref
+ * should be matched with a call to map_unref.
+ *
+ * @param map Pointer to the EseMap object
+ */
+void map_ref(EseMap *map);
+
+/**
+ * @brief Decrements the reference count for a EseMap object.
+ *
+ * @details
+ * When a EseMap is no longer referenced from C code, this function should
+ * be called to allow it to be garbage collected by Lua when appropriate.
+ *
+ * @param map Pointer to the EseMap object
+ */
+void map_unref(EseMap *map);
 
 /* ----------------- C API ----------------- */
 

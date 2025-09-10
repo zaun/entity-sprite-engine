@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 
-#define COLLIDER_PROXY_META "EntityComponentColliderProxyMeta"
+#define ENTITY_COMPONENT_COLLIDER_PROXY_META "EntityComponentColliderProxyMeta"
 
 // Forward declarations
 typedef struct EseSprite EseSprite;

@@ -1,6 +1,7 @@
 #include <string.h>
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
 #include "types/map.h"
 #include "types/map_cell.h"
@@ -17,45 +18,16 @@ static char *_strdup_safe(const char *src) {
 }
 
 static bool _allocate_cells_array(EseMap *map) {
-    if (!map || map->width == 0 || map->height == 0) return false;
+    if (!map || map->width == 0 || map->height == 0 || !map->engine) return false;
 
     map->cells = (EseMapCell ***)memory_manager.malloc(
         sizeof(EseMapCell **) * map->height, MMTAG_MAP);
     if (!map->cells) return false;
 
     for (uint32_t y = 0; y < map->height; y++) {
-        map->cells[y] = (EseMapCell **)memory_manager.malloc(
-            sizeof(EseMapCell *) * map->width, MMTAG_MAP);
-        if (!map->cells[y]) {
-            for (uint32_t cleanup_y = 0; cleanup_y < y; cleanup_y++) {
-                for (uint32_t x = 0; x < map->width; x++) {
-                    if (map->cells[cleanup_y][x]) {
-                        mapcell_destroy(map->cells[cleanup_y][x]);
-                    }
-                }
-                memory_manager.free(map->cells[cleanup_y]);
-            }
-            memory_manager.free(map->cells);
-            map->cells = NULL;
-            return false;
-        }
-
+        map->cells[y] = (EseMapCell **)memory_manager.malloc(sizeof(EseMapCell *) * map->width, MMTAG_MAP);
         for (uint32_t x = 0; x < map->width; x++) {
-            EseMapCell *cell = mapcell_create((EseLuaEngine *)map->engine, false);
-            if (!cell) {
-                // cleanup
-                for (uint32_t yy = 0; yy <= y; yy++) {
-                    for (uint32_t xx = 0; xx < (yy == y ? x : map->width); xx++) {
-                        if (map->cells[yy][xx]) {
-                            mapcell_destroy(map->cells[yy][xx]);
-                        }
-                    }
-                    memory_manager.free(map->cells[yy]);
-                }
-                memory_manager.free(map->cells);
-                map->cells = NULL;
-                return false;
-            }
+            EseMapCell *cell = ese_mapcell_create((EseLuaEngine *)map->engine);
             map->cells[y][x] = cell;
         }
     }
@@ -69,7 +41,7 @@ static void _free_cells_array(EseMap *map) {
         if (map->cells[y]) {
             for (uint32_t x = 0; x < map->width; x++) {
                 if (map->cells[y][x]) {
-                    mapcell_destroy(map->cells[y][x]);
+                    ese_mapcell_destroy(map->cells[y][x]);
                 }
             }
             memory_manager.free(map->cells[y]);
@@ -79,45 +51,33 @@ static void _free_cells_array(EseMap *map) {
     map->cells = NULL;
 }
 
-static void _map_lua_register(EseMap *map, bool is_lua_owned) {
-    log_assert("MAP", map, "_map_lua_register called with NULL map");
-    log_assert("MAP", map->lua_ref == LUA_NOREF,
-               "_map_lua_register map already registered");
-
-    lua_State *L = map->state;
-    lua_newtable(L);
-
-    lua_pushlightuserdata(L, map);
-    lua_setfield(L, -2, "__ptr");
-
-    lua_pushboolean(L, is_lua_owned);
-    lua_setfield(L, -2, "__is_lua_owned");
-
-    luaL_getmetatable(L, "MapProxyMeta");
-    lua_setmetatable(L, -2);
-
-    if (is_lua_owned) {
-        // Lua-owned: no storage needed, proxy table goes directly to Lua
-        map->lua_ref = LUA_NOREF;
-    } else {
-        // C-owned: store hard reference to prevent garbage collection
-        map->lua_ref = luaL_ref(map->state, LUA_REGISTRYINDEX);
-    }
+static EseMap *_map_make(uint32_t width, uint32_t height, EseMapType type) {
+    EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_MAP);
+    map->title = _strdup_safe("Untitled Map");
+    map->author = _strdup_safe("Unknown");
+    map->version = 0;
+    map->type = type;
+    map->tileset = NULL;
+    map->width = width;
+    map->height = height;
+    map->cells = NULL;
+    map->lua_ref = LUA_NOREF;
+    map->lua_ref_count = 0;
+    
+    return map;
 }
 
 void map_lua_push(EseMap *map) {
     log_assert("MAP", map, "map_lua_push called with NULL map");
 
+    log_debug("MAP", "map_lua_push called with map %s", map->title);
     if (map->lua_ref == LUA_NOREF) {
-        // Lua-owned: create a new proxy table since we don't store them
-        lua_newtable(map->state);
-        lua_pushlightuserdata(map->state, map);
-        lua_setfield(map->state, -2, "__ptr");
-        
-        lua_pushboolean(map->state, true);
-        lua_setfield(map->state, -2, "__is_lua_owned");
-        
-        luaL_getmetatable(map->state, "MapProxyMeta");
+        // Lua-owned: create a new userdata
+        EseMap **ud = (EseMap **)lua_newuserdata(map->state, sizeof(EseMap *));
+        *ud = map;
+
+        // Attach metatable
+        luaL_getmetatable(map->state, MAP_PROXY_META);
         lua_setmetatable(map->state, -2);
     } else {
         // C-owned: get from registry
@@ -137,12 +97,24 @@ static int _map_lua_get_cell(lua_State *L) {
     uint32_t x = (uint32_t)lua_tonumber(L, 2);
     uint32_t y = (uint32_t)lua_tonumber(L, 3);
 
+    if (x >= map->width || y >= map->height ) {
+        lua_pushnil(L);
+        return 1;
+    }
+
     EseMapCell *cell = map_get_cell(map, x, y);
     if (!cell) {
         lua_pushnil(L);
         return 1;
     }
-    mapcell_lua_push(cell);
+    
+    // Check if the cell has a valid state pointer for Lua operations
+    if (!ese_mapcell_get_state(cell)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    
+    ese_mapcell_lua_push(cell);
     return 1;
 }
 
@@ -156,7 +128,7 @@ static int _map_lua_set_cell(lua_State *L) {
     uint32_t x = (uint32_t)lua_tonumber(L, 2);
     uint32_t y = (uint32_t)lua_tonumber(L, 3);
 
-    EseMapCell *new_cell = mapcell_lua_get(L, 4);
+    EseMapCell *new_cell = ese_mapcell_lua_get(L, 4);
     if (!new_cell) return luaL_error(L, "set_cell requires a valid MapCell");
 
     if (!map_set_cell(map, x, y, new_cell)) {
@@ -218,7 +190,7 @@ static int _map_lua_index(lua_State *L) {
         lua_pushnumber(L, map->height);
         return 1;
     } else if (strcmp(key, "tileset") == 0) {
-        if (map->tileset && map->tileset->lua_ref != LUA_NOREF) {
+        if (map->tileset) {
             tileset_lua_push(map->tileset);
         } else {
             lua_pushnil(L);
@@ -265,16 +237,22 @@ static int _map_lua_newindex(lua_State *L) {
 }
 
 static int _map_lua_gc(lua_State *L) {
-    EseMap *map = map_lua_get(L, 1);
+    // Get from userdata
+    EseMap **ud = (EseMap **)luaL_testudata(L, 1, MAP_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
+    
+    EseMap *map = *ud;
     if (map) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
+        // If lua_ref == LUA_NOREF, there are no more references to this map, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this map was referenced from C and should not be freed.
+        if (map->lua_ref == LUA_NOREF) {
             map_destroy(map);
         }
     }
+
     return 0;
 }
 
@@ -286,7 +264,7 @@ static int _map_lua_tostring(lua_State *L) {
     }
 
     char buf[160];
-    snprintf(buf, sizeof(buf), "Map: %p (title=%s, size=%ux%u, type=%s)",
+    snprintf(buf, sizeof(buf), "Map: %p (title=%s, width=%u, height=%u, type=%s)",
              (void *)map,
              map->title ? map->title : "(null)",
              map->width, map->height,
@@ -298,29 +276,51 @@ static int _map_lua_tostring(lua_State *L) {
 /* ----------------- Lua Init ----------------- */
 
 static int _map_lua_new(lua_State *L) {
-    if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2))
+    profile_start(PROFILE_LUA_MAP_NEW);
+
+    if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2)) {
+        profile_cancel(PROFILE_LUA_MAP_NEW);
         return luaL_error(L, "Map.new(width, height, [type]) requires at least two numbers");
+    }
 
     uint32_t width = (uint32_t)lua_tonumber(L, 1);
     uint32_t height = (uint32_t)lua_tonumber(L, 2);
     EseMapType type = MAP_TYPE_GRID;
 
+    if (width == 0 || height == 0) {
+        profile_cancel(PROFILE_LUA_MAP_NEW);
+        return luaL_error(L, "Map.new(width, height, [type]) width and height must be greater than 0");
+    }
+
     if (lua_isstring(L, 3)) {
         type = map_type_from_string(lua_tostring(L, 3));
     }
 
-    EseMap *map = map_create((EseLuaEngine *)lua_getextraspace_lj(L), width, height, type, false);
-    _map_lua_register(map, true);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    EseMap *map = _map_make(width, height, type);
+    map->engine = engine;
+    map->state = engine->runtime;
+    
+    // Allocate cells after setting the correct state
+    _allocate_cells_array(map);
 
-    // The proxy table is already on the stack from _map_lua_register
-    // Just return it - no need to call map_lua_push
+    // Create userdata directly
+    EseMap **ud = (EseMap **)lua_newuserdata(L, sizeof(EseMap *));
+    *ud = map;
+
+    // Attach metatable
+    luaL_getmetatable(L, MAP_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    profile_stop(PROFILE_LUA_MAP_NEW, "map_lua_new");
     return 1;
 }
 
 void map_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "MapProxyMeta")) {
-        log_debug("LUA", "Adding MapProxyMeta");
-        lua_pushstring(engine->runtime, "MapProxyMeta");
+    log_assert("MAP", engine, "map_lua_init called with NULL engine");
+    if (luaL_newmetatable(engine->runtime, MAP_PROXY_META)) {
+        log_debug("LUA", "Adding MapProxyMeta to engine");
+        lua_pushstring(engine->runtime, MAP_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
         lua_pushcfunction(engine->runtime, _map_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
@@ -351,63 +351,86 @@ void map_lua_init(EseLuaEngine *engine) {
 /* ----------------- C API ----------------- */
 
 EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMapType type, bool c_only) {
-    if (width == 0 || height == 0) return NULL;
-
-    EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_MAP);
-    map->title = _strdup_safe("Untitled Map");
-    map->author = _strdup_safe("Unknown");
-    map->version = 0;
-    map->type = type;
-    map->tileset = NULL;
-    map->width = width;
-    map->height = height;
-    map->cells = NULL;
-    map->state = engine->runtime;
+    log_assert("MAP", engine, "map_create called with NULL engine");
+    EseMap *map = _map_make(width, height, type);
     map->engine = engine;
-    map->lua_ref = LUA_NOREF;
-
-    if (!_allocate_cells_array(map)) {
-        if (map->title) memory_manager.free(map->title);
-        if (map->author) memory_manager.free(map->author);
-        memory_manager.free(map);
-        return NULL;
-    }
-
-    if (!c_only) {
-        _map_lua_register(map, false);
-    }
+    map->state = engine->runtime;
+    _allocate_cells_array(map);
     return map;
 }
 
 void map_destroy(EseMap *map) {
-    if (map) {
-        if (map->lua_ref != LUA_NOREF) {
-            luaL_unref(map->state, LUA_REGISTRYINDEX, map->lua_ref);
-        }
-        _free_cells_array(map);
-        if (map->title) memory_manager.free(map->title);
-        if (map->author) memory_manager.free(map->author);
+    if (!map) return;
+    
+    _free_cells_array(map);
+    if (map->tileset) tileset_destroy(map->tileset);
+    if (map->title) memory_manager.free(map->title);
+    if (map->author) memory_manager.free(map->author);
+    
+    if (map->lua_ref == LUA_NOREF) {
+        // No Lua references, safe to free immediately
         memory_manager.free(map);
+    } else {
+        // Don't free memory here - let Lua GC handle it
+        // As the script may still have a reference to it.
+        map_unref(map);
     }
 }
 
 EseMap *map_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) return NULL;
-    if (!lua_getmetatable(L, idx)) return NULL;
-    luaL_getmetatable(L, "MapProxyMeta");
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2);
+    log_assert("MAP", L, "map_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
-    lua_pop(L, 2);
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
+    
+    // Get the userdata and check metatable
+    EseMap **ud = (EseMap **)luaL_testudata(L, idx, MAP_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
-    void *ptr = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    return (EseMap *)ptr;
+    
+    return *ud;
+}
+
+void map_ref(EseMap *map) {
+    log_assert("MAP", map, "map_ref called with NULL map");
+    
+    if (map->lua_ref == LUA_NOREF) {
+        // First time referencing - create userdata and store reference
+        EseMap **ud = (EseMap **)lua_newuserdata(map->state, sizeof(EseMap *));
+        *ud = map;
+
+        // Attach metatable
+        luaL_getmetatable(map->state, MAP_PROXY_META);
+        lua_setmetatable(map->state, -2);
+
+        // Store hard reference to prevent garbage collection
+        map->lua_ref = luaL_ref(map->state, LUA_REGISTRYINDEX);
+        map->lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        map->lua_ref_count++;
+    }
+
+    profile_count_add("map_ref_count");
+}
+
+void map_unref(EseMap *map) {
+    if (!map) return;
+    
+    if (map->lua_ref != LUA_NOREF && map->lua_ref_count > 0) {
+        map->lua_ref_count--;
+        
+        if (map->lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(map->state, LUA_REGISTRYINDEX, map->lua_ref);
+            map->lua_ref = LUA_NOREF;
+        }
+    }
+
+    profile_count_add("map_unref_count");
 }
 
 EseMapCell *map_get_cell(const EseMap *map, uint32_t x, uint32_t y) {
@@ -420,11 +443,11 @@ bool map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell) {
 
     // Destroy old cell
     if (map->cells[y][x]) {
-        mapcell_destroy(map->cells[y][x]);
+        ese_mapcell_destroy(map->cells[y][x]);
     }
 
     // Replace with new cell (C-owned)
-    map->cells[y][x] = mapcell_copy(cell, false);
+    map->cells[y][x] = ese_mapcell_copy(cell);
     return map->cells[y][x] != NULL;
 }
 
@@ -477,8 +500,8 @@ bool map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
     for (uint32_t y = 0; y < copy_height; y++) {
         for (uint32_t x = 0; x < copy_width; x++) {
             if (old_cells[y][x]) {
-                mapcell_destroy(map->cells[y][x]);
-                map->cells[y][x] = mapcell_copy(old_cells[y][x], false);
+                ese_mapcell_destroy(map->cells[y][x]);
+                map->cells[y][x] = ese_mapcell_copy(old_cells[y][x]);
             }
         }
     }
@@ -488,7 +511,7 @@ bool map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
         if (old_cells[y]) {
             for (uint32_t x = 0; x < old_width; x++) {
                 if (old_cells[y][x]) {
-                    mapcell_destroy(old_cells[y][x]);
+                    ese_mapcell_destroy(old_cells[y][x]);
                 }
             }
             memory_manager.free(old_cells[y]);

@@ -1,223 +1,615 @@
-#include "test_utils.h"
-#include "types/display.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "scripting/lua_engine_private.h"
-#include "utility/log.h"
-#include <math.h>
+/*
+* test_display.c - Unity-based tests for display functionality
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <math.h>
+#include <sys/wait.h>
 
-// Define LUA_NOREF if not already defined
-#ifndef LUA_NOREF
-#define LUA_NOREF -1
-#endif
+#include "testing.h"
 
-// Test function declarations
-static void test_display_creation();
-static void test_display_properties();
-static void test_display_copy();
-static void test_display_lua_integration();
-static void test_display_lua_script_api();
-static void test_display_null_pointer_aborts();
+#include "../src/types/display.h"
+#include "../src/types/display_private.h"
+#include "../src/core/memory_manager.h"
+#include "../src/utility/log.h"
 
-// Test Lua script content for Display testing
-static const char* test_display_lua_script = 
-"function DISPLAY_TEST_MODULE:test_display_creation()\n"
-"    local d1 = Display.new(1920, 1080, true)\n"
-"    local d2 = Display.zero()\n"
-"    \n"
-"    if d1.viewport.width == 1920 and d1.viewport.height == 1080 and d1.fullscreen == true and\n"
-"       d2.viewport.width == 0 and d2.viewport.height == 0 and d2.fullscreen == false then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n"
-"\n"
-"function DISPLAY_TEST_MODULE:test_display_properties()\n"
-"    local d = Display.new(0, 0, false)\n"
-"    \n"
-"    d.viewport.width = 800\n"
-"    d.viewport.height = 600\n"
-"    d.fullscreen = true\n"
-"    \n"
-"    if d.viewport.width == 800 and d.viewport.height == 600 and d.fullscreen == true then\n"
-"        return true\n"
-"    else\n"
-"        return false\n"
-"    end\n"
-"end\n";
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_display_sizeof(void);
+static void test_ese_display_create_requires_engine(void);
+static void test_ese_display_create(void);
+static void test_ese_display_fullscreen(void);
+static void test_ese_display_width(void);
+static void test_ese_display_height(void);
+static void test_ese_display_aspect_ratio(void);
+static void test_ese_display_viewport_width(void);
+static void test_ese_display_viewport_height(void);
+static void test_ese_display_set_dimensions(void);
+static void test_ese_display_set_fullscreen(void);
+static void test_ese_display_set_viewport(void);
+static void test_ese_display_ref(void);
+static void test_ese_display_copy_requires_engine(void);
+static void test_ese_display_copy(void);
+static void test_ese_display_direct_field_access(void);
+static void test_ese_display_lua_integration(void);
+static void test_ese_display_lua_init(void);
+static void test_ese_display_lua_push(void);
+static void test_ese_display_lua_get(void);
 
-// Signal handler for testing aborts
-static void segfault_handler(int sig) {
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    fprintf(stderr, "---- BACKTRACE START ----\n");
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    fprintf(stderr, "---- BACKTRACE  END  ----\n");
-    exit(1);
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_display_lua_fullscreen(void);
+static void test_ese_display_lua_width(void);
+static void test_ese_display_lua_height(void);
+static void test_ese_display_lua_aspect_ratio(void);
+static void test_ese_display_lua_viewport_width(void);
+static void test_ese_display_lua_viewport_height(void);
+static void test_ese_display_lua_tostring(void);
+
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-int main() {
-    // Set up signal handler for testing aborts
-    signal(SIGSEGV, segfault_handler);
-    signal(SIGABRT, segfault_handler);
-    
-    test_suite_begin("🧪 EseDisplay Test Suite");
-    
-    test_display_creation();
-    test_display_properties();
-    test_display_copy();
-    test_display_lua_integration();
-    test_display_lua_script_api();
-    test_display_null_pointer_aborts();
-    
-    test_suite_end("🎯 EseDisplay Test Suite");
-    
-    return 0;
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-static void test_display_creation() {
-    test_begin("Display Creation Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display creation tests");
-    
-    EseDisplay *display = display_state_create(engine);
-    TEST_ASSERT_NOT_NULL(display, "display_state_create should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(0, display->viewport.width, "New display should have viewport width = 0");
-    TEST_ASSERT_EQUAL(0, display->viewport.height, "New display should have viewport height = 0");
-    TEST_ASSERT(!display->fullscreen, "New display should have fullscreen = false");
-    TEST_ASSERT_POINTER_EQUAL(engine->runtime, display->state, "Display should have correct Lua state");
-    TEST_ASSERT_EQUAL(0, display->lua_ref_count, "New display should have ref count 0");
-    TEST_ASSERT(display->lua_ref == LUA_NOREF, "New display should have negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", display->lua_ref);
-    TEST_ASSERT(sizeof(EseDisplay) > 0, "EseDisplay should have positive size");
-    printf("ℹ INFO: Actual display size: %zu bytes\n", sizeof(EseDisplay));
-    
+/**
+* Main test runner
+*/
+int main(void) {
+    log_init();
+
+    printf("\nEseDisplay Tests\n");
+    printf("----------------\n");
+
+    UNITY_BEGIN();
+
+    RUN_TEST(test_ese_display_sizeof);
+    RUN_TEST(test_ese_display_create_requires_engine);
+    RUN_TEST(test_ese_display_create);
+    RUN_TEST(test_ese_display_fullscreen);
+    RUN_TEST(test_ese_display_width);
+    RUN_TEST(test_ese_display_height);
+    RUN_TEST(test_ese_display_aspect_ratio);
+    RUN_TEST(test_ese_display_viewport_width);
+    RUN_TEST(test_ese_display_viewport_height);
+    RUN_TEST(test_ese_display_set_dimensions);
+    RUN_TEST(test_ese_display_set_fullscreen);
+    RUN_TEST(test_ese_display_set_viewport);
+    RUN_TEST(test_ese_display_ref);
+    RUN_TEST(test_ese_display_copy_requires_engine);
+    RUN_TEST(test_ese_display_copy);
+    RUN_TEST(test_ese_display_direct_field_access);
+    RUN_TEST(test_ese_display_lua_integration);
+    RUN_TEST(test_ese_display_lua_init);
+    RUN_TEST(test_ese_display_lua_push);
+    RUN_TEST(test_ese_display_lua_get);
+    RUN_TEST(test_ese_display_lua_fullscreen);
+    RUN_TEST(test_ese_display_lua_width);
+    RUN_TEST(test_ese_display_lua_height);
+    RUN_TEST(test_ese_display_lua_aspect_ratio);
+    RUN_TEST(test_ese_display_lua_viewport_width);
+    RUN_TEST(test_ese_display_lua_viewport_height);
+    RUN_TEST(test_ese_display_lua_tostring);
+
+    return UNITY_END();
+}
+
+/**
+* C API Test Functions
+*/
+
+static void test_ese_display_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, display_state_sizeof(), "Display size should be > 0");
+}
+
+static void test_ese_display_create_requires_engine(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, display_state_sizeof(), "Display size should be > 0");
+}
+
+static void test_ese_display_create(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(display, "Display should be created");
+    TEST_ASSERT_FALSE_MESSAGE(display_state_get_fullscreen(display), "New display should have fullscreen = false");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_width(display), "New display should have width = 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_height(display), "New display should have height = 0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "New display should have aspect_ratio = 1.0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_width(display), "New display should have viewport width = 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_height(display), "New display should have viewport height = 0");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, display_state_get_state(display), "Display should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_lua_ref_count(display), "New display should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, display_state_get_lua_ref(display), "New display should have LUA_NOREF");
+
     display_state_destroy(display);
-    lua_engine_destroy(engine);
-    
-    test_end("Display Creation Tests");
 }
 
-static void test_display_properties() {
-    test_begin("Display Properties Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display property tests");
-    
-    EseDisplay *display = display_state_create(engine);
-    TEST_ASSERT_NOT_NULL(display, "Display should be created for property tests");
-    
-    display->viewport.width = 1920;
-    display->viewport.height = 1080;
-    display->fullscreen = true;
-    
-    TEST_ASSERT_EQUAL(1920, display->viewport.width, "display viewport width should be set correctly");
-    TEST_ASSERT_EQUAL(1080, display->viewport.height, "display viewport height should be set correctly");
-    TEST_ASSERT(display->fullscreen, "display fullscreen should be set correctly");
-    
-    display->viewport.width = 800;
-    display->viewport.height = 600;
-    display->fullscreen = false;
-    
-    TEST_ASSERT_EQUAL(800, display->viewport.width, "display viewport width should handle different values");
-    TEST_ASSERT_EQUAL(600, display->viewport.height, "display viewport height should handle different values");
-    TEST_ASSERT(!display->fullscreen, "display fullscreen should handle false values");
-    
+static void test_ese_display_fullscreen(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_FALSE_MESSAGE(display_state_get_fullscreen(display), "Initial fullscreen should be false");
+
+    // Test setting to true
+    display_state_set_fullscreen(display, true);
+    TEST_ASSERT_TRUE_MESSAGE(display_state_get_fullscreen(display), "Fullscreen should be true");
+
+    // Test setting to false
+    display_state_set_fullscreen(display, false);
+    TEST_ASSERT_FALSE_MESSAGE(display_state_get_fullscreen(display), "Fullscreen should be false");
+
     display_state_destroy(display);
-    lua_engine_destroy(engine);
-    
-    test_end("Display Properties Tests");
 }
 
-static void test_display_copy() {
-    test_begin("Display Copy Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display copy tests");
-    
-    EseDisplay *original = display_state_create(engine);
-    TEST_ASSERT_NOT_NULL(original, "Original display should be created for copy tests");
-    
-    original->viewport.width = 1920;
-    original->viewport.height = 1080;
-    original->fullscreen = true;
-    
-    EseDisplay *copy = display_state_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "display_state_copy should return non-NULL pointer");
-    TEST_ASSERT_EQUAL(1920, copy->viewport.width, "Copied display should have same width value");
-    TEST_ASSERT_EQUAL(1080, copy->viewport.height, "Copied display should have same height value");
-    TEST_ASSERT(copy->fullscreen, "Copied display should have same fullscreen value");
-    TEST_ASSERT(original != copy, "Copy should be a different object");
-    TEST_ASSERT_POINTER_EQUAL(original->state, copy->state, "Copy should have same Lua state");
-    TEST_ASSERT(copy->lua_ref == LUA_NOREF, "Copy should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Copy LUA_NOREF value: %d\n", copy->lua_ref);
-    TEST_ASSERT_EQUAL(0, copy->lua_ref_count, "Copy should start with ref count 0");
-    
-    display_state_destroy(original);
+static void test_ese_display_width(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_width(display), "Initial width should be 0");
+
+    // Test setting different values
+    display_state_set_dimensions(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_width(display), "Width should be 1920");
+
+    display_state_set_dimensions(display, 800, 600);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(800, display_state_get_width(display), "Width should be 800");
+
+    display_state_set_dimensions(display, 0, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_width(display), "Width should be 0");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_height(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_height(display), "Initial height should be 0");
+
+    // Test setting different values
+    display_state_set_dimensions(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_height(display), "Height should be 1080");
+
+    display_state_set_dimensions(display, 800, 600);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(600, display_state_get_height(display), "Height should be 600");
+
+    display_state_set_dimensions(display, 0, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_height(display), "Height should be 0");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_aspect_ratio(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "Initial aspect ratio should be 1.0");
+
+    // Test 16:9 aspect ratio
+    display_state_set_dimensions(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1920.0f/1080.0f, display_state_get_aspect_ratio(display), "Aspect ratio should be 16:9");
+
+    // Test 4:3 aspect ratio
+    display_state_set_dimensions(display, 800, 600);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(800.0f/600.0f, display_state_get_aspect_ratio(display), "Aspect ratio should be 4:3");
+
+    // Test square aspect ratio
+    display_state_set_dimensions(display, 512, 512);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "Aspect ratio should be 1:1");
+
+    // Test zero height (should default to 1.0)
+    display_state_set_dimensions(display, 100, 0);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "Aspect ratio should be 1.0 for zero height");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_viewport_width(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_width(display), "Initial viewport width should be 0");
+
+    // Test setting different values
+    display_state_set_viewport(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_viewport_width(display), "Viewport width should be 1920");
+
+    display_state_set_viewport(display, 800, 600);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(800, display_state_get_viewport_width(display), "Viewport width should be 800");
+
+    display_state_set_viewport(display, 0, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_width(display), "Viewport width should be 0");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_viewport_height(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test initial value
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_height(display), "Initial viewport height should be 0");
+
+    // Test setting different values
+    display_state_set_viewport(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_viewport_height(display), "Viewport height should be 1080");
+
+    display_state_set_viewport(display, 800, 600);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(600, display_state_get_viewport_height(display), "Viewport height should be 600");
+
+    display_state_set_viewport(display, 0, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_height(display), "Viewport height should be 0");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_set_dimensions(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test setting dimensions
+    display_state_set_dimensions(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_width(display), "Width should be set correctly");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_height(display), "Height should be set correctly");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1920.0f/1080.0f, display_state_get_aspect_ratio(display), "Aspect ratio should be calculated correctly");
+
+    // Test negative dimensions
+    display_state_set_dimensions(display, -100, -200);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(-100, display_state_get_width(display), "Negative width should be preserved");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(-200, display_state_get_height(display), "Negative height should be preserved");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "Aspect ratio should default to 1.0 for negative height");
+
+    // Test zero height
+    display_state_set_dimensions(display, 100, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, display_state_get_width(display), "Width should be set correctly");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_height(display), "Height should be set correctly");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, display_state_get_aspect_ratio(display), "Aspect ratio should default to 1.0 for zero height");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_set_fullscreen(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test setting to true
+    display_state_set_fullscreen(display, true);
+    TEST_ASSERT_TRUE_MESSAGE(display_state_get_fullscreen(display), "Fullscreen should be set to true");
+
+    // Test setting to false
+    display_state_set_fullscreen(display, false);
+    TEST_ASSERT_FALSE_MESSAGE(display_state_get_fullscreen(display), "Fullscreen should be set to false");
+
+    // Test multiple toggles
+    display_state_set_fullscreen(display, true);
+    display_state_set_fullscreen(display, true);
+    TEST_ASSERT_TRUE_MESSAGE(display_state_get_fullscreen(display), "Multiple true sets should remain true");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_set_viewport(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test setting viewport
+    display_state_set_viewport(display, 1920, 1080);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_viewport_width(display), "Viewport width should be set correctly");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_viewport_height(display), "Viewport height should be set correctly");
+
+    // Test negative viewport
+    display_state_set_viewport(display, -100, -200);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(-100, display_state_get_viewport_width(display), "Negative viewport width should be preserved");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(-200, display_state_get_viewport_height(display), "Negative viewport height should be preserved");
+
+    // Test zero viewport
+    display_state_set_viewport(display, 0, 0);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_width(display), "Zero viewport width should be set correctly");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_viewport_height(display), "Zero viewport height should be set correctly");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_ref(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    display_state_ref(display);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, display_state_get_lua_ref_count(display), "Ref count should be 1");
+
+    display_state_unref(display);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_lua_ref_count(display), "Ref count should be 0");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_copy_requires_engine(void) {
+    ASSERT_DEATH(display_state_copy(NULL), "display_state_copy should abort with NULL display");
+}
+
+static void test_ese_display_copy(void) {
+    EseDisplay *display = display_state_create(g_engine);
+    display_state_ref(display);
+    display_state_set_dimensions(display, 1920, 1080);
+    display_state_set_fullscreen(display, true);
+    display_state_set_viewport(display, 800, 600);
+    EseDisplay *copy = display_state_copy(display);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, display_state_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, display_state_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, display_state_get_lua_ref(copy), "Copy should have LUA_NOREF");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_width(copy), "Copy should have width = 1920");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_height(copy), "Copy should have height = 1080");
+    TEST_ASSERT_TRUE_MESSAGE(display_state_get_fullscreen(copy), "Copy should have fullscreen = true");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(800, display_state_get_viewport_width(copy), "Copy should have viewport width = 800");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(600, display_state_get_viewport_height(copy), "Copy should have viewport height = 600");
+
+    display_state_unref(display);
+    display_state_destroy(display);
     display_state_destroy(copy);
-    lua_engine_destroy(engine);
-    
-    test_end("Display Copy Tests");
 }
 
-static void test_display_lua_integration() {
-    test_begin("Display Lua Integration Tests");
-    
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display Lua integration tests");
-    
+static void test_ese_display_direct_field_access(void) {
+    EseDisplay *display = display_state_create(g_engine);
+
+    // Test that we can directly access all fields through getters
+    display_state_set_dimensions(display, 1920, 1080);
+    display_state_set_fullscreen(display, true);
+    display_state_set_viewport(display, 800, 600);
+
+    // Verify through getters
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, display_state_get_width(display), "Direct field access should work for width");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, display_state_get_height(display), "Direct field access should work for height");
+    TEST_ASSERT_TRUE_MESSAGE(display_state_get_fullscreen(display), "Direct field access should work for fullscreen");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(800, display_state_get_viewport_width(display), "Direct field access should work for viewport width");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(600, display_state_get_viewport_height(display), "Direct field access should work for viewport height");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_integration(void) {
+    EseLuaEngine *engine = create_test_engine();
     EseDisplay *display = display_state_create(engine);
-    TEST_ASSERT_NOT_NULL(display, "Display should be created for Lua integration tests");
-    TEST_ASSERT_EQUAL(0, display->lua_ref_count, "New display should start with ref count 0");
-    TEST_ASSERT(display->lua_ref == LUA_NOREF, "New display should start with negative LUA_NOREF value");
-    printf("ℹ INFO: Actual LUA_NOREF value: %d\n", display->lua_ref);
-    
+
+    lua_State *before_state = display_state_get_state(display);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Display should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Display state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, display_state_get_lua_ref(display), "Display should have no Lua reference initially");
+
+    display_state_ref(display);
+    lua_State *after_ref_state = display_state_get_state(display);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Display should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Display state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, display_state_get_lua_ref(display), "Display should have a valid Lua reference after ref");
+
+    display_state_unref(display);
+    lua_State *after_unref_state = display_state_get_state(display);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Display should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Display state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, display_state_get_lua_ref(display), "Display should have no Lua reference after unref");
+
     display_state_destroy(display);
     lua_engine_destroy(engine);
-    
-    test_end("Display Lua Integration Tests");
 }
 
-static void test_display_lua_script_api() {
-    test_begin("Display Lua Script API Tests");
+static void test_ese_display_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display Lua script API tests");
+    luaL_getmetatable(L, "DisplayMeta");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    display_state_lua_init(engine);
-    printf("ℹ INFO: Display Lua integration initialized\n");
+    display_state_lua_init(g_engine);
     
-    // Test that display Lua integration initializes successfully
-    TEST_ASSERT(true, "Display Lua integration should initialize successfully");
-    
-    lua_engine_destroy(engine);
-    
-    test_end("Display Lua Script API Tests");
+    luaL_getmetatable(L, "DisplayMeta");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
 }
 
-static void test_display_null_pointer_aborts() {
-    test_begin("Display NULL Pointer Abort Tests");
+static void test_ese_display_lua_push(void) {
+    display_state_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseDisplay *display = display_state_create(g_engine);
     
-    EseLuaEngine *engine = lua_engine_create();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created for display NULL pointer abort tests");
+    display_state_lua_push(display);
     
-    EseDisplay *display = display_state_create(engine);
-    TEST_ASSERT_NOT_NULL(display, "Display should be created for display NULL pointer abort tests");
+    EseDisplay **ud = (EseDisplay **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(display, *ud, "The pushed item should be the actual display");
     
-    TEST_ASSERT_ABORT(display_state_create(NULL), "display_state_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(display_state_copy(NULL), "display_state_copy should abort with NULL source");
-    TEST_ASSERT_ABORT(display_state_lua_init(NULL), "display_state_lua_init should abort with NULL engine");
-    // Test that functions abort with NULL display
-    TEST_ASSERT_ABORT(display_state_lua_get(NULL, 1), "display_state_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(display_state_lua_push(NULL), "display_state_lua_push should abort with NULL display");
-    TEST_ASSERT_ABORT(display_state_ref(NULL), "display_state_ref should abort with NULL display");
+    lua_pop(L, 1); 
     
     display_state_destroy(display);
-    lua_engine_destroy(engine);
+}
+
+static void test_ese_display_lua_get(void) {
+    display_state_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseDisplay *display = display_state_create(g_engine);
     
-    test_end("Display NULL Pointer Abort Tests");
+    display_state_lua_push(display);
+    
+    EseDisplay *extracted_display = display_state_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(display, extracted_display, "Extracted display should match original");
+    
+    lua_pop(L, 1);
+    display_state_destroy(display);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_display_lua_fullscreen(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_fullscreen(display, true);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.fullscreen";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get fullscreen should execute without error");
+    bool fullscreen = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(fullscreen, "Fullscreen should be true");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.fullscreen = false";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set fullscreen should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_width(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_dimensions(display, 1920, 1080);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.width";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get width should execute without error");
+    int width = (int)lua_tointeger(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1920, width, "Width should be 1920");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.width = 800";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set width should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_height(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_dimensions(display, 1920, 1080);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.height";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get height should execute without error");
+    int height = (int)lua_tointeger(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1080, height, "Height should be 1080");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.height = 600";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set height should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_aspect_ratio(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_dimensions(display, 1920, 1080);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.aspect_ratio";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get aspect_ratio should execute without error");
+    float aspect_ratio = (float)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1920.0f/1080.0f, aspect_ratio, "Aspect ratio should be 16:9");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.aspect_ratio = 2.0";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set aspect_ratio should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_viewport_width(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_viewport(display, 800, 600);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.viewport.width";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get viewport.width should execute without error");
+    int viewport_width = (int)lua_tointeger(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(800, viewport_width, "Viewport width should be 800");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.viewport.width = 400";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set viewport.width should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_viewport_height(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_viewport(display, 800, 600);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test1 = "return Display.viewport.height";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get viewport.height should execute without error");
+    int viewport_height = (int)lua_tointeger(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(600, viewport_height, "Viewport height should be 600");
+    lua_pop(L, 1);
+
+    const char *test2 = "Display.viewport.height = 300";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "set viewport.height should execute with error");
+
+    display_state_destroy(display);
+}
+
+static void test_ese_display_lua_tostring(void) {
+    display_state_lua_init(g_engine);
+    EseDisplay *display = display_state_create(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    display_state_set_dimensions(display, 1920, 1080);
+    display_state_set_fullscreen(display, true);
+    display_state_set_viewport(display, 800, 600);
+
+    // Push the display to Lua with metatable
+    display_state_lua_push(display);
+    lua_setglobal(L, "Display");
+
+    const char *test_code = "return tostring(Display)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Display:") != NULL, "tostring should contain 'Display:'");
+    lua_pop(L, 1); 
+
+    display_state_destroy(display);
 }

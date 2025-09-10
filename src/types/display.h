@@ -25,19 +25,12 @@ typedef struct {
 } EseViewport;
 
 /**
- * @brief A structure to hold the current state of the display.
+ * @brief Opaque structure for display state.
+ * 
+ * @details The actual structure definition is in display_private.h.
+ * This ensures the display remains opaque to external code.
  */
-typedef struct {
-    bool fullscreen;        /**< Whether the display is in fullscreen mode. */
-    int width;              /**< The width of the display in pixels. */
-    int height;             /**< The height of the display in pixels. */
-    float aspect_ratio;     /**< The aspect ratio of the display (width/height). */
-    EseViewport viewport;      /**< The current viewport configuration. */
-
-    lua_State *state;       /**< A pointer to the Lua state. */
-    int lua_ref;            /**< A reference to the Lua userdata object. */
-    int lua_ref_count;      /**< Number of times this display has been referenced in C */
-} EseDisplay;
+typedef struct EseDisplay EseDisplay;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -192,5 +185,85 @@ void display_state_set_fullscreen(EseDisplay *display, bool fullscreen);
  * @return void
  */
 void display_state_set_viewport(EseDisplay *display, int width, int height);
+
+// Getter functions
+/**
+ * @brief Gets the fullscreen state of the display.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The fullscreen state (true if fullscreen, false otherwise).
+ */
+bool display_state_get_fullscreen(const EseDisplay *display);
+
+/**
+ * @brief Gets the width of the display.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The width in pixels.
+ */
+int display_state_get_width(const EseDisplay *display);
+
+/**
+ * @brief Gets the height of the display.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The height in pixels.
+ */
+int display_state_get_height(const EseDisplay *display);
+
+/**
+ * @brief Gets the aspect ratio of the display.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The aspect ratio (width/height).
+ */
+float display_state_get_aspect_ratio(const EseDisplay *display);
+
+/**
+ * @brief Gets the viewport width.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The viewport width in pixels.
+ */
+int display_state_get_viewport_width(const EseDisplay *display);
+
+/**
+ * @brief Gets the viewport height.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The viewport height in pixels.
+ */
+int display_state_get_viewport_height(const EseDisplay *display);
+
+/**
+ * @brief Gets the Lua state pointer.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The Lua state pointer.
+ */
+lua_State *display_state_get_state(const EseDisplay *display);
+
+/**
+ * @brief Gets the Lua reference count.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The Lua reference count.
+ */
+int display_state_get_lua_ref_count(const EseDisplay *display);
+
+/**
+ * @brief Gets the Lua reference.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return The Lua reference (LUA_NOREF if not referenced).
+ */
+int display_state_get_lua_ref(const EseDisplay *display);
+
+/**
+ * @brief Gets the size of the EseDisplay structure.
+ * 
+ * @return The size in bytes of the EseDisplay structure.
+ */
+size_t display_state_sizeof(void);
 
 #endif // ESE_DISPLAY_STATE_H
