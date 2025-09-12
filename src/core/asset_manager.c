@@ -151,7 +151,7 @@ void _asset_free(
         memory_manager.free(texture);
     } else if (asset->type == ASSET_MAP) {
         EseMap *map = (EseMap *)asset->data;
-        map_destroy(map);
+        ese_map_destroy(map);
     } else {
         log_error("ASSET_MANAGER", "Unable to memory_manager.free unknown asset type");
     }
@@ -637,10 +637,10 @@ bool asset_manager_load_map(
     }
 
     // Map type
-    EseMapType map_type = MAP_TYPE_GRID;
+    EseMapType ese_map_type = MAP_TYPE_GRID;
     cJSON *type_item = cJSON_GetObjectItem(json, "type");
     if (cJSON_IsString(type_item)) {
-        map_type = map_type_from_string(type_item->valuestring);
+        ese_map_type = ese_map_type_from_string(type_item->valuestring);
     }
 
     // Tileset object must exist and be an object
@@ -652,7 +652,7 @@ bool asset_manager_load_map(
     }
 
     // Create a tileset (C-only, not Lua-registered)
-    EseTileSet *tileset = tileset_create(lua);
+    EseTileSet *tileset = ese_tileset_create(lua);
     if (!tileset) {
         log_error("ASSET_MANAGER", "Failed to create tileset for %s", filename);
         cJSON_Delete(json);
@@ -663,7 +663,7 @@ bool asset_manager_load_map(
     for (cJSON *tile_entry = tileset_obj->child; tile_entry; tile_entry = tile_entry->next) {
         if (!tile_entry->string) {
             log_error("ASSET_MANAGER", "Invalid tile key in tileset for %s", filename);
-            tileset_destroy(tileset);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
@@ -673,7 +673,7 @@ bool asset_manager_load_map(
         if (*endptr != '\0' || tid < 0 || tid > 255) {
             log_error("ASSET_MANAGER", "Invalid tile id '%s' in tileset for %s",
                       tile_entry->string, filename);
-            tileset_destroy(tileset);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
@@ -682,44 +682,44 @@ bool asset_manager_load_map(
         if (!cJSON_IsArray(tile_entry)) {
             log_error("ASSET_MANAGER", "Tileset entry for id %d is not an array in %s",
                       tile_id, filename);
-            tileset_destroy(tileset);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
 
         int mapping_count = cJSON_GetArraySize(tile_entry);
         for (int mi = 0; mi < mapping_count; mi++) {
-            cJSON *map_item = cJSON_GetArrayItem(tile_entry, mi);
-            if (!map_item || !cJSON_IsObject(map_item)) {
+            cJSON *ese_map_item = cJSON_GetArrayItem(tile_entry, mi);
+            if (!ese_map_item || !cJSON_IsObject(ese_map_item)) {
                 log_error("ASSET_MANAGER", "Malformed mapping for tile %d in %s",
                           tile_id, filename);
-                tileset_destroy(tileset);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
 
-            cJSON *sprite_item = cJSON_GetObjectItem(map_item, "sprite");
+            cJSON *sprite_item = cJSON_GetObjectItem(ese_map_item, "sprite");
             if (!sprite_item || !cJSON_IsString(sprite_item) ||
                 strlen(sprite_item->valuestring) == 0) {
                 log_error("ASSET_MANAGER", "Missing or invalid 'sprite' for tile %d in %s",
                           tile_id, filename);
-                tileset_destroy(tileset);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
             const char *sprite_str = sprite_item->valuestring;
 
-            cJSON *weight_item = cJSON_GetObjectItem(map_item, "weight");
+            cJSON *weight_item = cJSON_GetObjectItem(ese_map_item, "weight");
             int weight = 1;
             if (weight_item && cJSON_IsNumber(weight_item)) {
                 weight = weight_item->valueint;
             }
             if (weight <= 0) weight = 1;
 
-            if (!tileset_add_sprite(tileset, tile_id, sprite_str, (uint16_t)weight)) {
+            if (!ese_tileset_add_sprite(tileset, tile_id, sprite_str, (uint16_t)weight)) {
                 log_error("ASSET_MANAGER", "Failed to add sprite '%s' for tile %d in %s",
                           sprite_str, tile_id, filename);
-                tileset_destroy(tileset);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
@@ -730,7 +730,7 @@ bool asset_manager_load_map(
     cJSON *cells = cJSON_GetObjectItem(json, "cells");
     if (!cells || !cJSON_IsArray(cells)) {
         log_error("ASSET_MANAGER", "Map JSON missing or invalid 'cells' array: %s", filename);
-        tileset_destroy(tileset);
+        ese_tileset_destroy(tileset);
         cJSON_Delete(json);
         return false;
     }
@@ -738,26 +738,26 @@ bool asset_manager_load_map(
     if (cell_count != width * height) {
         log_error("ASSET_MANAGER", "Cells length (%d) != width*height (%d) in %s",
                   cell_count, width * height, filename);
-        tileset_destroy(tileset);
+        ese_tileset_destroy(tileset);
         cJSON_Delete(json);
         return false;
     }
 
     // Create map (C-only, not Lua-registered)
-    EseMap *map = map_create(lua, (uint32_t)width, (uint32_t)height, map_type, false);
+    EseMap *map = ese_map_create(lua, (uint32_t)width, (uint32_t)height, ese_map_type, false);
 
     // Set metadata if present
     cJSON *title_item = cJSON_GetObjectItem(json, "title");
     if (title_item && cJSON_IsString(title_item)) {
-        map_set_title(map, title_item->valuestring);
+        ese_map_set_title(map, title_item->valuestring);
     }
     cJSON *author_item = cJSON_GetObjectItem(json, "author");
     if (author_item && cJSON_IsString(author_item)) {
-        map_set_author(map, author_item->valuestring);
+        ese_map_set_author(map, author_item->valuestring);
     }
     cJSON *version_item = cJSON_GetObjectItem(json, "version");
     if (version_item && cJSON_IsNumber(version_item)) {
-        map_set_version(map, version_item->valueint);
+        ese_map_set_version(map, version_item->valueint);
     }
 
     // Parse and set each cell directly
@@ -765,8 +765,8 @@ bool asset_manager_load_map(
         cJSON *cell_obj = cJSON_GetArrayItem(cells, ci);
         if (!cell_obj || !cJSON_IsObject(cell_obj)) {
             log_error("ASSET_MANAGER", "Invalid cell object at index %d in %s", ci, filename);
-            map_destroy(map);
-            tileset_destroy(tileset);
+            ese_map_destroy(map);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
@@ -774,19 +774,19 @@ bool asset_manager_load_map(
         cJSON *layers = cJSON_GetObjectItem(cell_obj, "layers");
         if (!layers || !cJSON_IsArray(layers)) {
             log_error("ASSET_MANAGER", "Cell %d missing 'layers' array in %s", ci, filename);
-            map_destroy(map);
-            tileset_destroy(tileset);
+            ese_map_destroy(map);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
 
         uint32_t x = (uint32_t)(ci % width);
         uint32_t y = (uint32_t)(ci / width);
-        EseMapCell *dst = map_get_cell(map, x, y);
+        EseMapCell *dst = ese_map_get_cell(map, x, y);
         if (!dst) {
             log_error("ASSET_MANAGER", "Invalid cell coords (%u,%u) in %s", x, y, filename);
-            map_destroy(map);
-            tileset_destroy(tileset);
+            ese_map_destroy(map);
+            ese_tileset_destroy(tileset);
             cJSON_Delete(json);
             return false;
         }
@@ -797,8 +797,8 @@ bool asset_manager_load_map(
             if (!lid_item || !cJSON_IsNumber(lid_item)) {
                 log_error("ASSET_MANAGER", "Invalid layer id at cell %d layer %d in %s",
                           ci, li, filename);
-                map_destroy(map);
-                tileset_destroy(tileset);
+                ese_map_destroy(map);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
@@ -806,19 +806,19 @@ bool asset_manager_load_map(
             if (lid < 0 || lid > 255) {
                 log_error("ASSET_MANAGER", "Out of range tile id %ld at cell %d in %s",
                           lid, ci, filename);
-                map_destroy(map);
-                tileset_destroy(tileset);
+                ese_map_destroy(map);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
             uint8_t tile_id = (uint8_t)lid;
 
-            if (tileset_get_sprite_count(tileset, tile_id) == 0) {
+            if (ese_tileset_get_sprite_count(tileset, tile_id) == 0) {
                 log_error("ASSET_MANAGER",
                           "Tile id %d used in cells but not defined in tileset for %s",
                           tile_id, filename);
-                map_destroy(map);
-                tileset_destroy(tileset);
+                ese_map_destroy(map);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
@@ -826,8 +826,8 @@ bool asset_manager_load_map(
             if (!ese_mapcell_add_layer(dst, tile_id)) {
                 log_error("ASSET_MANAGER", "Failed to add layer for tile %d at cell %d in %s",
                           tile_id, ci, filename);
-                map_destroy(map);
-                tileset_destroy(tileset);
+                ese_map_destroy(map);
+                ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
@@ -849,7 +849,7 @@ bool asset_manager_load_map(
     }
 
     // Attach tileset to map
-    map_set_tileset(map, tileset);
+    ese_map_set_tileset(map, tileset);
 
     // Register group and store asset
     _asset_manager_add_group(manager, group);

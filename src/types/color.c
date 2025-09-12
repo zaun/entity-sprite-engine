@@ -32,28 +32,28 @@ typedef struct EseColor {
 // ========================================
 
 // Core helpers
-static EseColor *_color_make(void);
+static EseColor *_ese_color_make(void);
 
 // Watcher system
-static void _color_notify_watchers(EseColor *color);
+static void _ese_color_notify_watchers(EseColor *color);
 
 // Lua metamethods
-static int _color_lua_gc(lua_State *L);
-static int _color_lua_index(lua_State *L);
-static int _color_lua_newindex(lua_State *L);
-static int _color_lua_tostring(lua_State *L);
+static int _ese_color_lua_gc(lua_State *L);
+static int _ese_color_lua_index(lua_State *L);
+static int _ese_color_lua_newindex(lua_State *L);
+static int _ese_color_lua_tostring(lua_State *L);
 
 // Lua constructors
-static int _color_lua_new(lua_State *L);
-static int _color_lua_white(lua_State *L);
-static int _color_lua_black(lua_State *L);
-static int _color_lua_red(lua_State *L);
-static int _color_lua_green(lua_State *L);
-static int _color_lua_blue(lua_State *L);
+static int _ese_color_lua_new(lua_State *L);
+static int _ese_color_lua_white(lua_State *L);
+static int _ese_color_lua_black(lua_State *L);
+static int _ese_color_lua_red(lua_State *L);
+static int _ese_color_lua_green(lua_State *L);
+static int _ese_color_lua_blue(lua_State *L);
 
 // Lua utility methods
-static int _color_lua_set_hex(lua_State *L);
-static int _color_lua_set_byte(lua_State *L);
+static int _ese_color_lua_set_hex(lua_State *L);
+static int _ese_color_lua_set_byte(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -68,7 +68,7 @@ static int _color_lua_set_byte(lua_State *L);
  * 
  * @return Pointer to the newly created EseColor, or NULL on allocation failure
  */
-static EseColor *_color_make() {
+static EseColor *_ese_color_make() {
     EseColor *color = (EseColor *)memory_manager.malloc(sizeof(EseColor), MMTAG_COLOR);
     color->r = 0.0f;
     color->g = 0.0f;
@@ -94,7 +94,7 @@ static EseColor *_color_make() {
  * 
  * @param color Pointer to the EseColor that has changed
  */
-static void _color_notify_watchers(EseColor *color) {
+static void _ese_color_notify_watchers(EseColor *color) {
     if (!color || color->watcher_count == 0) return;
     
     for (size_t i = 0; i < color->watcher_count; i++) {
@@ -114,7 +114,7 @@ static void _color_notify_watchers(EseColor *color) {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _color_lua_gc(lua_State *L) {
+static int _ese_color_lua_gc(lua_State *L) {
     // Get from userdata
     EseColor **ud = (EseColor **)luaL_testudata(L, 1, "ColorMeta");
     if (!ud) {
@@ -127,7 +127,7 @@ static int _color_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this color was referenced from C and should not be freed.
         if (color->lua_ref == LUA_NOREF) {
-            color_destroy(color);
+            ese_color_destroy(color);
         }
     }
 
@@ -143,9 +143,9 @@ static int _color_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _color_lua_index(lua_State *L) {
+static int _ese_color_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_INDEX);
-    EseColor *color = color_lua_get(L, 1);
+    EseColor *color = ese_color_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!color || !key) {
         profile_cancel(PROFILE_LUA_COLOR_INDEX);
@@ -154,22 +154,30 @@ static int _color_lua_index(lua_State *L) {
 
     if (strcmp(key, "r") == 0) {
         lua_pushnumber(L, color->r);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "color_lua_index (getter)");
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "g") == 0) {
         lua_pushnumber(L, color->g);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "color_lua_index (getter)");
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "b") == 0) {
         lua_pushnumber(L, color->b);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "color_lua_index (getter)");
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "a") == 0) {
         lua_pushnumber(L, color->a);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "color_lua_index (getter)");
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "set_hex") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_set_hex);
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "set_byte") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_set_byte);
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
         return 1;
     }
-    profile_stop(PROFILE_LUA_COLOR_INDEX, "color_lua_index (invalid)");
+    profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (invalid)");
     return 0;
 }
 
@@ -183,9 +191,9 @@ static int _color_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _color_lua_newindex(lua_State *L) {
+static int _ese_color_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_NEWINDEX);
-    EseColor *color = color_lua_get(L, 1);
+    EseColor *color = ese_color_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!color || !key) {
         profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
@@ -193,43 +201,43 @@ static int _color_lua_newindex(lua_State *L) {
     }
 
     if (strcmp(key, "r") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
             return luaL_error(L, "color.r must be a number");
         }
         color->r = (float)lua_tonumber(L, 3);
-        _color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "color_lua_newindex (setter)");
+        _ese_color_notify_watchers(color);
+        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "g") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
             return luaL_error(L, "color.g must be a number");
         }
         color->g = (float)lua_tonumber(L, 3);
-        _color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "color_lua_newindex (setter)");
+        _ese_color_notify_watchers(color);
+        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "b") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
             return luaL_error(L, "color.b must be a number");
         }
         color->b = (float)lua_tonumber(L, 3);
-        _color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "color_lua_newindex (setter)");
+        _ese_color_notify_watchers(color);
+        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "a") == 0) {
-        if (!lua_isnumber(L, 3)) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
             return luaL_error(L, "color.a must be a number");
         }
         color->a = (float)lua_tonumber(L, 3);
-        _color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "color_lua_newindex (setter)");
+        _ese_color_notify_watchers(color);
+        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
         return 0;
     }
-    profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "color_lua_newindex (invalid)");
+    profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (invalid)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
@@ -242,8 +250,8 @@ static int _color_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _color_lua_tostring(lua_State *L) {
-    EseColor *color = color_lua_get(L, 1);
+static int _ese_color_lua_tostring(lua_State *L) {
+    EseColor *color = ese_color_lua_get(L, 1);
 
     if (!color) {
         lua_pushstring(L, "Color: (invalid)");
@@ -270,7 +278,7 @@ static int _color_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_new(lua_State *L) {
+static int _ese_color_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_NEW);
 
     int argc = lua_gettop(L);
@@ -280,7 +288,7 @@ static int _color_lua_new(lua_State *L) {
     }
 
     // Create the color
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->state = L;
 
     // Set values based on arguments provided
@@ -321,7 +329,7 @@ static int _color_lua_new(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_NEW, "color_lua_new");
+    profile_stop(PROFILE_LUA_COLOR_NEW, "ese_color_lua_new");
     return 1;
 }
 
@@ -334,9 +342,9 @@ static int _color_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_white(lua_State *L) {
+static int _ese_color_lua_white(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_WHITE);
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->r = 1.0f;
     color->g = 1.0f;
     color->b = 1.0f;
@@ -351,7 +359,7 @@ static int _color_lua_white(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_WHITE, "color_lua_white");
+    profile_stop(PROFILE_LUA_COLOR_WHITE, "ese_color_lua_white");
     return 1;
 }
 
@@ -364,9 +372,9 @@ static int _color_lua_white(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_black(lua_State *L) {
+static int _ese_color_lua_black(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_BLACK);
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->r = 0.0f;
     color->g = 0.0f;
     color->b = 0.0f;
@@ -381,7 +389,7 @@ static int _color_lua_black(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_BLACK, "color_lua_black");
+    profile_stop(PROFILE_LUA_COLOR_BLACK, "ese_color_lua_black");
     return 1;
 }
 
@@ -394,9 +402,9 @@ static int _color_lua_black(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_red(lua_State *L) {
+static int _ese_color_lua_red(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_RED);
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->r = 1.0f;
     color->g = 0.0f;
     color->b = 0.0f;
@@ -411,7 +419,7 @@ static int _color_lua_red(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_RED, "color_lua_red");
+    profile_stop(PROFILE_LUA_COLOR_RED, "ese_color_lua_red");
     return 1;
 }
 
@@ -424,9 +432,9 @@ static int _color_lua_red(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_green(lua_State *L) {
+static int _ese_color_lua_green(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_GREEN);
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->r = 0.0f;
     color->g = 1.0f;
     color->b = 0.0f;
@@ -441,7 +449,7 @@ static int _color_lua_green(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_GREEN, "color_lua_green");
+    profile_stop(PROFILE_LUA_COLOR_GREEN, "ese_color_lua_green");
     return 1;
 }
 
@@ -454,9 +462,9 @@ static int _color_lua_green(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _color_lua_blue(lua_State *L) {
+static int _ese_color_lua_blue(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_BLUE);
-    EseColor *color = _color_make();
+    EseColor *color = _ese_color_make();
     color->r = 0.0f;
     color->g = 0.0f;
     color->b = 1.0f;
@@ -471,7 +479,7 @@ static int _color_lua_blue(lua_State *L) {
     luaL_getmetatable(L, "ColorMeta");
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_COLOR_BLUE, "color_lua_blue");
+    profile_stop(PROFILE_LUA_COLOR_BLUE, "ese_color_lua_blue");
     return 1;
 }
 
@@ -484,24 +492,31 @@ static int _color_lua_blue(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _color_lua_set_hex(lua_State *L) {
+static int _ese_color_lua_set_hex(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_SET_HEX);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
+        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
+        return luaL_error(L, "Color.set_hex(hex_string) takes 1 argument");
+    }
     
-    EseColor *color = color_lua_get(L, 1);
+    if (lua_type(L, 2) != LUA_TSTRING) {
+        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
+        return luaL_error(L, "Color.set_hex(hex_string) arguments must be a string");
+    }
+    
+    EseColor *color = ese_color_lua_get(L, 1);
     const char *hex_string = lua_tostring(L, 2);
     
-    if (!color || !hex_string) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
-        return luaL_error(L, "set_hex requires a color and hex string");
-    }
-    
-    bool success = color_set_hex(color, hex_string);
+    bool success = ese_color_set_hex(color, hex_string);
     if (!success) {
         profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
-        return luaL_error(L, "Invalid hex string format");
+        return luaL_error(L, "Invalid hex string format (#RGB, #RRGGBB, #RGBA, #RRGGBBAA)");
     }
     
-    profile_stop(PROFILE_LUA_COLOR_SET_HEX, "color_lua_set_hex");
+    profile_stop(PROFILE_LUA_COLOR_SET_HEX, "ese_color_lua_set_hex");
     return 0;
 }
 
@@ -513,23 +528,27 @@ static int _color_lua_set_hex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _color_lua_set_byte(lua_State *L) {
+static int _ese_color_lua_set_byte(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_SET_BYTE);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 5) {
+        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        return luaL_error(L, "Color.set_byte(r, g, b, a) takes 4 arguments");
+    }
     
-    EseColor *color = color_lua_get(L, 1);
+    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER ||
+        lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER ||
+        lua_type(L, 5) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
+        return luaL_error(L, "Color.set_byte(r, g, b, a) arguments must be numbers");
+    }
+    
+    EseColor *color = ese_color_lua_get(L, 1);
     if (!color) {
         profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
         return luaL_error(L, "set_byte requires a color");
-    }
-    
-    if (lua_gettop(L) != 5) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
-        return luaL_error(L, "set_byte(r, g, b, a) takes 4 arguments");
-    }
-    
-    if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3) || !lua_isnumber(L, 4) || !lua_isnumber(L, 5)) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
-        return luaL_error(L, "All arguments must be numbers");
     }
     
     unsigned char r = (unsigned char)lua_tonumber(L, 2);
@@ -537,9 +556,9 @@ static int _color_lua_set_byte(lua_State *L) {
     unsigned char b = (unsigned char)lua_tonumber(L, 4);
     unsigned char a = (unsigned char)lua_tonumber(L, 5);
     
-    color_set_byte(color, r, g, b, a);
+    ese_color_set_byte(color, r, g, b, a);
     
-    profile_stop(PROFILE_LUA_COLOR_SET_BYTE, "color_lua_set_byte");
+    profile_stop(PROFILE_LUA_COLOR_SET_BYTE, "ese_color_lua_set_byte");
     return 0;
 }
 
@@ -548,15 +567,15 @@ static int _color_lua_set_byte(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseColor *color_create(EseLuaEngine *engine) {
-    log_assert("COLOR", engine, "color_create called with NULL engine");
-    EseColor *color = _color_make();
+EseColor *ese_color_create(EseLuaEngine *engine) {
+    log_assert("COLOR", engine, "ese_color_create called with NULL engine");
+    EseColor *color = _ese_color_make();
     color->state = engine->runtime;
     return color;
 }
 
-EseColor *color_copy(const EseColor *source) {
-    log_assert("COLOR", source, "color_copy called with NULL source");
+EseColor *ese_color_copy(const EseColor *source) {
+    log_assert("COLOR", source, "ese_color_copy called with NULL source");
     
     EseColor *copy = (EseColor *)memory_manager.malloc(sizeof(EseColor), MMTAG_COLOR);
     copy->r = source->r;
@@ -573,7 +592,7 @@ EseColor *color_copy(const EseColor *source) {
     return copy;
 }
 
-void color_destroy(EseColor *color) {
+void ese_color_destroy(EseColor *color) {
     if (!color) return;
     
     // Free watcher arrays if they exist
@@ -594,75 +613,75 @@ void color_destroy(EseColor *color) {
     } else {
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
-        color_unref(color);
+        ese_color_unref(color);
     }
 }
 
 // Property access
-void color_set_r(EseColor *color, float r) {
-    log_assert("COLOR", color, "color_set_r called with NULL color");
+void ese_color_set_r(EseColor *color, float r) {
+    log_assert("COLOR", color, "ese_color_set_r called with NULL color");
     color->r = r;
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
 }
 
-float color_get_r(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_r called with NULL color");
+float ese_color_get_r(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_r called with NULL color");
     return color->r;
 }
 
-void color_set_g(EseColor *color, float g) {
-    log_assert("COLOR", color, "color_set_g called with NULL color");
+void ese_color_set_g(EseColor *color, float g) {
+    log_assert("COLOR", color, "ese_color_set_g called with NULL color");
     color->g = g;
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
 }
 
-float color_get_g(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_g called with NULL color");
+float ese_color_get_g(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_g called with NULL color");
     return color->g;
 }
 
-void color_set_b(EseColor *color, float b) {
-    log_assert("COLOR", color, "color_set_b called with NULL color");
+void ese_color_set_b(EseColor *color, float b) {
+    log_assert("COLOR", color, "ese_color_set_b called with NULL color");
     color->b = b;
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
 }
 
-float color_get_b(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_b called with NULL color");
+float ese_color_get_b(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_b called with NULL color");
     return color->b;
 }
 
-void color_set_a(EseColor *color, float a) {
-    log_assert("COLOR", color, "color_set_a called with NULL color");
+void ese_color_set_a(EseColor *color, float a) {
+    log_assert("COLOR", color, "ese_color_set_a called with NULL color");
     color->a = a;
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
 }
 
-float color_get_a(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_a called with NULL color");
+float ese_color_get_a(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_a called with NULL color");
     return color->a;
 }
 
 // Lua-related access
-lua_State *color_get_state(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_state called with NULL color");
+lua_State *ese_color_get_state(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_state called with NULL color");
     return color->state;
 }
 
-int color_get_lua_ref(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_lua_ref called with NULL color");
+int ese_color_get_lua_ref(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_lua_ref called with NULL color");
     return color->lua_ref;
 }
 
-int color_get_lua_ref_count(const EseColor *color) {
-    log_assert("COLOR", color, "color_get_lua_ref_count called with NULL color");
+int ese_color_get_lua_ref_count(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_get_lua_ref_count called with NULL color");
     return color->lua_ref_count;
 }
 
 // Watcher system
-bool color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
-    log_assert("COLOR", color, "color_add_watcher called with NULL color");
-    log_assert("COLOR", callback, "color_add_watcher called with NULL callback");
+bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
+    log_assert("COLOR", color, "ese_color_add_watcher called with NULL color");
+    log_assert("COLOR", callback, "ese_color_add_watcher called with NULL callback");
     
     // Initialize watcher arrays if this is the first watcher
     if (color->watcher_count == 0) {
@@ -701,9 +720,9 @@ bool color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *
     return true;
 }
 
-bool color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
-    log_assert("COLOR", color, "color_remove_watcher called with NULL color");
-    log_assert("COLOR", callback, "color_remove_watcher called with NULL callback");
+bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
+    log_assert("COLOR", color, "ese_color_remove_watcher called with NULL color");
+    log_assert("COLOR", callback, "ese_color_remove_watcher called with NULL callback");
     
     for (size_t i = 0; i < color->watcher_count; i++) {
         if (color->watchers[i] == callback && color->watcher_userdata[i] == userdata) {
@@ -721,19 +740,19 @@ bool color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, voi
 }
 
 // Lua integration
-void color_lua_init(EseLuaEngine *engine) {
-    log_assert("COLOR", engine, "color_lua_init called with NULL engine");
+void ese_color_lua_init(EseLuaEngine *engine) {
+    log_assert("COLOR", engine, "ese_color_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, "ColorMeta")) {
         log_debug("LUA", "Adding entity ColorMeta to engine");
         lua_pushstring(engine->runtime, "ColorMeta");
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _color_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _color_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _color_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _color_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -746,17 +765,17 @@ void color_lua_init(EseLuaEngine *engine) {
         lua_pop(engine->runtime, 1); // Pop the nil value
         log_debug("LUA", "Creating global color table");
         lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _color_lua_new);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_new);
         lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _color_lua_white);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_white);
         lua_setfield(engine->runtime, -2, "white");
-        lua_pushcfunction(engine->runtime, _color_lua_black);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_black);
         lua_setfield(engine->runtime, -2, "black");
-        lua_pushcfunction(engine->runtime, _color_lua_red);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_red);
         lua_setfield(engine->runtime, -2, "red");
-        lua_pushcfunction(engine->runtime, _color_lua_green);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_green);
         lua_setfield(engine->runtime, -2, "green");
-        lua_pushcfunction(engine->runtime, _color_lua_blue);
+        lua_pushcfunction(engine->runtime, _ese_color_lua_blue);
         lua_setfield(engine->runtime, -2, "blue");
         lua_setglobal(engine->runtime, "Color");
     } else {
@@ -764,8 +783,8 @@ void color_lua_init(EseLuaEngine *engine) {
     }
 }
 
-void color_lua_push(EseColor *color) {
-    log_assert("COLOR", color, "color_lua_push called with NULL color");
+void ese_color_lua_push(EseColor *color) {
+    log_assert("COLOR", color, "ese_color_lua_push called with NULL color");
 
     if (color->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -781,8 +800,8 @@ void color_lua_push(EseColor *color) {
     }
 }
 
-EseColor *color_lua_get(lua_State *L, int idx) {
-    log_assert("COLOR", L, "color_lua_get called with NULL Lua state");
+EseColor *ese_color_lua_get(lua_State *L, int idx) {
+    log_assert("COLOR", L, "ese_color_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -798,8 +817,8 @@ EseColor *color_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void color_ref(EseColor *color) {
-    log_assert("COLOR", color, "color_ref called with NULL color");
+void ese_color_ref(EseColor *color) {
+    log_assert("COLOR", color, "ese_color_ref called with NULL color");
     
     if (color->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -818,10 +837,10 @@ void color_ref(EseColor *color) {
         color->lua_ref_count++;
     }
 
-    profile_count_add("color_ref_count");
+    profile_count_add("ese_color_ref_count");
 }
 
-void color_unref(EseColor *color) {
+void ese_color_unref(EseColor *color) {
     if (!color) return;
     
     if (color->lua_ref != LUA_NOREF && color->lua_ref_count > 0) {
@@ -834,13 +853,13 @@ void color_unref(EseColor *color) {
         }
     }
 
-    profile_count_add("color_unref_count");
+    profile_count_add("ese_color_unref_count");
 }
 
 // Utility functions
-bool color_set_hex(EseColor *color, const char *hex_string) {
-    log_assert("COLOR", color, "color_set_hex called with NULL color");
-    log_assert("COLOR", hex_string, "color_set_hex called with NULL hex_string");
+bool ese_color_set_hex(EseColor *color, const char *hex_string) {
+    log_assert("COLOR", color, "ese_color_set_hex called with NULL color");
+    log_assert("COLOR", hex_string, "ese_color_set_hex called with NULL hex_string");
     
     if (!hex_string || hex_string[0] != '#') {
         return false;
@@ -886,27 +905,27 @@ bool color_set_hex(EseColor *color, const char *hex_string) {
     color->b = (float)b / 255.0f;
     color->a = (float)a / 255.0f;
     
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
     return true;
 }
 
-void color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-    log_assert("COLOR", color, "color_set_byte called with NULL color");
+void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+    log_assert("COLOR", color, "ese_color_set_byte called with NULL color");
     
     color->r = (float)r / 255.0f;
     color->g = (float)g / 255.0f;
     color->b = (float)b / 255.0f;
     color->a = (float)a / 255.0f;
     
-    _color_notify_watchers(color);
+    _ese_color_notify_watchers(color);
 }
 
-void color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a) {
-    log_assert("COLOR", color, "color_get_byte called with NULL color");
-    log_assert("COLOR", r, "color_get_byte called with NULL r pointer");
-    log_assert("COLOR", g, "color_get_byte called with NULL g pointer");
-    log_assert("COLOR", b, "color_get_byte called with NULL b pointer");
-    log_assert("COLOR", a, "color_get_byte called with NULL a pointer");
+void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a) {
+    log_assert("COLOR", color, "ese_color_get_byte called with NULL color");
+    log_assert("COLOR", r, "ese_color_get_byte called with NULL r pointer");
+    log_assert("COLOR", g, "ese_color_get_byte called with NULL g pointer");
+    log_assert("COLOR", b, "ese_color_get_byte called with NULL b pointer");
+    log_assert("COLOR", a, "ese_color_get_byte called with NULL a pointer");
     
     *r = (unsigned char)(color->r * 255.0f + 0.5f);
     *g = (unsigned char)(color->g * 255.0f + 0.5f);
@@ -914,6 +933,6 @@ void color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, u
     *a = (unsigned char)(color->a * 255.0f + 0.5f);
 }
 
-size_t color_sizeof(void) {
+size_t ese_color_sizeof(void) {
     return sizeof(EseColor);
 }

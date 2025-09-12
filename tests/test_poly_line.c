@@ -36,7 +36,7 @@ static EseLuaEngine* create_test_engine() {
         
         // Initialize required systems
         ese_point_lua_init(engine);
-        color_lua_init(engine);
+        ese_color_lua_init(engine);
         poly_line_lua_init(engine);
     }
     return engine;
@@ -184,8 +184,8 @@ static void test_poly_line_properties() {
     
     EseLuaEngine *engine = create_test_engine();
     EsePolyLine *poly_line = poly_line_create(engine);
-    EseColor *stroke_color = color_create(engine);
-    EseColor *fill_color = color_create(engine);
+    EseColor *stroke_color = ese_color_create(engine);
+    EseColor *fill_color = ese_color_create(engine);
     
     // Test setting and getting type
     poly_line_set_type(poly_line, POLY_LINE_CLOSED);
@@ -199,17 +199,17 @@ static void test_poly_line_properties() {
     TEST_ASSERT_FLOAT_EQUAL(3.5f, poly_line_get_stroke_width(poly_line), 0.001f, "Stroke width should be set and retrieved correctly");
     
     // Test setting and getting stroke color
-    color_set_r(stroke_color, 1.0f);
-    color_set_g(stroke_color, 0.0f);
-    color_set_b(stroke_color, 0.0f);
+    ese_color_set_r(stroke_color, 1.0f);
+    ese_color_set_g(stroke_color, 0.0f);
+    ese_color_set_b(stroke_color, 0.0f);
     poly_line_set_stroke_color(poly_line, stroke_color);
     EseColor *retrieved_stroke = poly_line_get_stroke_color(poly_line);
     TEST_ASSERT(stroke_color == retrieved_stroke, "Stroke color should be set and retrieved correctly");
     
     // Test setting and getting fill color
-    color_set_r(fill_color, 0.0f);
-    color_set_g(fill_color, 1.0f);
-    color_set_b(fill_color, 0.0f);
+    ese_color_set_r(fill_color, 0.0f);
+    ese_color_set_g(fill_color, 1.0f);
+    ese_color_set_b(fill_color, 0.0f);
     poly_line_set_fill_color(poly_line, fill_color);
     EseColor *retrieved_fill = poly_line_get_fill_color(poly_line);
     TEST_ASSERT(fill_color == retrieved_fill, "Fill color should be set and retrieved correctly");
@@ -222,8 +222,8 @@ static void test_poly_line_properties() {
     TEST_ASSERT_NULL(poly_line_get_fill_color(poly_line), "Fill color should be NULL after setting NULL");
     
     // Clean up
-    color_destroy(stroke_color);
-    color_destroy(fill_color);
+    ese_color_destroy(stroke_color);
+    ese_color_destroy(fill_color);
     poly_line_destroy(poly_line);
     lua_engine_destroy(engine);
     
@@ -325,7 +325,7 @@ static void test_poly_line_watchers() {
     TEST_ASSERT(mock_watcher_called, "Watcher should be called on stroke width change");
     
     mock_reset();
-    EseColor *color = color_create(engine);
+    EseColor *color = ese_color_create(engine);
     poly_line_set_stroke_color(poly_line, color);
     TEST_ASSERT(mock_watcher_called, "Watcher should be called on stroke color change");
     
@@ -357,7 +357,7 @@ static void test_poly_line_watchers() {
     TEST_ASSERT(!success, "Should fail to remove non-existent watcher");
     
     // Clean up
-    color_destroy(color);
+    ese_color_destroy(color);
     ese_point_destroy(point);
     poly_line_destroy(poly_line);
     lua_engine_destroy(engine);
@@ -405,7 +405,7 @@ static void test_poly_line_null_pointer_aborts() {
     EseLuaEngine *engine = create_test_engine();
     EsePolyLine *poly_line = poly_line_create(engine);
     EsePoint *point = ese_point_create(engine);
-    EseColor *color = color_create(engine);
+    EseColor *color = ese_color_create(engine);
     
     // Test that creation functions abort with NULL pointers
     TEST_ASSERT_ABORT(poly_line_create(NULL), "poly_line_create should abort with NULL engine");
@@ -449,7 +449,7 @@ static void test_poly_line_null_pointer_aborts() {
     TEST_ASSERT_ABORT(poly_line_get_lua_ref_count(NULL), "poly_line_get_lua_ref_count should abort with NULL poly_line");
     
     // Clean up
-    color_destroy(color);
+    ese_color_destroy(color);
     ese_point_destroy(point);
     poly_line_destroy(poly_line);
     lua_engine_destroy(engine);

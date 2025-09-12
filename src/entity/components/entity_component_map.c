@@ -10,10 +10,10 @@
 #include "entity/entity_private.h"
 #include "types/types.h"
 
-static void _entity_component_map_register(EseEntityComponentMap *component, bool is_lua_owned)
+static void _entity_component_ese_map_register(EseEntityComponentMap *component, bool is_lua_owned)
 {
-    log_assert("ENTITY_COMP", component, "_entity_component_map_register called with NULL component");
-    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_map_register component is already registered");
+    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_register called with NULL component");
+    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_ese_map_register component is already registered");
 
     lua_newtable(component->base.lua->runtime);
     lua_pushlightuserdata(component->base.lua->runtime, component);
@@ -30,9 +30,9 @@ static void _entity_component_map_register(EseEntityComponentMap *component, boo
     component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
 }
 
-static EseEntityComponent *_entity_component_map_make(EseLuaEngine *engine)
+static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
 {
-    log_assert("ENTITY_COMP", engine, "_entity_component_map_make called with NULL engine");
+    log_assert("ENTITY_COMP", engine, "_entity_component_ese_map_make called with NULL engine");
 
     EseEntityComponentMap *component = memory_manager.malloc(sizeof(EseEntityComponentMap), MMTAG_ENTITY);
     component->base.data = component;
@@ -44,8 +44,8 @@ static EseEntityComponent *_entity_component_map_make(EseLuaEngine *engine)
     component->base.type = ENTITY_COMPONENT_MAP;
 
     component->map = NULL;
-    component->map_pos = ese_point_create(engine);
-    ese_point_ref(component->map_pos);
+    component->ese_map_pos = ese_point_create(engine);
+    ese_point_ref(component->ese_map_pos);
     component->size = 128;
     component->seed = 1000;
 
@@ -54,9 +54,9 @@ static EseEntityComponent *_entity_component_map_make(EseLuaEngine *engine)
     return &component->base;
 }
 
-EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
+EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *src)
 {
-    log_assert("ENTITY_COMP", src, "_entity_component_map_copy called with NULL src");
+    log_assert("ENTITY_COMP", src, "_entity_component_ese_map_copy called with NULL src");
 
     EseEntityComponentMap *copy = memory_manager.malloc(sizeof(EseEntityComponentMap), MMTAG_ENTITY);
     copy->base.data = copy;
@@ -68,10 +68,10 @@ EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
     copy->base.type = ENTITY_COMPONENT_MAP;
 
     copy->map = src->map;
-    copy->map_pos = ese_point_create(src->base.lua);
-    ese_point_ref(copy->map_pos);
-    ese_point_set_x(copy->map_pos, ese_point_get_x(src->map_pos));
-    ese_point_set_y(copy->map_pos, ese_point_get_y(src->map_pos));
+    copy->ese_map_pos = ese_point_create(src->base.lua);
+    ese_point_ref(copy->ese_map_pos);
+    ese_point_set_x(copy->ese_map_pos, ese_point_get_x(src->ese_map_pos));
+    ese_point_set_y(copy->ese_map_pos, ese_point_get_y(src->ese_map_pos));
 
     size_t cells = copy->map->width * copy->map->height;
     copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
@@ -80,23 +80,23 @@ EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src)
     return &copy->base;
 }
 
-void _entity_component_map_destroy(EseEntityComponentMap *component)
+void _entity_component_ese_map_destroy(EseEntityComponentMap *component)
 {
-    log_assert("ENTITY_COMP", component, "_entity_component_map_destroy called with NULL src");
+    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_destroy called with NULL src");
 
     // we don't own component->map
     ese_uuid_destroy(component->base.id);
-    ese_point_destroy(component->map_pos);
+    ese_point_destroy(component->ese_map_pos);
 
     memory_manager.free(component->sprite_frames);
 
     memory_manager.free(component);
 }
 
-void _entity_component_map_update(EseEntityComponentMap *component, EseEntity *entity, float delta_time)
+void _entity_component_ese_map_update(EseEntityComponentMap *component, EseEntity *entity, float delta_time)
 {
-    log_assert("ENTITY_COMP", component, "_entity_component_map_update called with NULL component");
-    log_assert("ENTITY_COMP", entity, "_entity_component_map_update called with NULL src");
+    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_update called with NULL component");
+    log_assert("ENTITY_COMP", entity, "_entity_component_ese_map_update called with NULL src");
 }
 
 /**
@@ -109,7 +109,7 @@ void _entity_component_map_update(EseEntityComponentMap *component, EseEntity *e
  *
  * @warning Items created in Lua are owned by Lua
  */
-static int _entity_component_map_new(lua_State *L)
+static int _entity_component_ese_map_new(lua_State *L)
 {
     const char *collider_name = NULL;
 
@@ -125,16 +125,16 @@ static int _entity_component_map_new(lua_State *L)
     EseLuaEngine *lua = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
 
     // Create EseEntityComponent wrapper
-    EseEntityComponent *component = _entity_component_map_make(lua);
+    EseEntityComponent *component = _entity_component_ese_map_make(lua);
 
     // Push EseEntityComponent to Lua
-    _entity_component_map_register((EseEntityComponentMap *)component->data, true);
+    _entity_component_ese_map_register((EseEntityComponentMap *)component->data, true);
     entity_component_push(component);
 
     return 1;
 }
 
-EseEntityComponentMap *_entity_component_map_get(lua_State *L, int idx)
+EseEntityComponentMap *_entity_component_ese_map_get(lua_State *L, int idx)
 {
 
     // Check if the value at idx is a table
@@ -186,9 +186,9 @@ EseEntityComponentMap *_entity_component_map_get(lua_State *L, int idx)
  * @param L Lua state pointer
  * @return Number of return values pushed to Lua stack (1 for valid properties, 0 otherwise)
  */
-static int _entity_component_map_index(lua_State *L)
+static int _entity_component_ese_map_index(lua_State *L)
 {
-    EseEntityComponentMap *component = _entity_component_map_get(L, 1);
+    EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
     const char *key = lua_tostring(L, 2);
 
     // SAFETY: Return nil for freed components
@@ -225,7 +225,7 @@ static int _entity_component_map_index(lua_State *L)
     }
     else if (strcmp(key, "position") == 0)
     {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, ese_point_get_lua_ref(component->map_pos));
+        lua_rawgeti(L, LUA_REGISTRYINDEX, ese_point_get_lua_ref(component->ese_map_pos));
         return 1;
     }
     else if (strcmp(key, "size") == 0)
@@ -250,9 +250,9 @@ static int _entity_component_map_index(lua_State *L)
  * @param L Lua state pointer
  * @return Always returns 0 (no return values) or throws Lua error for invalid operations
  */
-static int _entity_component_map_newindex(lua_State *L)
+static int _entity_component_ese_map_newindex(lua_State *L)
 {
-    EseEntityComponentMap *component = _entity_component_map_get(L, 1);
+    EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
     const char *key = lua_tostring(L, 2);
 
     // SAFETY: Silently ignore writes to freed components
@@ -281,15 +281,15 @@ static int _entity_component_map_newindex(lua_State *L)
     else if (strcmp(key, "map") == 0)
     {
         if (component->map) {
-            map_unref(component->map);
+            ese_map_unref(component->map);
         }
         printf("Setting map\n");
-        component->map = map_lua_get(L, 3);
+        component->map = ese_map_lua_get(L, 3);
         if (!component->map) {
             return luaL_error(L, "map must be a Map object");
         }
 
-        map_ref(component->map);
+        ese_map_ref(component->map);
 
         if (component->sprite_frames) {
             memory_manager.free(component->sprite_frames);
@@ -309,8 +309,8 @@ static int _entity_component_map_newindex(lua_State *L)
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        ese_point_set_x(component->map_pos, ese_point_get_x(new_position_point));
-        ese_point_set_y(component->map_pos, ese_point_get_y(new_position_point));
+        ese_point_set_x(component->ese_map_pos, ese_point_get_x(new_position_point));
+        ese_point_set_y(component->ese_map_pos, ese_point_get_y(new_position_point));
         return 0;
     }
     else if (strcmp(key, "size") == 0)
@@ -357,9 +357,9 @@ static int _entity_component_map_newindex(lua_State *L)
  * @param L Lua state pointer
  * @return Always 0 (no return values)
  */
-static int _entity_component_map_gc(lua_State *L)
+static int _entity_component_ese_map_gc(lua_State *L)
 {
-    EseEntityComponentMap *component = _entity_component_map_get(L, 1);
+    EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
 
     if (component)
     {
@@ -369,7 +369,7 @@ static int _entity_component_map_gc(lua_State *L)
 
         if (is_lua_owned)
         {
-            _entity_component_map_destroy(component);
+            _entity_component_ese_map_destroy(component);
             log_debug("LUA_GC", "EseEntityComponentMap object (Lua-owned) garbage collected and C memory freed.");
         }
         else
@@ -381,9 +381,9 @@ static int _entity_component_map_gc(lua_State *L)
     return 0;
 }
 
-static int _entity_component_map_tostring(lua_State *L)
+static int _entity_component_ese_map_tostring(lua_State *L)
 {
-    EseEntityComponentMap *component = _entity_component_map_get(L, 1);
+    EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
 
     if (!component)
     {
@@ -402,9 +402,9 @@ static int _entity_component_map_tostring(lua_State *L)
     return 1;
 }
 
-void _entity_component_map_init(EseLuaEngine *engine)
+void _entity_component_ese_map_init(EseLuaEngine *engine)
 {
-    log_assert("ENTITY_COMP", engine, "_entity_component_map_init called with NULL engine");
+    log_assert("ENTITY_COMP", engine, "_entity_component_ese_map_init called with NULL engine");
 
     lua_State *L = engine->runtime;
 
@@ -414,13 +414,13 @@ void _entity_component_map_init(EseLuaEngine *engine)
         log_debug("LUA", "Adding %s to engine", ENTITY_COMPONENT_MAP_PROXY_META);
         lua_pushstring(L, ENTITY_COMPONENT_MAP_PROXY_META);
         lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_map_index);
+        lua_pushcfunction(L, _entity_component_ese_map_index);
         lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_map_newindex);
+        lua_pushcfunction(L, _entity_component_ese_map_newindex);
         lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_map_gc);
+        lua_pushcfunction(L, _entity_component_ese_map_gc);
         lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_map_tostring);
+        lua_pushcfunction(L, _entity_component_ese_map_tostring);
         lua_setfield(L, -2, "__tostring");
     }
     lua_pop(L, 1);
@@ -432,7 +432,7 @@ void _entity_component_map_init(EseLuaEngine *engine)
         lua_pop(L, 1);
         log_debug("LUA", "Creating global EntityComponentMap table");
         lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_map_new);
+        lua_pushcfunction(L, _entity_component_ese_map_new);
         lua_setfield(L, -2, "new");
         lua_setglobal(L, "EntityComponentMap");
     }
@@ -442,7 +442,7 @@ void _entity_component_map_init(EseLuaEngine *engine)
     }
 }
 
-void _entity_component_map_draw_grid(
+void _entity_component_ese_map_draw_grid(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
@@ -450,27 +450,27 @@ void _entity_component_map_draw_grid(
 {
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(component->map->tileset, component->seed);
 
     // tile display size
     const int tw = component->size, th = component->size;
 
     // center cell
-    float cx = ese_point_get_x(component->map_pos);
-    float cy = ese_point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->ese_map_pos);
+    float cy = ese_point_get_y(component->ese_map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
         for (uint32_t x = 0; x < component->map->width; x++)
         {
-            EseMapCell *cell = map_get_cell(component->map, x, y);
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             float dx = screen_x + (x - cx) * tw;
             float dy = screen_y + (y - cy) * th;
 
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
                 uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -503,28 +503,28 @@ void _entity_component_map_draw_grid(
     }
 }
 
-void _entity_component_map_draw_hex_point_up(
+void _entity_component_ese_map_draw_hex_point_up(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(component->map->tileset, component->seed);
 
     // For hex point up: width = height * sqrt(3) / 2
     const int th = component->size;
     const int tw = (int)(th * 0.866025f); // sqrt(3) / 2 ≈ 0.866025
 
     // center cell
-    float cx = ese_point_get_x(component->map_pos);
-    float cy = ese_point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->ese_map_pos);
+    float cy = ese_point_get_y(component->ese_map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
         for (uint32_t x = 0; x < component->map->width; x++)
         {
-            EseMapCell *cell = map_get_cell(component->map, x, y);
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
             // Hex point up positioning: offset every other row
             float dx = screen_x + (x - cx) * tw;
@@ -538,7 +538,7 @@ void _entity_component_map_draw_hex_point_up(
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
                 uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -571,28 +571,28 @@ void _entity_component_map_draw_hex_point_up(
     }
 }
 
-void _entity_component_map_draw_hex_flat_up(
+void _entity_component_ese_map_draw_hex_flat_up(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(component->map->tileset, component->seed);
 
     // For hex flat up: width = height * 2 / sqrt(3)
     const int th = component->size;
     const int tw = (int)(th * 1.154701f); // 2 / sqrt(3) ≈ 1.154701
 
     // center cell
-    float cx = ese_point_get_x(component->map_pos);
-    float cy = ese_point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->ese_map_pos);
+    float cy = ese_point_get_y(component->ese_map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
         for (uint32_t x = 0; x < component->map->width; x++)
         {
-            EseMapCell *cell = map_get_cell(component->map, x, y);
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
             // Hex flat up positioning: offset every other column
             float dx = screen_x + (x - cx) * (tw * 0.75f); // 3/4 of width for horizontal spacing
@@ -606,7 +606,7 @@ void _entity_component_map_draw_hex_flat_up(
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
                 uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -639,28 +639,28 @@ void _entity_component_map_draw_hex_flat_up(
     }
 }
 
-void _entity_component_map_draw_iso(
+void _entity_component_ese_map_draw_iso(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(component->map->tileset, component->seed);
 
     // For isometric: width = height * 2 (standard 2:1 isometric ratio)
     const int th = component->size;
     const int tw = th * 2;
 
     // center cell
-    float cx = ese_point_get_x(component->map_pos);
-    float cy = ese_point_get_y(component->map_pos);
+    float cx = ese_point_get_x(component->ese_map_pos);
+    float cy = ese_point_get_y(component->ese_map_pos);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
         for (uint32_t x = 0; x < component->map->width; x++)
         {
-            EseMapCell *cell = map_get_cell(component->map, x, y);
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
             // Isometric positioning: diamond-shaped grid
             float dx = screen_x + (x - cx) * (tw / 2.0f) - (y - cy) * (tw / 2.0f);
@@ -669,7 +669,7 @@ void _entity_component_map_draw_iso(
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
                 uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = tileset_get_sprite(component->map->tileset, tid);
+                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -702,7 +702,7 @@ void _entity_component_map_draw_iso(
     }
 }
 
-void _entity_component_map_draw(
+void _entity_component_ese_map_draw(
     EseEntityComponentMap *component,
     float screen_x, float screen_y,
     EntityDrawTextureCallback texCallback,
@@ -716,16 +716,16 @@ void _entity_component_map_draw(
     switch(component->map->type)
     {
         case MAP_TYPE_GRID:
-            _entity_component_map_draw_grid(component, screen_x, screen_y, texCallback, callback_user_data);
+            _entity_component_ese_map_draw_grid(component, screen_x, screen_y, texCallback, callback_user_data);
             break;
         case MAP_TYPE_HEX_POINT_UP:
-            _entity_component_map_draw_hex_point_up(component, screen_x, screen_y, texCallback, callback_user_data);
+            _entity_component_ese_map_draw_hex_point_up(component, screen_x, screen_y, texCallback, callback_user_data);
             break;
         case MAP_TYPE_HEX_FLAT_UP:
-            _entity_component_map_draw_hex_flat_up(component, screen_x, screen_y, texCallback, callback_user_data);
+            _entity_component_ese_map_draw_hex_flat_up(component, screen_x, screen_y, texCallback, callback_user_data);
             break;
         case MAP_TYPE_ISO:
-            _entity_component_map_draw_iso(component, screen_x, screen_y, texCallback, callback_user_data);
+            _entity_component_ese_map_draw_iso(component, screen_x, screen_y, texCallback, callback_user_data);
             break;
         default:
             log_debug("ENTITY_COMP_MAP", "map type not supported");
@@ -733,14 +733,14 @@ void _entity_component_map_draw(
     }
 }
 
-EseEntityComponent *entity_component_map_create(EseLuaEngine *engine)
+EseEntityComponent *entity_component_ese_map_create(EseLuaEngine *engine)
 {
-    log_assert("ENTITY_COMP", engine, "entity_component_map_create called with NULL engine");
+    log_assert("ENTITY_COMP", engine, "entity_component_ese_map_create called with NULL engine");
 
-    EseEntityComponent *component = _entity_component_map_make(engine);
+    EseEntityComponent *component = _entity_component_ese_map_make(engine);
 
     // Push EseEntityComponent to Lua
-    _entity_component_map_register((EseEntityComponentMap *)component->data, false);
+    _entity_component_ese_map_register((EseEntityComponentMap *)component->data, false);
 
     return component;
 }

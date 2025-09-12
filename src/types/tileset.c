@@ -56,16 +56,16 @@ static uint32_t _get_random_weight(EseTileSet *tiles, uint32_t max_weight) {
 // ========================================
 
 // Core helpers
-static EseTileSet *_tileset_make(void);
+static EseTileSet *_ese_tileset_make(void);
 
 // Lua metamethods
-static int _tileset_lua_gc(lua_State *L);
-static int _tileset_lua_index(lua_State *L);
-static int _tileset_lua_newindex(lua_State *L);
-static int _tileset_lua_tostring(lua_State *L);
+static int _ese_tileset_lua_gc(lua_State *L);
+static int _ese_tileset_lua_index(lua_State *L);
+static int _ese_tileset_lua_newindex(lua_State *L);
+static int _ese_tileset_lua_tostring(lua_State *L);
 
 // Lua constructors
-static int _tileset_lua_new(lua_State *L);
+static int _ese_tileset_lua_new(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -80,7 +80,7 @@ static int _tileset_lua_new(lua_State *L);
  * 
  * @return Pointer to the newly created EseTileSet, or NULL on allocation failure
  */
-static EseTileSet *_tileset_make() {
+static EseTileSet *_ese_tileset_make() {
     EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_TILESET);
     if (!tiles) return NULL;
     
@@ -109,7 +109,7 @@ static EseTileSet *_tileset_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _tileset_lua_gc(lua_State *L) {
+static int _ese_tileset_lua_gc(lua_State *L) {
     // Get from userdata
     EseTileSet **ud = (EseTileSet **)luaL_testudata(L, 1, TILESET_PROXY_META);
     if (!ud) {
@@ -122,7 +122,7 @@ static int _tileset_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this tileset was referenced from C and should not be freed.
         if (tiles->lua_ref == LUA_NOREF) {
-            tileset_destroy(tiles);
+            ese_tileset_destroy(tiles);
         }
     }
 
@@ -131,8 +131,8 @@ static int _tileset_lua_gc(lua_State *L) {
 
 /* ----------------- Lua Methods ----------------- */
 
-static int _tileset_lua_add_sprite(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_add_sprite(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in add_sprite");
 
     if (!lua_isnumber(L, 2) || !lua_isstring(L, 3))
@@ -147,12 +147,12 @@ static int _tileset_lua_add_sprite(lua_State *L) {
     if (weight == 0)
         return luaL_error(L, "weight must be > 0");
 
-    lua_pushboolean(L, tileset_add_sprite(tiles, tile_id, sprite_str, weight));
+    lua_pushboolean(L, ese_tileset_add_sprite(tiles, tile_id, sprite_str, weight));
     return 1;
 }
 
-static int _tileset_lua_remove_sprite(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_remove_sprite(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in remove_sprite");
 
     if (!lua_isnumber(L, 2) || !lua_isstring(L, 3))
@@ -164,51 +164,51 @@ static int _tileset_lua_remove_sprite(lua_State *L) {
     if (!sprite_str || strlen(sprite_str) == 0)
         return luaL_error(L, "sprite_id cannot be empty");
 
-    lua_pushboolean(L, tileset_remove_sprite(tiles, tile_id, sprite_str));
+    lua_pushboolean(L, ese_tileset_remove_sprite(tiles, tile_id, sprite_str));
     return 1;
 }
 
-static int _tileset_lua_get_sprite(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_get_sprite(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in get_sprite");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "get_sprite(tile_id) requires a number");
 
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    const char *sprite = tileset_get_sprite(tiles, tile_id);
+    const char *sprite = ese_tileset_get_sprite(tiles, tile_id);
 
     if (!sprite) lua_pushnil(L);
     else lua_pushstring(L, sprite);
     return 1;
 }
 
-static int _tileset_lua_clear_mapping(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_clear_mapping(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in clear_mapping");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "clear_mapping(tile_id) requires a number");
 
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    tileset_clear_mapping(tiles, tile_id);
+    ese_tileset_clear_mapping(tiles, tile_id);
     return 0;
 }
 
-static int _tileset_lua_get_sprite_count(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_get_sprite_count(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in get_sprite_count");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "get_sprite_count(tile_id) requires a number");
 
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    lua_pushnumber(L, tileset_get_sprite_count(tiles, tile_id));
+    lua_pushnumber(L, ese_tileset_get_sprite_count(tiles, tile_id));
     return 1;
 }
 
-static int _tileset_lua_update_sprite_weight(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_update_sprite_weight(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     if (!tiles) return luaL_error(L, "Invalid Tiles in update_sprite_weight");
 
     if (!lua_isnumber(L, 2) || !lua_isstring(L, 3) || !lua_isnumber(L, 4))
@@ -223,7 +223,7 @@ static int _tileset_lua_update_sprite_weight(lua_State *L) {
     if (weight == 0)
         return luaL_error(L, "weight must be > 0");
 
-    lua_pushboolean(L, tileset_update_sprite_weight(tiles, tile_id, sprite_str, weight));
+    lua_pushboolean(L, ese_tileset_update_sprite_weight(tiles, tile_id, sprite_str, weight));
     return 1;
 }
 
@@ -236,9 +236,9 @@ static int _tileset_lua_update_sprite_weight(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid methods, 0 for invalid)
  */
-static int _tileset_lua_index(lua_State *L) {
+static int _ese_tileset_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_TILESET_INDEX);
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!tiles || !key) {
         profile_cancel(PROFILE_LUA_TILESET_INDEX);
@@ -246,31 +246,31 @@ static int _tileset_lua_index(lua_State *L) {
     }
 
     if (strcmp(key, "add_sprite") == 0) {
-        lua_pushcfunction(L, _tileset_lua_add_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_add_sprite);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     } else if (strcmp(key, "remove_sprite") == 0) {
-        lua_pushcfunction(L, _tileset_lua_remove_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_remove_sprite);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_sprite") == 0) {
-        lua_pushcfunction(L, _tileset_lua_get_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_get_sprite);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     } else if (strcmp(key, "clear_mapping") == 0) {
-        lua_pushcfunction(L, _tileset_lua_clear_mapping);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_clear_mapping);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_sprite_count") == 0) {
-        lua_pushcfunction(L, _tileset_lua_get_sprite_count);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_get_sprite_count);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     } else if (strcmp(key, "update_sprite_weight") == 0) {
-        lua_pushcfunction(L, _tileset_lua_update_sprite_weight);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (method)");
+        lua_pushcfunction(L, _ese_tileset_lua_update_sprite_weight);
+        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
         return 1;
     }
-    profile_stop(PROFILE_LUA_TILESET_INDEX, "tileset_lua_index (invalid)");
+    profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (invalid)");
     return 0;
 }
 
@@ -283,7 +283,7 @@ static int _tileset_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _tileset_lua_newindex(lua_State *L) {
+static int _ese_tileset_lua_newindex(lua_State *L) {
     return luaL_error(L, "Direct assignment not supported - use methods");
 }
 
@@ -296,8 +296,8 @@ static int _tileset_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _tileset_lua_tostring(lua_State *L) {
-    EseTileSet *tiles = tileset_lua_get(L, 1);
+static int _ese_tileset_lua_tostring(lua_State *L) {
+    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
 
     if (!tiles) {
         lua_pushstring(L, "Tileset: (invalid)");
@@ -326,7 +326,7 @@ static int _tileset_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the userdata)
  */
-static int _tileset_lua_new(lua_State *L) {
+static int _ese_tileset_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_TILESET_NEW);
 
     // Get argument count
@@ -337,7 +337,7 @@ static int _tileset_lua_new(lua_State *L) {
     }
 
     // Create the tileset
-    EseTileSet *tiles = _tileset_make();
+    EseTileSet *tiles = _ese_tileset_make();
     if (!tiles) {
         profile_cancel(PROFILE_LUA_TILESET_NEW);
         return luaL_error(L, "Failed to create Tileset");
@@ -352,7 +352,7 @@ static int _tileset_lua_new(lua_State *L) {
     luaL_getmetatable(L, TILESET_PROXY_META);
     lua_setmetatable(L, -2);
 
-    profile_stop(PROFILE_LUA_TILESET_NEW, "tileset_lua_new");
+    profile_stop(PROFILE_LUA_TILESET_NEW, "ese_tileset_lua_new");
     return 1;
 }
 
@@ -363,16 +363,16 @@ static int _tileset_lua_new(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseTileSet *tileset_create(EseLuaEngine *engine) {
-    log_assert("TILESET", engine, "tileset_create called with NULL engine");
-    EseTileSet *tiles = _tileset_make();
+EseTileSet *ese_tileset_create(EseLuaEngine *engine) {
+    log_assert("TILESET", engine, "ese_tileset_create called with NULL engine");
+    EseTileSet *tiles = _ese_tileset_make();
     if (!tiles) return NULL;
     tiles->state = engine->runtime;
     return tiles;
 }
 
-EseTileSet *tileset_copy(const EseTileSet *source) {
-    log_assert("TILESET", source, "tileset_copy called with NULL source");
+EseTileSet *ese_tileset_copy(const EseTileSet *source) {
+    log_assert("TILESET", source, "ese_tileset_copy called with NULL source");
     
     EseTileSet *copy = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_TILESET);
     if (!copy) return NULL;
@@ -447,7 +447,7 @@ EseTileSet *tileset_copy(const EseTileSet *source) {
     return copy;
 }
 
-void tileset_destroy(EseTileSet *tiles) {
+void ese_tileset_destroy(EseTileSet *tiles) {
     if (!tiles || tiles->destroyed) return;
     
     tiles->destroyed = true;
@@ -467,30 +467,30 @@ void tileset_destroy(EseTileSet *tiles) {
         }
         memory_manager.free(tiles);
     } else {
-        tileset_unref(tiles);
+        ese_tileset_unref(tiles);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
 }
 
-size_t tileset_sizeof(void) {
+size_t ese_tileset_sizeof(void) {
     return sizeof(EseTileSet);
 }
 
 // Lua integration
-void tileset_lua_init(EseLuaEngine *engine) {
-    log_assert("TILESET", engine, "tileset_lua_init called with NULL engine");
+void ese_tileset_lua_init(EseLuaEngine *engine) {
+    log_assert("TILESET", engine, "ese_tileset_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, TILESET_PROXY_META)) {
         log_debug("LUA", "Adding TilesetProxyMeta to engine");
         lua_pushstring(engine->runtime, TILESET_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _tileset_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_tileset_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _tileset_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_tileset_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _tileset_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_tileset_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _tileset_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_tileset_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -503,7 +503,7 @@ void tileset_lua_init(EseLuaEngine *engine) {
         lua_pop(engine->runtime, 1); // Pop the nil value
         log_debug("LUA", "Creating global Tileset table");
         lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _tileset_lua_new);
+        lua_pushcfunction(engine->runtime, _ese_tileset_lua_new);
         lua_setfield(engine->runtime, -2, "new");
         lua_setglobal(engine->runtime, "Tileset");
     } else {
@@ -511,8 +511,8 @@ void tileset_lua_init(EseLuaEngine *engine) {
     }
 }
 
-void tileset_lua_push(EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_lua_push called with NULL tiles");
+void ese_tileset_lua_push(EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_lua_push called with NULL tiles");
 
     if (tiles->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -528,8 +528,8 @@ void tileset_lua_push(EseTileSet *tiles) {
     }
 }
 
-EseTileSet *tileset_lua_get(lua_State *L, int idx) {
-    log_assert("TILESET", L, "tileset_lua_get called with NULL Lua state");
+EseTileSet *ese_tileset_lua_get(lua_State *L, int idx) {
+    log_assert("TILESET", L, "ese_tileset_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -545,8 +545,8 @@ EseTileSet *tileset_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void tileset_ref(EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_ref called with NULL tiles");
+void ese_tileset_ref(EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_ref called with NULL tiles");
     
     if (tiles->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -565,10 +565,10 @@ void tileset_ref(EseTileSet *tiles) {
         tiles->lua_ref_count++;
     }
 
-    profile_count_add("tileset_ref_count");
+    profile_count_add("ese_tileset_ref_count");
 }
 
-void tileset_unref(EseTileSet *tiles) {
+void ese_tileset_unref(EseTileSet *tiles) {
     if (!tiles) return;
     
     if (tiles->lua_ref != LUA_NOREF && tiles->lua_ref_count > 0) {
@@ -581,33 +581,33 @@ void tileset_unref(EseTileSet *tiles) {
         }
     }
 
-    profile_count_add("tileset_unref_count");
+    profile_count_add("ese_tileset_unref_count");
 }
 
 // Lua-related access
-lua_State *tileset_get_state(const EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_get_state called with NULL tiles");
+lua_State *ese_tileset_get_state(const EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_get_state called with NULL tiles");
     return tiles->state;
 }
 
-int tileset_get_lua_ref(const EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_get_lua_ref called with NULL tiles");
+int ese_tileset_get_lua_ref(const EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_get_lua_ref called with NULL tiles");
     return tiles->lua_ref;
 }
 
-int tileset_get_lua_ref_count(const EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_get_lua_ref_count called with NULL tiles");
+int ese_tileset_get_lua_ref_count(const EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_get_lua_ref_count called with NULL tiles");
     return tiles->lua_ref_count;
 }
 
-uint32_t tileset_get_rng_seed(const EseTileSet *tiles) {
-    log_assert("TILESET", tiles, "tileset_get_rng_seed called with NULL tiles");
+uint32_t ese_tileset_get_rng_seed(const EseTileSet *tiles) {
+    log_assert("TILESET", tiles, "ese_tileset_get_rng_seed called with NULL tiles");
     return tiles->rng_seed;
 }
 
 /* ----------------- Sprite Management ----------------- */
 
-bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t weight) {
+bool ese_tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t weight) {
     if (!tiles || !sprite_id || weight == 0) return false;
 
     EseTileMapping *mapping = &tiles->mappings[tile_id];
@@ -646,7 +646,7 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_i
     return true;
 }
 
-bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id) {
+bool ese_tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id) {
     if (!tiles || !sprite_id) return false;
 
     EseTileMapping *mapping = &tiles->mappings[tile_id];
@@ -668,7 +668,7 @@ bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprit
     return false;
 }
 
-const char *tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id) {
+const char *ese_tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id) {
     if (!tiles) return NULL;
 
     const EseTileMapping *mapping = &tiles->mappings[tile_id];
@@ -687,7 +687,7 @@ const char *tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id) {
     return mapping->sprites[mapping->sprite_count - 1].sprite_id;
 }
 
-void tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id) {
+void ese_tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id) {
     if (!tiles) return;
 
     EseTileMapping *mapping = &tiles->mappings[tile_id];
@@ -705,12 +705,12 @@ void tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id) {
     mapping->total_weight = 0;
 }
 
-size_t tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id) {
+size_t ese_tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id) {
     if (!tiles) return 0;
     return tiles->mappings[tile_id].sprite_count;
 }
 
-bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t new_weight) {
+bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id, uint16_t new_weight) {
     if (!tiles || !sprite_id || new_weight == 0) return false;
 
     EseTileMapping *mapping = &tiles->mappings[tile_id];
@@ -726,7 +726,7 @@ bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char
     return false;
 }
 
-void tileset_set_seed(EseTileSet *tiles, uint32_t seed) {
+void ese_tileset_set_seed(EseTileSet *tiles, uint32_t seed) {
     if (tiles) {
         tiles->rng_seed = seed;
     }

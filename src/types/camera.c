@@ -10,16 +10,16 @@
 // ========================================
 
 // Core helpers
-static EseCamera *_camera_state_make(void);
+static EseCamera *_ese_camera_make(void);
 
 // Lua metamethods
-static int _camera_state_lua_gc(lua_State *L);
-static int _camera_state_lua_index(lua_State *L);
-static int _camera_state_lua_newindex(lua_State *L);
-static int _camera_state_lua_tostring(lua_State *L);
+static int _ese_camera_lua_gc(lua_State *L);
+static int _ese_camera_lua_index(lua_State *L);
+static int _ese_camera_lua_newindex(lua_State *L);
+static int _ese_camera_lua_tostring(lua_State *L);
 
 // Lua constructors
-// static int _camera_state_lua_new(lua_State *L); // REMOVED
+// static int _ese_camera_lua_new(lua_State *L); // REMOVED
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -34,7 +34,7 @@ static int _camera_state_lua_tostring(lua_State *L);
  * 
  * @return Pointer to the newly created EseCamera, or NULL on allocation failure
  */
-static EseCamera *_camera_state_make() {
+static EseCamera *_ese_camera_make() {
     EseCamera *camera_state = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_CAMERA);
     camera_state->position = NULL;
     camera_state->rotation = 0.0f;
@@ -56,7 +56,7 @@ static EseCamera *_camera_state_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _camera_state_lua_gc(lua_State *L) {
+static int _ese_camera_lua_gc(lua_State *L) {
     // Get from userdata
     EseCamera **ud = (EseCamera **)luaL_testudata(L, 1, "CameraMeta");
     if (!ud) {
@@ -69,7 +69,7 @@ static int _camera_state_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this camera was referenced from C and should not be freed.
         if (camera_state->lua_ref == LUA_NOREF) {
-            camera_state_destroy(camera_state);            
+            ese_camera_destroy(camera_state);            
         }
     }
 
@@ -86,9 +86,9 @@ static int _camera_state_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _camera_state_lua_index(lua_State *L) {
+static int _ese_camera_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_CAMERA_INDEX);
-    EseCamera *camera_state = camera_state_lua_get(L, 1);
+    EseCamera *camera_state = ese_camera_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!camera_state || !key) {
         profile_cancel(PROFILE_LUA_CAMERA_INDEX);
@@ -98,23 +98,23 @@ static int _camera_state_lua_index(lua_State *L) {
     if (strcmp(key, "position") == 0) {
         if (camera_state->position == NULL) {
             lua_pushnil(L);
-            profile_stop(PROFILE_LUA_CAMERA_INDEX, "camera_state_lua_index (position_nil)");
+            profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (position_nil)");
             return 1;
         } else {
             ese_point_lua_push(camera_state->position);
-            profile_stop(PROFILE_LUA_CAMERA_INDEX, "camera_state_lua_index (position)");
+            profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (position)");
             return 1;
         }
     } else if (strcmp(key, "rotation") == 0) {
         lua_pushnumber(L, camera_state->rotation);
-        profile_stop(PROFILE_LUA_CAMERA_INDEX, "camera_state_lua_index (rotation)");
+        profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (rotation)");
         return 1;
     } else if (strcmp(key, "scale") == 0) {
         lua_pushnumber(L, camera_state->scale);
-        profile_stop(PROFILE_LUA_CAMERA_INDEX, "camera_state_lua_index (scale)");
+        profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (scale)");
         return 1;
     }
-    profile_stop(PROFILE_LUA_CAMERA_INDEX, "camera_state_lua_index (invalid)");
+    profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (invalid)");
     return 0;
 }
 
@@ -128,9 +128,9 @@ static int _camera_state_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _camera_state_lua_newindex(lua_State *L) {
+static int _ese_camera_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_CAMERA_NEWINDEX);
-    EseCamera *camera_state = camera_state_lua_get(L, 1);
+    EseCamera *camera_state = ese_camera_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!camera_state || !key) {
         profile_cancel(PROFILE_LUA_CAMERA_NEWINDEX);
@@ -143,7 +143,7 @@ static int _camera_state_lua_newindex(lua_State *L) {
             return luaL_error(L, "rotation must be a number");
         }
         camera_state->rotation = (float)lua_tonumber(L, 3);
-        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "camera_state_lua_newindex (rotation)");
+        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "ese_camera_lua_newindex (rotation)");
         return 0;
     } else if (strcmp(key, "scale") == 0) {
         if (!lua_isnumber(L, 3)) {
@@ -151,7 +151,7 @@ static int _camera_state_lua_newindex(lua_State *L) {
             return luaL_error(L, "scale must be a number");
         }
         camera_state->scale = (float)lua_tonumber(L, 3);
-        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "camera_state_lua_newindex (scale)");
+        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "ese_camera_lua_newindex (scale)");
         return 0;
     } else if (strcmp(key, "position") == 0) {
         EsePoint *new_position_point = ese_point_lua_get(L, 3);
@@ -162,10 +162,10 @@ static int _camera_state_lua_newindex(lua_State *L) {
         // Copy values, don't copy reference (ownership safety)
         ese_point_set_x(camera_state->position, ese_point_get_x(new_position_point));
         ese_point_set_y(camera_state->position, ese_point_get_y(new_position_point));
-        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "camera_state_lua_newindex (position)");
+        profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "ese_camera_lua_newindex (position)");
         return 0;
     }
-    profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "camera_state_lua_newindex (invalid)");
+    profile_stop(PROFILE_LUA_CAMERA_NEWINDEX, "ese_camera_lua_newindex (invalid)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
@@ -178,8 +178,8 @@ static int _camera_state_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _camera_state_lua_tostring(lua_State *L) {
-    EseCamera *camera_state = camera_state_lua_get(L, 1);
+static int _ese_camera_lua_tostring(lua_State *L) {
+    EseCamera *camera_state = ese_camera_lua_get(L, 1);
 
     if (!camera_state) {
         lua_pushstring(L, "Camera: (invalid)");
@@ -200,9 +200,9 @@ static int _camera_state_lua_tostring(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseCamera *camera_state_create(EseLuaEngine *engine) {
+EseCamera *ese_camera_create(EseLuaEngine *engine) {
     log_debug("CAMERA", "Creating camera state");
-    EseCamera *camera_state = _camera_state_make();
+    EseCamera *camera_state = _ese_camera_make();
     camera_state->state = engine->runtime;
 
     camera_state->position = ese_point_create(engine);
@@ -211,7 +211,7 @@ EseCamera *camera_state_create(EseLuaEngine *engine) {
     return camera_state;
 }
 
-EseCamera *camera_state_copy(const EseCamera *source) {
+EseCamera *ese_camera_copy(const EseCamera *source) {
     if (source == NULL) {
         return NULL;
     }
@@ -227,7 +227,7 @@ EseCamera *camera_state_copy(const EseCamera *source) {
     return copy;
 }
 
-void camera_state_destroy(EseCamera *camera_state) {
+void ese_camera_destroy(EseCamera *camera_state) {
     if (!camera_state) return;
     
     if (camera_state->lua_ref == LUA_NOREF) {
@@ -240,28 +240,28 @@ void camera_state_destroy(EseCamera *camera_state) {
         if (camera_state->position) {
             ese_point_unref(camera_state->position);
         }
-        camera_state_unref(camera_state);
+        ese_camera_unref(camera_state);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
 }
 
 // Lua integration
-void camera_state_lua_init(EseLuaEngine *engine) {
-    log_assert("CAMERA_STATE", engine, "camera_state_lua_init called with NULL engine");
-    log_assert("CAMERA_STATE", engine->runtime, "camera_state_lua_init called with NULL engine->runtime");
+void ese_camera_lua_init(EseLuaEngine *engine) {
+    log_assert("CAMERA_STATE", engine, "ese_camera_lua_init called with NULL engine");
+    log_assert("CAMERA_STATE", engine->runtime, "ese_camera_lua_init called with NULL engine->runtime");
 
     if (luaL_newmetatable(engine->runtime, "CameraMeta")) {
         log_debug("LUA", "Adding CameraMeta to engine");
         lua_pushstring(engine->runtime, "CameraMeta");
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _camera_state_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_camera_lua_index);
         lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _camera_state_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_camera_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _camera_state_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_camera_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _camera_state_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_camera_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -269,8 +269,8 @@ void camera_state_lua_init(EseLuaEngine *engine) {
     lua_pop(engine->runtime, 1);
 }
 
-void camera_state_lua_push(EseCamera *camera_state) {
-    log_assert("CAMERA", camera_state, "camera_state_lua_push called with NULL camera_state");
+void ese_camera_lua_push(EseCamera *camera_state) {
+    log_assert("CAMERA", camera_state, "ese_camera_lua_push called with NULL camera_state");
 
     if (camera_state->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -286,8 +286,8 @@ void camera_state_lua_push(EseCamera *camera_state) {
     }
 }
 
-EseCamera *camera_state_lua_get(lua_State *L, int idx) {
-    log_assert("CAMERA", L, "camera_state_lua_get called with NULL Lua state");
+EseCamera *ese_camera_lua_get(lua_State *L, int idx) {
+    log_assert("CAMERA", L, "ese_camera_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -303,8 +303,8 @@ EseCamera *camera_state_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void camera_state_ref(EseCamera *camera_state) {
-    log_assert("CAMERA", camera_state, "camera_state_ref called with NULL camera_state");
+void ese_camera_ref(EseCamera *camera_state) {
+    log_assert("CAMERA", camera_state, "ese_camera_ref called with NULL camera_state");
     
     if (camera_state->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -323,10 +323,10 @@ void camera_state_ref(EseCamera *camera_state) {
         camera_state->lua_ref_count++;
     }
 
-    profile_count_add("camera_state_ref_count");
+    profile_count_add("ese_camera_ref_count");
 }
 
-void camera_state_unref(EseCamera *camera_state) {
+void ese_camera_unref(EseCamera *camera_state) {
     if (!camera_state) return;
     
     if (camera_state->lua_ref != LUA_NOREF && camera_state->lua_ref_count > 0) {
@@ -339,5 +339,5 @@ void camera_state_unref(EseCamera *camera_state) {
         }
     }
 
-    profile_count_add("camera_state_unref_count");
+    profile_count_add("ese_camera_unref_count");
 }

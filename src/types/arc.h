@@ -35,28 +35,28 @@ typedef struct EseArc {
  * 
  * @details Allocates memory for a new EseArc and initializes to center (0,0), radius 1, full circle.
  *          The arc is created without Lua references and must be explicitly
- *          referenced with arc_ref() if Lua access is desired.
+ *          referenced with ese_arc_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseArc object
  * 
- * @warning The returned EseArc must be freed with arc_destroy() to prevent memory leaks
+ * @warning The returned EseArc must be freed with ese_arc_destroy() to prevent memory leaks
  */
-EseArc *arc_create(EseLuaEngine *engine);
+EseArc *ese_arc_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseArc into a new EseArc object.
  * 
  * @details This function creates a deep copy of an EseArc object. It allocates a new EseArc
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with arc_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_arc_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseArc to copy.
  * @return A new, distinct EseArc object that is a copy of the source.
  * 
- * @warning The returned EseArc must be freed with arc_destroy() to prevent memory leaks.
+ * @warning The returned EseArc must be freed with ese_arc_destroy() to prevent memory leaks.
  */
-EseArc *arc_copy(const EseArc *source);
+EseArc *ese_arc_copy(const EseArc *source);
 
 /**
  * @brief Destroys a EseArc object, managing memory based on Lua references.
@@ -71,7 +71,7 @@ EseArc *arc_copy(const EseArc *source);
  * 
  * @param arc Pointer to the EseArc object to destroy
  */
-void arc_destroy(EseArc *arc);
+void ese_arc_destroy(EseArc *arc);
 
 // Lua integration
 /**
@@ -84,7 +84,7 @@ void arc_destroy(EseArc *arc);
  * 
  * @param engine EseLuaEngine pointer where the EseArc type will be registered
  */
-void arc_lua_init(EseLuaEngine *engine);
+void ese_arc_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseArc object to the Lua stack.
@@ -95,13 +95,13 @@ void arc_lua_init(EseLuaEngine *engine);
  * 
  * @param arc Pointer to the EseArc object to push to Lua
  */
-void arc_lua_push(EseArc *arc);
+void ese_arc_lua_push(EseArc *arc);
 
 /**
  * @brief Extracts a EseArc pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseArc pointer from the "__ptr" field of a Lua
- *          table that was created by arc_lua_push(). Performs
+ *          table that was created by ese_arc_lua_push(). Performs
  *          type checking to ensure the object is a valid EseArc proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -111,7 +111,7 @@ void arc_lua_push(EseArc *arc);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseArc *arc_lua_get(lua_State *L, int idx);
+EseArc *ese_arc_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseArc object for Lua access with reference counting.
@@ -123,7 +123,7 @@ EseArc *arc_lua_get(lua_State *L, int idx);
  * 
  * @param arc Pointer to the EseArc object to reference
  */
-void arc_ref(EseArc *arc);
+void ese_arc_ref(EseArc *arc);
 
 /**
  * @brief Unreferences a EseArc object, decrementing the reference count.
@@ -133,7 +133,7 @@ void arc_ref(EseArc *arc);
  * 
  * @param arc Pointer to the EseArc object to unreference
  */
-void arc_unref(EseArc *arc);
+void ese_arc_unref(EseArc *arc);
 
 // Mathematical operations
 /**
@@ -145,7 +145,7 @@ void arc_unref(EseArc *arc);
  * @param tolerance Distance tolerance for point-on-arc check
  * @return true if point is on the arc within tolerance, false otherwise
  */
-bool arc_contains_point(const EseArc *arc, float x, float y, float tolerance);
+bool ese_arc_contains_point(const EseArc *arc, float x, float y, float tolerance);
 
 /**
  * @brief Gets the length of the arc.
@@ -153,7 +153,7 @@ bool arc_contains_point(const EseArc *arc, float x, float y, float tolerance);
  * @param arc Pointer to the EseArc object
  * @return The arc length
  */
-float arc_get_length(const EseArc *arc);
+float ese_arc_get_length(const EseArc *arc);
 
 /**
  * @brief Gets a point on the arc at a specific angle.
@@ -164,7 +164,7 @@ float arc_get_length(const EseArc *arc);
  * @param out_y Pointer to store the resulting y coordinate
  * @return true if angle is within arc range, false otherwise
  */
-bool arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x, float *out_y);
+bool ese_arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x, float *out_y);
 
 /**
  * @brief Checks if the arc intersects with a rectangle.
@@ -173,6 +173,6 @@ bool arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x, float 
  * @param rect Pointer to the EseRect object
  * @return true if arc intersects rectangle, false otherwise
  */
-bool arc_intersects_rect(const EseArc *arc, const EseRect *rect);
+bool ese_arc_intersects_rect(const EseArc *arc, const EseRect *rect);
 
 #endif // ESE_ARC_H

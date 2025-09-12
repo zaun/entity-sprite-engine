@@ -70,21 +70,21 @@ typedef struct EseMap {
  *
  * @param engine EseLuaEngine pointer where the EseMap type will be registered
  */
-void map_lua_init(EseLuaEngine *engine);
+void ese_map_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a registered EseMap proxy table back onto the Lua stack.
  *
  * @param map Pointer to the EseMap object
  */
-void map_lua_push(EseMap *map);
+void ese_map_lua_push(EseMap *map);
 
 /**
  * @brief Extracts a EseMap pointer from a Lua proxy table with type safety.
  *
  * @details
  * Retrieves the C EseMap pointer from the "__ptr" field of a Lua
- * table that was created by map_lua_push(). Performs type checking
+ * table that was created by ese_map_lua_push(). Performs type checking
  * to ensure the object is a valid EseMap proxy table with the correct
  * metatable and userdata pointer.
  *
@@ -94,19 +94,19 @@ void map_lua_push(EseMap *map);
  *
  * @warning Returns NULL for invalid objects — always check return value before use.
  */
-EseMap *map_lua_get(lua_State *L, int idx);
+EseMap *ese_map_lua_get(lua_State *L, int idx);
 
 /**
  * @brief Increments the reference count for a EseMap object.
  *
  * @details
  * When a EseMap is referenced from C code, this function should be called
- * to prevent it from being garbage collected by Lua. Each call to map_ref
- * should be matched with a call to map_unref.
+ * to prevent it from being garbage collected by Lua. Each call to ese_map_ref
+ * should be matched with a call to ese_map_unref.
  *
  * @param map Pointer to the EseMap object
  */
-void map_ref(EseMap *map);
+void ese_map_ref(EseMap *map);
 
 /**
  * @brief Decrements the reference count for a EseMap object.
@@ -117,7 +117,7 @@ void map_ref(EseMap *map);
  *
  * @param map Pointer to the EseMap object
  */
-void map_unref(EseMap *map);
+void ese_map_unref(EseMap *map);
 
 /* ----------------- C API ----------------- */
 
@@ -139,22 +139,22 @@ void map_unref(EseMap *map);
  * @param c_only True if this object won't be accessible in Lua
  * @return Pointer to newly created EseMap object
  *
- * @warning The returned EseMap must be freed with map_destroy()
+ * @warning The returned EseMap must be freed with ese_map_destroy()
  *          to prevent memory leaks.
  */
-EseMap *map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
+EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
                    EseMapType type, bool c_only);
 
 /**
  * @brief Destroys a EseMap object and frees its memory.
  *
  * @details
- * Frees the memory allocated by map_create(), including all cells,
+ * Frees the memory allocated by ese_map_create(), including all cells,
  * metadata strings, and Lua registry references.
  *
  * @param map Pointer to the EseMap object to destroy
  */
-void map_destroy(EseMap *map);
+void ese_map_destroy(EseMap *map);
 
 /* ----------------- Map Operations ----------------- */
 
@@ -166,7 +166,7 @@ void map_destroy(EseMap *map);
  * @param y Y coordinate
  * @return Pointer to the EseMapCell, or NULL if coordinates are out of bounds
  */
-EseMapCell *map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
+EseMapCell *ese_map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
 
 /**
  * @brief Sets a map cell at the specified coordinates.
@@ -182,7 +182,7 @@ EseMapCell *map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
  * @param cell Pointer to the EseMapCell to copy into the map
  * @return true if successful, false if coordinates are out of bounds
  */
-bool map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell);
+bool ese_map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell);
 
 /**
  * @brief Sets the map title.
@@ -191,7 +191,7 @@ bool map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell);
  * @param title New title string (will be copied)
  * @return true if successful, false if memory allocation fails
  */
-bool map_set_title(EseMap *map, const char *title);
+bool ese_map_set_title(EseMap *map, const char *title);
 
 /**
  * @brief Sets the map author.
@@ -200,7 +200,7 @@ bool map_set_title(EseMap *map, const char *title);
  * @param author New author string (will be copied)
  * @return true if successful, false if memory allocation fails
  */
-bool map_set_author(EseMap *map, const char *author);
+bool ese_map_set_author(EseMap *map, const char *author);
 
 /**
  * @brief Sets the map version.
@@ -208,7 +208,7 @@ bool map_set_author(EseMap *map, const char *author);
  * @param map Pointer to the EseMap object
  * @param version New version number
  */
-void map_set_version(EseMap *map, int version);
+void ese_map_set_version(EseMap *map, int version);
 
 /**
  * @brief Sets the map tileset.
@@ -216,7 +216,7 @@ void map_set_version(EseMap *map, int version);
  * @param map Pointer to the EseMap object
  * @param tileset Pointer to the EseTileSet to associate
  */
-void map_set_tileset(EseMap *map, EseTileSet *tileset);
+void ese_map_set_tileset(EseMap *map, EseTileSet *tileset);
 
 /**
  * @brief Resizes the map to new dimensions.
@@ -233,7 +233,7 @@ void map_set_tileset(EseMap *map, EseTileSet *tileset);
  *
  * @warning This will destroy existing cells that are outside the new bounds.
  */
-bool map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
+bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
 
 /* ----------------- Map Type Conversion ----------------- */
 
@@ -243,7 +243,7 @@ bool map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
  * @param type EseMapType value
  * @return String representation of the map type
  */
-const char *map_type_to_string(EseMapType type);
+const char *ese_map_type_to_string(EseMapType type);
 
 /**
  * @brief Converts string to map type enum.
@@ -251,6 +251,6 @@ const char *map_type_to_string(EseMapType type);
  * @param type_str String representation of map type
  * @return EseMapType value, or MAP_TYPE_GRID if string is invalid
  */
-EseMapType map_type_from_string(const char *type_str);
+EseMapType ese_map_type_from_string(const char *type_str);
 
 #endif // ESE_MAP_H

@@ -36,7 +36,7 @@ typedef struct EseTileSet EseTileSet;
  *
  * @param engine EseLuaEngine pointer where the EseTileSet type will be registered
  */
-void tileset_lua_init(EseLuaEngine *engine);
+void ese_tileset_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseTileSet object to the Lua stack.
@@ -47,7 +47,7 @@ void tileset_lua_init(EseLuaEngine *engine);
  * 
  * @param tiles Pointer to the EseTileSet object to push to Lua
  */
-void tileset_lua_push(EseTileSet *tiles);
+void ese_tileset_lua_push(EseTileSet *tiles);
 
 /**
  * @brief Extracts a EseTileSet pointer from a Lua userdata object with type safety.
@@ -63,7 +63,7 @@ void tileset_lua_push(EseTileSet *tiles);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseTileSet *tileset_lua_get(lua_State *L, int idx);
+EseTileSet *ese_tileset_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseTileSet object for Lua access with reference counting.
@@ -75,7 +75,7 @@ EseTileSet *tileset_lua_get(lua_State *L, int idx);
  * 
  * @param tiles Pointer to the EseTileSet object to reference
  */
-void tileset_ref(EseTileSet *tiles);
+void ese_tileset_ref(EseTileSet *tiles);
 
 /**
  * @brief Unreferences a EseTileSet object, decrementing the reference count.
@@ -85,7 +85,7 @@ void tileset_ref(EseTileSet *tiles);
  * 
  * @param tiles Pointer to the EseTileSet object to unreference
  */
-void tileset_unref(EseTileSet *tiles);
+void ese_tileset_unref(EseTileSet *tiles);
 
 /* ----------------- C API ----------------- */
 
@@ -101,7 +101,7 @@ void tileset_unref(EseTileSet *tiles);
  * 
  * @warning The returned EseTileSet must be freed with tileset_destroy() to prevent memory leaks
  */
-EseTileSet *tileset_create(EseLuaEngine *engine);
+EseTileSet *ese_tileset_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseTileSet into a new EseTileSet object.
@@ -115,7 +115,7 @@ EseTileSet *tileset_create(EseLuaEngine *engine);
  * 
  * @warning The returned EseTileSet must be freed with tileset_destroy() to prevent memory leaks.
  */
-EseTileSet *tileset_copy(const EseTileSet *source);
+EseTileSet *ese_tileset_copy(const EseTileSet *source);
 
 /**
  * @brief Destroys a EseTileSet object, managing memory based on Lua references.
@@ -130,14 +130,14 @@ EseTileSet *tileset_copy(const EseTileSet *source);
  * 
  * @param tiles Pointer to the EseTileSet object to destroy
  */
-void tileset_destroy(EseTileSet *tiles);
+void ese_tileset_destroy(EseTileSet *tiles);
 
 /**
  * @brief Gets the size of the EseTileSet structure in bytes.
  * 
  * @return The size of the EseTileSet structure in bytes
  */
-size_t tileset_sizeof(void);
+size_t ese_tileset_sizeof(void);
 
 // Lua-related access
 /**
@@ -146,7 +146,7 @@ size_t tileset_sizeof(void);
  * @param tiles Pointer to the EseTileSet object
  * @return Pointer to the Lua state, or NULL if none
  */
-lua_State *tileset_get_state(const EseTileSet *tiles);
+lua_State *ese_tileset_get_state(const EseTileSet *tiles);
 
 /**
  * @brief Gets the Lua registry reference for this tileset.
@@ -154,7 +154,7 @@ lua_State *tileset_get_state(const EseTileSet *tiles);
  * @param tiles Pointer to the EseTileSet object
  * @return The Lua registry reference value
  */
-int tileset_get_lua_ref(const EseTileSet *tiles);
+int ese_tileset_get_lua_ref(const EseTileSet *tiles);
 
 /**
  * @brief Gets the Lua reference count for this tileset.
@@ -162,7 +162,7 @@ int tileset_get_lua_ref(const EseTileSet *tiles);
  * @param tiles Pointer to the EseTileSet object
  * @return The current reference count
  */
-int tileset_get_lua_ref_count(const EseTileSet *tiles);
+int ese_tileset_get_lua_ref_count(const EseTileSet *tiles);
 
 /**
  * @brief Gets the RNG seed of the tileset
@@ -170,7 +170,7 @@ int tileset_get_lua_ref_count(const EseTileSet *tiles);
  * @param tiles Pointer to the EseTileSet
  * @return The current RNG seed value
  */
-uint32_t tileset_get_rng_seed(const EseTileSet *tiles);
+uint32_t ese_tileset_get_rng_seed(const EseTileSet *tiles);
 
 /* ----------------- Sprite Management ----------------- */
 
@@ -183,7 +183,7 @@ uint32_t tileset_get_rng_seed(const EseTileSet *tiles);
  * @param weight The weight for random selection (must be > 0)
  * @return true if successful, false if memory allocation fails
  */
-bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id,
+bool ese_tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id,
                         const char *sprite_id, uint16_t weight);
 
 /**
@@ -194,7 +194,7 @@ bool tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id,
  * @param sprite_id The sprite string to remove
  * @return true if successful, false if sprite not found
  */
-bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id,
+bool ese_tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id,
                            const char *sprite_id);
 
 /**
@@ -204,7 +204,7 @@ bool tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id,
  * @param tile_id The tile ID to get a sprite for
  * @return A EseSprite based on weights, or NULL if no mapping exists
  */
-const char *tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id);
+const char *ese_tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id);
 
 /**
  * @brief Clears all sprites from a tile mapping.
@@ -212,7 +212,7 @@ const char *tileset_get_sprite(EseTileSet *tiles, uint8_t tile_id);
  * @param tiles Pointer to the EseTileSet object
  * @param tile_id The tile ID to clear
  */
-void tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id);
+void ese_tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id);
 
 /**
  * @brief Gets the number of sprites for a tile mapping.
@@ -221,7 +221,7 @@ void tileset_clear_mapping(EseTileSet *tiles, uint8_t tile_id);
  * @param tile_id The tile ID to check
  * @return Number of sprites in the mapping
  */
-size_t tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
+size_t ese_tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
 
 /**
  * @brief Updates the weight of an existing sprite in a tile mapping.
@@ -232,9 +232,9 @@ size_t tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
  * @param new_weight The new weight value (must be > 0)
  * @return true if successful, false if sprite not found
  */
-bool tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id,
+bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id,
                                   const char *sprite_id, uint16_t new_weight);
 
-void tileset_set_seed(EseTileSet *tiles, uint32_t seed);
+void ese_tileset_set_seed(EseTileSet *tiles, uint32_t seed);
 
 #endif // ESE_TILE_SET_H

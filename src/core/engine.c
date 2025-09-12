@@ -58,16 +58,16 @@ EseEngine *engine_create(const char *startup_script) {
     entity_component_lua_init(engine->lua_engine);
 
     // Add types
-    arc_lua_init(engine->lua_engine);
-    camera_state_lua_init(engine->lua_engine);
-    display_state_lua_init(engine->lua_engine);
+    ese_arc_lua_init(engine->lua_engine);
+    ese_camera_lua_init(engine->lua_engine);
+    ese_display_lua_init(engine->lua_engine);
     ese_input_state_lua_init(engine->lua_engine);
-    map_lua_init(engine->lua_engine);
+    ese_map_lua_init(engine->lua_engine);
     ese_mapcell_lua_init(engine->lua_engine);
     ese_point_lua_init(engine->lua_engine);
     ese_ray_lua_init(engine->lua_engine);
     ese_rect_lua_init(engine->lua_engine);
-    tileset_lua_init(engine->lua_engine);
+    ese_tileset_lua_init(engine->lua_engine);
     ese_vector_lua_init(engine->lua_engine);
     ese_uuid_lua_init(engine->lua_engine);
 
@@ -88,12 +88,12 @@ EseEngine *engine_create(const char *startup_script) {
     ese_input_state_ref(engine->input_state);
     lua_engine_add_global(engine->lua_engine, "InputState", engine->input_state->lua_ref);
 
-    engine->display_state = display_state_create(engine->lua_engine);
-    display_state_ref(engine->display_state);
-    lua_engine_add_global(engine->lua_engine, "Display", display_state_get_lua_ref(engine->display_state));
+    engine->display_state = ese_display_create(engine->lua_engine);
+    ese_display_ref(engine->display_state);
+    lua_engine_add_global(engine->lua_engine, "Display", ese_display_get_lua_ref(engine->display_state));
 
-    engine->camera_state = camera_state_create(engine->lua_engine);
-    camera_state_ref(engine->camera_state);
+    engine->camera_state = ese_camera_create(engine->lua_engine);
+    ese_camera_ref(engine->camera_state);
     lua_engine_add_global(engine->lua_engine, "Camera", engine->camera_state->lua_ref);
 
     // Lock global
@@ -133,8 +133,8 @@ void engine_destroy(EseEngine *engine) {
         asset_manager_destroy(engine->asset_manager);
     }
     ese_input_state_destroy(engine->input_state);
-    display_state_destroy(engine->display_state);
-    camera_state_destroy(engine->camera_state);
+    ese_display_destroy(engine->display_state);
+    ese_camera_destroy(engine->camera_state);
     console_destroy(engine->console);
 
     collision_index_destroy(engine->collision_bin);
@@ -189,8 +189,8 @@ void engine_start(EseEngine *engine) {
         renderer_get_size(engine->renderer, &view_width, &view_height);
     }
 
-    display_state_set_dimensions(engine->display_state, view_width, view_height);
-    display_state_set_viewport(engine->display_state, view_width, view_height);
+    ese_display_set_dimensions(engine->display_state, view_width, view_height);
+    ese_display_set_viewport(engine->display_state, view_width, view_height);
 
     // Run startup script using the new function reference system
     if (engine->startup_ref != LUA_NOREF) {
@@ -233,8 +233,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         int view_width, view_height;
         renderer_get_size(engine->renderer, &view_width, &view_height);
 
-        display_state_set_dimensions(engine->display_state, view_width, view_height);
-        display_state_set_viewport(engine->display_state, view_width, view_height);
+        ese_display_set_dimensions(engine->display_state, view_width, view_height);
+        ese_display_set_viewport(engine->display_state, view_width, view_height);
     }
 
     // Update the input state
@@ -265,10 +265,10 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Display and camera updates
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     // Camera's view rectangle (centered)
-    float view_left   = ese_point_get_x(engine->camera_state->position) - display_state_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_right  = ese_point_get_x(engine->camera_state->position) + display_state_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_top    = ese_point_get_y(engine->camera_state->position) - display_state_get_viewport_height(engine->display_state) / 2.0f;
-    float view_bottom = ese_point_get_y(engine->camera_state->position) + display_state_get_viewport_height(engine->display_state) / 2.0f;
+    float view_left   = ese_point_get_x(engine->camera_state->position) - ese_display_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_right  = ese_point_get_x(engine->camera_state->position) + ese_display_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_top    = ese_point_get_y(engine->camera_state->position) - ese_display_get_viewport_height(engine->display_state) / 2.0f;
+    float view_bottom = ese_point_get_y(engine->camera_state->position) + ese_display_get_viewport_height(engine->display_state) / 2.0f;
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_display_camera");
 
     // Entity PASS ONE - Update each active entity.
@@ -361,8 +361,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
             entity,
             ese_point_get_x(engine->camera_state->position),
             ese_point_get_y(engine->camera_state->position),
-            display_state_get_viewport_width(engine->display_state),
-            display_state_get_viewport_height(engine->display_state),
+            ese_display_get_viewport_width(engine->display_state),
+            ese_display_get_viewport_height(engine->display_state),
             _engine_add_texture_to_draw_list,
             _engine_add_rect_to_draw_list,
             engine->draw_list
@@ -377,8 +377,8 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         console_draw(
             engine->console,
             engine->asset_manager,
-            display_state_get_viewport_width(engine->display_state),
-            display_state_get_viewport_height(engine->display_state),
+            ese_display_get_viewport_width(engine->display_state),
+            ese_display_get_viewport_height(engine->display_state),
             _engine_add_texture_to_draw_list,
             _engine_add_rect_to_draw_list,
             engine->draw_list
@@ -391,7 +391,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     EseRenderList *render_list = _engine_get_render_list(engine);
     render_list_clear(render_list);
-    render_list_set_size(render_list, display_state_get_viewport_width(engine->display_state), display_state_get_viewport_height(engine->display_state));
+    render_list_set_size(render_list, ese_display_get_viewport_width(engine->display_state), ese_display_get_viewport_height(engine->display_state));
     render_list_fill(render_list, engine->draw_list);
 
     // Flip the updated render list to be active

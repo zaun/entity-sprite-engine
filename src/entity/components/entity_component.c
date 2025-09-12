@@ -20,7 +20,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     
     _entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
-    _entity_component_map_init(engine);
+    _entity_component_ese_map_init(engine);
     _entity_component_shape_init(engine);
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);
@@ -42,7 +42,7 @@ EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
             result = _entity_component_lua_copy((EseEntityComponentLua*)component->data);
             break;
         case ENTITY_COMPONENT_MAP:
-            result = _entity_component_map_copy((EseEntityComponentMap*)component->data);
+            result = _entity_component_ese_map_copy((EseEntityComponentMap*)component->data);
             break;
         case ENTITY_COMPONENT_SHAPE:
             result = _entity_component_shape_copy((EseEntityComponentShape*)component->data);
@@ -80,7 +80,7 @@ void entity_component_destroy(EseEntityComponent* component) {
             _entity_component_lua_destroy((EseEntityComponentLua*)component->data);
             break;
         case ENTITY_COMPONENT_MAP:
-            _entity_component_map_destroy((EseEntityComponentMap*)component->data);
+            _entity_component_ese_map_destroy((EseEntityComponentMap*)component->data);
             break;
         case ENTITY_COMPONENT_SHAPE:
             _entity_component_shape_destroy((EseEntityComponentShape*)component->data);
@@ -131,8 +131,8 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
             break;
         case ENTITY_COMPONENT_MAP:
             profile_start(PROFILE_ENTITY_COMP_MAP_UPDATE);
-            _entity_component_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
-            profile_stop(PROFILE_ENTITY_COMP_MAP_UPDATE, "entity_component_map_update");
+            _entity_component_ese_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
+            profile_stop(PROFILE_ENTITY_COMP_MAP_UPDATE, "entity_component_ese_map_update");
             break;
         case ENTITY_COMPONENT_SHAPE:
             // Shape component has no update function
@@ -259,11 +259,11 @@ void entity_component_draw(
         }
         case ENTITY_COMPONENT_MAP: {
             profile_start(PROFILE_ENTITY_COMP_MAP_DRAW);
-            _entity_component_map_draw(
+            _entity_component_ese_map_draw(
                 (EseEntityComponentMap*)component->data,
                 screen_x, screen_y, texCallback, callback_user_data
             );
-            profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_map_draw");
+            profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_ese_map_draw");
             break;
         }
         case ENTITY_COMPONENT_SHAPE: {
@@ -372,12 +372,12 @@ EseEntityComponent *entity_component_get(lua_State *L) {
         }
         return &lua_comp->base;
     } else if (strcmp(metatable_name, ENTITY_COMPONENT_MAP_PROXY_META) == 0) {
-        EseEntityComponentMap *map_comp = _entity_component_map_get(L, 1);
-        if (map_comp == NULL) {
+        EseEntityComponentMap *ese_map_comp = _entity_component_ese_map_get(L, 1);
+        if (ese_map_comp == NULL) {
             luaL_error(L, "internal error: Map metatable name identified, but _get returned NULL.");
             return NULL;
         }
-        return &map_comp->base;
+        return &ese_map_comp->base;
     } else if (strcmp(metatable_name, ENTITY_COMPONENT_SHAPE_PROXY_META) == 0) {
         EseEntityComponentShape *shape_comp = _entity_component_shape_get(L, 1);
         if (shape_comp == NULL) {

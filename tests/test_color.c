@@ -1,6 +1,6 @@
 /*
- * Test file for color functionality
- */
+* test_ese_color.c - Unity-based tests for color functionality
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,416 +10,718 @@
 #include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
-#include "test_utils.h"
+#include <math.h>
+#include <sys/wait.h>
+
+#include "testing.h"
+
 #include "../src/types/color.h"
-#include "../src/scripting/lua_engine.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
 
-// Test function declarations
-static void test_color_creation();
-static void test_color_copy();
-static void test_color_properties();
-static void test_color_hex_conversion();
-static void test_color_byte_conversion();
-static void test_color_watchers();
-static void test_color_lua_integration();
-static void test_color_null_pointer_aborts();
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_color_sizeof(void);
+static void test_ese_color_create_requires_engine(void);
+static void test_ese_color_create(void);
+static void test_ese_color_r(void);
+static void test_ese_color_g(void);
+static void test_ese_color_b(void);
+static void test_ese_color_a(void);
+static void test_ese_color_ref(void);
+static void test_ese_color_copy_requires_engine(void);
+static void test_ese_color_copy(void);
+static void test_ese_color_hex_conversion(void);
+static void test_ese_color_byte_conversion(void);
+static void test_ese_color_watcher_system(void);
+static void test_ese_color_lua_integration(void);
+static void test_ese_color_lua_init(void);
+static void test_ese_color_lua_push(void);
+static void test_ese_color_lua_get(void);
 
-// Helper function to create and initialize engine
-static EseLuaEngine* create_test_engine() {
-    EseLuaEngine *engine = lua_engine_create();
-    if (engine) {
-        // Set up registry keys that color system needs
-        lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
-        
-        // Initialize color system
-        color_lua_init(engine);
-    }
-    return engine;
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_color_lua_new(void);
+static void test_ese_color_lua_white(void);
+static void test_ese_color_lua_black(void);
+static void test_ese_color_lua_red(void);
+static void test_ese_color_lua_green(void);
+static void test_ese_color_lua_blue(void);
+static void test_ese_color_lua_set_hex(void);
+static void test_ese_color_lua_set_byte(void);
+static void test_ese_color_lua_r(void);
+static void test_ese_color_lua_g(void);
+static void test_ese_color_lua_b(void);
+static void test_ese_color_lua_a(void);
+static void test_ese_color_lua_tostring(void);
+static void test_ese_color_lua_gc(void);
+
+/**
+* Mock watcher callback for testing
+*/
+static bool watcher_called = false;
+static EseColor *last_watched_color = NULL;
+static void *last_watcher_userdata = NULL;
+
+static void test_watcher_callback(EseColor *color, void *userdata) {
+    watcher_called = true;
+    last_watched_color = color;
+    last_watcher_userdata = userdata;
 }
 
-// Mock watcher callback
-static bool mock_watcher_called = false;
-static EseColor *mock_watcher_color = NULL;
-static void *mock_watcher_userdata = NULL;
-
-static void mock_watcher_callback(EseColor *color, void *userdata) {
-    mock_watcher_called = true;
-    mock_watcher_color = color;
-    mock_watcher_userdata = userdata;
+static void mock_reset(void) {
+    watcher_called = false;
+    last_watched_color = NULL;
+    last_watcher_userdata = NULL;
 }
 
-static void mock_reset() {
-    mock_watcher_called = false;
-    mock_watcher_color = NULL;
-    mock_watcher_userdata = NULL;
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
+    ese_color_lua_init(g_engine);
 }
 
-// Signal handler for segfaults
-static void segfault_handler(int sig, siginfo_t *info, void *context) {
-    printf("---- BACKTRACE START ----\n");
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    printf("---- BACKTRACE  END  ----\n");
-    exit(1);
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-int main() {
-    // Register signal handler for segfaults
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = segfault_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigaction(SIGSEGV, &sa, NULL);
-
-    test_suite_begin("Color Tests");
-
-    // Initialize required systems
+/**
+* Main test runner
+*/
+int main(void) {
     log_init();
 
-    // Run all test suites
-    test_color_creation();
-    test_color_copy();
-    test_color_properties();
-    test_color_hex_conversion();
-    test_color_byte_conversion();
-    test_color_watchers();
-    test_color_lua_integration();
-    test_color_null_pointer_aborts();
+    printf("\nEseColor Tests\n");
+    printf("--------------\n");
 
-    test_suite_end("Color Tests");
+    UNITY_BEGIN();
 
-    return 0;
+    RUN_TEST(test_ese_color_sizeof);
+    RUN_TEST(test_ese_color_create_requires_engine);
+    RUN_TEST(test_ese_color_create);
+    RUN_TEST(test_ese_color_r);
+    RUN_TEST(test_ese_color_g);
+    RUN_TEST(test_ese_color_b);
+    RUN_TEST(test_ese_color_a);
+    RUN_TEST(test_ese_color_ref);
+    RUN_TEST(test_ese_color_copy_requires_engine);
+    RUN_TEST(test_ese_color_copy);
+    RUN_TEST(test_ese_color_hex_conversion);
+    RUN_TEST(test_ese_color_byte_conversion);
+    RUN_TEST(test_ese_color_watcher_system);
+    RUN_TEST(test_ese_color_lua_integration);
+    RUN_TEST(test_ese_color_lua_init);
+    RUN_TEST(test_ese_color_lua_push);
+    RUN_TEST(test_ese_color_lua_get);
+
+    RUN_TEST(test_ese_color_lua_new);
+    RUN_TEST(test_ese_color_lua_white);
+    RUN_TEST(test_ese_color_lua_black);
+    RUN_TEST(test_ese_color_lua_red);
+    RUN_TEST(test_ese_color_lua_green);
+    RUN_TEST(test_ese_color_lua_blue);
+    RUN_TEST(test_ese_color_lua_set_hex);
+    RUN_TEST(test_ese_color_lua_set_byte);
+    RUN_TEST(test_ese_color_lua_r);
+    RUN_TEST(test_ese_color_lua_g);
+    RUN_TEST(test_ese_color_lua_b);
+    RUN_TEST(test_ese_color_lua_a);
+    RUN_TEST(test_ese_color_lua_tostring);
+    RUN_TEST(test_ese_color_lua_gc);
+
+    return UNITY_END();
 }
 
-// Test basic color creation
-static void test_color_creation() {
-    test_begin("Color Creation");
-    
-    EseLuaEngine *engine = create_test_engine();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created");
-    
-    EseColor *color = color_create(engine);
-    TEST_ASSERT_NOT_NULL(color, "Color should be created");
-    
-    // Test default values
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_r(color), 0.001f, "Default red should be 0.0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Default green should be 0.0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_b(color), 0.001f, "Default blue should be 0.0");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_a(color), 0.001f, "Default alpha should be 1.0");
-    
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Creation");
+/**
+* C API Test Functions
+*/
+
+static void test_ese_color_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_color_sizeof(), "Color size should be > 0");
 }
 
-// Test color copying
-static void test_color_copy() {
-    test_begin("Color Copy");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *original = color_create(engine);
-    
-    // Set some values
-    color_set_r(original, 0.5f);
-    color_set_g(original, 0.25f);
-    color_set_b(original, 0.75f);
-    color_set_a(original, 0.8f);
-    
-    EseColor *copy = color_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "Copy should be created");
-    TEST_ASSERT(original != copy, "Copy should be a different pointer");
-    
-    // Test that values are copied
-    TEST_ASSERT_FLOAT_EQUAL(0.5f, color_get_r(copy), 0.001f, "Copied red should match original");
-    TEST_ASSERT_FLOAT_EQUAL(0.25f, color_get_g(copy), 0.001f, "Copied green should match original");
-    TEST_ASSERT_FLOAT_EQUAL(0.75f, color_get_b(copy), 0.001f, "Copied blue should match original");
-    TEST_ASSERT_FLOAT_EQUAL(0.8f, color_get_a(copy), 0.001f, "Copied alpha should match original");
-    
-    // Test that modifications to copy don't affect original
-    color_set_r(copy, 1.0f);
-    TEST_ASSERT_FLOAT_EQUAL(0.5f, color_get_r(original), 0.001f, "Original should not be affected by copy modification");
-    
-    // Clean up
-    color_destroy(copy);
-    color_destroy(original);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Copy");
+static void test_ese_color_create_requires_engine(void) {
+    ASSERT_DEATH(ese_color_create(NULL), "ese_color_create should abort with NULL engine");
 }
 
-// Test color property access
-static void test_color_properties() {
-    test_begin("Color Properties");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
-    
-    // Test setting and getting properties
-    color_set_r(color, 0.1f);
-    TEST_ASSERT_FLOAT_EQUAL(0.1f, color_get_r(color), 0.001f, "Red should be set and retrieved correctly");
-    
-    color_set_g(color, 0.2f);
-    TEST_ASSERT_FLOAT_EQUAL(0.2f, color_get_g(color), 0.001f, "Green should be set and retrieved correctly");
-    
-    color_set_b(color, 0.3f);
-    TEST_ASSERT_FLOAT_EQUAL(0.3f, color_get_b(color), 0.001f, "Blue should be set and retrieved correctly");
-    
-    color_set_a(color, 0.4f);
-    TEST_ASSERT_FLOAT_EQUAL(0.4f, color_get_a(color), 0.001f, "Alpha should be set and retrieved correctly");
-    
-    // Test clamping behavior (values should be clamped to 0.0-1.0 range)
-    color_set_r(color, 1.5f);
-    TEST_ASSERT_FLOAT_EQUAL(1.5f, color_get_r(color), 0.001f, "Values above 1.0 should be stored as-is (no clamping)");
-    
-    color_set_g(color, -0.5f);
-    TEST_ASSERT_FLOAT_EQUAL(-0.5f, color_get_g(color), 0.001f, "Values below 0.0 should be stored as-is (no clamping)");
-    
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Properties");
+static void test_ese_color_create(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(color, "Color should be created");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.0f, ese_color_get_a(color));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_color_get_state(color), "Color should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_color_get_lua_ref_count(color), "New color should have ref count 0");
+
+    ese_color_destroy(color);
 }
 
-// Test hex string conversion
-static void test_color_hex_conversion() {
-    test_begin("Color Hex Conversion");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
-    
+static void test_ese_color_r(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    ese_color_set_r(color, 0.5f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_color_get_r(color));
+
+    ese_color_set_r(color, -0.5f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.5f, ese_color_get_r(color));
+
+    ese_color_set_r(color, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(color));
+
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_g(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    ese_color_set_g(color, 0.3f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.3f, ese_color_get_g(color));
+
+    ese_color_set_g(color, -0.3f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.3f, ese_color_get_g(color));
+
+    ese_color_set_g(color, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(color));
+
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_b(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    ese_color_set_b(color, 0.7f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.7f, ese_color_get_b(color));
+
+    ese_color_set_b(color, -0.7f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.7f, ese_color_get_b(color));
+
+    ese_color_set_b(color, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(color));
+
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_a(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    ese_color_set_a(color, 0.8f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, ese_color_get_a(color));
+
+    ese_color_set_a(color, -0.8f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.8f, ese_color_get_a(color));
+
+    ese_color_set_a(color, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_a(color));
+
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_ref(void) {
+    EseColor *color = ese_color_create(g_engine);
+
+    ese_color_ref(color);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_color_get_lua_ref_count(color), "Ref count should be 1");
+
+    ese_color_unref(color);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_color_get_lua_ref_count(color), "Ref count should be 0");
+
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_copy_requires_engine(void) {
+    ASSERT_DEATH(ese_color_copy(NULL), "ese_color_copy should abort with NULL color");
+}
+
+static void test_ese_color_copy(void) {
+    EseColor *color = ese_color_create(g_engine);
+    ese_color_ref(color);
+    ese_color_set_r(color, 0.5f);
+    ese_color_set_g(color, 0.25f);
+    ese_color_set_b(color, 0.75f);
+    ese_color_set_a(color, 0.8f);
+    EseColor *copy = ese_color_copy(color);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_color_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_color_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_color_get_r(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.25f, ese_color_get_g(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.75f, ese_color_get_b(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, ese_color_get_a(copy));
+
+    ese_color_unref(color);
+    ese_color_destroy(color);
+    ese_color_destroy(copy);
+}
+
+static void test_ese_color_hex_conversion(void) {
+    EseColor *color = ese_color_create(g_engine);
+
     // Test #RGB format
-    bool success = color_set_hex(color, "#F0A");
-    TEST_ASSERT(success, "Should successfully parse #F0A");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_r(color), 0.001f, "Red should be 1.0 for #F0A");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Green should be 0.0 for #F0A");
-    TEST_ASSERT_FLOAT_EQUAL(0.67f, color_get_b(color), 0.01f, "Blue should be ~0.67 for #F0A");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_a(color), 0.001f, "Alpha should be 1.0 for #F0A");
-    
+    bool success = ese_color_set_hex(color, "#F0A");
+    TEST_ASSERT_TRUE_MESSAGE(success, "Should successfully parse #F0A");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.67f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(color));
+
     // Test #RRGGBB format
-    success = color_set_hex(color, "#FF0000");
-    TEST_ASSERT(success, "Should successfully parse #FF0000");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_r(color), 0.001f, "Red should be 1.0 for #FF0000");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Green should be 0.0 for #FF0000");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_b(color), 0.001f, "Blue should be 0.0 for #FF0000");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_a(color), 0.001f, "Alpha should be 1.0 for #FF0000");
-    
-    // Test #RGBA format
-    success = color_set_hex(color, "#FF0080");
-    TEST_ASSERT(success, "Should successfully parse #FF0080");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_r(color), 0.001f, "Red should be 1.0 for #FF0080");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Green should be 0.0 for #FF0080");
-    TEST_ASSERT_FLOAT_EQUAL(0.5f, color_get_b(color), 0.01f, "Blue should be ~0.5 for #FF0080");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_a(color), 0.001f, "Alpha should be 1.0 for #FF0080");
-    
+    success = ese_color_set_hex(color, "#FF0000");
+    TEST_ASSERT_TRUE_MESSAGE(success, "Should successfully parse #FF0000");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(color));
+
     // Test #RRGGBBAA format
-    success = color_set_hex(color, "#FF000080");
-    TEST_ASSERT(success, "Should successfully parse #FF000080");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_r(color), 0.001f, "Red should be 1.0 for #FF000080");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Green should be 0.0 for #FF000080");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_b(color), 0.001f, "Blue should be 0.0 for #FF000080");
-    TEST_ASSERT_FLOAT_EQUAL(0.5f, color_get_a(color), 0.01f, "Alpha should be ~0.5 for #FF000080");
-    
+    success = ese_color_set_hex(color, "#FF000080");
+    TEST_ASSERT_TRUE_MESSAGE(success, "Should successfully parse #FF000080");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, ese_color_get_a(color));
+
     // Test invalid formats
-    success = color_set_hex(color, "invalid");
-    TEST_ASSERT(!success, "Should fail to parse invalid format");
-    
-    success = color_set_hex(color, "#GG");
-    TEST_ASSERT(!success, "Should fail to parse invalid hex characters");
-    
-    success = color_set_hex(color, "#");
-    TEST_ASSERT(!success, "Should fail to parse incomplete hex string");
-    
-    // Note: Testing NULL string would cause abort, so we skip this test
-    
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Hex Conversion");
+    success = ese_color_set_hex(color, "invalid");
+    TEST_ASSERT_FALSE_MESSAGE(success, "Should fail to parse invalid format");
+
+    success = ese_color_set_hex(color, "#GG");
+    TEST_ASSERT_FALSE_MESSAGE(success, "Should fail to parse invalid hex characters");
+
+    success = ese_color_set_hex(color, "#");
+    TEST_ASSERT_FALSE_MESSAGE(success, "Should fail to parse incomplete hex string");
+
+    ese_color_destroy(color);
 }
 
-// Test byte conversion
-static void test_color_byte_conversion() {
-    test_begin("Color Byte Conversion");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
-    
+static void test_ese_color_byte_conversion(void) {
+    EseColor *color = ese_color_create(g_engine);
+
     // Test setting from byte values
-    color_set_byte(color, 255, 128, 64, 192);
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, color_get_r(color), 0.001f, "Red should be 1.0 for byte 255");
-    TEST_ASSERT_FLOAT_EQUAL(0.502f, color_get_g(color), 0.01f, "Green should be ~0.502 for byte 128");
-    TEST_ASSERT_FLOAT_EQUAL(0.251f, color_get_b(color), 0.01f, "Blue should be ~0.251 for byte 64");
-    TEST_ASSERT_FLOAT_EQUAL(0.753f, color_get_a(color), 0.01f, "Alpha should be ~0.753 for byte 192");
-    
+    ese_color_set_byte(color, 255, 128, 64, 192);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.502f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.251f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.753f, ese_color_get_a(color));
+
     // Test getting byte values
     unsigned char r, g, b, a;
-    color_get_byte(color, &r, &g, &b, &a);
-    TEST_ASSERT_EQUAL(255, r, "Red byte should be 255");
-    TEST_ASSERT_EQUAL(128, g, "Green byte should be 128");
-    TEST_ASSERT_EQUAL(64, b, "Blue byte should be 64");
-    TEST_ASSERT_EQUAL(192, a, "Alpha byte should be 192");
-    
+    ese_color_get_byte(color, &r, &g, &b, &a);
+    TEST_ASSERT_EQUAL(255, r);
+    TEST_ASSERT_EQUAL(128, g);
+    TEST_ASSERT_EQUAL(64, b);
+    TEST_ASSERT_EQUAL(192, a);
+
     // Test edge cases
-    color_set_byte(color, 0, 0, 0, 0);
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_r(color), 0.001f, "Red should be 0.0 for byte 0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_g(color), 0.001f, "Green should be 0.0 for byte 0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_b(color), 0.001f, "Blue should be 0.0 for byte 0");
-    TEST_ASSERT_FLOAT_EQUAL(0.0f, color_get_a(color), 0.001f, "Alpha should be 0.0 for byte 0");
-    
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Byte Conversion");
+    ese_color_set_byte(color, 0, 0, 0, 0);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_a(color));
+
+    ese_color_destroy(color);
 }
 
-// Test watcher system
-static void test_color_watchers() {
-    test_begin("Color Watchers");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
-    
-    // Test adding watcher
-    bool success = color_add_watcher(color, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(success, "Should successfully add watcher");
-    
-    // Test that watcher is called on property change
+static void test_ese_color_watcher_system(void) {
+    EseColor *color = ese_color_create(g_engine);
+
     mock_reset();
-    color_set_r(color, 0.5f);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on property change");
-    TEST_ASSERT(mock_watcher_color == color, "Watcher should receive correct color pointer");
-    TEST_ASSERT(mock_watcher_userdata == (void*)0x1234, "Watcher should receive correct userdata");
-    
-    // Test that watcher is called on other property changes
+    ese_color_set_r(color, 0.5f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called before adding");
+
+    void *test_userdata = (void*)0x12345678;
+    bool add_result = ese_color_add_watcher(color, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(add_result, "Should successfully add watcher");
+
     mock_reset();
-    color_set_g(color, 0.25f);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on green change");
-    
+    ese_color_set_r(color, 0.7f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when r changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(color, last_watched_color, "Watcher should receive correct color pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
     mock_reset();
-    color_set_b(color, 0.75f);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on blue change");
-    
+    ese_color_set_g(color, 0.3f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when g changes");
+
     mock_reset();
-    color_set_a(color, 0.8f);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on alpha change");
-    
-    // Test removing watcher
-    success = color_remove_watcher(color, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(success, "Should successfully remove watcher");
-    
-    // Test that watcher is not called after removal
+    ese_color_set_b(color, 0.8f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when b changes");
+
     mock_reset();
-    color_set_r(color, 1.0f);
-    TEST_ASSERT(!mock_watcher_called, "Watcher should not be called after removal");
-    
-    // Test removing non-existent watcher
-    success = color_remove_watcher(color, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(!success, "Should fail to remove non-existent watcher");
-    
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
-    
-    test_end("Color Watchers");
+    ese_color_set_a(color, 0.9f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when a changes");
+
+    bool remove_result = ese_color_remove_watcher(color, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(remove_result, "Should successfully remove watcher");
+
+    mock_reset();
+    ese_color_set_r(color, 1.0f);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called after removal");
+
+    ese_color_destroy(color);
 }
 
-// Test Lua integration
-static void test_color_lua_integration() {
-    test_begin("Color Lua Integration");
-    
+static void test_ese_color_lua_integration(void) {
     EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
-    
-    // Test getting Lua reference
-    int lua_ref = color_get_lua_ref(color);
-    TEST_ASSERT(lua_ref == LUA_NOREF, "Color should have no Lua reference initially");
-    
-    // Test referencing
-    color_ref(color);
-    lua_ref = color_get_lua_ref(color);
-    TEST_ASSERT(lua_ref != LUA_NOREF, "Color should have a valid Lua reference after ref");
-    TEST_ASSERT_EQUAL(1, color_get_lua_ref_count(color), "Color should have ref count of 1");
-    
-    // Test unreferencing
-    color_unref(color);
-    TEST_ASSERT_EQUAL(0, color_get_lua_ref_count(color), "Color should have ref count of 0 after unref");
-    
-    // Test Lua state
-    lua_State *state = color_get_state(color);
-    TEST_ASSERT_NOT_NULL(state, "Color should have a valid Lua state");
-    TEST_ASSERT(state == engine->runtime, "Color state should match engine runtime");
-    
-    // Clean up
-    color_destroy(color);
+    EseColor *color = ese_color_create(engine);
+
+    lua_State *before_state = ese_color_get_state(color);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Color should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Color state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_color_get_lua_ref(color), "Color should have no Lua reference initially");
+
+    ese_color_ref(color);
+    lua_State *after_ref_state = ese_color_get_state(color);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Color should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Color state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_color_get_lua_ref(color), "Color should have a valid Lua reference after ref");
+
+    ese_color_unref(color);
+    lua_State *after_unref_state = ese_color_get_state(color);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Color should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Color state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_color_get_lua_ref(color), "Color should have no Lua reference after unref");
+
+    ese_color_destroy(color);
     lua_engine_destroy(engine);
-    
-    test_end("Color Lua Integration");
 }
 
-// Test NULL pointer aborts
-static void test_color_null_pointer_aborts() {
-    test_begin("Color NULL Pointer Abort Tests");
+static void test_ese_color_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = create_test_engine();
-    EseColor *color = color_create(engine);
+    // Since setUp already calls ese_color_lua_init, we just verify the metatable exists
+    luaL_getmetatable(L, "ColorMeta");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    // Test that creation functions abort with NULL pointers
-    TEST_ASSERT_ABORT(color_create(NULL), "color_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(color_copy(NULL), "color_copy should abort with NULL color");
-    // color_destroy should ignore NULL color (not abort)
-    color_destroy(NULL);
+    lua_getglobal(L, "Color");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global Color table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global Color table should be a table");
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_push(void) {
+    ese_color_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseColor *color = ese_color_create(g_engine);
     
-    // Test that property functions abort with NULL pointers
-    TEST_ASSERT_ABORT(color_set_r(NULL, 0.5f), "color_set_r should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_r(NULL), "color_get_r should abort with NULL color");
-    TEST_ASSERT_ABORT(color_set_g(NULL, 0.5f), "color_set_g should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_g(NULL), "color_get_g should abort with NULL color");
-    TEST_ASSERT_ABORT(color_set_b(NULL, 0.5f), "color_set_b should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_b(NULL), "color_get_b should abort with NULL color");
-    TEST_ASSERT_ABORT(color_set_a(NULL, 0.5f), "color_set_a should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_a(NULL), "color_get_a should abort with NULL color");
+    ese_color_lua_push(color);
     
-    // Test that utility functions abort with NULL pointers
-    TEST_ASSERT_ABORT(color_set_hex(NULL, "#FF0000"), "color_set_hex should abort with NULL color");
-    TEST_ASSERT_ABORT(color_set_hex(color, NULL), "color_set_hex should abort with NULL hex string");
-    TEST_ASSERT_ABORT(color_set_byte(NULL, 255, 128, 64, 192), "color_set_byte should abort with NULL color");
+    EseColor **ud = (EseColor **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(color, *ud, "The pushed item should be the actual color");
     
-    unsigned char r, g, b, a;
-    TEST_ASSERT_ABORT(color_get_byte(NULL, &r, &g, &b, &a), "color_get_byte should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_byte(color, NULL, &g, &b, &a), "color_get_byte should abort with NULL r pointer");
-    TEST_ASSERT_ABORT(color_get_byte(color, &r, NULL, &b, &a), "color_get_byte should abort with NULL g pointer");
-    TEST_ASSERT_ABORT(color_get_byte(color, &r, &g, NULL, &a), "color_get_byte should abort with NULL b pointer");
-    TEST_ASSERT_ABORT(color_get_byte(color, &r, &g, &b, NULL), "color_get_byte should abort with NULL a pointer");
+    lua_pop(L, 1); 
     
-    // Test that watcher functions abort with NULL pointers
-    TEST_ASSERT_ABORT(color_add_watcher(NULL, mock_watcher_callback, NULL), "color_add_watcher should abort with NULL color");
-    TEST_ASSERT_ABORT(color_add_watcher(color, NULL, NULL), "color_add_watcher should abort with NULL callback");
-    TEST_ASSERT_ABORT(color_remove_watcher(NULL, mock_watcher_callback, NULL), "color_remove_watcher should abort with NULL color");
-    TEST_ASSERT_ABORT(color_remove_watcher(color, NULL, NULL), "color_remove_watcher should abort with NULL callback");
+    ese_color_destroy(color);
+}
+
+static void test_ese_color_lua_get(void) {
+    ese_color_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EseColor *color = ese_color_create(g_engine);
     
-    // Test that Lua functions abort with NULL pointers
-    TEST_ASSERT_ABORT(color_lua_init(NULL), "color_lua_init should abort with NULL engine");
-    TEST_ASSERT_ABORT(color_lua_push(NULL), "color_lua_push should abort with NULL color");
-    TEST_ASSERT_ABORT(color_lua_get(NULL, 1), "color_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(color_ref(NULL), "color_ref should abort with NULL color");
-    // color_unref should ignore NULL color (not abort)
-    color_unref(NULL);
-    TEST_ASSERT_ABORT(color_get_state(NULL), "color_get_state should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_lua_ref(NULL), "color_get_lua_ref should abort with NULL color");
-    TEST_ASSERT_ABORT(color_get_lua_ref_count(NULL), "color_get_lua_ref_count should abort with NULL color");
+    ese_color_lua_push(color);
     
-    // Clean up
-    color_destroy(color);
-    lua_engine_destroy(engine);
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(color, extracted_color, "Extracted color should match original");
     
-    test_end("Color NULL Pointer Abort Tests");
+    lua_pop(L, 1);
+    ese_color_destroy(color);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_color_lua_new(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *testA = "return Color.new()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+
+    const char *testB = "return Color.new(0.5)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
+    extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+
+    const char *testC = "return Color.new(0.1, 0.2, 0.3, 0.4)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
+    extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.1f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.2f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.3f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.4f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+
+    const char *testD = "return Color.new(\"0.5\", \"0.6\")\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error (Lua converts strings to numbers)");
+}
+
+static void test_ese_color_lua_white(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return Color.white()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "white() should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_black(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return Color.black()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "black() should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_red(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return Color.red()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "red() should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_green(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return Color.green()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "green() should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_blue(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return Color.blue()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "blue() should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+}
+
+static void test_ese_color_lua_set_hex(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code2 = "local c = Color.new(); c:set_hex(\"#FF0000\"); return c.r\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "set_hex should execute without error");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, lua_tonumber(L, -1));
+    lua_pop(L, 1);
+
+    const char *test_error = "local c = Color.new(); c:set_hex(\"invalid\"); return c\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "set_hex with invalid string should error");
+}
+
+static void test_ese_color_lua_set_byte(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "local c = Color.new(); c:set_byte(255, 128, 64, 192); return c.r\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "set_byte should execute without error");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, lua_tonumber(L, -1));
+    lua_pop(L, 1);
+
+    const char *test_error = "local c = Color.new(); c:set_byte(255, 128); return c\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "set_byte with wrong number of args should error");
+}
+
+static void test_ese_color_lua_r(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local c = Color.new(0, 0, 0, 0); c.r = 0.5; return c.r";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua r set/get test 1 should execute without error");
+    double r = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, r);
+    lua_pop(L, 1);
+
+    const char *test2 = "local c = Color.new(0, 0, 0, 0); c.r = -0.5; return c.r";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua r set/get test 2 should execute without error");
+    r = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.5f, r);
+    lua_pop(L, 1);
+
+    const char *test3 = "local c = Color.new(0, 0, 0, 0); c.r = \"0.5\"; return c.r";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua r set with string should error");
+}
+
+static void test_ese_color_lua_g(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local c = Color.new(0, 0, 0, 0); c.g = 0.3; return c.g";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua g set/get test 1 should execute without error");
+    double g = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.3f, g);
+    lua_pop(L, 1);
+
+    const char *test2 = "local c = Color.new(0, 0, 0, 0); c.g = -0.3; return c.g";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua g set/get test 2 should execute without error");
+    g = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.3f, g);
+    lua_pop(L, 1);
+
+    const char *test3 = "local c = Color.new(0, 0, 0, 0); c.g = \"0.3\"; return c.g";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua g set with string should error");
+}
+
+static void test_ese_color_lua_b(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local c = Color.new(0, 0, 0, 0); c.b = 0.7; return c.b";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua b set/get test 1 should execute without error");
+    double b = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.7f, b);
+    lua_pop(L, 1);
+
+    const char *test2 = "local c = Color.new(0, 0, 0, 0); c.b = -0.7; return c.b";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua b set/get test 2 should execute without error");
+    b = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.7f, b);
+    lua_pop(L, 1);
+
+    const char *test3 = "local c = Color.new(0, 0, 0, 0); c.b = \"0.7\"; return c.b";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua b set with string should error");
+}
+
+static void test_ese_color_lua_a(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local c = Color.new(0, 0, 0, 0); c.a = 0.8; return c.a";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua a set/get test 1 should execute without error");
+    double a = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, a);
+    lua_pop(L, 1);
+
+    const char *test2 = "local c = Color.new(0, 0, 0, 0); c.a = -0.8; return c.a";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua a set/get test 2 should execute without error");
+    a = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -0.8f, a);
+    lua_pop(L, 1);
+
+    const char *test3 = "local c = Color.new(0, 0, 0, 0); c.a = \"0.8\"; return c.a";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua a set with string should error");
+}
+
+static void test_ese_color_lua_tostring(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local c = Color.new(0.5, 0.25, 0.75, 0.8); return tostring(c)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Color:") != NULL, "tostring should contain 'Color:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "r=0.50") != NULL, "tostring should contain 'r=0.50'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "g=0.25") != NULL, "tostring should contain 'g=0.25'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "b=0.75") != NULL, "tostring should contain 'b=0.75'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "a=0.80") != NULL, "tostring should contain 'a=0.80'");
+    lua_pop(L, 1); 
+}
+
+static void test_ese_color_lua_gc(void) {
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local c = Color.new(0.5, 0.25, 0.75, 0.8)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Color creation should execute without error");
+    
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testB = "return Color.new(0.5, 0.25, 0.75, 0.8)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Color creation should execute without error");
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    ese_color_ref(extracted_color);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_color_unref(extracted_color);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return Color.new(0.5, 0.25, 0.75, 0.8)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Color creation should execute without error");
+    extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    ese_color_ref(extracted_color);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    ese_color_unref(extracted_color);
+    ese_color_destroy(extracted_color);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
 }

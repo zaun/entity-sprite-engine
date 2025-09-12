@@ -34,28 +34,28 @@ typedef void (*EseColorWatcherCallback)(EseColor *color, void *userdata);
  * 
  * @details Allocates memory for a new EseColor and initializes to (0, 0, 0, 1).
  *          The color is created without Lua references and must be explicitly
- *          referenced with color_ref() if Lua access is desired.
+ *          referenced with ese_color_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseColor object
  * 
- * @warning The returned EseColor must be freed with color_destroy() to prevent memory leaks
+ * @warning The returned EseColor must be freed with ese_color_destroy() to prevent memory leaks
  */
-EseColor *color_create(EseLuaEngine *engine);
+EseColor *ese_color_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseColor into a new EseColor object.
  * 
  * @details This function creates a deep copy of an EseColor object. It allocates a new EseColor
  *          struct and copies all numeric members. The copy is created without Lua references
- *          and must be explicitly referenced with color_ref() if Lua access is desired.
+ *          and must be explicitly referenced with ese_color_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EseColor to copy.
  * @return A new, distinct EseColor object that is a copy of the source.
  * 
- * @warning The returned EseColor must be freed with color_destroy() to prevent memory leaks.
+ * @warning The returned EseColor must be freed with ese_color_destroy() to prevent memory leaks.
  */
-EseColor *color_copy(const EseColor *source);
+EseColor *ese_color_copy(const EseColor *source);
 
 /**
  * @brief Destroys a EseColor object, managing memory based on Lua references.
@@ -70,14 +70,14 @@ EseColor *color_copy(const EseColor *source);
  * 
  * @param color Pointer to the EseColor object to destroy
  */
-void color_destroy(EseColor *color);
+void ese_color_destroy(EseColor *color);
 
 /**
  * @brief Gets the size of the EseColor structure in bytes.
  * 
  * @return The size of the EseColor structure in bytes
  */
-size_t color_sizeof(void);
+size_t ese_color_sizeof(void);
 
 // Property access
 /**
@@ -86,7 +86,7 @@ size_t color_sizeof(void);
  * @param color Pointer to the EseColor object
  * @param r The red component value (0.0-1.0)
  */
-void color_set_r(EseColor *color, float r);
+void ese_color_set_r(EseColor *color, float r);
 
 /**
  * @brief Gets the red component of the color.
@@ -94,7 +94,7 @@ void color_set_r(EseColor *color, float r);
  * @param color Pointer to the EseColor object
  * @return The red component value (0.0-1.0)
  */
-float color_get_r(const EseColor *color);
+float ese_color_get_r(const EseColor *color);
 
 /**
  * @brief Sets the green component of the color.
@@ -102,7 +102,7 @@ float color_get_r(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @param g The green component value (0.0-1.0)
  */
-void color_set_g(EseColor *color, float g);
+void ese_color_set_g(EseColor *color, float g);
 
 /**
  * @brief Gets the green component of the color.
@@ -110,7 +110,7 @@ void color_set_g(EseColor *color, float g);
  * @param color Pointer to the EseColor object
  * @return The green component value (0.0-1.0)
  */
-float color_get_g(const EseColor *color);
+float ese_color_get_g(const EseColor *color);
 
 /**
  * @brief Sets the blue component of the color.
@@ -118,7 +118,7 @@ float color_get_g(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @param b The blue component value (0.0-1.0)
  */
-void color_set_b(EseColor *color, float b);
+void ese_color_set_b(EseColor *color, float b);
 
 /**
  * @brief Gets the blue component of the color.
@@ -126,7 +126,7 @@ void color_set_b(EseColor *color, float b);
  * @param color Pointer to the EseColor object
  * @return The blue component value (0.0-1.0)
  */
-float color_get_b(const EseColor *color);
+float ese_color_get_b(const EseColor *color);
 
 /**
  * @brief Sets the alpha component of the color.
@@ -134,7 +134,7 @@ float color_get_b(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @param a The alpha component value (0.0-1.0)
  */
-void color_set_a(EseColor *color, float a);
+void ese_color_set_a(EseColor *color, float a);
 
 /**
  * @brief Gets the alpha component of the color.
@@ -142,7 +142,7 @@ void color_set_a(EseColor *color, float a);
  * @param color Pointer to the EseColor object
  * @return The alpha component value (0.0-1.0)
  */
-float color_get_a(const EseColor *color);
+float ese_color_get_a(const EseColor *color);
 
 // Lua-related access
 /**
@@ -151,7 +151,7 @@ float color_get_a(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @return Pointer to the Lua state, or NULL if none
  */
-lua_State *color_get_state(const EseColor *color);
+lua_State *ese_color_get_state(const EseColor *color);
 
 /**
  * @brief Gets the Lua registry reference for this color.
@@ -159,7 +159,7 @@ lua_State *color_get_state(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @return The Lua registry reference value
  */
-int color_get_lua_ref(const EseColor *color);
+int ese_color_get_lua_ref(const EseColor *color);
 
 /**
  * @brief Gets the Lua reference count for this color.
@@ -167,7 +167,7 @@ int color_get_lua_ref(const EseColor *color);
  * @param color Pointer to the EseColor object
  * @return The current reference count
  */
-int color_get_lua_ref_count(const EseColor *color);
+int ese_color_get_lua_ref_count(const EseColor *color);
 
 /**
  * @brief Adds a watcher callback to be notified when any color property changes.
@@ -180,7 +180,7 @@ int color_get_lua_ref_count(const EseColor *color);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
+bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -194,7 +194,7 @@ bool color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
+bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
@@ -207,7 +207,7 @@ bool color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, voi
  * 
  * @param engine EseLuaEngine pointer where the EseColor type will be registered
  */
-void color_lua_init(EseLuaEngine *engine);
+void ese_color_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseColor object to the Lua stack.
@@ -218,13 +218,13 @@ void color_lua_init(EseLuaEngine *engine);
  * 
  * @param color Pointer to the EseColor object to push to Lua
  */
-void color_lua_push(EseColor *color);
+void ese_color_lua_push(EseColor *color);
 
 /**
  * @brief Extracts a EseColor pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseColor pointer from the "__ptr" field of a Lua
- *          table that was created by color_lua_push(). Performs
+ *          table that was created by ese_color_lua_push(). Performs
  *          type checking to ensure the object is a valid EseColor proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -234,7 +234,7 @@ void color_lua_push(EseColor *color);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseColor *color_lua_get(lua_State *L, int idx);
+EseColor *ese_color_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseColor object for Lua access with reference counting.
@@ -246,7 +246,7 @@ EseColor *color_lua_get(lua_State *L, int idx);
  * 
  * @param color Pointer to the EseColor object to reference
  */
-void color_ref(EseColor *color);
+void ese_color_ref(EseColor *color);
 
 /**
  * @brief Unreferences a EseColor object, decrementing the reference count.
@@ -256,7 +256,7 @@ void color_ref(EseColor *color);
  * 
  * @param color Pointer to the EseColor object to unreference
  */
-void color_unref(EseColor *color);
+void ese_color_unref(EseColor *color);
 
 // Utility functions
 /**
@@ -270,7 +270,7 @@ void color_unref(EseColor *color);
  * @param hex_string Hex color string (e.g., "#FF0000", "#FF0000FF")
  * @return true if parsing was successful, false otherwise
  */
-bool color_set_hex(EseColor *color, const char *hex_string);
+bool ese_color_set_hex(EseColor *color, const char *hex_string);
 
 /**
  * @brief Sets the color from byte values (0-255).
@@ -284,7 +284,7 @@ bool color_set_hex(EseColor *color, const char *hex_string);
  * @param b Blue component (0-255)
  * @param a Alpha component (0-255)
  */
-void color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 /**
  * @brief Gets the color as byte values (0-255).
@@ -297,6 +297,6 @@ void color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned 
  * @param b Pointer to store blue component (0-255)
  * @param a Pointer to store alpha component (0-255)
  */
-void color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a);
+void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a);
 
 #endif // ESE_COLOR_H

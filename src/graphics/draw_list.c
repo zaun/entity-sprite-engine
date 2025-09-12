@@ -205,7 +205,7 @@ void draw_list_object_set_texture(
 }
 
 void draw_list_object_set_rect_color(EseDrawListObject* object, unsigned char r, unsigned char g, unsigned char b, unsigned char a, bool filled) {
-    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_color_color called with NULL object");
+    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_ese_color_color called with NULL object");
 
     object->type = RL_RECT;
     EseDrawListRect* rect_data = &object->data.rect;

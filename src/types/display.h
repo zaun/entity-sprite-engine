@@ -42,14 +42,14 @@ typedef struct EseDisplay EseDisplay;
  * 
  * @details This function allocates memory for a new `EseDisplay` object and initializes
  * it with default display configuration. The display is created without Lua references
- * and must be explicitly referenced with display_state_ref() if Lua access is desired.
+ * and must be explicitly referenced with ese_display_ref() if Lua access is desired.
  * 
  * @param engine A pointer to the `EseLuaEngine` for the Lua state.
  * @return A pointer to the newly allocated `EseDisplay` object.
  * 
- * @warning The caller is responsible for freeing the returned memory with `display_state_destroy`.
+ * @warning The caller is responsible for freeing the returned memory with `ese_display_destroy`.
  */
-EseDisplay *display_state_create(EseLuaEngine *engine);
+EseDisplay *ese_display_create(EseLuaEngine *engine);
 
 /**
  * @brief Creates a deep copy of a EseDisplay object.
@@ -57,15 +57,15 @@ EseDisplay *display_state_create(EseLuaEngine *engine);
  * @details This function allocates new memory and copies the state from a source `EseDisplay`
  * object. It ensures all data, including viewport configuration, is duplicated.
  * The copy is created without Lua references and must be explicitly referenced
- * with display_state_ref() if Lua access is desired.
+ * with ese_display_ref() if Lua access is desired.
  * 
  * @param src A pointer to the source `EseDisplay` object to copy from.
  * @return A pointer to the new copied `EseDisplay`.
  * 
  * @note This function performs a memory allocation and a deep copy of the data.
- * @warning The caller is responsible for freeing the returned memory with `display_state_destroy`.
+ * @warning The caller is responsible for freeing the returned memory with `ese_display_destroy`.
  */
-EseDisplay *display_state_copy(const EseDisplay *src);
+EseDisplay *ese_display_copy(const EseDisplay *src);
 
 /**
  * @brief Destroys a EseDisplay object, managing memory based on Lua references.
@@ -83,7 +83,7 @@ EseDisplay *display_state_copy(const EseDisplay *src);
  * 
  * @note This function uses `log_assert` to check for a `NULL` display pointer.
  */
-void display_state_destroy(EseDisplay *display);
+void ese_display_destroy(EseDisplay *display);
 
 // Lua integration
 /**
@@ -98,7 +98,7 @@ void display_state_destroy(EseDisplay *display);
  * 
  * @note This function should be called once during engine initialization.
  */
-void display_state_lua_init(EseLuaEngine *engine);
+void ese_display_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseDisplay object to the Lua stack.
@@ -109,13 +109,13 @@ void display_state_lua_init(EseLuaEngine *engine);
  * 
  * @param display Pointer to the EseDisplay object to push to Lua
  */
-void display_state_lua_push(EseDisplay *display);
+void ese_display_lua_push(EseDisplay *display);
 
 /**
  * @brief Extracts a EseDisplay pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EseDisplay pointer from the "__ptr" field of a Lua
- *          table that was created by display_state_lua_push(). Performs
+ *          table that was created by ese_display_lua_push(). Performs
  *          type checking to ensure the object is a valid EseDisplay proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -125,7 +125,7 @@ void display_state_lua_push(EseDisplay *display);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseDisplay *display_state_lua_get(lua_State *L, int idx);
+EseDisplay *ese_display_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EseDisplay object for Lua access with reference counting.
@@ -137,7 +137,7 @@ EseDisplay *display_state_lua_get(lua_State *L, int idx);
  * 
  * @param display Pointer to the EseDisplay object to reference
  */
-void display_state_ref(EseDisplay *display);
+void ese_display_ref(EseDisplay *display);
 
 /**
  * @brief Unreferences a EseDisplay object, decrementing the reference count.
@@ -147,7 +147,7 @@ void display_state_ref(EseDisplay *display);
  * 
  * @param display Pointer to the EseDisplay object to unreference
  */
-void display_state_unref(EseDisplay *display);
+void ese_display_unref(EseDisplay *display);
 
 // State management
 /**
@@ -161,7 +161,7 @@ void display_state_unref(EseDisplay *display);
  * @param height The new height in pixels.
  * @return void
  */
-void display_state_set_dimensions(EseDisplay *display, int width, int height);
+void ese_display_set_dimensions(EseDisplay *display, int width, int height);
 
 /**
  * @brief Sets the fullscreen state of the display.
@@ -172,7 +172,7 @@ void display_state_set_dimensions(EseDisplay *display, int width, int height);
  * @param fullscreen Whether the display should be in fullscreen mode.
  * @return void
  */
-void display_state_set_fullscreen(EseDisplay *display, bool fullscreen);
+void ese_display_set_fullscreen(EseDisplay *display, bool fullscreen);
 
 /**
  * @brief Sets the viewport configuration.
@@ -184,7 +184,7 @@ void display_state_set_fullscreen(EseDisplay *display, bool fullscreen);
  * @param height The height of the viewport.
  * @return void
  */
-void display_state_set_viewport(EseDisplay *display, int width, int height);
+void ese_display_set_viewport(EseDisplay *display, int width, int height);
 
 // Getter functions
 /**
@@ -193,7 +193,7 @@ void display_state_set_viewport(EseDisplay *display, int width, int height);
  * @param display A pointer to the `EseDisplay` object.
  * @return The fullscreen state (true if fullscreen, false otherwise).
  */
-bool display_state_get_fullscreen(const EseDisplay *display);
+bool ese_display_get_fullscreen(const EseDisplay *display);
 
 /**
  * @brief Gets the width of the display.
@@ -201,7 +201,7 @@ bool display_state_get_fullscreen(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The width in pixels.
  */
-int display_state_get_width(const EseDisplay *display);
+int ese_display_get_width(const EseDisplay *display);
 
 /**
  * @brief Gets the height of the display.
@@ -209,7 +209,7 @@ int display_state_get_width(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The height in pixels.
  */
-int display_state_get_height(const EseDisplay *display);
+int ese_display_get_height(const EseDisplay *display);
 
 /**
  * @brief Gets the aspect ratio of the display.
@@ -217,7 +217,7 @@ int display_state_get_height(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The aspect ratio (width/height).
  */
-float display_state_get_aspect_ratio(const EseDisplay *display);
+float ese_display_get_aspect_ratio(const EseDisplay *display);
 
 /**
  * @brief Gets the viewport width.
@@ -225,7 +225,7 @@ float display_state_get_aspect_ratio(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The viewport width in pixels.
  */
-int display_state_get_viewport_width(const EseDisplay *display);
+int ese_display_get_viewport_width(const EseDisplay *display);
 
 /**
  * @brief Gets the viewport height.
@@ -233,7 +233,7 @@ int display_state_get_viewport_width(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The viewport height in pixels.
  */
-int display_state_get_viewport_height(const EseDisplay *display);
+int ese_display_get_viewport_height(const EseDisplay *display);
 
 /**
  * @brief Gets the Lua state pointer.
@@ -241,7 +241,7 @@ int display_state_get_viewport_height(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The Lua state pointer.
  */
-lua_State *display_state_get_state(const EseDisplay *display);
+lua_State *ese_display_get_state(const EseDisplay *display);
 
 /**
  * @brief Gets the Lua reference count.
@@ -249,7 +249,7 @@ lua_State *display_state_get_state(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The Lua reference count.
  */
-int display_state_get_lua_ref_count(const EseDisplay *display);
+int ese_display_get_lua_ref_count(const EseDisplay *display);
 
 /**
  * @brief Gets the Lua reference.
@@ -257,13 +257,13 @@ int display_state_get_lua_ref_count(const EseDisplay *display);
  * @param display A pointer to the `EseDisplay` object.
  * @return The Lua reference (LUA_NOREF if not referenced).
  */
-int display_state_get_lua_ref(const EseDisplay *display);
+int ese_display_get_lua_ref(const EseDisplay *display);
 
 /**
  * @brief Gets the size of the EseDisplay structure.
  * 
  * @return The size in bytes of the EseDisplay structure.
  */
-size_t display_state_sizeof(void);
+size_t ese_display_sizeof(void);
 
 #endif // ESE_DISPLAY_STATE_H

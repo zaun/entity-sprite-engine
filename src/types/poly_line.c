@@ -168,7 +168,7 @@ static int _poly_line_lua_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "stroke_color") == 0) {
         if (poly_line->stroke_color) {
-            color_lua_push(poly_line->stroke_color);
+            ese_color_lua_push(poly_line->stroke_color);
         } else {
             lua_pushnil(L);
         }
@@ -176,7 +176,7 @@ static int _poly_line_lua_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "fill_color") == 0) {
         if (poly_line->fill_color) {
-            color_lua_push(poly_line->fill_color);
+            ese_color_lua_push(poly_line->fill_color);
         } else {
             lua_pushnil(L);
         }
@@ -253,7 +253,7 @@ static int _poly_line_lua_newindex(lua_State *L) {
         if (lua_isnil(L, 3)) {
             poly_line->stroke_color = NULL;
         } else {
-            EseColor *color = color_lua_get(L, 3);
+            EseColor *color = ese_color_lua_get(L, 3);
             if (!color) {
                 profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
                 return luaL_error(L, "stroke_color must be a Color object or nil");
@@ -267,7 +267,7 @@ static int _poly_line_lua_newindex(lua_State *L) {
         if (lua_isnil(L, 3)) {
             poly_line->fill_color = NULL;
         } else {
-            EseColor *color = color_lua_get(L, 3);
+            EseColor *color = ese_color_lua_get(L, 3);
             if (!color) {
                 profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
                 return luaL_error(L, "fill_color must be a Color object or nil");

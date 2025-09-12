@@ -101,236 +101,236 @@ int main(void) {
 */
 
 static void test_ese_tileset_sizeof(void) {
-    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, tileset_sizeof(), "Tileset size should be > 0");
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, ese_tileset_sizeof(), "Tileset size should be > 0");
 }
 
 static void test_ese_tileset_create_requires_engine(void) {
-    ASSERT_DEATH(tileset_create(NULL), "tileset_create should abort with NULL engine");
+    ASSERT_DEATH(ese_tileset_create(NULL), "ese_tileset_create should abort with NULL engine");
 }
 
 static void test_ese_tileset_create(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(tileset, "TileSet should be created");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, tileset_get_state(tileset), "TileSet should have correct Lua state");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, tileset_get_lua_ref(tileset), "New tileset should have LUA_NOREF");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, tileset_get_lua_ref_count(tileset), "New tileset should have ref count 0");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_rng_seed(tileset), "Initial seed should be 0");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_tileset_get_state(tileset), "TileSet should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_tileset_get_lua_ref(tileset), "New tileset should have LUA_NOREF");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_tileset_get_lua_ref_count(tileset), "New tileset should have ref count 0");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_rng_seed(tileset), "Initial seed should be 0");
 
     // Test that all mappings are empty
     for (int i = 0; i < 256; i++) {
-        TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(tileset, i), "All mappings should be empty initially");
+        TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(tileset, i), "All mappings should be empty initially");
     }
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 
 static void test_ese_tileset_copy_requires_engine(void) {
-    ASSERT_DEATH(tileset_copy(NULL), "tileset_copy should abort with NULL tileset");
+    ASSERT_DEATH(ese_tileset_copy(NULL), "ese_tileset_copy should abort with NULL tileset");
 }
 
 static void test_ese_tileset_copy(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    tileset_add_sprite(tileset, 1, "stone", 20);
-    tileset_set_seed(tileset, 12345);
-    EseTileSet *copy = tileset_copy(tileset);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    ese_tileset_add_sprite(tileset, 1, "stone", 20);
+    ese_tileset_set_seed(tileset, 12345);
+    EseTileSet *copy = ese_tileset_copy(tileset);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, tileset_get_state(copy), "Copy should have correct Lua state");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, tileset_get_lua_ref_count(copy), "Copy should have ref count 0");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(12345, tileset_get_rng_seed(copy), "Copy should have same seed");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(copy, 1), "Copy should have same sprite count");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_tileset_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_tileset_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(12345, ese_tileset_get_rng_seed(copy), "Copy should have same seed");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(copy, 1), "Copy should have same sprite count");
 
-    tileset_destroy(tileset);
-    tileset_destroy(copy);
+    ese_tileset_destroy(tileset);
+    ese_tileset_destroy(copy);
 }
 
 static void test_ese_tileset_add_sprite(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Test adding first sprite
-    TEST_ASSERT_TRUE_MESSAGE(tileset_add_sprite(tileset, 1, "grass", 10), "Should add first sprite");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, tileset_get_sprite_count(tileset, 1), "Should have 1 sprite");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_add_sprite(tileset, 1, "grass", 10), "Should add first sprite");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_tileset_get_sprite_count(tileset, 1), "Should have 1 sprite");
 
     // Test adding second sprite
-    TEST_ASSERT_TRUE_MESSAGE(tileset_add_sprite(tileset, 1, "stone", 20), "Should add second sprite");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(tileset, 1), "Should have 2 sprites");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_add_sprite(tileset, 1, "stone", 20), "Should add second sprite");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(tileset, 1), "Should have 2 sprites");
 
     // Test adding to different tile
-    TEST_ASSERT_TRUE_MESSAGE(tileset_add_sprite(tileset, 2, "water", 5), "Should add sprite to different tile");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, tileset_get_sprite_count(tileset, 2), "Different tile should have 1 sprite");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(tileset, 1), "Original tile should still have 2 sprites");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_add_sprite(tileset, 2, "water", 5), "Should add sprite to different tile");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_tileset_get_sprite_count(tileset, 2), "Different tile should have 1 sprite");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(tileset, 1), "Original tile should still have 2 sprites");
 
     // Test adding duplicate sprite (should update weight)
-    TEST_ASSERT_TRUE_MESSAGE(tileset_add_sprite(tileset, 1, "grass", 15), "Should update duplicate sprite weight");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(tileset, 1), "Should still have 2 sprites after update");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_add_sprite(tileset, 1, "grass", 15), "Should update duplicate sprite weight");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(tileset, 1), "Should still have 2 sprites after update");
 
     // Test adding with zero weight (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_add_sprite(tileset, 1, "dirt", 0), "Should not add sprite with zero weight");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_add_sprite(tileset, 1, "dirt", 0), "Should not add sprite with zero weight");
 
     // Test adding with NULL sprite_id (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_add_sprite(tileset, 1, NULL, 10), "Should not add sprite with NULL sprite_id");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_add_sprite(tileset, 1, NULL, 10), "Should not add sprite with NULL sprite_id");
 
     // Test adding with NULL tileset (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_add_sprite(NULL, 1, "test", 10), "Should not add sprite with NULL tileset");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_add_sprite(NULL, 1, "test", 10), "Should not add sprite with NULL tileset");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_remove_sprite(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Add some sprites first
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    tileset_add_sprite(tileset, 1, "stone", 20);
-    tileset_add_sprite(tileset, 1, "dirt", 5);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    ese_tileset_add_sprite(tileset, 1, "stone", 20);
+    ese_tileset_add_sprite(tileset, 1, "dirt", 5);
 
     // Test removing existing sprite
-    TEST_ASSERT_TRUE_MESSAGE(tileset_remove_sprite(tileset, 1, "stone"), "Should remove existing sprite");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(tileset, 1), "Should have 2 sprites after removal");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_remove_sprite(tileset, 1, "stone"), "Should remove existing sprite");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(tileset, 1), "Should have 2 sprites after removal");
 
     // Test removing non-existent sprite
-    TEST_ASSERT_FALSE_MESSAGE(tileset_remove_sprite(tileset, 1, "nonexistent"), "Should not remove non-existent sprite");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_remove_sprite(tileset, 1, "nonexistent"), "Should not remove non-existent sprite");
 
     // Test removing from empty tile
-    TEST_ASSERT_FALSE_MESSAGE(tileset_remove_sprite(tileset, 2, "grass"), "Should not remove from empty tile");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_remove_sprite(tileset, 2, "grass"), "Should not remove from empty tile");
 
     // Test removing with NULL sprite_id (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_remove_sprite(tileset, 1, NULL), "Should not remove sprite with NULL sprite_id");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_remove_sprite(tileset, 1, NULL), "Should not remove sprite with NULL sprite_id");
 
     // Test removing with NULL tileset (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_remove_sprite(NULL, 1, "grass"), "Should not remove sprite with NULL tileset");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_remove_sprite(NULL, 1, "grass"), "Should not remove sprite with NULL tileset");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_get_sprite(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Test getting sprite from empty tile
-    TEST_ASSERT_NULL_MESSAGE(tileset_get_sprite(tileset, 1), "Should return NULL for empty tile");
+    TEST_ASSERT_NULL_MESSAGE(ese_tileset_get_sprite(tileset, 1), "Should return NULL for empty tile");
 
     // Add a sprite
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    const char *sprite = tileset_get_sprite(tileset, 1);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    const char *sprite = ese_tileset_get_sprite(tileset, 1);
     TEST_ASSERT_NOT_NULL_MESSAGE(sprite, "Should return sprite for tile with sprites");
     TEST_ASSERT_EQUAL_STRING_MESSAGE("grass", sprite, "Should return correct sprite");
 
     // Test getting sprite with NULL tileset (should fail)
-    TEST_ASSERT_NULL_MESSAGE(tileset_get_sprite(NULL, 1), "Should return NULL for NULL tileset");
+    TEST_ASSERT_NULL_MESSAGE(ese_tileset_get_sprite(NULL, 1), "Should return NULL for NULL tileset");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_clear_mapping(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Add some sprites
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    tileset_add_sprite(tileset, 1, "stone", 20);
-    tileset_add_sprite(tileset, 2, "water", 5);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    ese_tileset_add_sprite(tileset, 1, "stone", 20);
+    ese_tileset_add_sprite(tileset, 2, "water", 5);
 
     // Clear mapping for tile 1
-    tileset_clear_mapping(tileset, 1);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(tileset, 1), "Should have 0 sprites after clear");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, tileset_get_sprite_count(tileset, 2), "Other tiles should be unaffected");
+    ese_tileset_clear_mapping(tileset, 1);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(tileset, 1), "Should have 0 sprites after clear");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_tileset_get_sprite_count(tileset, 2), "Other tiles should be unaffected");
 
     // Clear mapping for empty tile (should not crash)
-    tileset_clear_mapping(tileset, 3);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(tileset, 3), "Should still have 0 sprites");
+    ese_tileset_clear_mapping(tileset, 3);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(tileset, 3), "Should still have 0 sprites");
 
     // Test clearing with NULL tileset (should not crash)
-    tileset_clear_mapping(NULL, 1);
+    ese_tileset_clear_mapping(NULL, 1);
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_get_sprite_count(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Test empty tile
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(tileset, 1), "Empty tile should have 0 sprites");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(tileset, 1), "Empty tile should have 0 sprites");
 
     // Add sprites and test count
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, tileset_get_sprite_count(tileset, 1), "Should have 1 sprite");
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(1, ese_tileset_get_sprite_count(tileset, 1), "Should have 1 sprite");
 
-    tileset_add_sprite(tileset, 1, "stone", 20);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, tileset_get_sprite_count(tileset, 1), "Should have 2 sprites");
+    ese_tileset_add_sprite(tileset, 1, "stone", 20);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(2, ese_tileset_get_sprite_count(tileset, 1), "Should have 2 sprites");
 
     // Test with NULL tileset (should return 0)
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(NULL, 1), "NULL tileset should return 0");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(NULL, 1), "NULL tileset should return 0");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_update_sprite_weight(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Add a sprite
-    tileset_add_sprite(tileset, 1, "grass", 10);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
 
     // Test updating existing sprite weight
-    TEST_ASSERT_TRUE_MESSAGE(tileset_update_sprite_weight(tileset, 1, "grass", 15), "Should update existing sprite weight");
+    TEST_ASSERT_TRUE_MESSAGE(ese_tileset_update_sprite_weight(tileset, 1, "grass", 15), "Should update existing sprite weight");
 
     // Test updating non-existent sprite (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_update_sprite_weight(tileset, 1, "stone", 20), "Should not update non-existent sprite");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_update_sprite_weight(tileset, 1, "stone", 20), "Should not update non-existent sprite");
 
     // Test updating with zero weight (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_update_sprite_weight(tileset, 1, "grass", 0), "Should not update to zero weight");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_update_sprite_weight(tileset, 1, "grass", 0), "Should not update to zero weight");
 
     // Test updating with NULL sprite_id (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_update_sprite_weight(tileset, 1, NULL, 20), "Should not update with NULL sprite_id");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_update_sprite_weight(tileset, 1, NULL, 20), "Should not update with NULL sprite_id");
 
     // Test updating with NULL tileset (should fail)
-    TEST_ASSERT_FALSE_MESSAGE(tileset_update_sprite_weight(NULL, 1, "grass", 20), "Should not update with NULL tileset");
+    TEST_ASSERT_FALSE_MESSAGE(ese_tileset_update_sprite_weight(NULL, 1, "grass", 20), "Should not update with NULL tileset");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_set_seed(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Test initial seed
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_rng_seed(tileset), "Initial seed should be 0");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_rng_seed(tileset), "Initial seed should be 0");
 
     // Test setting seed
-    tileset_set_seed(tileset, 12345);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(12345, tileset_get_rng_seed(tileset), "Seed should be set correctly");
+    ese_tileset_set_seed(tileset, 12345);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(12345, ese_tileset_get_rng_seed(tileset), "Seed should be set correctly");
 
     // Test setting seed to 0
-    tileset_set_seed(tileset, 0);
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_rng_seed(tileset), "Seed should be set to 0");
+    ese_tileset_set_seed(tileset, 0);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_rng_seed(tileset), "Seed should be set to 0");
 
     // Test setting with NULL tileset (should not crash)
-    tileset_set_seed(NULL, 12345);
+    ese_tileset_set_seed(NULL, 12345);
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_get_sprite_random(void) {
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
 
     // Test getting sprite from empty tile
-    TEST_ASSERT_NULL_MESSAGE(tileset_get_sprite(tileset, 1), "Should return NULL for empty tile");
+    TEST_ASSERT_NULL_MESSAGE(ese_tileset_get_sprite(tileset, 1), "Should return NULL for empty tile");
 
     // Add sprites with different weights
-    tileset_add_sprite(tileset, 1, "grass", 10);
-    tileset_add_sprite(tileset, 1, "stone", 20);
-    tileset_add_sprite(tileset, 1, "dirt", 5);
+    ese_tileset_add_sprite(tileset, 1, "grass", 10);
+    ese_tileset_add_sprite(tileset, 1, "stone", 20);
+    ese_tileset_add_sprite(tileset, 1, "dirt", 5);
 
     // Test getting random sprite (should return one of the added sprites)
-    const char *sprite = tileset_get_sprite(tileset, 1);
+    const char *sprite = ese_tileset_get_sprite(tileset, 1);
     TEST_ASSERT_NOT_NULL_MESSAGE(sprite, "Should return a sprite");
     bool is_valid = (strcmp(sprite, "grass") == 0 || strcmp(sprite, "stone") == 0 || strcmp(sprite, "dirt") == 0);
     TEST_ASSERT_TRUE_MESSAGE(is_valid, "Should return one of the added sprites");
 
     // Test with NULL tileset (should return NULL)
-    TEST_ASSERT_NULL_MESSAGE(tileset_get_sprite(NULL, 1), "Should return NULL for NULL tileset");
+    TEST_ASSERT_NULL_MESSAGE(ese_tileset_get_sprite(NULL, 1), "Should return NULL for NULL tileset");
 
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 
@@ -345,7 +345,7 @@ static void test_ese_tileset_lua_init(void) {
     TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global Tileset table should not exist before initialization");
     lua_pop(L, 1);
     
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     
     luaL_getmetatable(L, TILESET_PROXY_META);
     TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
@@ -359,34 +359,34 @@ static void test_ese_tileset_lua_init(void) {
 }
 
 static void test_ese_tileset_lua_push(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
 
     lua_State *L = g_engine->runtime;
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
     
-    tileset_lua_push(tileset);
+    ese_tileset_lua_push(tileset);
     
     EseTileSet **ud = (EseTileSet **)lua_touserdata(L, -1);
     TEST_ASSERT_EQUAL_PTR_MESSAGE(tileset, *ud, "The pushed item should be the actual tileset");
     
     lua_pop(L, 1); 
     
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 static void test_ese_tileset_lua_get(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
 
     lua_State *L = g_engine->runtime;
-    EseTileSet *tileset = tileset_create(g_engine);
+    EseTileSet *tileset = ese_tileset_create(g_engine);
     
-    tileset_lua_push(tileset);
+    ese_tileset_lua_push(tileset);
     
-    EseTileSet *extracted_tileset = tileset_lua_get(L, -1);
+    EseTileSet *extracted_tileset = ese_tileset_lua_get(L, -1);
     TEST_ASSERT_EQUAL_PTR_MESSAGE(tileset, extracted_tileset, "Extracted tileset should match original");
     
     lua_pop(L, 1);
-    tileset_destroy(tileset);
+    ese_tileset_destroy(tileset);
 }
 
 /**
@@ -394,7 +394,7 @@ static void test_ese_tileset_lua_get(void) {
 */
 
 static void test_ese_tileset_lua_new(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "return Tileset.new(10)\n";
@@ -408,16 +408,16 @@ static void test_ese_tileset_lua_new(void) {
 
     const char *testD = "return Tileset.new()\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error");
-    EseTileSet *extracted_tileset = tileset_lua_get(L, -1);
+    EseTileSet *extracted_tileset = ese_tileset_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_tileset, "Extracted tileset should not be NULL");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_sprite_count(extracted_tileset, 0), "New tileset should have 0 sprites");
-    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, tileset_get_rng_seed(extracted_tileset), "New tileset should have seed 0");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_sprite_count(extracted_tileset, 0), "New tileset should have 0 sprites");
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, ese_tileset_get_rng_seed(extracted_tileset), "New tileset should have seed 0");
     lua_pop(L, 1); // Pop the tileset from Lua stack
     // Don't destroy Lua-owned tilesets - let Lua GC handle them
 }
 
 static void test_ese_tileset_lua_add_sprite(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); return t:add_sprite(1, \"grass\", 10)\n";
@@ -446,7 +446,7 @@ static void test_ese_tileset_lua_add_sprite(void) {
 }
 
 static void test_ese_tileset_lua_remove_sprite(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); return t:remove_sprite(1, \"grass\")\n";
@@ -469,7 +469,7 @@ static void test_ese_tileset_lua_remove_sprite(void) {
 }
 
 static void test_ese_tileset_lua_get_sprite(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); return t:get_sprite(1)\n";
@@ -492,7 +492,7 @@ static void test_ese_tileset_lua_get_sprite(void) {
 }
 
 static void test_ese_tileset_lua_clear_mapping(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); t:clear_mapping(1); return t:get_sprite_count(1)\n";
@@ -509,7 +509,7 @@ static void test_ese_tileset_lua_clear_mapping(void) {
 }
 
 static void test_ese_tileset_lua_get_sprite_count(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); t:add_sprite(1, \"stone\", 20); return t:get_sprite_count(1)\n";
@@ -532,7 +532,7 @@ static void test_ese_tileset_lua_get_sprite_count(void) {
 }
 
 static void test_ese_tileset_lua_update_sprite_weight(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); return t:update_sprite_weight(1, \"grass\", 20)\n";
@@ -561,7 +561,7 @@ static void test_ese_tileset_lua_update_sprite_weight(void) {
 }
 
 static void test_ese_tileset_lua_get_sprite_random(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); t:add_sprite(1, \"stone\", 20); local sprite = t:get_sprite(1); return sprite == \"grass\" or sprite == \"stone\"\n";
@@ -583,7 +583,7 @@ static void test_ese_tileset_lua_get_sprite_random(void) {
 }
 
 static void test_ese_tileset_lua_tostring(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
 
     const char *test_code = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10); t:add_sprite(1, \"stone\", 20); return tostring(t)";
@@ -596,7 +596,7 @@ static void test_ese_tileset_lua_tostring(void) {
 }
 
 static void test_ese_tileset_lua_gc(void) {
-    tileset_lua_init(g_engine);
+    ese_tileset_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
 
     const char *testA = "local t = Tileset.new(); t:add_sprite(1, \"grass\", 10)";
@@ -607,28 +607,28 @@ static void test_ese_tileset_lua_gc(void) {
     
     const char *testB = "return Tileset.new()";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Tileset creation should execute without error");
-    EseTileSet *extracted_tileset = tileset_lua_get(L, -1);
+    EseTileSet *extracted_tileset = ese_tileset_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_tileset, "Extracted tileset should not be NULL");
-    tileset_ref(extracted_tileset);
+    ese_tileset_ref(extracted_tileset);
     
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    tileset_unref(extracted_tileset);
+    ese_tileset_unref(extracted_tileset);
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
     const char *testC = "return Tileset.new()";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Tileset creation should execute without error");
-    extracted_tileset = tileset_lua_get(L, -1);
+    extracted_tileset = ese_tileset_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_tileset, "Extracted tileset should not be NULL");
-    tileset_ref(extracted_tileset);
+    ese_tileset_ref(extracted_tileset);
     
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    tileset_unref(extracted_tileset);
+    ese_tileset_unref(extracted_tileset);
     // Don't destroy Lua-owned tilesets - let Lua GC handle them
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
