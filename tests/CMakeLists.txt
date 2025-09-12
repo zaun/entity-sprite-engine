@@ -61,14 +61,6 @@ foreach(test_src IN LISTS TEST_SOURCES)
     target_include_directories(${test_name} PRIVATE "${PROJECT_SRC_DIR}")
     target_link_libraries(${test_name} PRIVATE unity entityspriteengine)
 
-    if ("${test_name}" STREQUAL "test_lua_only")
-        if (EXISTS "${LUA_STATIC_LIB}")
-            target_link_libraries(${test_name} PRIVATE "${LUA_STATIC_LIB}")
-        else()
-            message(WARNING "Lua static lib not found at ${LUA_STATIC_LIB}; test_lua_only may fail to link")
-        endif()
-    endif()
-
     add_test(NAME ${test_name} COMMAND ${test_name})
 
     set_tests_properties(${test_name} PROPERTIES

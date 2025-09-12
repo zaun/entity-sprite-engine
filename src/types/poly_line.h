@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#define POLY_LINE_PROXY_META "PolyLineProxyMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;

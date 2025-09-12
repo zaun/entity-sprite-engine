@@ -43,20 +43,20 @@ static EsePolyLine *_poly_line_make(void);
 static void _poly_line_notify_watchers(EsePolyLine *poly_line);
 
 // Lua metamethods
-static int _poly_line_lua_gc(lua_State *L);
-static int _poly_line_lua_index(lua_State *L);
-static int _poly_line_lua_newindex(lua_State *L);
-static int _poly_line_lua_tostring(lua_State *L);
+static int _ese_poly_line_lua_gc(lua_State *L);
+static int _ese_poly_line_lua_index(lua_State *L);
+static int _ese_poly_line_lua_newindex(lua_State *L);
+static int _ese_poly_line_lua_tostring(lua_State *L);
 
 // Lua constructors
-static int _poly_line_lua_new(lua_State *L);
+static int _ese_poly_line_lua_new(lua_State *L);
 
 // Lua utility methods
-static int _poly_line_lua_add_point(lua_State *L);
-static int _poly_line_lua_remove_point(lua_State *L);
-static int _poly_line_lua_get_point(lua_State *L);
-static int _poly_line_lua_get_point_count(lua_State *L);
-static int _poly_line_lua_clear_points(lua_State *L);
+static int _ese_poly_line_lua_add_point(lua_State *L);
+static int _ese_poly_line_lua_remove_point(lua_State *L);
+static int _ese_poly_line_lua_get_point(lua_State *L);
+static int _ese_poly_line_lua_get_point_count(lua_State *L);
+static int _ese_poly_line_lua_clear_points(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -120,9 +120,9 @@ static void _poly_line_notify_watchers(EsePolyLine *poly_line) {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _poly_line_lua_gc(lua_State *L) {
+static int _ese_poly_line_lua_gc(lua_State *L) {
     // Get from userdata
-    EsePolyLine **ud = (EsePolyLine **)luaL_testudata(L, 1, "PolyLineMeta");
+    EsePolyLine **ud = (EsePolyLine **)luaL_testudata(L, 1, POLY_LINE_PROXY_META);
     if (!ud) {
         return 0; // Not our userdata
     }
@@ -149,7 +149,7 @@ static int _poly_line_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _poly_line_lua_index(lua_State *L) {
+static int _ese_poly_line_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_INDEX);
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -183,23 +183,23 @@ static int _poly_line_lua_index(lua_State *L) {
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "add_point") == 0) {
-        lua_pushcfunction(L, _poly_line_lua_add_point);
+        lua_pushcfunction(L, _ese_poly_line_lua_add_point);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
     } else if (strcmp(key, "remove_point") == 0) {
-        lua_pushcfunction(L, _poly_line_lua_remove_point);
+        lua_pushcfunction(L, _ese_poly_line_lua_remove_point);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_point") == 0) {
-        lua_pushcfunction(L, _poly_line_lua_get_point);
+        lua_pushcfunction(L, _ese_poly_line_lua_get_point);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_point_count") == 0) {
-        lua_pushcfunction(L, _poly_line_lua_get_point_count);
+        lua_pushcfunction(L, _ese_poly_line_lua_get_point_count);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
     } else if (strcmp(key, "clear_points") == 0) {
-        lua_pushcfunction(L, _poly_line_lua_clear_points);
+        lua_pushcfunction(L, _ese_poly_line_lua_clear_points);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
     }
@@ -217,7 +217,7 @@ static int _poly_line_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _poly_line_lua_newindex(lua_State *L) {
+static int _ese_poly_line_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_NEWINDEX);
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -291,7 +291,7 @@ static int _poly_line_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _poly_line_lua_tostring(lua_State *L) {
+static int _ese_poly_line_lua_tostring(lua_State *L) {
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
 
     if (!poly_line) {
@@ -323,7 +323,7 @@ static int _poly_line_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _poly_line_lua_new(lua_State *L) {
+static int _ese_poly_line_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_NEW);
 
     // Create the polyline
@@ -335,7 +335,7 @@ static int _poly_line_lua_new(lua_State *L) {
     *ud = poly_line;
 
     // Attach metatable
-    luaL_getmetatable(L, "PolyLineMeta");
+    luaL_getmetatable(L, POLY_LINE_PROXY_META);
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_POLY_LINE_NEW, "poly_line_lua_new");
@@ -349,7 +349,7 @@ static int _poly_line_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _poly_line_lua_add_point(lua_State *L) {
+static int _ese_poly_line_lua_add_point(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_ADD_POINT);
     
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
@@ -376,7 +376,7 @@ static int _poly_line_lua_add_point(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _poly_line_lua_remove_point(lua_State *L) {
+static int _ese_poly_line_lua_remove_point(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_REMOVE_POINT);
     
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
@@ -407,7 +407,7 @@ static int _poly_line_lua_remove_point(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid point, 0 for invalid)
  */
-static int _poly_line_lua_get_point(lua_State *L) {
+static int _ese_poly_line_lua_get_point(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_GET_POINT);
     
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
@@ -439,7 +439,7 @@ static int _poly_line_lua_get_point(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _poly_line_lua_get_point_count(lua_State *L) {
+static int _ese_poly_line_lua_get_point_count(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_GET_POINT_COUNT);
     
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
@@ -459,7 +459,7 @@ static int _poly_line_lua_get_point_count(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _poly_line_lua_clear_points(lua_State *L) {
+static int _ese_poly_line_lua_clear_points(lua_State *L) {
     profile_start(PROFILE_LUA_POLY_LINE_CLEAR_POINTS);
     
     EsePolyLine *poly_line = poly_line_lua_get(L, 1);
@@ -759,17 +759,17 @@ bool poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback
 // Lua integration
 void poly_line_lua_init(EseLuaEngine *engine) {
     log_assert("POLY_LINE", engine, "poly_line_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, "PolyLineMeta")) {
-        log_debug("LUA", "Adding entity PolyLineMeta to engine");
-        lua_pushstring(engine->runtime, "PolyLineMeta");
+    if (luaL_newmetatable(engine->runtime, POLY_LINE_PROXY_META)) {
+        log_debug("LUA", "Adding entity PolyLineProxyMeta to engine");
+        lua_pushstring(engine->runtime, POLY_LINE_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _poly_line_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _poly_line_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _poly_line_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _poly_line_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -782,7 +782,7 @@ void poly_line_lua_init(EseLuaEngine *engine) {
         lua_pop(engine->runtime, 1); // Pop the nil value
         log_debug("LUA", "Creating global polyline table");
         lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _poly_line_lua_new);
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_new);
         lua_setfield(engine->runtime, -2, "new");
         lua_setglobal(engine->runtime, "PolyLine");
     } else {
@@ -799,7 +799,7 @@ void poly_line_lua_push(EsePolyLine *poly_line) {
         *ud = poly_line;
 
         // Attach metatable
-        luaL_getmetatable(poly_line->state, "PolyLineMeta");
+        luaL_getmetatable(poly_line->state, POLY_LINE_PROXY_META);
         lua_setmetatable(poly_line->state, -2);
     } else {
         // C-owned: get from registry
@@ -816,7 +816,7 @@ EsePolyLine *poly_line_lua_get(lua_State *L, int idx) {
     }
     
     // Get the userdata and check metatable
-    EsePolyLine **ud = (EsePolyLine **)luaL_testudata(L, idx, "PolyLineMeta");
+    EsePolyLine **ud = (EsePolyLine **)luaL_testudata(L, idx, POLY_LINE_PROXY_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -833,7 +833,7 @@ void poly_line_ref(EsePolyLine *poly_line) {
         *ud = poly_line;
 
         // Attach metatable
-        luaL_getmetatable(poly_line->state, "PolyLineMeta");
+        luaL_getmetatable(poly_line->state, POLY_LINE_PROXY_META);
         lua_setmetatable(poly_line->state, -2);
 
         // Store hard reference to prevent garbage collection

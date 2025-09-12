@@ -1,6 +1,6 @@
 /*
- * Test file for poly_line functionality
- */
+* test_ese_poly_line.c - Unity-based tests for poly_line functionality
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,449 +10,757 @@
 #include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
-#include "test_utils.h"
+#include <math.h>
+#include <sys/wait.h>
+
+#include "testing.h"
+
 #include "../src/types/poly_line.h"
 #include "../src/types/point.h"
 #include "../src/types/color.h"
-#include "../src/scripting/lua_engine.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
 
-// Test function declarations
-static void test_poly_line_creation();
-static void test_poly_line_copy();
-static void test_poly_line_properties();
-static void test_poly_line_points_management();
-static void test_poly_line_watchers();
-static void test_poly_line_lua_integration();
-static void test_poly_line_null_pointer_aborts();
+/**
+* C API Test Functions Declarations
+*/
+static void test_ese_poly_line_sizeof(void);
+static void test_ese_poly_line_create_requires_engine(void);
+static void test_ese_poly_line_create(void);
+static void test_ese_poly_line_type(void);
+static void test_ese_poly_line_stroke_width(void);
+static void test_ese_poly_line_stroke_color(void);
+static void test_ese_poly_line_fill_color(void);
+static void test_ese_poly_line_ref(void);
+static void test_ese_poly_line_copy_requires_engine(void);
+static void test_ese_poly_line_copy(void);
+static void test_ese_poly_line_add_point(void);
+static void test_ese_poly_line_remove_point(void);
+static void test_ese_poly_line_get_point(void);
+static void test_ese_poly_line_get_point_count(void);
+static void test_ese_poly_line_clear_points(void);
+static void test_ese_poly_line_watcher_system(void);
+static void test_ese_poly_line_lua_integration(void);
+static void test_ese_poly_line_lua_init(void);
+static void test_ese_poly_line_lua_push(void);
+static void test_ese_poly_line_lua_get(void);
 
-// Helper function to create and initialize engine
-static EseLuaEngine* create_test_engine() {
-    EseLuaEngine *engine = lua_engine_create();
-    if (engine) {
-        // Set up registry keys that poly_line system needs
-        lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
-        
-        // Initialize required systems
-        ese_point_lua_init(engine);
-        ese_color_lua_init(engine);
-        poly_line_lua_init(engine);
-    }
-    return engine;
+/**
+* Lua API Test Functions Declarations
+*/
+static void test_ese_poly_line_lua_new(void);
+static void test_ese_poly_line_lua_type(void);
+static void test_ese_poly_line_lua_stroke_width(void);
+static void test_ese_poly_line_lua_stroke_color(void);
+static void test_ese_poly_line_lua_fill_color(void);
+static void test_ese_poly_line_lua_add_point(void);
+static void test_ese_poly_line_lua_remove_point(void);
+static void test_ese_poly_line_lua_get_point(void);
+static void test_ese_poly_line_lua_get_point_count(void);
+static void test_ese_poly_line_lua_clear_points(void);
+static void test_ese_poly_line_lua_tostring(void);
+static void test_ese_poly_line_lua_gc(void);
+
+/**
+* Mock watcher callback for testing
+*/
+static bool watcher_called = false;
+static EsePolyLine *last_watched_poly_line = NULL;
+static void *last_watcher_userdata = NULL;
+
+static void test_watcher_callback(EsePolyLine *poly_line, void *userdata) {
+    watcher_called = true;
+    last_watched_poly_line = poly_line;
+    last_watcher_userdata = userdata;
 }
 
-// Mock watcher callback
-static bool mock_watcher_called = false;
-static EsePolyLine *mock_watcher_poly_line = NULL;
-static void *mock_watcher_userdata = NULL;
-
-static void mock_watcher_callback(EsePolyLine *poly_line, void *userdata) {
-    mock_watcher_called = true;
-    mock_watcher_poly_line = poly_line;
-    mock_watcher_userdata = userdata;
+static void mock_reset(void) {
+    watcher_called = false;
+    last_watched_poly_line = NULL;
+    last_watcher_userdata = NULL;
 }
 
-static void mock_reset() {
-    mock_watcher_called = false;
-    mock_watcher_poly_line = NULL;
-    mock_watcher_userdata = NULL;
+/**
+* Test suite setup and teardown
+*/
+static EseLuaEngine *g_engine = NULL;
+
+void setUp(void) {
+    g_engine = create_test_engine();
 }
 
-// Signal handler for segfaults
-static void segfault_handler(int sig, siginfo_t *info, void *context) {
-    printf("---- BACKTRACE START ----\n");
-    void *array[10];
-    size_t size = backtrace(array, 10);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    printf("---- BACKTRACE  END  ----\n");
-    exit(1);
+void tearDown(void) {
+    lua_engine_destroy(g_engine);
 }
 
-int main() {
-    // Register signal handler for segfaults
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = segfault_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigaction(SIGSEGV, &sa, NULL);
-
-    test_suite_begin("PolyLine Tests");
-
-    // Initialize required systems
+/**
+* Main test runner
+*/
+int main(void) {
     log_init();
 
-    // Run all test suites
-    test_poly_line_creation();
-    test_poly_line_copy();
-    test_poly_line_properties();
-    test_poly_line_points_management();
-    test_poly_line_watchers();
-    test_poly_line_lua_integration();
-    test_poly_line_null_pointer_aborts();
+    printf("\nEsePolyLine Tests\n");
+    printf("------------------\n");
 
-    test_suite_end("PolyLine Tests");
+    UNITY_BEGIN();
 
-    return 0;
+    RUN_TEST(test_ese_poly_line_sizeof);
+    RUN_TEST(test_ese_poly_line_create_requires_engine);
+    RUN_TEST(test_ese_poly_line_create);
+    RUN_TEST(test_ese_poly_line_type);
+    RUN_TEST(test_ese_poly_line_stroke_width);
+    RUN_TEST(test_ese_poly_line_stroke_color);
+    RUN_TEST(test_ese_poly_line_fill_color);
+    RUN_TEST(test_ese_poly_line_ref);
+    RUN_TEST(test_ese_poly_line_copy_requires_engine);
+    RUN_TEST(test_ese_poly_line_copy);
+    RUN_TEST(test_ese_poly_line_add_point);
+    RUN_TEST(test_ese_poly_line_remove_point);
+    RUN_TEST(test_ese_poly_line_get_point);
+    RUN_TEST(test_ese_poly_line_get_point_count);
+    RUN_TEST(test_ese_poly_line_clear_points);
+    RUN_TEST(test_ese_poly_line_watcher_system);
+    RUN_TEST(test_ese_poly_line_lua_integration);
+    RUN_TEST(test_ese_poly_line_lua_init);
+    RUN_TEST(test_ese_poly_line_lua_push);
+    RUN_TEST(test_ese_poly_line_lua_get);
+
+    RUN_TEST(test_ese_poly_line_lua_new);
+    RUN_TEST(test_ese_poly_line_lua_type);
+    RUN_TEST(test_ese_poly_line_lua_stroke_width);
+    RUN_TEST(test_ese_poly_line_lua_stroke_color);
+    RUN_TEST(test_ese_poly_line_lua_fill_color);
+    RUN_TEST(test_ese_poly_line_lua_add_point);
+    RUN_TEST(test_ese_poly_line_lua_remove_point);
+    RUN_TEST(test_ese_poly_line_lua_get_point);
+    RUN_TEST(test_ese_poly_line_lua_get_point_count);
+    RUN_TEST(test_ese_poly_line_lua_clear_points);
+    RUN_TEST(test_ese_poly_line_lua_tostring);
+    RUN_TEST(test_ese_poly_line_lua_gc);
+
+    return UNITY_END();
 }
 
-// Test basic poly_line creation
-static void test_poly_line_creation() {
-    test_begin("PolyLine Creation");
-    
-    EseLuaEngine *engine = create_test_engine();
-    TEST_ASSERT_NOT_NULL(engine, "Engine should be created");
-    
-    EsePolyLine *poly_line = poly_line_create(engine);
-    TEST_ASSERT_NOT_NULL(poly_line, "PolyLine should be created");
-    
-    // Test default values
-    TEST_ASSERT_EQUAL(POLY_LINE_OPEN, poly_line_get_type(poly_line), "Default type should be OPEN");
-    TEST_ASSERT_FLOAT_EQUAL(1.0f, poly_line_get_stroke_width(poly_line), 0.001f, "Default stroke width should be 1.0");
-    TEST_ASSERT_NULL(poly_line_get_stroke_color(poly_line), "Default stroke color should be NULL");
-    TEST_ASSERT_NULL(poly_line_get_fill_color(poly_line), "Default fill color should be NULL");
-    TEST_ASSERT_EQUAL(0, poly_line_get_point_count(poly_line), "Default point count should be 0");
-    
-    // Clean up
+/**
+* C API Test Functions
+*/
+
+static void test_ese_poly_line_sizeof(void) {
+    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, poly_line_sizeof(), "PolyLine size should be > 0");
+}
+
+static void test_ese_poly_line_create_requires_engine(void) {
+    ASSERT_DEATH(poly_line_create(NULL), "poly_line_create should abort with NULL engine");
+}
+
+static void test_ese_poly_line_create(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+
+    TEST_ASSERT_NOT_NULL_MESSAGE(poly_line, "PolyLine should be created");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_OPEN, poly_line_get_type(poly_line), "Default type should be OPEN");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.0f, poly_line_get_stroke_width(poly_line));
+    TEST_ASSERT_NULL_MESSAGE(poly_line_get_stroke_color(poly_line), "Default stroke color should be NULL");
+    TEST_ASSERT_NULL_MESSAGE(poly_line_get_fill_color(poly_line), "Default fill color should be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_point_count(poly_line), "Default point count should be 0");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, poly_line_get_state(poly_line), "PolyLine should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_lua_ref_count(poly_line), "New polyline should have ref count 0");
+
     poly_line_destroy(poly_line);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine Creation");
 }
 
-// Test poly_line copying
-static void test_poly_line_copy() {
-    test_begin("PolyLine Copy");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EsePolyLine *original = poly_line_create(engine);
-    
-    // Set some values
-    poly_line_set_type(original, POLY_LINE_CLOSED);
-    poly_line_set_stroke_width(original, 2.5f);
+static void test_ese_poly_line_type(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+
+    poly_line_set_type(poly_line, POLY_LINE_CLOSED);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_CLOSED, poly_line_get_type(poly_line), "Type should be CLOSED");
+
+    poly_line_set_type(poly_line, POLY_LINE_FILLED);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_FILLED, poly_line_get_type(poly_line), "Type should be FILLED");
+
+    poly_line_set_type(poly_line, POLY_LINE_OPEN);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_OPEN, poly_line_get_type(poly_line), "Type should be OPEN");
+
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_stroke_width(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+
+    poly_line_set_stroke_width(poly_line, 2.5f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.5f, poly_line_get_stroke_width(poly_line));
+
+    poly_line_set_stroke_width(poly_line, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, poly_line_get_stroke_width(poly_line));
+
+    poly_line_set_stroke_width(poly_line, -1.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, poly_line_get_stroke_width(poly_line));
+
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_stroke_color(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EseColor *color = ese_color_create(g_engine);
+
+    poly_line_set_stroke_color(poly_line, color);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(color, poly_line_get_stroke_color(poly_line), "Stroke color should be set");
+
+    poly_line_set_stroke_color(poly_line, NULL);
+    TEST_ASSERT_NULL_MESSAGE(poly_line_get_stroke_color(poly_line), "Stroke color should be NULL");
+
+    ese_color_destroy(color);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_fill_color(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EseColor *color = ese_color_create(g_engine);
+
+    poly_line_set_fill_color(poly_line, color);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(color, poly_line_get_fill_color(poly_line), "Fill color should be set");
+
+    poly_line_set_fill_color(poly_line, NULL);
+    TEST_ASSERT_NULL_MESSAGE(poly_line_get_fill_color(poly_line), "Fill color should be NULL");
+
+    ese_color_destroy(color);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_ref(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+
+    poly_line_ref(poly_line);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, poly_line_get_lua_ref_count(poly_line), "Ref count should be 1");
+
+    poly_line_unref(poly_line);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_lua_ref_count(poly_line), "Ref count should be 0");
+
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_copy_requires_engine(void) {
+    ASSERT_DEATH(poly_line_copy(NULL), "poly_line_copy should abort with NULL polyline");
+}
+
+static void test_ese_poly_line_copy(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    poly_line_ref(poly_line);
+    poly_line_set_type(poly_line, POLY_LINE_CLOSED);
+    poly_line_set_stroke_width(poly_line, 2.5f);
     
     // Add some points
-    EsePoint *point1 = ese_point_create(engine);
+    EsePoint *point1 = ese_point_create(g_engine);
     ese_point_set_x(point1, 10.0f);
     ese_point_set_y(point1, 20.0f);
-    poly_line_add_point(original, point1);
+    poly_line_add_point(poly_line, point1);
     
-    EsePoint *point2 = ese_point_create(engine);
+    EsePoint *point2 = ese_point_create(g_engine);
     ese_point_set_x(point2, 30.0f);
     ese_point_set_y(point2, 40.0f);
-    poly_line_add_point(original, point2);
+    poly_line_add_point(poly_line, point2);
     
-    EsePolyLine *copy = poly_line_copy(original);
-    TEST_ASSERT_NOT_NULL(copy, "Copy should be created");
-    TEST_ASSERT(original != copy, "Copy should be a different pointer");
-    
-    // Test that values are copied
-    TEST_ASSERT_EQUAL(POLY_LINE_CLOSED, poly_line_get_type(copy), "Copied type should match original");
-    TEST_ASSERT_FLOAT_EQUAL(2.5f, poly_line_get_stroke_width(copy), 0.001f, "Copied stroke width should match original");
-    TEST_ASSERT_EQUAL(2, poly_line_get_point_count(copy), "Copied point count should match original");
+    EsePolyLine *copy = poly_line_copy(poly_line);
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, poly_line_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_CLOSED, poly_line_get_type(copy), "Copied type should match original");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.5f, poly_line_get_stroke_width(copy));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, poly_line_get_point_count(copy), "Copied point count should match original");
     
     // Test that points are deep copied
     EsePoint *copy_point1 = poly_line_get_point(copy, 0);
     EsePoint *copy_point2 = poly_line_get_point(copy, 1);
-    TEST_ASSERT_NOT_NULL(copy_point1, "First copied point should exist");
-    TEST_ASSERT_NOT_NULL(copy_point2, "Second copied point should exist");
-    TEST_ASSERT(point1 != copy_point1, "First copied point should be different from original");
-    TEST_ASSERT(point2 != copy_point2, "Second copied point should be different from original");
-    TEST_ASSERT_FLOAT_EQUAL(10.0f, ese_point_get_x(copy_point1), 0.001f, "First copied point x should match");
-    TEST_ASSERT_FLOAT_EQUAL(20.0f, ese_point_get_y(copy_point1), 0.001f, "First copied point y should match");
-    TEST_ASSERT_FLOAT_EQUAL(30.0f, ese_point_get_x(copy_point2), 0.001f, "Second copied point x should match");
-    TEST_ASSERT_FLOAT_EQUAL(40.0f, ese_point_get_y(copy_point2), 0.001f, "Second copied point y should match");
-    
-    // Test that modifications to copy don't affect original
-    poly_line_set_type(copy, POLY_LINE_FILLED);
-    TEST_ASSERT_EQUAL(POLY_LINE_CLOSED, poly_line_get_type(original), "Original should not be affected by copy modification");
-    
-    // Clean up
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy_point1, "First copied point should exist");
+    TEST_ASSERT_NOT_NULL_MESSAGE(copy_point2, "Second copied point should exist");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_point_get_x(copy_point1));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_point_get_y(copy_point1));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 30.0f, ese_point_get_x(copy_point2));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, ese_point_get_y(copy_point2));
+
     ese_point_destroy(point1);
     ese_point_destroy(point2);
-    poly_line_destroy(copy);
-    poly_line_destroy(original);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine Copy");
-}
-
-// Test poly_line property access
-static void test_poly_line_properties() {
-    test_begin("PolyLine Properties");
-    
-    EseLuaEngine *engine = create_test_engine();
-    EsePolyLine *poly_line = poly_line_create(engine);
-    EseColor *stroke_color = ese_color_create(engine);
-    EseColor *fill_color = ese_color_create(engine);
-    
-    // Test setting and getting type
-    poly_line_set_type(poly_line, POLY_LINE_CLOSED);
-    TEST_ASSERT_EQUAL(POLY_LINE_CLOSED, poly_line_get_type(poly_line), "Type should be set and retrieved correctly");
-    
-    poly_line_set_type(poly_line, POLY_LINE_FILLED);
-    TEST_ASSERT_EQUAL(POLY_LINE_FILLED, poly_line_get_type(poly_line), "Type should be set and retrieved correctly");
-    
-    // Test setting and getting stroke width
-    poly_line_set_stroke_width(poly_line, 3.5f);
-    TEST_ASSERT_FLOAT_EQUAL(3.5f, poly_line_get_stroke_width(poly_line), 0.001f, "Stroke width should be set and retrieved correctly");
-    
-    // Test setting and getting stroke color
-    ese_color_set_r(stroke_color, 1.0f);
-    ese_color_set_g(stroke_color, 0.0f);
-    ese_color_set_b(stroke_color, 0.0f);
-    poly_line_set_stroke_color(poly_line, stroke_color);
-    EseColor *retrieved_stroke = poly_line_get_stroke_color(poly_line);
-    TEST_ASSERT(stroke_color == retrieved_stroke, "Stroke color should be set and retrieved correctly");
-    
-    // Test setting and getting fill color
-    ese_color_set_r(fill_color, 0.0f);
-    ese_color_set_g(fill_color, 1.0f);
-    ese_color_set_b(fill_color, 0.0f);
-    poly_line_set_fill_color(poly_line, fill_color);
-    EseColor *retrieved_fill = poly_line_get_fill_color(poly_line);
-    TEST_ASSERT(fill_color == retrieved_fill, "Fill color should be set and retrieved correctly");
-    
-    // Test setting NULL colors
-    poly_line_set_stroke_color(poly_line, NULL);
-    TEST_ASSERT_NULL(poly_line_get_stroke_color(poly_line), "Stroke color should be NULL after setting NULL");
-    
-    poly_line_set_fill_color(poly_line, NULL);
-    TEST_ASSERT_NULL(poly_line_get_fill_color(poly_line), "Fill color should be NULL after setting NULL");
-    
-    // Clean up
-    ese_color_destroy(stroke_color);
-    ese_color_destroy(fill_color);
+    poly_line_unref(poly_line);
     poly_line_destroy(poly_line);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine Properties");
+    poly_line_destroy(copy);
 }
 
-// Test points management
-static void test_poly_line_points_management() {
-    test_begin("PolyLine Points Management");
+static void test_ese_poly_line_add_point(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EsePoint *point = ese_point_create(g_engine);
     
-    EseLuaEngine *engine = create_test_engine();
-    EsePolyLine *poly_line = poly_line_create(engine);
+    ese_point_set_x(point, 10.0f);
+    ese_point_set_y(point, 20.0f);
     
-    // Test initial state
-    TEST_ASSERT_EQUAL(0, poly_line_get_point_count(poly_line), "Initial point count should be 0");
-    TEST_ASSERT_NULL(poly_line_get_point(poly_line, 0), "Getting point at index 0 should return NULL");
+    bool success = poly_line_add_point(poly_line, point);
+    TEST_ASSERT_TRUE_MESSAGE(success, "Should successfully add point");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, poly_line_get_point_count(poly_line), "Point count should be 1");
     
-    // Test adding points
-    EsePoint *point1 = ese_point_create(engine);
+    EsePoint *retrieved_point = poly_line_get_point(poly_line, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(retrieved_point, "Retrieved point should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_point_get_x(retrieved_point));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_point_get_y(retrieved_point));
+    
+    ese_point_destroy(point);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_remove_point(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EsePoint *point1 = ese_point_create(g_engine);
+    EsePoint *point2 = ese_point_create(g_engine);
+    
     ese_point_set_x(point1, 10.0f);
     ese_point_set_y(point1, 20.0f);
-    bool success = poly_line_add_point(poly_line, point1);
-    TEST_ASSERT(success, "Should successfully add first point");
-    TEST_ASSERT_EQUAL(1, poly_line_get_point_count(poly_line), "Point count should be 1 after adding first point");
-    
-    EsePoint *point2 = ese_point_create(engine);
     ese_point_set_x(point2, 30.0f);
     ese_point_set_y(point2, 40.0f);
-    success = poly_line_add_point(poly_line, point2);
-    TEST_ASSERT(success, "Should successfully add second point");
-    TEST_ASSERT_EQUAL(2, poly_line_get_point_count(poly_line), "Point count should be 2 after adding second point");
     
-    // Test getting points
-    EsePoint *retrieved_point1 = poly_line_get_point(poly_line, 0);
-    EsePoint *retrieved_point2 = poly_line_get_point(poly_line, 1);
-    TEST_ASSERT_NOT_NULL(retrieved_point1, "First point should be retrievable");
-    TEST_ASSERT_NOT_NULL(retrieved_point2, "Second point should be retrievable");
-    TEST_ASSERT(point1 != retrieved_point1, "Retrieved point should be a copy, not the original");
-    TEST_ASSERT(point2 != retrieved_point2, "Retrieved point should be a copy, not the original");
-    TEST_ASSERT_FLOAT_EQUAL(10.0f, ese_point_get_x(retrieved_point1), 0.001f, "First point x should match");
-    TEST_ASSERT_FLOAT_EQUAL(20.0f, ese_point_get_y(retrieved_point1), 0.001f, "First point y should match");
-    TEST_ASSERT_FLOAT_EQUAL(30.0f, ese_point_get_x(retrieved_point2), 0.001f, "Second point x should match");
-    TEST_ASSERT_FLOAT_EQUAL(40.0f, ese_point_get_y(retrieved_point2), 0.001f, "Second point y should match");
+    poly_line_add_point(poly_line, point1);
+    poly_line_add_point(poly_line, point2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, poly_line_get_point_count(poly_line), "Point count should be 2");
     
-    // Test getting invalid index
-    EsePoint *invalid_point = poly_line_get_point(poly_line, 5);
-    TEST_ASSERT_NULL(invalid_point, "Getting point at invalid index should return NULL");
+    bool success = poly_line_remove_point(poly_line, 0);
+    TEST_ASSERT_TRUE_MESSAGE(success, "Should successfully remove point");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, poly_line_get_point_count(poly_line), "Point count should be 1");
     
-    // Test removing points
-    success = poly_line_remove_point(poly_line, 0);
-    TEST_ASSERT(success, "Should successfully remove first point");
-    TEST_ASSERT_EQUAL(1, poly_line_get_point_count(poly_line), "Point count should be 1 after removing first point");
-    
-    // Verify remaining point is now at index 0
     EsePoint *remaining_point = poly_line_get_point(poly_line, 0);
-    TEST_ASSERT_NOT_NULL(remaining_point, "Remaining point should be retrievable");
-    TEST_ASSERT_FLOAT_EQUAL(30.0f, ese_point_get_x(remaining_point), 0.001f, "Remaining point x should match second point");
-    TEST_ASSERT_FLOAT_EQUAL(40.0f, ese_point_get_y(remaining_point), 0.001f, "Remaining point y should match second point");
+    TEST_ASSERT_NOT_NULL_MESSAGE(remaining_point, "Remaining point should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 30.0f, ese_point_get_x(remaining_point));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, ese_point_get_y(remaining_point));
     
-    // Test removing invalid index
     success = poly_line_remove_point(poly_line, 5);
-    TEST_ASSERT(!success, "Should fail to remove point at invalid index");
+    TEST_ASSERT_FALSE_MESSAGE(success, "Should fail to remove point at invalid index");
     
-    // Test clearing points
-    poly_line_clear_points(poly_line);
-    TEST_ASSERT_EQUAL(0, poly_line_get_point_count(poly_line), "Point count should be 0 after clearing");
-    TEST_ASSERT_NULL(poly_line_get_point(poly_line, 0), "Getting point after clearing should return NULL");
-    
-    // Clean up
     ese_point_destroy(point1);
     ese_point_destroy(point2);
     poly_line_destroy(poly_line);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine Points Management");
 }
 
-// Test watcher system
-static void test_poly_line_watchers() {
-    test_begin("PolyLine Watchers");
+static void test_ese_poly_line_get_point(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EsePoint *point = ese_point_create(g_engine);
     
-    EseLuaEngine *engine = create_test_engine();
-    EsePolyLine *poly_line = poly_line_create(engine);
+    ese_point_set_x(point, 15.0f);
+    ese_point_set_y(point, 25.0f);
+    poly_line_add_point(poly_line, point);
     
-    // Test adding watcher
-    bool success = poly_line_add_watcher(poly_line, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(success, "Should successfully add watcher");
+    EsePoint *retrieved_point = poly_line_get_point(poly_line, 0);
+    TEST_ASSERT_NOT_NULL_MESSAGE(retrieved_point, "Retrieved point should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 15.0f, ese_point_get_x(retrieved_point));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 25.0f, ese_point_get_y(retrieved_point));
     
-    // Test that watcher is called on property change
+    EsePoint *invalid_point = poly_line_get_point(poly_line, 5);
+    TEST_ASSERT_NULL_MESSAGE(invalid_point, "Getting point at invalid index should return NULL");
+    
+    ese_point_destroy(point);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_get_point_count(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_point_count(poly_line), "Initial point count should be 0");
+    
+    EsePoint *point1 = ese_point_create(g_engine);
+    EsePoint *point2 = ese_point_create(g_engine);
+    
+    poly_line_add_point(poly_line, point1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, poly_line_get_point_count(poly_line), "Point count should be 1");
+    
+    poly_line_add_point(poly_line, point2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, poly_line_get_point_count(poly_line), "Point count should be 2");
+    
+    ese_point_destroy(point1);
+    ese_point_destroy(point2);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_clear_points(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    EsePoint *point1 = ese_point_create(g_engine);
+    EsePoint *point2 = ese_point_create(g_engine);
+    
+    poly_line_add_point(poly_line, point1);
+    poly_line_add_point(poly_line, point2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, poly_line_get_point_count(poly_line), "Point count should be 2");
+    
+    poly_line_clear_points(poly_line);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_point_count(poly_line), "Point count should be 0 after clearing");
+    
+    ese_point_destroy(point1);
+    ese_point_destroy(point2);
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_watcher_system(void) {
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+
     mock_reset();
     poly_line_set_type(poly_line, POLY_LINE_CLOSED);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on type change");
-    TEST_ASSERT(mock_watcher_poly_line == poly_line, "Watcher should receive correct poly_line pointer");
-    TEST_ASSERT(mock_watcher_userdata == (void*)0x1234, "Watcher should receive correct userdata");
-    
-    // Test that watcher is called on other property changes
-    mock_reset();
-    poly_line_set_stroke_width(poly_line, 2.0f);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on stroke width change");
-    
-    mock_reset();
-    EseColor *color = ese_color_create(engine);
-    poly_line_set_stroke_color(poly_line, color);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on stroke color change");
-    
-    mock_reset();
-    poly_line_set_fill_color(poly_line, color);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on fill color change");
-    
-    // Test that watcher is called on points changes
-    mock_reset();
-    EsePoint *point = ese_point_create(engine);
-    poly_line_add_point(poly_line, point);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on point addition");
-    
-    mock_reset();
-    poly_line_clear_points(poly_line);
-    TEST_ASSERT(mock_watcher_called, "Watcher should be called on points clearing");
-    
-    // Test removing watcher
-    success = poly_line_remove_watcher(poly_line, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(success, "Should successfully remove watcher");
-    
-    // Test that watcher is not called after removal
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called before adding");
+
+    void *test_userdata = (void*)0x12345678;
+    bool add_result = poly_line_add_watcher(poly_line, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(add_result, "Should successfully add watcher");
+
     mock_reset();
     poly_line_set_type(poly_line, POLY_LINE_FILLED);
-    TEST_ASSERT(!mock_watcher_called, "Watcher should not be called after removal");
-    
-    // Test removing non-existent watcher
-    success = poly_line_remove_watcher(poly_line, mock_watcher_callback, (void*)0x1234);
-    TEST_ASSERT(!success, "Should fail to remove non-existent watcher");
-    
-    // Clean up
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when type changes");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(poly_line, last_watched_poly_line, "Watcher should receive correct polyline pointer");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(test_userdata, last_watcher_userdata, "Watcher should receive correct userdata");
+
+    mock_reset();
+    poly_line_set_stroke_width(poly_line, 2.0f);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when stroke width changes");
+
+    mock_reset();
+    EseColor *color = ese_color_create(g_engine);
+    poly_line_set_stroke_color(poly_line, color);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when stroke color changes");
+
+    mock_reset();
+    poly_line_set_fill_color(poly_line, color);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when fill color changes");
+
+    mock_reset();
+    EsePoint *point = ese_point_create(g_engine);
+    poly_line_add_point(poly_line, point);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when point is added");
+
+    mock_reset();
+    poly_line_clear_points(poly_line);
+    TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when points are cleared");
+
+    bool remove_result = poly_line_remove_watcher(poly_line, test_watcher_callback, test_userdata);
+    TEST_ASSERT_TRUE_MESSAGE(remove_result, "Should successfully remove watcher");
+
+    mock_reset();
+    poly_line_set_type(poly_line, POLY_LINE_OPEN);
+    TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called after removal");
+
     ese_color_destroy(color);
     ese_point_destroy(point);
     poly_line_destroy(poly_line);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine Watchers");
 }
 
-// Test Lua integration
-static void test_poly_line_lua_integration() {
-    test_begin("PolyLine Lua Integration");
-    
+static void test_ese_poly_line_lua_integration(void) {
     EseLuaEngine *engine = create_test_engine();
     EsePolyLine *poly_line = poly_line_create(engine);
-    
-    // Test getting Lua reference
-    int lua_ref = poly_line_get_lua_ref(poly_line);
-    TEST_ASSERT(lua_ref == LUA_NOREF, "PolyLine should have no Lua reference initially");
-    
-    // Test referencing
+
+    lua_State *before_state = poly_line_get_state(poly_line);
+    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "PolyLine should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "PolyLine state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, poly_line_get_lua_ref(poly_line), "PolyLine should have no Lua reference initially");
+
     poly_line_ref(poly_line);
-    lua_ref = poly_line_get_lua_ref(poly_line);
-    TEST_ASSERT(lua_ref != LUA_NOREF, "PolyLine should have a valid Lua reference after ref");
-    TEST_ASSERT_EQUAL(1, poly_line_get_lua_ref_count(poly_line), "PolyLine should have ref count of 1");
-    
-    // Test unreferencing
+    lua_State *after_ref_state = poly_line_get_state(poly_line);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "PolyLine should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "PolyLine state should match engine runtime");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, poly_line_get_lua_ref(poly_line), "PolyLine should have a valid Lua reference after ref");
+
     poly_line_unref(poly_line);
-    TEST_ASSERT_EQUAL(0, poly_line_get_lua_ref_count(poly_line), "PolyLine should have ref count of 0 after unref");
-    
-    // Test Lua state
-    lua_State *state = poly_line_get_state(poly_line);
-    TEST_ASSERT_NOT_NULL(state, "PolyLine should have a valid Lua state");
-    TEST_ASSERT(state == engine->runtime, "PolyLine state should match engine runtime");
-    
-    // Clean up
+    lua_State *after_unref_state = poly_line_get_state(poly_line);
+    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "PolyLine should have a valid Lua state");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "PolyLine state should match engine runtime");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, poly_line_get_lua_ref(poly_line), "PolyLine should have no Lua reference after unref");
+
     poly_line_destroy(poly_line);
     lua_engine_destroy(engine);
-    
-    test_end("PolyLine Lua Integration");
 }
 
-// Test NULL pointer aborts
-static void test_poly_line_null_pointer_aborts() {
-    test_begin("PolyLine NULL Pointer Abort Tests");
+static void test_ese_poly_line_lua_init(void) {
+    lua_State *L = g_engine->runtime;
     
-    EseLuaEngine *engine = create_test_engine();
-    EsePolyLine *poly_line = poly_line_create(engine);
-    EsePoint *point = ese_point_create(engine);
-    EseColor *color = ese_color_create(engine);
+    luaL_getmetatable(L, POLY_LINE_PROXY_META);
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
+    lua_pop(L, 1);
     
-    // Test that creation functions abort with NULL pointers
-    TEST_ASSERT_ABORT(poly_line_create(NULL), "poly_line_create should abort with NULL engine");
-    TEST_ASSERT_ABORT(poly_line_copy(NULL), "poly_line_copy should abort with NULL poly_line");
-    // poly_line_destroy should ignore NULL poly_line (not abort)
-    poly_line_destroy(NULL);
+    lua_getglobal(L, "PolyLine");
+    TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Global PolyLine table should not exist before initialization");
+    lua_pop(L, 1);
     
-    // Test that property functions abort with NULL pointers
-    TEST_ASSERT_ABORT(poly_line_set_type(NULL, POLY_LINE_CLOSED), "poly_line_set_type should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_type(NULL), "poly_line_get_type should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_set_stroke_width(NULL, 2.0f), "poly_line_set_stroke_width should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_stroke_width(NULL), "poly_line_get_stroke_width should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_set_stroke_color(NULL, color), "poly_line_set_stroke_color should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_stroke_color(NULL), "poly_line_get_stroke_color should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_set_fill_color(NULL, color), "poly_line_set_fill_color should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_fill_color(NULL), "poly_line_get_fill_color should abort with NULL poly_line");
+    poly_line_lua_init(g_engine);
     
-    // Test that points functions abort with NULL pointers
-    TEST_ASSERT_ABORT(poly_line_add_point(NULL, point), "poly_line_add_point should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_add_point(poly_line, NULL), "poly_line_add_point should abort with NULL point");
-    TEST_ASSERT_ABORT(poly_line_remove_point(NULL, 0), "poly_line_remove_point should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_point(NULL, 0), "poly_line_get_point should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_point_count(NULL), "poly_line_get_point_count should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_clear_points(NULL), "poly_line_clear_points should abort with NULL poly_line");
+    luaL_getmetatable(L, POLY_LINE_PROXY_META);
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
+    lua_pop(L, 1);
     
-    // Test that watcher functions abort with NULL pointers
-    TEST_ASSERT_ABORT(poly_line_add_watcher(NULL, mock_watcher_callback, NULL), "poly_line_add_watcher should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_add_watcher(poly_line, NULL, NULL), "poly_line_add_watcher should abort with NULL callback");
-    TEST_ASSERT_ABORT(poly_line_remove_watcher(NULL, mock_watcher_callback, NULL), "poly_line_remove_watcher should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_remove_watcher(poly_line, NULL, NULL), "poly_line_remove_watcher should abort with NULL callback");
-    
-    // Test that Lua functions abort with NULL pointers
-    TEST_ASSERT_ABORT(poly_line_lua_init(NULL), "poly_line_lua_init should abort with NULL engine");
-    TEST_ASSERT_ABORT(poly_line_lua_push(NULL), "poly_line_lua_push should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_lua_get(NULL, 1), "poly_line_lua_get should abort with NULL Lua state");
-    TEST_ASSERT_ABORT(poly_line_ref(NULL), "poly_line_ref should abort with NULL poly_line");
-    // poly_line_unref should ignore NULL poly_line (not abort)
-    poly_line_unref(NULL);
-    TEST_ASSERT_ABORT(poly_line_get_state(NULL), "poly_line_get_state should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_lua_ref(NULL), "poly_line_get_lua_ref should abort with NULL poly_line");
-    TEST_ASSERT_ABORT(poly_line_get_lua_ref_count(NULL), "poly_line_get_lua_ref_count should abort with NULL poly_line");
-    
-    // Clean up
-    ese_color_destroy(color);
-    ese_point_destroy(point);
-    poly_line_destroy(poly_line);
-    lua_engine_destroy(engine);
-    
-    test_end("PolyLine NULL Pointer Abort Tests");
+    lua_getglobal(L, "PolyLine");
+    TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Global PolyLine table should exist after initialization");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Global PolyLine table should be a table");
+    lua_pop(L, 1);
 }
+
+static void test_ese_poly_line_lua_push(void) {
+    poly_line_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    
+    poly_line_lua_push(poly_line);
+    
+    EsePolyLine **ud = (EsePolyLine **)lua_touserdata(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(poly_line, *ud, "The pushed item should be the actual polyline");
+    
+    lua_pop(L, 1); 
+    
+    poly_line_destroy(poly_line);
+}
+
+static void test_ese_poly_line_lua_get(void) {
+    poly_line_lua_init(g_engine);
+
+    lua_State *L = g_engine->runtime;
+    EsePolyLine *poly_line = poly_line_create(g_engine);
+    
+    poly_line_lua_push(poly_line);
+    
+    EsePolyLine *extracted_poly_line = poly_line_lua_get(L, -1);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(poly_line, extracted_poly_line, "Extracted polyline should match original");
+    
+    lua_pop(L, 1);
+    poly_line_destroy(poly_line);
+}
+
+/**
+* Lua API Test Functions
+*/
+
+static void test_ese_poly_line_lua_new(void) {
+    poly_line_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+    
+    const char *test_code = "return PolyLine.new()\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "PolyLine.new() should execute without error");
+    EsePolyLine *extracted_poly_line = poly_line_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_poly_line, "Extracted polyline should not be NULL");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(POLY_LINE_OPEN, poly_line_get_type(extracted_poly_line), "New polyline should have OPEN type");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, poly_line_get_stroke_width(extracted_poly_line));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, poly_line_get_point_count(extracted_poly_line), "New polyline should have 0 points");
+    poly_line_destroy(extracted_poly_line);
+}
+
+static void test_ese_poly_line_lua_type(void) {
+    poly_line_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = PolyLine.new(); p.type = 1; return p.type";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua type set/get test 1 should execute without error");
+    int type = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, type, "Type should be 1 (CLOSED)");
+    lua_pop(L, 1);
+
+    const char *test2 = "local p = PolyLine.new(); p.type = 2; return p.type";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua type set/get test 2 should execute without error");
+    type = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, type, "Type should be 2 (FILLED)");
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = PolyLine.new(); p.type = 0; return p.type";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Lua type set/get test 3 should execute without error");
+    type = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, type, "Type should be 0 (OPEN)");
+    lua_pop(L, 1);
+
+    const char *test4 = "local p = PolyLine.new(); p.type = 3; return p.type";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "Invalid type should cause error");
+}
+
+static void test_ese_poly_line_lua_stroke_width(void) {
+    poly_line_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = PolyLine.new(); p.stroke_width = 2.5; return p.stroke_width";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua stroke_width set/get test 1 should execute without error");
+    double width = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.5f, width);
+    lua_pop(L, 1);
+
+    const char *test2 = "local p = PolyLine.new(); p.stroke_width = 0; return p.stroke_width";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua stroke_width set/get test 2 should execute without error");
+    width = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, width);
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = PolyLine.new(); p.stroke_width = \"invalid\"; return p.stroke_width";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Invalid stroke_width should cause error");
+}
+
+static void test_ese_poly_line_lua_stroke_color(void) {
+    poly_line_lua_init(g_engine);
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = PolyLine.new(); local c = Color.new(1, 0, 0); p.stroke_color = c; return p.stroke_color ~= nil";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua stroke_color set/get test 1 should execute without error");
+    bool has_color = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(has_color, "Stroke color should be set");
+    lua_pop(L, 1);
+
+    const char *test2 = "local p = PolyLine.new(); p.stroke_color = nil; return p.stroke_color == nil";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua stroke_color set/get test 2 should execute without error");
+    bool is_nil = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(is_nil, "Stroke color should be nil");
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = PolyLine.new(); p.stroke_color = \"invalid\"; return p.stroke_color";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Invalid stroke_color should cause error");
+}
+
+static void test_ese_poly_line_lua_fill_color(void) {
+    poly_line_lua_init(g_engine);
+    ese_color_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test1 = "local p = PolyLine.new(); local c = Color.new(0, 1, 0); p.fill_color = c; return p.fill_color ~= nil";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "Lua fill_color set/get test 1 should execute without error");
+    bool has_color = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(has_color, "Fill color should be set");
+    lua_pop(L, 1);
+
+    const char *test2 = "local p = PolyLine.new(); p.fill_color = nil; return p.fill_color == nil";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "Lua fill_color set/get test 2 should execute without error");
+    bool is_nil = lua_toboolean(L, -1);
+    TEST_ASSERT_TRUE_MESSAGE(is_nil, "Fill color should be nil");
+    lua_pop(L, 1);
+
+    const char *test3 = "local p = PolyLine.new(); p.fill_color = \"invalid\"; return p.fill_color";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "Invalid fill_color should cause error");
+}
+
+static void test_ese_poly_line_lua_add_point(void) {
+    poly_line_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); local pt = Point.new(10, 20); p:add_point(pt); return p:get_point_count()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua add_point test should execute without error");
+    int count = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, count, "Point count should be 1 after adding point");
+    lua_pop(L, 1);
+
+    const char *test_error = "local p = PolyLine.new(); p:add_point(\"invalid\"); return p:get_point_count()";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "Invalid add_point should cause error");
+}
+
+static void test_ese_poly_line_lua_remove_point(void) {
+    poly_line_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); local pt1 = Point.new(10, 20); local pt2 = Point.new(30, 40); p:add_point(pt1); p:add_point(pt2); p:remove_point(0); return p:get_point_count()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua remove_point test should execute without error");
+    int count = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, count, "Point count should be 1 after removing point");
+    lua_pop(L, 1);
+
+    const char *test_error = "local p = PolyLine.new(); p:remove_point(5); return p:get_point_count()";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "Invalid remove_point should cause error");
+}
+
+static void test_ese_poly_line_lua_get_point(void) {
+    poly_line_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); local pt = Point.new(15, 25); p:add_point(pt); local retrieved = p:get_point(0); return retrieved.x, retrieved.y";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua get_point test should execute without error");
+    double x = lua_tonumber(L, -2);
+    double y = lua_tonumber(L, -1);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 15.0f, x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 25.0f, y);
+    lua_pop(L, 2);
+
+    const char *test_error = "local p = PolyLine.new(); local pt = p:get_point(5); return pt";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "Invalid get_point should cause error");
+}
+
+static void test_ese_poly_line_lua_get_point_count(void) {
+    poly_line_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); local count1 = p:get_point_count(); local pt1 = Point.new(10, 20); local pt2 = Point.new(30, 40); p:add_point(pt1); p:add_point(pt2); local count2 = p:get_point_count(); return count1, count2";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua get_point_count test should execute without error");
+    int count1 = (int)lua_tonumber(L, -2);
+    int count2 = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, count1, "Initial point count should be 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, count2, "Point count should be 2 after adding points");
+    lua_pop(L, 2);
+}
+
+static void test_ese_poly_line_lua_clear_points(void) {
+    poly_line_lua_init(g_engine);
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); local pt1 = Point.new(10, 20); local pt2 = Point.new(30, 40); p:add_point(pt1); p:add_point(pt2); local count1 = p:get_point_count(); p:clear_points(); local count2 = p:get_point_count(); return count1, count2";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Lua clear_points test should execute without error");
+    int count1 = (int)lua_tonumber(L, -2);
+    int count2 = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, count1, "Point count should be 2 before clearing");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, count2, "Point count should be 0 after clearing");
+    lua_pop(L, 2);
+}
+
+static void test_ese_poly_line_lua_tostring(void) {
+    poly_line_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *test_code = "local p = PolyLine.new(); p.type = 1; p.stroke_width = 2.5; return tostring(p)";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
+    const char *result = lua_tostring(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "PolyLine:") != NULL, "tostring should contain 'PolyLine:'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "type=CLOSED") != NULL, "tostring should contain 'type=CLOSED'");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "stroke_width=2.50") != NULL, "tostring should contain 'stroke_width=2.50'");
+    lua_pop(L, 1);
+}
+
+static void test_ese_poly_line_lua_gc(void) {
+    poly_line_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    const char *testA = "local p = PolyLine.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "PolyLine creation should execute without error");
+    
+    int collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testB = "return PolyLine.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "PolyLine creation should execute without error");
+    EsePolyLine *extracted_poly_line = poly_line_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_poly_line, "Extracted polyline should not be NULL");
+    poly_line_ref(extracted_poly_line);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    poly_line_unref(extracted_poly_line);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
+    
+    const char *testC = "return PolyLine.new()";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "PolyLine creation should execute without error");
+    extracted_poly_line = poly_line_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_poly_line, "Extracted polyline should not be NULL");
+    poly_line_ref(extracted_poly_line);
+    
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    poly_line_unref(extracted_poly_line);
+    poly_line_destroy(extracted_poly_line);
+
+    collected = lua_gc(L, LUA_GCCOLLECT, 0);
+    TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
+
+    // Verify GC didn't crash by running another operation
+    const char *verify_code = "return 42";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, verify_code), "Lua should still work after GC");
+    int result = (int)lua_tonumber(L, -1);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
+    lua_pop(L, 1);
+}
+
