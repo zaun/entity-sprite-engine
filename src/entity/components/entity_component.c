@@ -214,13 +214,13 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
         ese_rect_set_y(colliderRect, ese_rect_get_y(colliderRect) + ese_point_get_y(component->entity->position));
         if (ese_rect_intersects(colliderRect, rect)) {
             ese_rect_destroy(colliderRect);
-            profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
+            profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_coll_rect");
             return true;
         }
         ese_rect_destroy(colliderRect);
     }
     
-    profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_collision_rect");
+    profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_coll_rect");
     return false;
 }
 
@@ -228,8 +228,7 @@ void entity_component_draw(
     EseEntityComponent *component,
     float camera_x, float camera_y,
     float view_width, float view_height,
-    EntityDrawTextureCallback texCallback,
-    EntityDrawRectCallback rectCallback,
+    EntityDrawCallbacks *callbacks,
     void *callback_user_data
 ) {
     profile_start(PROFILE_ENTITY_DRAW_SECTION);
@@ -252,7 +251,7 @@ void entity_component_draw(
             profile_start(PROFILE_ENTITY_COMP_COLLIDER_DRAW);
             _entity_component_collider_draw(
                 (EseEntityComponentCollider*)component->data,
-                screen_x, screen_y, rectCallback, callback_user_data
+                screen_x, screen_y, callbacks->draw_rect, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_COLLIDER_DRAW, "entity_component_collider_draw");
             break;
@@ -261,7 +260,7 @@ void entity_component_draw(
             profile_start(PROFILE_ENTITY_COMP_MAP_DRAW);
             _entity_component_ese_map_draw(
                 (EseEntityComponentMap*)component->data,
-                screen_x, screen_y, texCallback, callback_user_data
+                screen_x, screen_y, callbacks->draw_texture, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_ese_map_draw");
             break;
@@ -270,7 +269,7 @@ void entity_component_draw(
             profile_start(PROFILE_ENTITY_COMP_SHAPE_DRAW);
             _entity_component_shape_draw(
                 (EseEntityComponentShape*)component->data,
-                screen_x, screen_y, texCallback, callback_user_data
+                screen_x, screen_y, callbacks, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
             break;
@@ -279,7 +278,7 @@ void entity_component_draw(
             profile_start(PROFILE_ENTITY_COMP_SPRITE_DRAW);
             _entity_component_sprite_draw(
                 (EseEntityComponentSprite*)component->data,
-                screen_x, screen_y, texCallback, callback_user_data
+                screen_x, screen_y, callbacks->draw_texture, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_SPRITE_DRAW, "entity_component_sprite_draw");
             break;
@@ -288,7 +287,7 @@ void entity_component_draw(
             profile_start(PROFILE_ENTITY_COMP_TEXT_DRAW);
             _entity_component_text_draw(
                 (EseEntityComponentText*)component->data,
-                screen_x, screen_y, texCallback, callback_user_data
+                screen_x, screen_y, callbacks->draw_texture, callback_user_data
             );
             profile_stop(PROFILE_ENTITY_COMP_TEXT_DRAW, "entity_component_text_draw");
             break;

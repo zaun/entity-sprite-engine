@@ -20,6 +20,11 @@ typedef struct {
     float u, v;                     /**< Texture coordinates (normalized) */
 } EseVertex;
 
+typedef enum EseRenderListBatchType {
+    RL_TEXTURE,
+    RL_COLOR,
+} EseRenderListBatchType;
+
 /**
  * @brief Represents a batch of renderable objects with shared state.
  * 
@@ -28,7 +33,7 @@ typedef struct {
  *          and manages memory allocation for efficient GPU rendering.
  */
 typedef struct EseRenderBatch {
-    EseDrawListObjectType type;     /**< Type of objects in this batch */
+    EseRenderListBatchType type;     /**< Type of objects in this batch */
     union {
         const char *texture_id;     /**< Texture ID for texture batches */
         /**
@@ -40,7 +45,7 @@ typedef struct EseRenderBatch {
         struct {
             unsigned char r, g, b, a; /**< RGBA color for rectangle batches */
             bool filled;             /**< Whether rectangles are filled or outlined */
-        } rect_color;               /**< Color data for rectangle batches */
+        } color;                    /**< Color data for rectangle batches */
     } shared_state;                 /**< State shared by all objects in the batch */
 
     EseVertex *vertex_buffer;       /**< Buffer containing vertex data */

@@ -31,7 +31,7 @@ EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx);
 
 void _entity_component_shape_init(EseLuaEngine *engine);
 
-void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawTextureCallback texCallback, void *callback_user_data);
+void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawCallbacks *callbacks, void *callback_user_data);
 
 EseEntityComponent *entity_component_shape_create(EseLuaEngine *engine);
 

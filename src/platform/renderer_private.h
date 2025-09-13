@@ -32,7 +32,7 @@ typedef struct {
 typedef struct {
     EseVector1i useTexture;         /**< Flag indicating whether to use texture (1) or color (0) */
     uint32_t    _pad0[3];           /**< Padding for std140 alignment */
-    EseVector4  rectColor;          /**< RGBA color for rectangle rendering */
+    EseVector4  color;              /**< RGBA color for rendering */
     EseVector4  tint;               /**< RGBA tint for texture rendering */
     float       opacity;            /**< Opacity for rendering */
     float       _pad[3];            /**< Padding for std140 alignment */

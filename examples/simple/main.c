@@ -9,6 +9,7 @@
 #include "platform/window.h"
 #include "platform/time.h"
 #include "core/memory_manager.h"
+#include "utility/profile.h"
 
 void segfault_handler(int signo, siginfo_t *info, void *context) {
     void *buffer[32];
@@ -97,6 +98,8 @@ int main(int argc, char *argv[]) {
     window_destroy(window);
 
     memory_manager.destroy();
+
+    profile_display();
 
     printf("Bye\n");
     return 0;

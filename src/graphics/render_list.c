@@ -5,6 +5,7 @@
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "graphics/render_list.h"
+#include "graphics/draw_list.h"
 
 #define RENDER_LIST_INITIAL_CAPACITY 32
 #define BATCH_INITIAL_CAPACITY 256
@@ -93,6 +94,96 @@ static inline void _pixel_to_ndc(float px, float py, float view_w, float view_h,
     *ny = 1.0f - (py / view_h) * 2.0f;
 }
 
+// Helper to tessellate a polyline into triangles for fill rendering
+static void _tessellate_polyline_fill(
+    const EseDrawListObject *obj,
+    EseVertex *vertices,
+    size_t *vertex_count,
+    int view_w, int view_h
+) {
+    const float *points;
+    size_t point_count;
+    float stroke_width;
+    draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+    
+    if (point_count < 3) return; // Need at least 3 points for a triangle
+    
+    // Simple fan triangulation from first point
+    float first_x, first_y;
+    _pixel_to_ndc(points[0], points[1], view_w, view_h, &first_x, &first_y);
+    
+    for (size_t i = 1; i < point_count - 1; i++) {
+        float x1, y1, x2, y2;
+        _pixel_to_ndc(points[i * 2], points[i * 2 + 1], view_w, view_h, &x1, &y1);
+        _pixel_to_ndc(points[(i + 1) * 2], points[(i + 1) * 2 + 1], view_w, view_h, &x2, &y2);
+        
+        // Add triangle: first point, current point, next point
+        vertices[(*vertex_count)++] = (EseVertex){first_x, first_y, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x1, y1, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x2, y2, 0.0f, 0.0f, 0.0f};
+    }
+}
+
+// Helper to tessellate a polyline into quads for stroke rendering
+static void _tessellate_polyline_stroke(
+    const EseDrawListObject *obj,
+    EseVertex *vertices,
+    size_t *vertex_count,
+    int view_w, int view_h
+) {
+    const float *points;
+    size_t point_count;
+    float stroke_width;
+    draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+    
+    if (point_count < 2) return; // Need at least 2 points for a line
+    
+    float half_width = stroke_width * 0.5f;
+    
+    for (size_t i = 0; i < point_count - 1; i++) {
+        float x1, y1, x2, y2;
+        _pixel_to_ndc(points[i * 2], points[i * 2 + 1], view_w, view_h, &x1, &y1);
+        _pixel_to_ndc(points[(i + 1) * 2], points[(i + 1) * 2 + 1], view_w, view_h, &x2, &y2);
+        
+        // Calculate perpendicular vector for stroke width
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float length = sqrtf(dx * dx + dy * dy);
+        
+        if (length < 1e-6f) continue; // Skip degenerate segments
+        
+        // Normalize and get perpendicular
+        dx /= length;
+        dy /= length;
+        float perp_x = -dy;
+        float perp_y = dx;
+        
+        // Scale by half stroke width (convert to NDC)
+        float stroke_ndc = (half_width / view_w) * 2.0f; // Approximate conversion
+        perp_x *= stroke_ndc;
+        perp_y *= stroke_ndc;
+        
+        // Create quad vertices
+        float x1_left = x1 + perp_x;
+        float y1_left = y1 + perp_y;
+        float x1_right = x1 - perp_x;
+        float y1_right = y1 - perp_y;
+        float x2_left = x2 + perp_x;
+        float y2_left = y2 + perp_y;
+        float x2_right = x2 - perp_x;
+        float y2_right = y2 - perp_y;
+        
+        // Add quad as two triangles
+        vertices[(*vertex_count)++] = (EseVertex){x1_left, y1_left, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x1_right, y1_right, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x2_left, y2_left, 0.0f, 0.0f, 0.0f};
+        
+        vertices[(*vertex_count)++] = (EseVertex){x1_right, y1_right, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x2_right, y2_right, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x2_left, y2_left, 0.0f, 0.0f, 0.0f};
+    }
+}
+
 // Helper to add vertices to a batch
 static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDrawListObject *obj, int view_w, int view_h) {
     log_assert("RENDER_LIST", batch, "_render_batch_add_object_vertices called with NULL batch");
@@ -123,7 +214,7 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
     EseVertex *v = &batch->vertex_buffer[batch->vertex_count];
     batch->vertex_count += 6;
 
-    if (draw_list_object_get_type(obj) == RL_TEXTURE) {
+    if (draw_list_object_get_type(obj) == DL_TEXTURE) {
         const char *texture_id;
         float sx1, sy1, sx2, sy2;
         draw_list_object_get_texture(obj, &texture_id, &sx1, &sy1, &sx2, &sy2);
@@ -145,7 +236,7 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         v[4] = (EseVertex){ndc_x + ndc_w, ndc_y - ndc_h, 0.0f, u1, v1};
         v[5] = (EseVertex){ndc_x + ndc_w, ndc_y, 0.0f, u1, v0};
         
-    } else if (draw_list_object_get_type(obj) == RL_RECT) {
+    } else if (draw_list_object_get_type(obj) == DL_RECT) {
         unsigned char rc, gc, bc, ac;
         bool filled;
         draw_list_object_get_rect_color(obj, &rc, &gc, &bc, &ac, &filled);
@@ -287,6 +378,59 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
                 v[23] = (EseVertex){ odx[1], ody[1], 0.0f, 0.0f, 0.0f };
             }
         }
+    } else if (draw_list_object_get_type(obj) == DL_POLYLINE) {
+        const float *points;
+        size_t point_count;
+        float stroke_width;
+        draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+        
+        unsigned char fill_r, fill_g, fill_b, fill_a;
+        draw_list_object_get_polyline_color(obj, &fill_r, &fill_g, &fill_b, &fill_a);
+        
+        unsigned char stroke_r, stroke_g, stroke_b, stroke_a;
+        draw_list_object_get_polyline_stroke_color(obj, &stroke_r, &stroke_g, &stroke_b, &stroke_a);
+        
+        // Calculate required vertex count
+        size_t fill_vertices = 0;
+        size_t stroke_vertices = 0;
+        
+        if (fill_a > 0 && point_count >= 3) {
+            fill_vertices = (point_count - 2) * 3; // Fan triangulation
+        }
+        
+        if (stroke_a > 0 && point_count >= 2) {
+            stroke_vertices = (point_count - 1) * 6; // Quads for stroke
+        }
+        
+        size_t total_vertices = fill_vertices + stroke_vertices;
+        
+        if (total_vertices == 0) return; // Nothing to render
+        
+        // Ensure we have enough capacity
+        if (batch->vertex_count + total_vertices > batch->vertex_capacity) {
+            size_t new_capacity = batch->vertex_capacity * 2;
+            while (batch->vertex_count + total_vertices > new_capacity) new_capacity *= 2;
+            EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
+            if (new_buffer) {
+                batch->vertex_buffer = new_buffer;
+                batch->vertex_capacity = new_capacity;
+            }
+        }
+        
+        EseVertex *v = &batch->vertex_buffer[batch->vertex_count];
+        size_t vertex_offset = 0;
+        
+        // Add fill vertices if needed
+        if (fill_vertices > 0) {
+            _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+        }
+        
+        // Add stroke vertices if needed
+        if (stroke_vertices > 0) {
+            _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+        }
+        
+        batch->vertex_count += vertex_offset;
     }
 }
 
@@ -342,30 +486,109 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
         EseDrawListObject *obj = draw_list_get_object(draw_list, i);
         draw_calls += 1;
 
+        // Handle polyline objects - they need special batching logic
+        if (draw_list_object_get_type(obj) == DL_POLYLINE) {
+            const float *points;
+            size_t point_count;
+            float stroke_width;
+            draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+            
+            unsigned char fill_r, fill_g, fill_b, fill_a;
+            draw_list_object_get_polyline_color(obj, &fill_r, &fill_g, &fill_b, &fill_a);
+            
+            unsigned char stroke_r, stroke_g, stroke_b, stroke_a;
+            draw_list_object_get_polyline_stroke_color(obj, &stroke_r, &stroke_g, &stroke_b, &stroke_a);
+            
+            // Create separate batches for fill and stroke if both are present
+            if (fill_a > 0 && point_count >= 3) {
+                // Check if we need a new fill batch
+                bool new_fill_batch_needed = true;
+                if (current_batch && current_batch->type == RL_COLOR) {
+                    if (current_batch->shared_state.color.r == fill_r &&
+                        current_batch->shared_state.color.g == fill_g &&
+                        current_batch->shared_state.color.b == fill_b &&
+                        current_batch->shared_state.color.a == fill_a &&
+                        current_batch->shared_state.color.filled == true) {
+                        new_fill_batch_needed = false;
+                    }
+                }
+                
+                if (new_fill_batch_needed) {
+                    current_batch = _render_batch_create();
+                    current_batch->type = RL_COLOR;
+                    current_batch->shared_state.color.r = fill_r;
+                    current_batch->shared_state.color.g = fill_g;
+                    current_batch->shared_state.color.b = fill_b;
+                    current_batch->shared_state.color.a = fill_a;
+                    current_batch->shared_state.color.filled = true;
+                    _render_list_add_batch(render_list, current_batch);
+                }
+                
+                // Add the polyline to the current batch
+                _render_batch_add_object_vertices(current_batch, obj, render_list->width, render_list->height);
+            }
+            
+            if (stroke_a > 0 && point_count >= 2) {
+                // Check if we need a new stroke batch
+                bool new_stroke_batch_needed = true;
+                if (current_batch && current_batch->type == RL_COLOR) {
+                    if (current_batch->shared_state.color.r == stroke_r &&
+                        current_batch->shared_state.color.g == stroke_g &&
+                        current_batch->shared_state.color.b == stroke_b &&
+                        current_batch->shared_state.color.a == stroke_a &&
+                        current_batch->shared_state.color.filled == false) {
+                        new_stroke_batch_needed = false;
+                    }
+                }
+                
+                if (new_stroke_batch_needed) {
+                    current_batch = _render_batch_create();
+                    current_batch->type = RL_COLOR;
+                    current_batch->shared_state.color.r = stroke_r;
+                    current_batch->shared_state.color.g = stroke_g;
+                    current_batch->shared_state.color.b = stroke_b;
+                    current_batch->shared_state.color.a = stroke_a;
+                    current_batch->shared_state.color.filled = false;
+                    _render_list_add_batch(render_list, current_batch);
+                }
+                
+                // Add the polyline to the current batch
+                _render_batch_add_object_vertices(current_batch, obj, render_list->width, render_list->height);
+            }
+            
+            continue; // Skip the normal batching logic below
+        }
+
         // Check if a new batch is needed
         bool new_batch_needed = false;
+        EseRenderListBatchType new_batch_type = RL_COLOR;
+        if (draw_list_object_get_type(obj) == DL_TEXTURE) {
+            new_batch_type = RL_TEXTURE;
+        } else if (draw_list_object_get_type(obj) == DL_RECT) {
+            new_batch_type = RL_COLOR;
+        }
 
         if (!current_batch) {
             new_batch_needed = true;
-        } else if (current_batch->type != draw_list_object_get_type(obj)) {
+        } else if (current_batch->type != new_batch_type) {
             new_batch_needed = true;
-        } else if (draw_list_object_get_type(obj) == RL_TEXTURE) {
+        } else if (new_batch_type == RL_TEXTURE) {
             const char *current_texture_id;
             draw_list_object_get_texture(obj, &current_texture_id, NULL, NULL, NULL, NULL);
             if (strcmp(current_texture_id, current_batch->shared_state.texture_id) != 0) {
                 new_batch_needed = true;
             }
-        } else if (draw_list_object_get_type(obj) == RL_RECT) {
+        } else if (new_batch_type == RL_COLOR) {
             // Compare rect colors to see if we can batch them together
             unsigned char r, g, b, a;
             bool filled;
             draw_list_object_get_rect_color(obj, &r, &g, &b, &a, &filled);
             
-            if (current_batch->shared_state.rect_color.r != r ||
-                current_batch->shared_state.rect_color.g != g ||
-                current_batch->shared_state.rect_color.b != b ||
-                current_batch->shared_state.rect_color.a != a ||
-                current_batch->shared_state.rect_color.filled != filled) {
+            if (current_batch->shared_state.color.r != r ||
+                current_batch->shared_state.color.g != g ||
+                current_batch->shared_state.color.b != b ||
+                current_batch->shared_state.color.a != a ||
+                current_batch->shared_state.color.filled != filled) {
                 new_batch_needed = true;
             }
         }
@@ -374,19 +597,20 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
             // if (current_batch) {
             //     log_debug("RENDER_LIST", "Batch has %d draw calls", draw_calls);
             // }
-            current_batch = _render_batch_create();
-            current_batch->type = draw_list_object_get_type(obj);
-            draw_calls = 0;
             
-            if (draw_list_object_get_type(obj) == RL_TEXTURE) {
+            draw_calls = 0;
+            current_batch = _render_batch_create();
+            if (draw_list_object_get_type(obj) == DL_TEXTURE) {
+                current_batch->type = RL_TEXTURE;
                 draw_list_object_get_texture(obj, &current_batch->shared_state.texture_id, NULL, NULL, NULL, NULL);
-            } else if (draw_list_object_get_type(obj) == RL_RECT) {
+            } else if (draw_list_object_get_type(obj) == DL_RECT) {
+                current_batch->type = RL_COLOR;
                 draw_list_object_get_rect_color(obj, 
-                    &current_batch->shared_state.rect_color.r, 
-                    &current_batch->shared_state.rect_color.g, 
-                    &current_batch->shared_state.rect_color.b, 
-                    &current_batch->shared_state.rect_color.a, 
-                    &current_batch->shared_state.rect_color.filled);
+                    &current_batch->shared_state.color.r, 
+                    &current_batch->shared_state.color.g, 
+                    &current_batch->shared_state.color.b, 
+                    &current_batch->shared_state.color.a, 
+                    &current_batch->shared_state.color.filled);
             }
             _render_list_add_batch(render_list, current_batch);
         }

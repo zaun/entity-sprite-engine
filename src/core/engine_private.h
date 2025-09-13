@@ -100,6 +100,14 @@ void _engine_add_rect_to_draw_list(
     void *user_data
 );
 
+void _engine_add_polyline_to_draw_list(
+    float screen_x, float screen_y, int z_index,
+    const float* points, size_t point_count, float stroke_width,
+    unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
+    unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a,
+    void *user_data
+);
+
 /**
  * @brief Swaps the active render list.
  * 

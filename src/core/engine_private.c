@@ -49,6 +49,27 @@ void _engine_add_rect_to_draw_list(
     draw_list_object_set_z_index(obj, z_index);
 }
 
+void _engine_add_polyline_to_draw_list(
+    float screen_x, float screen_y, int z_index,
+    const float* points, size_t point_count, float stroke_width,
+    unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
+    unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a,
+    void *user_data
+) {
+    log_assert("ENGINE", user_data, "_engine_add_polyline_to_draw_list called with NULL user_data");
+    log_assert("ENGINE", points, "_engine_add_polyline_to_draw_list called with NULL points");
+    log_assert("ENGINE", point_count > 0, "_engine_add_polyline_to_draw_list called with point_count <= 0");
+
+    EseDrawList *draw_list = (EseDrawList*)user_data;
+
+    EseDrawListObject *obj = draw_list_request_object(draw_list);
+    draw_list_object_set_polyline(obj, points, point_count, stroke_width);
+    draw_list_object_set_polyline_color(obj, fill_r, fill_g, fill_b, fill_a);
+    draw_list_object_set_polyline_stroke_color(obj, stroke_r, stroke_g, stroke_b, stroke_a);
+    draw_list_object_set_bounds(obj, screen_x, screen_y, 0, 0); // Polylines don't use width/height
+    draw_list_object_set_z_index(obj, z_index);
+}
+
 bool _engine_render_flip(EseEngine *engine) {
     log_assert("ENGINE", engine, "_engine_render_flip called with NULL engine");
 

@@ -47,28 +47,28 @@ typedef void (*EsePolyLineWatcherCallback)(EsePolyLine *poly_line, void *userdat
  * 
  * @details Allocates memory for a new EsePolyLine and initializes to empty state.
  *          The polyline is created without Lua references and must be explicitly
- *          referenced with poly_line_ref() if Lua access is desired.
+ *          referenced with ese_poly_line_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EsePolyLine object
  * 
- * @warning The returned EsePolyLine must be freed with poly_line_destroy() to prevent memory leaks
+ * @warning The returned EsePolyLine must be freed with ese_poly_line_destroy() to prevent memory leaks
  */
-EsePolyLine *poly_line_create(EseLuaEngine *engine);
+EsePolyLine *ese_poly_line_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EsePolyLine into a new EsePolyLine object.
  * 
  * @details This function creates a deep copy of an EsePolyLine object. It allocates a new EsePolyLine
  *          struct and copies all members including the points collection. The copy is created without 
- *          Lua references and must be explicitly referenced with poly_line_ref() if Lua access is desired.
+ *          Lua references and must be explicitly referenced with ese_poly_line_ref() if Lua access is desired.
  * 
  * @param source Pointer to the source EsePolyLine to copy.
  * @return A new, distinct EsePolyLine object that is a copy of the source.
  * 
- * @warning The returned EsePolyLine must be freed with poly_line_destroy() to prevent memory leaks.
+ * @warning The returned EsePolyLine must be freed with ese_poly_line_destroy() to prevent memory leaks.
  */
-EsePolyLine *poly_line_copy(const EsePolyLine *source);
+EsePolyLine *ese_poly_line_copy(const EsePolyLine *source);
 
 /**
  * @brief Destroys a EsePolyLine object, managing memory based on Lua references.
@@ -83,14 +83,14 @@ EsePolyLine *poly_line_copy(const EsePolyLine *source);
  * 
  * @param poly_line Pointer to the EsePolyLine object to destroy
  */
-void poly_line_destroy(EsePolyLine *poly_line);
+void ese_poly_line_destroy(EsePolyLine *poly_line);
 
 /**
  * @brief Gets the size of the EsePolyLine structure in bytes.
  * 
  * @return The size of the EsePolyLine structure in bytes
  */
-size_t poly_line_sizeof(void);
+size_t ese_poly_line_sizeof(void);
 
 // Property access
 /**
@@ -99,7 +99,7 @@ size_t poly_line_sizeof(void);
  * @param poly_line Pointer to the EsePolyLine object
  * @param type The line type (OPEN, CLOSED, or FILLED)
  */
-void poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type);
+void ese_poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type);
 
 /**
  * @brief Gets the line type of the polyline.
@@ -107,7 +107,7 @@ void poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type);
  * @param poly_line Pointer to the EsePolyLine object
  * @return The line type
  */
-EsePolyLineType poly_line_get_type(const EsePolyLine *poly_line);
+EsePolyLineType ese_poly_line_get_type(const EsePolyLine *poly_line);
 
 /**
  * @brief Sets the stroke width of the polyline.
@@ -115,7 +115,7 @@ EsePolyLineType poly_line_get_type(const EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @param width The stroke width value
  */
-void poly_line_set_stroke_width(EsePolyLine *poly_line, float width);
+void ese_poly_line_set_stroke_width(EsePolyLine *poly_line, float width);
 
 /**
  * @brief Gets the stroke width of the polyline.
@@ -123,7 +123,7 @@ void poly_line_set_stroke_width(EsePolyLine *poly_line, float width);
  * @param poly_line Pointer to the EsePolyLine object
  * @return The stroke width value
  */
-float poly_line_get_stroke_width(const EsePolyLine *poly_line);
+float ese_poly_line_get_stroke_width(const EsePolyLine *poly_line);
 
 /**
  * @brief Sets the stroke color of the polyline.
@@ -131,7 +131,7 @@ float poly_line_get_stroke_width(const EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @param color Pointer to the EseColor object for stroke color
  */
-void poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *color);
+void ese_poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *color);
 
 /**
  * @brief Gets the stroke color of the polyline.
@@ -139,7 +139,7 @@ void poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *color);
  * @param poly_line Pointer to the EsePolyLine object
  * @return Pointer to the EseColor object for stroke color
  */
-EseColor *poly_line_get_stroke_color(const EsePolyLine *poly_line);
+EseColor *ese_poly_line_get_stroke_color(const EsePolyLine *poly_line);
 
 /**
  * @brief Sets the fill color of the polyline.
@@ -147,7 +147,7 @@ EseColor *poly_line_get_stroke_color(const EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @param color Pointer to the EseColor object for fill color
  */
-void poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *color);
+void ese_poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *color);
 
 /**
  * @brief Gets the fill color of the polyline.
@@ -155,7 +155,7 @@ void poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *color);
  * @param poly_line Pointer to the EsePolyLine object
  * @return Pointer to the EseColor object for fill color
  */
-EseColor *poly_line_get_fill_color(const EsePolyLine *poly_line);
+EseColor *ese_poly_line_get_fill_color(const EsePolyLine *poly_line);
 
 // Points collection management
 /**
@@ -165,7 +165,7 @@ EseColor *poly_line_get_fill_color(const EsePolyLine *poly_line);
  * @param point Pointer to the EsePoint object to add
  * @return true if point was added successfully, false otherwise
  */
-bool poly_line_add_point(EsePolyLine *poly_line, EsePoint *point);
+bool ese_poly_line_add_point(EsePolyLine *poly_line, EsePoint *point);
 
 /**
  * @brief Removes a point from the polyline at the specified index.
@@ -174,7 +174,7 @@ bool poly_line_add_point(EsePolyLine *poly_line, EsePoint *point);
  * @param index Index of the point to remove
  * @return true if point was removed successfully, false if index is invalid
  */
-bool poly_line_remove_point(EsePolyLine *poly_line, size_t index);
+bool ese_poly_line_remove_point(EsePolyLine *poly_line, size_t index);
 
 /**
  * @brief Gets a point from the polyline at the specified index.
@@ -183,7 +183,7 @@ bool poly_line_remove_point(EsePolyLine *poly_line, size_t index);
  * @param index Index of the point to get
  * @return Pointer to the EsePoint object, or NULL if index is invalid
  */
-EsePoint *poly_line_get_point(const EsePolyLine *poly_line, size_t index);
+EsePoint *ese_poly_line_get_point(const EsePolyLine *poly_line, size_t index);
 
 /**
  * @brief Gets the number of points in the polyline.
@@ -191,14 +191,26 @@ EsePoint *poly_line_get_point(const EsePolyLine *poly_line, size_t index);
  * @param poly_line Pointer to the EsePolyLine object
  * @return Number of points in the polyline
  */
-size_t poly_line_get_point_count(const EsePolyLine *poly_line);
+size_t ese_poly_line_get_point_count(const EsePolyLine *poly_line);
 
 /**
  * @brief Clears all points from the polyline.
  * 
  * @param poly_line Pointer to the EsePolyLine object
  */
-void poly_line_clear_points(EsePolyLine *poly_line);
+void ese_poly_line_clear_points(EsePolyLine *poly_line);
+
+/**
+ * @brief Gets the raw float array of point coordinates.
+ * 
+ * @details Returns a pointer to the internal float array containing point coordinates.
+ *          The array contains x,y pairs for each point (x1, y1, x2, y2, ...).
+ *          The number of floats in the array is point_count * 2.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @return Pointer to the float array, or NULL if no points
+ */
+const float *ese_poly_line_get_points(const EsePolyLine *poly_line);
 
 // Lua-related access
 /**
@@ -207,7 +219,7 @@ void poly_line_clear_points(EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @return Pointer to the Lua state, or NULL if none
  */
-lua_State *poly_line_get_state(const EsePolyLine *poly_line);
+lua_State *ese_poly_line_get_state(const EsePolyLine *poly_line);
 
 /**
  * @brief Gets the Lua registry reference for this polyline.
@@ -215,7 +227,7 @@ lua_State *poly_line_get_state(const EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @return The Lua registry reference value
  */
-int poly_line_get_lua_ref(const EsePolyLine *poly_line);
+int ese_poly_line_get_lua_ref(const EsePolyLine *poly_line);
 
 /**
  * @brief Gets the Lua reference count for this polyline.
@@ -223,7 +235,7 @@ int poly_line_get_lua_ref(const EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object
  * @return The current reference count
  */
-int poly_line_get_lua_ref_count(const EsePolyLine *poly_line);
+int ese_poly_line_get_lua_ref_count(const EsePolyLine *poly_line);
 
 /**
  * @brief Adds a watcher callback to be notified when any polyline property changes.
@@ -236,7 +248,7 @@ int poly_line_get_lua_ref_count(const EsePolyLine *poly_line);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool poly_line_add_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback, void *userdata);
+bool ese_poly_line_add_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -250,7 +262,7 @@ bool poly_line_add_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback ca
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback, void *userdata);
+bool ese_poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
@@ -263,7 +275,7 @@ bool poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback
  * 
  * @param engine EseLuaEngine pointer where the EsePolyLine type will be registered
  */
-void poly_line_lua_init(EseLuaEngine *engine);
+void ese_poly_line_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EsePolyLine object to the Lua stack.
@@ -274,13 +286,13 @@ void poly_line_lua_init(EseLuaEngine *engine);
  * 
  * @param poly_line Pointer to the EsePolyLine object to push to Lua
  */
-void poly_line_lua_push(EsePolyLine *poly_line);
+void ese_poly_line_lua_push(EsePolyLine *poly_line);
 
 /**
  * @brief Extracts a EsePolyLine pointer from a Lua userdata object with type safety.
  * 
  * @details Retrieves the C EsePolyLine pointer from the "__ptr" field of a Lua
- *          table that was created by poly_line_lua_push(). Performs
+ *          table that was created by ese_poly_line_lua_push(). Performs
  *          type checking to ensure the object is a valid EsePolyLine proxy table
  *          with the correct metatable and userdata pointer.
  * 
@@ -290,7 +302,7 @@ void poly_line_lua_push(EsePolyLine *poly_line);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EsePolyLine *poly_line_lua_get(lua_State *L, int idx);
+EsePolyLine *ese_poly_line_lua_get(lua_State *L, int idx);
 
 /**
  * @brief References a EsePolyLine object for Lua access with reference counting.
@@ -302,7 +314,7 @@ EsePolyLine *poly_line_lua_get(lua_State *L, int idx);
  * 
  * @param poly_line Pointer to the EsePolyLine object to reference
  */
-void poly_line_ref(EsePolyLine *poly_line);
+void ese_poly_line_ref(EsePolyLine *poly_line);
 
 /**
  * @brief Unreferences a EsePolyLine object, decrementing the reference count.
@@ -312,6 +324,6 @@ void poly_line_ref(EsePolyLine *poly_line);
  * 
  * @param poly_line Pointer to the EsePolyLine object to unreference
  */
-void poly_line_unref(EsePolyLine *poly_line);
+void ese_poly_line_unref(EsePolyLine *poly_line);
 
 #endif // ESE_POLY_LINE_H

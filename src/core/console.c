@@ -127,12 +127,12 @@ void console_draw(EseConsole* console,
     EseAssetManager *manager,
     int view_width,
     int view_height,
-    EntityDrawTextureCallback texCallback,
-    EntityDrawRectCallback rectCallback,
+    EntityDrawCallbacks *callbacks,
     void *user_data)
 {
     log_assert("CONSOLE", console, "console_draw called with NULL console");
-    log_assert("CONSOLE", rectCallback, "console_draw called with NULL rectCallback");
+    log_assert("CONSOLE", callbacks, "console_draw called with NULL callbacks");
+    log_assert("CONSOLE", callbacks->draw_rect, "console_draw called with NULL draw_rect callback");
     
 
     // Dark mode console colors
@@ -151,7 +151,7 @@ void console_draw(EseConsole* console,
     int console_height = console->draw_line_count * line_height;
     
     // Draw main console background rectangle at top of screen
-    rectCallback(
+    callbacks->draw_rect(
         0, 0, INT_MAX - 1,
         view_width, console_height, 0.0f, true,
         bg_r, bg_g, bg_b, bg_a, user_data
@@ -159,7 +159,7 @@ void console_draw(EseConsole* console,
     
     // Draw bottom border rectangle (2 pixels high)
     int border_y = console_height;
-    rectCallback(0, border_y, INT_MAX - 1, view_width, 2, 0.0f, true, border_r, border_g, border_b, border_a, user_data);
+    callbacks->draw_rect(0, border_y, INT_MAX - 1, view_width, 2, 0.0f, true, border_r, border_g, border_b, border_a, user_data);
     
     // Draw console text lines
     int bottom_padding = 5; // Padding from the bottom of the console area
@@ -185,15 +185,15 @@ void console_draw(EseConsole* console,
         switch (line->type) {
             case ESE_CONSOLE_INFO:
                 // Blue dot
-                rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 0, 100, 255, 255, user_data);
+                callbacks->draw_rect(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 0, 100, 255, 255, user_data);
                 break;
             case ESE_CONSOLE_WARN:
                 // Orange dot
-                rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 165, 0, 255, user_data);
+                callbacks->draw_rect(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 165, 0, 255, user_data);
                 break;
             case ESE_CONSOLE_ERROR:
                 // Red dot
-                rectCallback(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 0, 0, 255, user_data);
+                callbacks->draw_rect(dot_x, dot_y - dot_radius, INT_MAX - 1, dot_radius * 2, dot_radius * 2, 0.0f, true, 255, 0, 0, 255, user_data);
                 break;
             case ESE_CONSOLE_NORMAL:
             default:
@@ -216,7 +216,7 @@ void console_draw(EseConsole* console,
                     int w, h;
                     
                     sprite_get_frame(letter, 0, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
-                    texCallback(prefix_x, y_pos, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
+                    callbacks->draw_texture(prefix_x, y_pos, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
                 }
             } else {
                 // Draw space for non-printable or missing characters
@@ -230,7 +230,7 @@ void console_draw(EseConsole* console,
                     int w, h;
                     
                     sprite_get_frame(letter, 0, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
-                    texCallback(prefix_x, y_pos, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
+                    callbacks->draw_texture(prefix_x, y_pos, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
                 }
             }
             prefix_x += console->font_char_width + 1;
@@ -269,7 +269,7 @@ void console_draw(EseConsole* console,
                     int w, h;
                     
                     sprite_get_frame(letter, 0, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
-                    texCallback(message_x, current_y, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
+                    callbacks->draw_texture(message_x, current_y, w, h, INT_MAX, texture_id, x1, y1, x2, y2, w, h, user_data);
                 }
                 message_x += char_width;
                 char_count++;

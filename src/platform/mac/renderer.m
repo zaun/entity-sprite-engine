@@ -498,7 +498,7 @@ void renderer_draw(EseRenderer *renderer) {
             size_t data_size = 0;
             if (batch->type == RL_TEXTURE) {
                 data_size = batch->vertex_count * sizeof(EseVertex);
-            } else { // RL_RECT
+            } else if (batch->type == RL_COLOR) {
                 data_size = batch->vertex_count * 5 * sizeof(float);
             }
             if (data_size == 0) continue;
@@ -538,16 +538,16 @@ void renderer_draw(EseRenderer *renderer) {
 
             if (batch->type == RL_TEXTURE) {
                 ubo.useTexture.x = 1;
-                ubo.rectColor.x = 0.0f;
-                ubo.rectColor.y = 0.0f;
-                ubo.rectColor.z = 0.0f;
-                ubo.rectColor.w = 0.0f;
-            } else {
+                ubo.color.x = 0.0f;
+                ubo.color.y = 0.0f;
+                ubo.color.z = 0.0f;
+                ubo.color.w = 0.0f;
+            } else if (batch->type == RL_COLOR) {
                 ubo.useTexture.x = 0;
-                ubo.rectColor.x = (float)batch->shared_state.rect_color.r / 255.0f;
-                ubo.rectColor.y = (float)batch->shared_state.rect_color.g / 255.0f;
-                ubo.rectColor.z = (float)batch->shared_state.rect_color.b / 255.0f;
-                ubo.rectColor.w = (float)batch->shared_state.rect_color.a / 255.0f;
+                ubo.color.x = (float)batch->shared_state.color.r / 255.0f;
+                ubo.color.y = (float)batch->shared_state.color.g / 255.0f;
+                ubo.color.z = (float)batch->shared_state.color.b / 255.0f;
+                ubo.color.w = (float)batch->shared_state.color.a / 255.0f;
             }
 
             [encoder setFragmentTexture:(batch->type == RL_TEXTURE ? tex : nil) atIndex:0];

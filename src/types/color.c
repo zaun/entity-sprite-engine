@@ -282,44 +282,60 @@ static int _ese_color_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_NEW);
 
     int argc = lua_gettop(L);
-    if (argc < 0 || argc > 4) {
+    if (argc < 3 || argc > 4) {
         profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "new(r, g, b, a) takes 0-4 arguments");
+        return luaL_error(L, "Color.new(r, g, b) takes 3 arguments\nColor.new(r, g, b, a) takes 4 arguments");
+    }
+
+    if (lua_type(L, 1) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "r must be a number");
+    }
+    if (lua_type(L, 2) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "g must be a number");
+    }
+    if (lua_type(L, 3) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "b must be a number");
+    }
+    if (argc == 4 && lua_type(L, 4) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "a must be a number");
+    }
+
+    float r = (float)lua_tonumber(L, 1);
+    float g = (float)lua_tonumber(L, 2);
+    float b = (float)lua_tonumber(L, 3);
+    float a = 1.0f;
+    if (argc == 4) {
+        a = (float)lua_tonumber(L, 4);
+    }
+
+    if (r < 0.0f || r > 1.0f) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "r must be between 0.0 and 1.0");
+    }
+    if (g < 0.0f || g > 1.0f) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "g must be between 0.0 and 1.0");
+    }
+    if (b < 0.0f || b > 1.0f) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "b must be between 0.0 and 1.0");
+    }
+    if (a < 0.0f || a > 1.0f) {
+        profile_cancel(PROFILE_LUA_COLOR_NEW);
+        return luaL_error(L, "a must be between 0.0 and 1.0");
     }
 
     // Create the color
     EseColor *color = _ese_color_make();
     color->state = L;
-
-    // Set values based on arguments provided
-    if (argc >= 1) {
-        if (!lua_isnumber(L, 1)) {
-            profile_cancel(PROFILE_LUA_COLOR_NEW);
-            return luaL_error(L, "r must be a number");
-        }
-        color->r = (float)lua_tonumber(L, 1);
-    }
-    if (argc >= 2) {
-        if (!lua_isnumber(L, 2)) {
-            profile_cancel(PROFILE_LUA_COLOR_NEW);
-            return luaL_error(L, "g must be a number");
-        }
-        color->g = (float)lua_tonumber(L, 2);
-    }
-    if (argc >= 3) {
-        if (!lua_isnumber(L, 3)) {
-            profile_cancel(PROFILE_LUA_COLOR_NEW);
-            return luaL_error(L, "b must be a number");
-        }
-        color->b = (float)lua_tonumber(L, 3);
-    }
-    if (argc >= 4) {
-        if (!lua_isnumber(L, 4)) {
-            profile_cancel(PROFILE_LUA_COLOR_NEW);
-            return luaL_error(L, "a must be a number");
-        }
-        color->a = (float)lua_tonumber(L, 4);
-    }
+    color->r = r;
+    color->g = g;
+    color->b = b;
+    color->a = a;
 
     // Create userdata directly
     EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));

@@ -68,12 +68,16 @@ static bool mock_texture_callback_called = false;
 static int mock_texture_callback_count = 0;
 static bool mock_rect_callback_called = false;
 static int mock_rect_callback_count = 0;
+static bool mock_polyline_callback_called = false;
+static int mock_polyline_callback_count = 0;
 
 static void mock_reset() {
     mock_texture_callback_called = false;
     mock_rect_callback_called = false;
+    mock_polyline_callback_called = false;
     mock_texture_callback_count = 0;
     mock_rect_callback_count = 0;
+    mock_polyline_callback_count = 0;
 }
 
 static void mock_texture_callback(float x, float y, float w, float h, int z, const char *tex_id, float tx1, float ty1, float tx2, float ty2, int width, int height, void *user_data) {
@@ -84,6 +88,11 @@ static void mock_texture_callback(float x, float y, float w, float h, int z, con
 static void mock_rect_callback(float x, float y, int z, int width, int height, float rotation, bool filled, unsigned char r, unsigned char g, unsigned char b, unsigned char a, void *user_data) {
     mock_rect_callback_called = true;
     mock_rect_callback_count++;
+}
+
+static void mock_polyline_callback(float x, float y, int z, const float* points, size_t point_count, float stroke_width, unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a, unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a, void *user_data) {
+    mock_polyline_callback_called = true;
+    mock_polyline_callback_count++;
 }
 
 void segfault_handler(int signo, siginfo_t *info, void *context) {
@@ -513,7 +522,12 @@ static void test_entity_draw() {
     EseEntity *entity = entity_create(engine);
         
     // Test drawing with no components
-    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, mock_texture_callback, mock_rect_callback, NULL);
+    EntityDrawCallbacks callbacks = {
+        .draw_texture = mock_texture_callback,
+        .draw_rect = mock_rect_callback,
+        .draw_polyline = mock_polyline_callback
+    };
+    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &callbacks, NULL);
 
     TEST_ASSERT(!mock_texture_callback_called, "Texture callback should not be called with no components");
     TEST_ASSERT(!mock_rect_callback_called, "Rect callback should not be called with no components");
@@ -530,7 +544,7 @@ static void test_entity_draw() {
 
     entity_component_collider_set_draw_debug((EseEntityComponentCollider *)entity_component_get_data(collider), true);
 
-    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, mock_texture_callback, mock_rect_callback, NULL);
+    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &callbacks, NULL);
 
     TEST_ASSERT(!mock_texture_callback_called, "Texture callback should not be called with no components");
     TEST_ASSERT(mock_rect_callback_called, "Rect callback should not be called with no components");
@@ -661,9 +675,10 @@ static void test_entity_null_pointer_aborts() {
     TEST_ASSERT_ABORT(entity_detect_collision_rect(NULL, NULL), "entity_detect_collision_rect should abort with NULL entity");
     
     // Test that draw function aborts with NULL pointers
-    TEST_ASSERT_ABORT(entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL, NULL), "entity_draw should abort with NULL entity");
-    TEST_ASSERT_ABORT(entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL, NULL), "entity_draw should abort with NULL texture callback");
-    TEST_ASSERT_ABORT(entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, (EntityDrawTextureCallback)0x123, NULL, NULL), "entity_draw should abort with NULL rect callback");
+    TEST_ASSERT_ABORT(entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL), "entity_draw should abort with NULL entity");
+    TEST_ASSERT_ABORT(entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL), "entity_draw should abort with NULL callbacks");
+    EntityDrawCallbacks null_callbacks = {0};
+    TEST_ASSERT_ABORT(entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &null_callbacks, NULL), "entity_draw should abort with NULL callbacks");
     
     // Test that component management functions abort with NULL pointers
     TEST_ASSERT_ABORT(entity_component_add(NULL, NULL), "entity_component_add should abort with NULL entity");

@@ -33,12 +33,72 @@ typedef void (*EntityDrawTextureCallback)(
     void *user_data
 );
 
+/**
+ * @brief Callback function type for entity rectangle drawing operations.
+ * 
+ * @param screen_x      Screen X coordinate to draw at
+ * @param screen_y      Screen Y coordinate to draw at  
+ * @param z_index       Draw order/depth
+ * @param width         Width of the rectangle in pixels
+ * @param height        Height of the rectangle in pixels
+ * @param rotation      Rotation angle in radians
+ * @param filled        Whether the rectangle should be filled (true) or just outlined (false)
+ * @param r             Red color component (0-255)
+ * @param g             Green color component (0-255)
+ * @param b             Blue color component (0-255)
+ * @param a             Alpha color component (0-255)
+ * @param user_data     User-provided callback data
+ */
 typedef void (*EntityDrawRectCallback)(
     float screen_x, float screen_y, int z_index,
     int width, int height, float rotation, bool filled,
     unsigned char r, unsigned char g, unsigned char b, unsigned char a,
     void *user_data
 );
+
+/**
+ * @brief Callback function type for entity polyline drawing operations.
+ * 
+ * @param screen_x      Screen X coordinate to draw at
+ * @param screen_y      Screen Y coordinate to draw at  
+ * @param z_index       Draw order/depth
+ * @param points        Array of points (x,y pairs) for the polyline
+ * @param point_count   Number of points in the array
+ * @param stroke_width  Width of the stroke line
+ * @param fill_r        Fill color red component (0-255)
+ * @param fill_g        Fill color green component (0-255)
+ * @param fill_b        Fill color blue component (0-255)
+ * @param fill_a        Fill color alpha component (0-255)
+ * @param stroke_r      Stroke color red component (0-255)
+ * @param stroke_g      Stroke color green component (0-255)
+ * @param stroke_b      Stroke color blue component (0-255)
+ * @param stroke_a      Stroke color alpha component (0-255)
+ * @param user_data     User-provided callback data
+ */
+typedef void (*EntityDrawPolyLineCallback)(
+    float screen_x, float screen_y, int z_index,
+    const float* points, size_t point_count, float stroke_width,
+    unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
+    unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a,
+    void *user_data
+);
+
+/**
+ * @brief Structure containing pointers to all entity drawing callback functions.
+ * 
+ * @details This structure provides a convenient way to group all drawing callbacks
+ * together, making it easy to pass them around as a single unit or store them
+ * in a single data structure.
+ * 
+ * @param draw_texture   Callback for drawing texture-based entities
+ * @param draw_rect      Callback for drawing rectangle-based entities  
+ * @param draw_polyline  Callback for drawing polyline-based entities
+ */
+typedef struct EntityDrawCallbacks {
+    EntityDrawTextureCallback draw_texture;
+    EntityDrawRectCallback draw_rect;
+    EntityDrawPolyLineCallback draw_polyline;
+} EntityDrawCallbacks;
 
 /**
  * @brief Creates a new EseEntity object.
@@ -132,15 +192,14 @@ bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect);
  * @param camera_y Camera Y position
  * @param view_width View width
  * @param view_height View height
- * @param callback Drawing callback function
+ * @param callbacks Structure containing all drawing callback functions
  * @param callback_user_data User data for callback
  */
 void entity_draw(
     EseEntity *entity,
     float camera_x, float camera_y,
     float view_width, float view_height,
-    EntityDrawTextureCallback texCallback,
-    EntityDrawRectCallback rectCallback,
+    EntityDrawCallbacks *callbacks,
     void *callback_user_data
 );
 

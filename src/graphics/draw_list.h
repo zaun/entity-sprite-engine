@@ -8,8 +8,9 @@ typedef struct EseDrawListObject EseDrawListObject;
 typedef struct EseDrawList EseDrawList;
 
 typedef enum EseDrawListObjectType {
-    RL_TEXTURE,
-    RL_RECT
+    DL_TEXTURE,
+    DL_RECT,
+    DL_POLYLINE,
 } EseDrawListObjectType;
 
 // Create a new, empty draw_list (with internal object pool)
@@ -81,6 +82,38 @@ void draw_list_object_get_pivot(const EseDrawListObject* object, float *nx, floa
 /* Compute the axis-aligned bounding box that contains the rotated object.
    Outputs minx, miny, maxx, maxy (all optional pointers). */
 void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *minx, float *miny, float *maxx, float *maxy);
+
+void draw_list_object_set_polyline(
+    EseDrawListObject* object,
+    const float* points, size_t point_count,
+    float stroke_width
+);
+
+void draw_list_object_get_polyline(
+    const EseDrawListObject* object,
+    const float** points, size_t* point_count,
+    float* stroke_width
+);
+
+void draw_list_object_set_polyline_color(
+    EseDrawListObject* object,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a
+);
+
+void draw_list_object_get_polyline_color(
+    const EseDrawListObject* object,
+    unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a
+);
+
+void draw_list_object_set_polyline_stroke_color(
+    EseDrawListObject* object,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a
+);
+
+void draw_list_object_get_polyline_stroke_color(
+    const EseDrawListObject* object,
+    unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a
+);
 
 
 #endif // ESE_DRAW_LIST_H

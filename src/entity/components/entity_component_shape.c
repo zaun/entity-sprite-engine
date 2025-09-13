@@ -11,6 +11,7 @@
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 #include "types/poly_line.h"
+#include "utility/profile.h"
 
 static void _entity_component_shape_register(EseEntityComponentShape *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_shape_register called with NULL component");
@@ -42,8 +43,8 @@ static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
     component->base.type = ENTITY_COMPONENT_SHAPE;
 
     // Create a new polyline for the shape
-    component->polyline = poly_line_create(engine);
-    poly_line_ref(component->polyline);
+    component->polyline = ese_poly_line_create(engine);
+    ese_poly_line_ref(component->polyline);
 
     return &component->base;
 }
@@ -55,9 +56,9 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
     EseEntityComponentShape *shape_copy = (EseEntityComponentShape *)copy->data;
     
     // Copy the polyline
-    poly_line_destroy(shape_copy->polyline);
-    shape_copy->polyline = poly_line_copy(src->polyline);
-    poly_line_ref(shape_copy->polyline);
+    ese_poly_line_destroy(shape_copy->polyline);
+    shape_copy->polyline = ese_poly_line_copy(src->polyline);
+    ese_poly_line_ref(shape_copy->polyline);
 
     return copy;
 }
@@ -65,7 +66,7 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
 void _entity_component_shape_destroy(EseEntityComponentShape *component) {
     if (component == NULL) return;
 
-    poly_line_destroy(component->polyline);
+    ese_poly_line_destroy(component->polyline);
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
 }
@@ -207,28 +208,17 @@ static int _entity_component_shape_newindex(lua_State *L) {
     } else if (strcmp(key, "id") == 0) {
         return luaL_error(L, "id is read-only");
     } else if (strcmp(key, "polyline") == 0) {
-        if (!lua_istable(L, 3) && !lua_isnil(L, 3)) {
+        EsePolyLine *new_polyline = ese_poly_line_lua_get(L, 3);
+        if (!new_polyline) {
             return luaL_error(L, "polyline must be a PolyLine object or nil");
         }
 
-        if (lua_istable(L, 3)) {
-            // Try to get the polyline from the table
-            lua_getfield(L, 3, "__ptr");
-            if (lua_islightuserdata(L, -1)) {
-                EsePolyLine *new_polyline = (EsePolyLine *)lua_touserdata(L, -1);
-                if (new_polyline) {
-                    poly_line_destroy(component->polyline);
-                    component->polyline = poly_line_copy(new_polyline);
-                    poly_line_ref(component->polyline);
-                }
-            }
-            lua_pop(L, 1);
-        } else if (lua_isnil(L, 3)) {
-            // Clear the polyline (create a new empty one)
-            poly_line_destroy(component->polyline);
-            component->polyline = poly_line_create(component->base.lua);
-            poly_line_ref(component->polyline);
+        if (component->polyline) {
+            ese_poly_line_unref(component->polyline);
         }
+        component->polyline = new_polyline;
+        ese_poly_line_ref(component->polyline);
+
         return 0;
     }
     
@@ -318,14 +308,56 @@ void _entity_component_shape_init(EseLuaEngine *engine) {
     }
 }
 
-void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawTextureCallback texCallback, void *callback_user_data) {
+void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawCallbacks *callbacks, void *callback_user_data) {
     log_assert("ENTITY_COMP", component, "_entity_component_shape_draw called with NULL component");
+    log_assert("ENTITY_COMP", callbacks, "_entity_component_shape_draw called with NULL callbacks");
+    log_assert("ENTITY_COMP", callbacks->draw_polyline, "_entity_component_shape_draw called with NULL draw_polyline callback");
 
-    // Draw function left blank as requested
-    (void)screen_x;
-    (void)screen_y;
-    (void)texCallback;
-    (void)callback_user_data;
+    profile_start(PROFILE_ENTITY_COMP_SHAPE_DRAW);
+
+    // Get the polyline data
+    EsePolyLine *polyline = component->polyline;
+    if (!polyline) {
+        return; // No polyline to draw
+    }
+
+    // Get the number of points
+    size_t point_count = ese_poly_line_get_point_count(polyline);
+    
+    if (point_count < 2) {
+        return; // Need at least 2 points to draw a line
+    }
+
+    // Get the points directly as float array
+    const float *points = ese_poly_line_get_points(polyline);
+
+    // Get the stroke width and colors from the polyline
+    float stroke_width = ese_poly_line_get_stroke_width(polyline);
+    
+    // Get color objects and use the existing getter functions
+    EseColor *fill_color = ese_poly_line_get_fill_color(polyline);
+    EseColor *stroke_color = ese_poly_line_get_stroke_color(polyline);
+    
+    unsigned char fill_r = (unsigned char)(fill_color ? ese_color_get_r(fill_color) * 255 : 0);
+    unsigned char fill_g = (unsigned char)(fill_color ? ese_color_get_g(fill_color) * 255 : 0);
+    unsigned char fill_b = (unsigned char)(fill_color ? ese_color_get_b(fill_color) * 255 : 0);
+    unsigned char fill_a = (unsigned char)(fill_color ? ese_color_get_a(fill_color) * 255 : 255);
+    
+    unsigned char stroke_r = (unsigned char)(stroke_color ? ese_color_get_r(stroke_color) * 255 : 0);
+    unsigned char stroke_g = (unsigned char)(stroke_color ? ese_color_get_g(stroke_color) * 255 : 0);
+    unsigned char stroke_b = (unsigned char)(stroke_color ? ese_color_get_b(stroke_color) * 255 : 0);
+    unsigned char stroke_a = (unsigned char)(stroke_color ? ese_color_get_a(stroke_color) * 255 : 255);
+
+    // Draw the polyline using the callback
+    callbacks->draw_polyline(
+        screen_x, screen_y, 0, // z_index = 0 for now
+        points, point_count, stroke_width,
+        fill_r, fill_g, fill_b, fill_a,
+        stroke_r, stroke_g, stroke_b, stroke_a,
+        callback_user_data
+    );
+
+    profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
 }
 
 EseEntityComponent *entity_component_shape_create(EseLuaEngine *engine) {

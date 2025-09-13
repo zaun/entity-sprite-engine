@@ -82,8 +82,7 @@ void console_draw(
     EseAssetManager *manager,
     int view_width,
     int view_height,
-    EntityDrawTextureCallback texCallback,
-    EntityDrawRectCallback rectCallback,
+    EntityDrawCallbacks *callbacks,
     void *user_data);
 
 /**

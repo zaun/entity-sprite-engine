@@ -539,7 +539,7 @@ void renderer_draw(EseRenderer *renderer) {
                 // Draw the batch
                 glDrawArrays(GL_TRIANGLES, 0, batch->vertex_count);
 
-            } else if (batch->type == RL_RECT) {
+            } else if (batch->type == RL_COLOR) {
                 // Handle rectangle batch
                 // Unbind texture for solid color rendering
                 glBindTexture(GL_TEXTURE_2D, 0);

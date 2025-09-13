@@ -9,6 +9,43 @@
 
 #define DRAW_LIST_INITIAL_CAPACITY 256
 #define TEXTURE_ID_MAX_LEN 256
+#define POLYLINE_MAX_POINTS 1024
+
+/**
+ * @brief Color data for draw list objects.
+ * 
+ * @details This structure stores RGBA color values for rendering objects.
+ */
+typedef struct EseDrawListColor {
+    unsigned char r;                      /**< Red component (0-255) */
+    unsigned char g;                      /**< Green component (0-255) */
+    unsigned char b;                      /**< Blue component (0-255) */
+    unsigned char a;                      /**< Alpha component (0-255) */
+} EseDrawListColor;
+
+/**
+ * @brief Point data for draw list objects.
+ * 
+ * @details This structure stores x,y coordinates for polyline points.
+ */
+typedef struct EseDrawListPoint {
+    float x;                              /**< X coordinate */
+    float y;                              /**< Y coordinate */
+} EseDrawListPoint;
+
+/**
+ * @brief Polyline data for draw list objects.
+ * 
+ * @details This structure stores point data and styling for rendering
+ *          polyline objects.
+ */
+typedef struct EseDrawListPolyLine {
+    EseDrawListPoint points[POLYLINE_MAX_POINTS]; /**< Array of points defining the polyline */
+    size_t point_count;                   /**< Number of points in the polyline */
+    EseDrawListColor fill_color;          /**< Fill color for the polyline */
+    EseDrawListColor stroke_color;        /**< Stroke color for the polyline */
+    float stroke_width;                   /**< Width of the stroke in pixels */
+} EseDrawListPolyLine;
 
 /**
  * @brief Texture data for draw list objects.
@@ -24,6 +61,8 @@ typedef struct EseDrawListTexture {
     float texture_y1;                    /**< Top texture coordinate (normalized) */
     float texture_x2;                    /**< Right texture coordinate (normalized) */
     float texture_y2;                    /**< Bottom texture coordinate (normalized) */
+    int w;                               /**< Width of the texture in pixels */
+    int h;                               /**< Height of the texture in pixels */
 } EseDrawListTexture;
 
 /**
@@ -33,12 +72,12 @@ typedef struct EseDrawListTexture {
  *          rectangular objects. Colors are stored as 8-bit RGBA values.
  */
 typedef struct EseDrawListRect {
-    unsigned char r;                      /**< Red component (0-255) */
-    unsigned char g;                      /**< Green component (0-255) */
-    unsigned char b;                      /**< Blue component (0-255) */
-    unsigned char a;                      /**< Alpha component (0-255) */
+    EseDrawListColor color;               /**< Color of the rectangle */
     bool filled;                          /**< Whether the rectangle is filled or outlined */
+    int w;                                /**< Width of the rectangle in pixels */
+    int h;                                /**< Height of the rectangle in pixels */
 } EseDrawListRect;
+
 
 /**
  * @brief Represents a drawable object in the render list.
@@ -49,17 +88,16 @@ typedef struct EseDrawListRect {
  *          textured sprites and colored rectangles.
  */
 struct EseDrawListObject {
-    EseDrawListObjectType type;           /**< Type of object (texture or rectangle) */
+    EseDrawListObjectType type;           /**< Type of object (texture, rectangle, or polyline) */
     union {
-        EseDrawListTexture texture;       /**< Texture data for RL_TEXTURE type */
-        EseDrawListRect rect;             /**< Rectangle data for RL_RECT type */
+        EseDrawListTexture texture;       /**< Texture data for DL_TEXTURE type */
+        EseDrawListRect rect;             /**< Rectangle data for DL_RECT type */
+        EseDrawListPolyLine polyline;     /**< Polyline data for DL_POLYLINE type */
     } data;                               /**< Union containing type-specific data */
 
     // Where to draw
     float x;                              /**< The x-coordinate of the object's top-left corner */
     float y;                              /**< The y-coordinate of the object's top-left corner */
-    int w;                                /**< The width of the object in pixels */
-    int h;                                /**< The height of the object in pixels */
 
     float rotation;                       /**< The rotation of the object around the pivot point in radians */
     float rot_x;                          /**< The x coordinate for the rotation pivot point (normalized) */
@@ -92,11 +130,9 @@ static int _compare_draw_list_object_z(const void *a, const void *b) {
 static void _init_new_object(EseDrawListObject *obj) {
     if (!obj) return;
 
-    obj->type = RL_RECT;
+    obj->type = DL_RECT;
     obj->x = 0.0f;
     obj->y = 0.0f;
-    obj->w = 0;
-    obj->h = 0;
     obj->rotation = 0.0f;
     obj->rot_x = 0.5f; /* default pivot at center */
     obj->rot_y = 0.5f; /* default pivot at center */
@@ -192,7 +228,7 @@ void draw_list_object_set_texture(
     log_assert("RENDER_LIST", object, "draw_list_object_set_texture called with NULL object");
     log_assert("RENDER_LIST", texture_id, "draw_list_object_set_texture called with NULL texture_id");
 
-    object->type = RL_TEXTURE;
+    object->type = DL_TEXTURE;
     EseDrawListTexture* texture_data = &object->data.texture;
 
     strncpy(texture_data->texture_id, texture_id, TEXTURE_ID_MAX_LEN - 1);
@@ -205,25 +241,33 @@ void draw_list_object_set_texture(
 }
 
 void draw_list_object_set_rect_color(EseDrawListObject* object, unsigned char r, unsigned char g, unsigned char b, unsigned char a, bool filled) {
-    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_ese_color_color called with NULL object");
+    log_assert("RENDER_LIST", object, "draw_list_object_set_rect_color called with NULL object");
 
-    object->type = RL_RECT;
+    object->type = DL_RECT;
     EseDrawListRect* rect_data = &object->data.rect;
 
-    rect_data->r = r;
-    rect_data->g = g;
-    rect_data->b = b;
-    rect_data->a = a;
+    rect_data->color.r = r;
+    rect_data->color.g = g;
+    rect_data->color.b = b;
+    rect_data->color.a = a;
     rect_data->filled = filled;
 }
 
 void draw_list_object_set_bounds(EseDrawListObject* object, float x, float y, int w, int h) {
-    log_assert("RENDER_LIST", object, "draw_list_object_get_bounds called with NULL object");
+    log_assert("RENDER_LIST", object, "draw_list_object_set_bounds called with NULL object");
 
     object->x = x;
     object->y = y;
-    object->w = w;
-    object->h = h;
+    
+    // Set width and height in the appropriate union member based on object type
+    if (object->type == DL_TEXTURE) {
+        object->data.texture.w = w;
+        object->data.texture.h = h;
+    } else if (object->type == DL_RECT) {
+        object->data.rect.w = w;
+        object->data.rect.h = h;
+    }
+    // Note: Polyline objects don't use width/height as they are defined by their points
 }
 
 void draw_list_object_set_z_index(EseDrawListObject* object, int z_index) {
@@ -249,8 +293,45 @@ void draw_list_object_get_bounds(const EseDrawListObject* object, float* x, floa
 
     if (x) *x = object->x;
     if (y) *y = object->y;
-    if (w) *w = object->w;
-    if (h) *h = object->h;
+    
+    // Get width and height from the appropriate union member based on object type
+    if (w || h) {
+        if (object->type == DL_TEXTURE) {
+            if (w) *w = object->data.texture.w;
+            if (h) *h = object->data.texture.h;
+        } else if (object->type == DL_RECT) {
+            if (w) *w = object->data.rect.w;
+            if (h) *h = object->data.rect.h;
+        } else if (object->type == DL_POLYLINE) {
+            // For polylines, calculate bounds from points
+            if (w || h) {
+                const EseDrawListPolyLine* polyline_data = &object->data.polyline;
+                if (polyline_data->point_count > 0) {
+                    float min_x = polyline_data->points[0].x;
+                    float max_x = polyline_data->points[0].x;
+                    float min_y = polyline_data->points[0].y;
+                    float max_y = polyline_data->points[0].y;
+                    
+                    for (size_t i = 1; i < polyline_data->point_count; i++) {
+                        if (polyline_data->points[i].x < min_x) min_x = polyline_data->points[i].x;
+                        if (polyline_data->points[i].x > max_x) max_x = polyline_data->points[i].x;
+                        if (polyline_data->points[i].y < min_y) min_y = polyline_data->points[i].y;
+                        if (polyline_data->points[i].y > max_y) max_y = polyline_data->points[i].y;
+                    }
+                    
+                    if (w) *w = (int)(max_x - min_x);
+                    if (h) *h = (int)(max_y - min_y);
+                } else {
+                    if (w) *w = 0;
+                    if (h) *h = 0;
+                }
+            }
+        } else {
+            // Default to 0 if type is not set
+            if (w) *w = 0;
+            if (h) *h = 0;
+        }
+    }
 }
 
 void draw_list_object_get_texture(
@@ -258,7 +339,7 @@ void draw_list_object_get_texture(
     float *texture_x1, float *texture_y1, float *texture_x2, float *texture_y2
 ) {
     log_assert("RENDER_LIST", object, "draw_list_object_get_texture called with NULL object");
-    log_assert("RENDER_LIST", object->type == RL_TEXTURE, "draw_list_object_get_texture called with non-texture object");
+    log_assert("RENDER_LIST", object->type == DL_TEXTURE, "draw_list_object_get_texture called with non-texture object");
     log_assert("RENDER_LIST", texture_id, "draw_list_object_get_texture called with NULL texture_id");
 
     const EseDrawListTexture* texture_data = &object->data.texture;
@@ -271,16 +352,121 @@ void draw_list_object_get_texture(
 }
 
 void draw_list_object_get_rect_color(const EseDrawListObject* object, unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a, bool* filled) {
-    log_assert("RENDER_LIST", object, "draw_list_object_get_rect_drawable called with NULL object");
-    log_assert("RENDER_LIST", object->type == RL_RECT, "draw_list_object_get_rect_drawable called with non-rect object");
+    log_assert("RENDER_LIST", object, "draw_list_object_get_rect_color called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_RECT, "draw_list_object_get_rect_color called with non-rect object");
 
     const EseDrawListRect* rect_data = &object->data.rect;
 
-    if (r) *r = rect_data->r;
-    if (g) *g = rect_data->g;
-    if (b) *b = rect_data->b;
-    if (a) *a = rect_data->a;
+    if (r) *r = rect_data->color.r;
+    if (g) *g = rect_data->color.g;
+    if (b) *b = rect_data->color.b;
+    if (a) *a = rect_data->color.a;
     if (filled) *filled = rect_data->filled;
+}
+
+void draw_list_object_set_polyline(
+    EseDrawListObject* object,
+    const float* points, size_t point_count,
+    float stroke_width
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_polyline called with NULL object");
+    log_assert("RENDER_LIST", points, "draw_list_object_set_polyline called with NULL points");
+    log_assert("RENDER_LIST", point_count > 0, "draw_list_object_set_polyline called with point_count <= 0");
+    log_assert("RENDER_LIST", point_count <= POLYLINE_MAX_POINTS, "draw_list_object_set_polyline called with point_count > POLYLINE_MAX_POINTS");
+
+    object->type = DL_POLYLINE;
+    EseDrawListPolyLine* polyline_data = &object->data.polyline;
+
+    // Copy points (points array is x1,y1,x2,y2,... format)
+    for (size_t i = 0; i < point_count; i++) {
+        polyline_data->points[i].x = points[i * 2];
+        polyline_data->points[i].y = points[i * 2 + 1];
+    }
+    polyline_data->point_count = point_count;
+
+    // Set default colors
+    polyline_data->fill_color.r = 0;      // Transparent fill
+    polyline_data->fill_color.g = 0;
+    polyline_data->fill_color.b = 0;
+    polyline_data->fill_color.a = 0;
+
+    polyline_data->stroke_color.r = 0;    // Black stroke
+    polyline_data->stroke_color.g = 0;
+    polyline_data->stroke_color.b = 0;
+    polyline_data->stroke_color.a = 255;
+
+    polyline_data->stroke_width = stroke_width;
+}
+
+void draw_list_object_get_polyline(
+    const EseDrawListObject* object,
+    const float** points, size_t* point_count,
+    float* stroke_width
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_polyline called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_POLYLINE, "draw_list_object_get_polyline called with non-polyline object");
+
+    const EseDrawListPolyLine* polyline_data = &object->data.polyline;
+
+    if (points) *points = (const float*)polyline_data->points; // Cast to float* for x1,y1,x2,y2,... format
+    if (point_count) *point_count = polyline_data->point_count;
+    if (stroke_width) *stroke_width = polyline_data->stroke_width;
+}
+
+void draw_list_object_set_polyline_color(
+    EseDrawListObject* object,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_polyline_color called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_POLYLINE, "draw_list_object_set_polyline_color called with non-polyline object");
+
+    EseDrawListPolyLine* polyline_data = &object->data.polyline;
+    polyline_data->fill_color.r = r;
+    polyline_data->fill_color.g = g;
+    polyline_data->fill_color.b = b;
+    polyline_data->fill_color.a = a;
+}
+
+void draw_list_object_get_polyline_color(
+    const EseDrawListObject* object,
+    unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_polyline_color called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_POLYLINE, "draw_list_object_get_polyline_color called with non-polyline object");
+
+    const EseDrawListPolyLine* polyline_data = &object->data.polyline;
+    if (r) *r = polyline_data->fill_color.r;
+    if (g) *g = polyline_data->fill_color.g;
+    if (b) *b = polyline_data->fill_color.b;
+    if (a) *a = polyline_data->fill_color.a;
+}
+
+void draw_list_object_set_polyline_stroke_color(
+    EseDrawListObject* object,
+    unsigned char r, unsigned char g, unsigned char b, unsigned char a
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_polyline_stroke_color called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_POLYLINE, "draw_list_object_set_polyline_stroke_color called with non-polyline object");
+
+    EseDrawListPolyLine* polyline_data = &object->data.polyline;
+    polyline_data->stroke_color.r = r;
+    polyline_data->stroke_color.g = g;
+    polyline_data->stroke_color.b = b;
+    polyline_data->stroke_color.a = a;
+}
+
+void draw_list_object_get_polyline_stroke_color(
+    const EseDrawListObject* object,
+    unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_polyline_stroke_color called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_POLYLINE, "draw_list_object_get_polyline_stroke_color called with non-polyline object");
+
+    const EseDrawListPolyLine* polyline_data = &object->data.polyline;
+    if (r) *r = polyline_data->stroke_color.r;
+    if (g) *g = polyline_data->stroke_color.g;
+    if (b) *b = polyline_data->stroke_color.b;
+    if (a) *a = polyline_data->stroke_color.a;
 }
 
 void draw_list_object_set_rotation(EseDrawListObject* object, float radians) {
@@ -314,12 +500,57 @@ void draw_list_object_get_pivot(const EseDrawListObject* object, float *nx, floa
 void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *minx, float *miny, float *maxx, float *maxy) {
     log_assert("RENDER_LIST", object, "draw_list_object_get_rotated_aabb called with NULL object");
 
+    // Handle polyline objects differently as they don't have width/height
+    if (object->type == DL_POLYLINE) {
+        const EseDrawListPolyLine* polyline_data = &object->data.polyline;
+        if (polyline_data->point_count == 0) {
+            if (minx) *minx = object->x;
+            if (miny) *miny = object->y;
+            if (maxx) *maxx = object->x;
+            if (maxy) *maxy = object->y;
+            return;
+        }
+
+        // Calculate bounds from all points
+        float min_x = object->x + polyline_data->points[0].x;
+        float max_x = object->x + polyline_data->points[0].x;
+        float min_y = object->y + polyline_data->points[0].y;
+        float max_y = object->y + polyline_data->points[0].y;
+
+        for (size_t i = 1; i < polyline_data->point_count; i++) {
+            float px = object->x + polyline_data->points[i].x;
+            float py = object->y + polyline_data->points[i].y;
+            if (px < min_x) min_x = px;
+            if (px > max_x) max_x = px;
+            if (py < min_y) min_y = py;
+            if (py > max_y) max_y = py;
+        }
+
+        if (minx) *minx = min_x;
+        if (miny) *miny = min_y;
+        if (maxx) *maxx = max_x;
+        if (maxy) *maxy = max_y;
+        return;
+    }
+
+    // Get width and height from the appropriate union member
+    int w, h;
+    if (object->type == DL_TEXTURE) {
+        w = object->data.texture.w;
+        h = object->data.texture.h;
+    } else if (object->type == DL_RECT) {
+        w = object->data.rect.w;
+        h = object->data.rect.h;
+    } else {
+        w = h = 0; // Default to 0 if type is not set
+    }
+
     /* axis-aligned fast-path */
     if (fabsf(object->rotation) < 1e-6f) {
         float lx = object->x;
         float ty = object->y;
-        float rx = object->x + (float)object->w;
-        float by = object->y + (float)object->h;
+        float rx = object->x + (float)w;
+        float by = object->y + (float)h;
         if (minx) *minx = lx;
         if (miny) *miny = ty;
         if (maxx) *maxx = rx;
@@ -328,8 +559,8 @@ void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *m
     }
 
     /* compute pivot in world coords */
-    float px = object->x + object->rot_x * (float)object->w;
-    float py = object->y + object->rot_y * (float)object->h;
+    float px = object->x + object->rot_x * (float)w;
+    float py = object->y + object->rot_y * (float)h;
 
     /* compute four corners relative to pivot, rotate them, and find bounds */
     float cosr = cosf(object->rotation);
@@ -339,14 +570,14 @@ void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *m
     float local_y[4];
 
     /* corners relative to top-left */
-    float tlx = -object->rot_x * (float)object->w;
-    float tly = -object->rot_y * (float)object->h;
-    float trx = (1.0f - object->rot_x) * (float)object->w;
-    float tryy = -object->rot_y * (float)object->h;
-    float brx = (1.0f - object->rot_x) * (float)object->w;
-    float bry = (1.0f - object->rot_y) * (float)object->h;
-    float blx = -object->rot_x * (float)object->w;
-    float bly = (1.0f - object->rot_y) * (float)object->h;
+    float tlx = -object->rot_x * (float)w;
+    float tly = -object->rot_y * (float)h;
+    float trx = (1.0f - object->rot_x) * (float)w;
+    float tryy = -object->rot_y * (float)h;
+    float brx = (1.0f - object->rot_x) * (float)w;
+    float bry = (1.0f - object->rot_y) * (float)h;
+    float blx = -object->rot_x * (float)w;
+    float bly = (1.0f - object->rot_y) * (float)h;
 
     local_x[0] = tlx; local_y[0] = tly; /* TL */
     local_x[1] = trx; local_y[1] = tryy; /* TR */

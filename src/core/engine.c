@@ -60,17 +60,19 @@ EseEngine *engine_create(const char *startup_script) {
     // Add types
     ese_arc_lua_init(engine->lua_engine);
     ese_camera_lua_init(engine->lua_engine);
+    ese_color_lua_init(engine->lua_engine);
     ese_display_lua_init(engine->lua_engine);
     ese_input_state_lua_init(engine->lua_engine);
     ese_map_lua_init(engine->lua_engine);
     ese_mapcell_lua_init(engine->lua_engine);
     ese_point_lua_init(engine->lua_engine);
+    ese_poly_line_lua_init(engine->lua_engine);
     ese_ray_lua_init(engine->lua_engine);
     ese_rect_lua_init(engine->lua_engine);
     ese_tileset_lua_init(engine->lua_engine);
     ese_vector_lua_init(engine->lua_engine);
     ese_uuid_lua_init(engine->lua_engine);
-
+    
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
     lua_engine_add_function(engine->lua_engine, "asset_load_script", _lua_asset_load_script);
@@ -357,14 +359,19 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
             continue;
         }
 
+        EntityDrawCallbacks callbacks = {
+            .draw_texture = _engine_add_texture_to_draw_list,
+            .draw_rect = _engine_add_rect_to_draw_list,
+            .draw_polyline = _engine_add_polyline_to_draw_list
+        };
+        
         entity_draw(
             entity,
             ese_point_get_x(engine->camera_state->position),
             ese_point_get_y(engine->camera_state->position),
             ese_display_get_viewport_width(engine->display_state),
             ese_display_get_viewport_height(engine->display_state),
-            _engine_add_texture_to_draw_list,
-            _engine_add_rect_to_draw_list,
+            &callbacks,
             engine->draw_list
         );
     }
@@ -374,13 +381,18 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Draw the console
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     if (engine->draw_console) {
+        EntityDrawCallbacks console_callbacks = {
+            .draw_texture = _engine_add_texture_to_draw_list,
+            .draw_rect = _engine_add_rect_to_draw_list,
+            .draw_polyline = _engine_add_polyline_to_draw_list
+        };
+        
         console_draw(
             engine->console,
             engine->asset_manager,
             ese_display_get_viewport_width(engine->display_state),
             ese_display_get_viewport_height(engine->display_state),
-            _engine_add_texture_to_draw_list,
-            _engine_add_rect_to_draw_list,
+            &console_callbacks,
             engine->draw_list
         );
     }

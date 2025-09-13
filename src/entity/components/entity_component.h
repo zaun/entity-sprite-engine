@@ -26,8 +26,7 @@ void entity_component_draw(
     EseEntityComponent *component,
     float camera_x, float camera_y,
     float view_width, float view_height,
-    EntityDrawTextureCallback texCallback,
-    EntityDrawRectCallback rectCallback,
+    EntityDrawCallbacks *callbacks,
     void *callback_user_data
 );
 
