@@ -225,7 +225,7 @@ static int _ese_poly_line_lua_newindex(lua_State *L) {
         profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
         return 0;
     }
-
+    
     if (strcmp(key, "type") == 0) {
         if (!lua_isnumber(L, 3)) {
             profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
@@ -255,7 +255,11 @@ static int _ese_poly_line_lua_newindex(lua_State *L) {
             profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
             return luaL_error(L, "stroke_color must be a Color object or nil");
         }
+        if (poly_line->stroke_color) {
+            ese_color_unref(poly_line->stroke_color);
+        }
         poly_line->stroke_color = color;
+        ese_color_ref(poly_line->stroke_color);
         _ese_poly_line_notify_watchers(poly_line);
         profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
         return 0;
@@ -265,7 +269,11 @@ static int _ese_poly_line_lua_newindex(lua_State *L) {
             profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
             return luaL_error(L, "fill_color must be a Color object or nil");
         }
+        if (poly_line->fill_color) {
+            ese_color_unref(poly_line->fill_color);
+        }
         poly_line->fill_color = color;
+        ese_color_ref(poly_line->fill_color);
         _ese_poly_line_notify_watchers(poly_line);
         profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
         return 0;
@@ -516,6 +524,15 @@ void ese_poly_line_destroy(EsePolyLine *poly_line) {
     }
     poly_line->point_count = 0;
     poly_line->point_capacity = 0;
+
+    if (poly_line->stroke_color) {
+        ese_color_unref(poly_line->stroke_color);
+        poly_line->stroke_color = NULL;
+    }
+    if (poly_line->fill_color) {
+        ese_color_unref(poly_line->fill_color);
+        poly_line->fill_color = NULL;
+    }
     
     // Free watcher arrays if they exist
     if (poly_line->watchers) {

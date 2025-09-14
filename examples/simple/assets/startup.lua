@@ -93,27 +93,37 @@ function STARTUP:startup()
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 
-    -- Add a shape for testing
-    local pl = PolyLine.new()
-    pl.stroke_color = Color.new(1.0, 0.5, 0.0, 1.0)  -- Orange
-    pl.fill_color = Color.new(1.0, 1.0, 0.0, 1.0)    -- Yellow
-    pl.stroke_width = 2
-    pl.type = 2 -- Filled
+    -- if asset_load_script("rotate.lua") == false then
+    --     print("Failed to load rotate.lua")
+    --     return
+    -- end
+
+    -- -- Add a shape for testing
+    -- local pl = PolyLine.new()
+    -- pl.stroke_color = Color.new(1.0, 0.5, 0.0, 1.0)  -- Orange
+    -- pl.fill_color = Color.new(1.0, 1.0, 0.0, 1.0)    -- Yellow
+    -- pl.stroke_width = 2
+    -- pl.type = 2 -- Filled
     
-    -- Add points to create a square
-    pl:add_point(Point.new(-50, -50))  -- Top-left
-    pl:add_point(Point.new(50, -50))   -- Top-right
-    pl:add_point(Point.new(50, 50))    -- Bottom-right
-    pl:add_point(Point.new(-50, 50))   -- Bottom-left
+    -- -- Add points to create a square
+    -- pl:add_point(Point.new(-50, -50))  -- Top-left
+    -- pl:add_point(Point.new(50, -50))   -- Top-right
+    -- pl:add_point(Point.new(50, 50))    -- Bottom-right
+    -- pl:add_point(Point.new(-50, 50))   -- Bottom-left
     
-    -- Add the shape to the scene
-    local shape = Entity.new()
-    local shape_comp = EntityComponentShape.new()
-    shape_comp.polyline = pl
-    shape.components.add(shape_comp)
-    shape.position.x = Display.viewport.width / 2
-    shape.position.y = Display.viewport.height / 2
-    shape.draw_order = 10000
+    -- -- Add the shape to the scene
+    -- local shape = Entity.new()
+    -- local shape_comp = EntityComponentShape.new()
+    -- shape_comp.polyline = pl
+    -- shape.components.add(shape_comp)
+    -- shape.position.x = Display.viewport.width / 2
+    -- shape.position.y = Display.viewport.height / 2
+    -- shape.draw_order = 10000
+
+    -- -- Add rotate script
+    -- local lua_rotate = EntityComponentLua.new()
+    -- lua_rotate.script = "rotate.lua"
+    -- shape.components.add(lua_rotate)
 
     print("simple startup script done")
 end

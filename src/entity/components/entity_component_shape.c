@@ -1,4 +1,5 @@
 #include <string.h>
+#include <math.h>
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
@@ -12,6 +13,23 @@
 #include "entity/components/entity_component_lua.h"
 #include "types/poly_line.h"
 #include "utility/profile.h"
+
+// Helper function to convert degrees to radians
+static float _degrees_to_radians(float degrees) {
+    return degrees * M_PI / 180.0f;
+}
+
+// Helper function to rotate a point around the origin
+static void _rotate_point(float *x, float *y, float angle_radians) {
+    float cos_angle = cosf(angle_radians);
+    float sin_angle = sinf(angle_radians);
+    
+    float new_x = *x * cos_angle - *y * sin_angle;
+    float new_y = *x * sin_angle + *y * cos_angle;
+    
+    *x = new_x;
+    *y = new_y;
+}
 
 static void _entity_component_shape_register(EseEntityComponentShape *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_shape_register called with NULL component");
@@ -45,6 +63,9 @@ static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
     // Create a new polyline for the shape
     component->polyline = ese_poly_line_create(engine);
     ese_poly_line_ref(component->polyline);
+    
+    // Initialize rotation to 0 degrees
+    component->rotation = 0.0f;
 
     return &component->base;
 }
@@ -164,6 +185,9 @@ static int _entity_component_shape_index(lua_State *L) {
     } else if (strcmp(key, "id") == 0) {
         lua_pushstring(L, ese_uuid_get_value(component->base.id));
         return 1;
+    } else if (strcmp(key, "rotation") == 0) {
+        lua_pushnumber(L, component->rotation);
+        return 1;
     } else if (strcmp(key, "polyline") == 0) {
         // Push the polyline to Lua
         lua_newtable(L);
@@ -207,6 +231,21 @@ static int _entity_component_shape_newindex(lua_State *L) {
         return 1;
     } else if (strcmp(key, "id") == 0) {
         return luaL_error(L, "id is read-only");
+    } else if (strcmp(key, "rotation") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            return luaL_error(L, "polyline.rotation must be a number");
+        }
+
+        float rotation = lua_tonumber(L, 3);
+        if (rotation < 0) {
+            rotation = 360 + rotation;
+        } else if (rotation > 360) {
+            rotation = rotation - 360;
+        }
+        component->rotation = rotation;
+
+        lua_pushnumber(L, component->rotation);
+        return 1;
     } else if (strcmp(key, "polyline") == 0) {
         EsePolyLine *new_polyline = ese_poly_line_lua_get(L, 3);
         if (!new_polyline) {
@@ -328,11 +367,94 @@ void _entity_component_shape_draw(EseEntityComponentShape *component, float scre
         return; // Need at least 2 points to draw a line
     }
 
-    // Get the points directly as float array
-    const float *points = ese_poly_line_get_points(polyline);
-
-    // Get the stroke width and colors from the polyline
+    // Get the polyline type and other properties
+    EsePolyLineType polyline_type = ese_poly_line_get_type(polyline);
     float stroke_width = ese_poly_line_get_stroke_width(polyline);
+    
+    // Convert rotation from degrees to radians
+    float rotation_radians = _degrees_to_radians(component->rotation);
+    
+    // Handle auto-closing for CLOSED and FILLED types and offset by screen position
+    float *points_to_use = NULL;
+    size_t point_count_to_use = point_count;
+    bool needs_cleanup = false;
+    
+    if ((polyline_type == POLY_LINE_CLOSED || polyline_type == POLY_LINE_FILLED) && point_count >= 3) {
+        // Need to close the polyline by adding the first point again
+        points_to_use = memory_manager.malloc(sizeof(float) * (point_count + 1) * 2, MMTAG_ENTITY);
+        if (points_to_use) {
+            // Copy existing points (don't offset by screen position - render system handles this)
+            const float *original_points = ese_poly_line_get_points(polyline);
+            for (size_t i = 0; i < point_count; i++) {
+                float x = original_points[i * 2];
+                float y = original_points[i * 2 + 1];
+                
+                // Apply rotation if not zero
+                if (rotation_radians != 0.0f) {
+                    _rotate_point(&x, &y, rotation_radians);
+                }
+                
+                points_to_use[i * 2] = x;
+                points_to_use[i * 2 + 1] = y;
+            }
+            
+            // Add the first point again to close the shape
+            float x = original_points[0];
+            float y = original_points[1];
+            if (rotation_radians != 0.0f) {
+                _rotate_point(&x, &y, rotation_radians);
+            }
+            points_to_use[point_count * 2] = x;
+            points_to_use[point_count * 2 + 1] = y;
+            
+            point_count_to_use = point_count + 1;
+            needs_cleanup = true;
+        } else {
+            // Fallback: create points from original
+            points_to_use = memory_manager.malloc(sizeof(float) * point_count * 2, MMTAG_ENTITY);
+            if (points_to_use) {
+                const float *original_points = ese_poly_line_get_points(polyline);
+                for (size_t i = 0; i < point_count; i++) {
+                    float x = original_points[i * 2];
+                    float y = original_points[i * 2 + 1];
+                    
+                    // Apply rotation if not zero
+                    if (rotation_radians != 0.0f) {
+                        _rotate_point(&x, &y, rotation_radians);
+                    }
+                    
+                    points_to_use[i * 2] = x;
+                    points_to_use[i * 2 + 1] = y;
+                }
+                needs_cleanup = true;
+            } else {
+                // Final fallback to original points
+                points_to_use = (float*)ese_poly_line_get_points(polyline);
+            }
+        }
+    } else {
+        // Use original points for OPEN type or insufficient points
+        points_to_use = memory_manager.malloc(sizeof(float) * point_count * 2, MMTAG_ENTITY);
+        if (points_to_use) {
+            const float *original_points = ese_poly_line_get_points(polyline);
+            for (size_t i = 0; i < point_count; i++) {
+                float x = original_points[i * 2];
+                float y = original_points[i * 2 + 1];
+                
+                // Apply rotation if not zero
+                if (rotation_radians != 0.0f) {
+                    _rotate_point(&x, &y, rotation_radians);
+                }
+                
+                points_to_use[i * 2] = x;
+                points_to_use[i * 2 + 1] = y;
+            }
+            needs_cleanup = true;
+        } else {
+            // Final fallback to original points
+            points_to_use = (float*)ese_poly_line_get_points(polyline);
+        }
+    }
     
     // Get color objects and use the existing getter functions
     EseColor *fill_color = ese_poly_line_get_fill_color(polyline);
@@ -347,15 +469,52 @@ void _entity_component_shape_draw(EseEntityComponentShape *component, float scre
     unsigned char stroke_g = (unsigned char)(stroke_color ? ese_color_get_g(stroke_color) * 255 : 0);
     unsigned char stroke_b = (unsigned char)(stroke_color ? ese_color_get_b(stroke_color) * 255 : 0);
     unsigned char stroke_a = (unsigned char)(stroke_color ? ese_color_get_a(stroke_color) * 255 : 255);
+    
+
+    // Determine what to draw based on polyline type
+    bool should_draw_fill = false;
+    bool should_draw_stroke = false;
+    
+    switch (polyline_type) {
+        case POLY_LINE_OPEN:
+            // Only draw stroke for open polylines
+            should_draw_stroke = true;
+            break;
+        case POLY_LINE_CLOSED:
+            // Only draw stroke for closed polylines
+            should_draw_stroke = true;
+            break;
+        case POLY_LINE_FILLED:
+            // Draw both fill and stroke for filled polylines
+            should_draw_fill = true;
+            should_draw_stroke = true;
+            break;
+    }
+    
+    // Set fill alpha to 0 if we shouldn't draw fill
+    if (!should_draw_fill) {
+        fill_a = 0;
+    }
+    
+    // Set stroke alpha to 0 if we shouldn't draw stroke
+    if (!should_draw_stroke) {
+        stroke_a = 0;
+    }
+
 
     // Draw the polyline using the callback
     callbacks->draw_polyline(
         screen_x, screen_y, 0, // z_index = 0 for now
-        points, point_count, stroke_width,
+        points_to_use, point_count_to_use, stroke_width,
         fill_r, fill_g, fill_b, fill_a,
         stroke_r, stroke_g, stroke_b, stroke_a,
         callback_user_data
     );
+    
+    // Clean up temporary points array if we allocated one
+    if (needs_cleanup) {
+        memory_manager.free(points_to_use);
+    }
 
     profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
 }

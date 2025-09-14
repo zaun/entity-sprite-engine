@@ -108,14 +108,27 @@ static void _tessellate_polyline_fill(
     
     if (point_count < 3) return; // Need at least 3 points for a triangle
     
-    // Simple fan triangulation from first point
-    float first_x, first_y;
-    _pixel_to_ndc(points[0], points[1], view_w, view_h, &first_x, &first_y);
+    // Get screen position from bounds
+    float screen_x, screen_y;
+    int w, h;
+    draw_list_object_get_bounds(obj, &screen_x, &screen_y, &w, &h);
     
-    for (size_t i = 1; i < point_count - 1; i++) {
+    
+    // Simple ear-clipping triangulation for closed polygons
+    // For now, use fan triangulation from first point (works for convex shapes)
+    float first_x, first_y;
+    _pixel_to_ndc(points[0] + screen_x, points[1] + screen_y, view_w, view_h, &first_x, &first_y);
+    
+    // For a closed polygon, we need (point_count - 2) triangles
+    // But if the last point is a duplicate of the first, we need (point_count - 3) triangles
+    size_t triangle_count = (point_count > 3 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                           ? point_count - 3  // Last point is duplicate of first
+                           : point_count - 2; // Normal case
+                           
+    for (size_t i = 1; i <= triangle_count; i++) {
         float x1, y1, x2, y2;
-        _pixel_to_ndc(points[i * 2], points[i * 2 + 1], view_w, view_h, &x1, &y1);
-        _pixel_to_ndc(points[(i + 1) * 2], points[(i + 1) * 2 + 1], view_w, view_h, &x2, &y2);
+        _pixel_to_ndc(points[i * 2] + screen_x, points[i * 2 + 1] + screen_y, view_w, view_h, &x1, &y1);
+        _pixel_to_ndc(points[(i + 1) * 2] + screen_x, points[(i + 1) * 2 + 1] + screen_y, view_w, view_h, &x2, &y2);
         
         // Add triangle: first point, current point, next point
         vertices[(*vertex_count)++] = (EseVertex){first_x, first_y, 0.0f, 0.0f, 0.0f};
@@ -138,19 +151,35 @@ static void _tessellate_polyline_stroke(
     
     if (point_count < 2) return; // Need at least 2 points for a line
     
+    // Get screen position from bounds
+    float screen_x, screen_y;
+    int w, h;
+    draw_list_object_get_bounds(obj, &screen_x, &screen_y, &w, &h);
+    
     float half_width = stroke_width * 0.5f;
     
-    for (size_t i = 0; i < point_count - 1; i++) {
+    // For closed polygons, if last point is duplicate of first, process (point_count - 1) lines
+    // Otherwise process (point_count - 1) lines
+    size_t line_count;
+    if (point_count > 2 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) {
+        line_count = point_count - 1; // Last point is duplicate of first, so process one fewer line
+    } else {
+        line_count = point_count - 1; // Normal case
+    }
+    
+    for (size_t i = 0; i < line_count; i++) {
         float x1, y1, x2, y2;
-        _pixel_to_ndc(points[i * 2], points[i * 2 + 1], view_w, view_h, &x1, &y1);
-        _pixel_to_ndc(points[(i + 1) * 2], points[(i + 1) * 2 + 1], view_w, view_h, &x2, &y2);
+        _pixel_to_ndc(points[i * 2] + screen_x, points[i * 2 + 1] + screen_y, view_w, view_h, &x1, &y1);
+        _pixel_to_ndc(points[(i + 1) * 2] + screen_x, points[(i + 1) * 2 + 1] + screen_y, view_w, view_h, &x2, &y2);
         
         // Calculate perpendicular vector for stroke width
         float dx = x2 - x1;
         float dy = y2 - y1;
         float length = sqrtf(dx * dx + dy * dy);
         
-        if (length < 1e-6f) continue; // Skip degenerate segments
+        if (length < 1e-6f) {
+            continue; // Skip degenerate segments
+        }
         
         // Normalize and get perpendicular
         dx /= length;
@@ -182,6 +211,95 @@ static void _tessellate_polyline_stroke(
         vertices[(*vertex_count)++] = (EseVertex){x2_right, y2_right, 0.0f, 0.0f, 0.0f};
         vertices[(*vertex_count)++] = (EseVertex){x2_left, y2_left, 0.0f, 0.0f, 0.0f};
     }
+    
+}
+
+// Helper to add polyline fill vertices directly to a batch
+static void _render_batch_add_polyline_fill_vertices(EseRenderBatch *batch, const EseDrawListObject *obj, int view_w, int view_h) {
+    log_assert("RENDER_LIST", batch, "_render_batch_add_polyline_fill_vertices called with NULL batch");
+    log_assert("RENDER_LIST", obj, "_render_batch_add_polyline_fill_vertices called with NULL obj");
+
+    const float *points;
+    size_t point_count;
+    float stroke_width;
+    draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+    
+    if (point_count < 3) return; // Need at least 3 points for a triangle
+    
+    // Get screen position from bounds
+    float screen_x, screen_y;
+    int w, h;
+    draw_list_object_get_bounds(obj, &screen_x, &screen_y, &w, &h);
+    
+    // Calculate triangle count
+    size_t triangle_count = (point_count > 3 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                           ? point_count - 3  // Last point is duplicate of first
+                           : point_count - 2; // Normal case
+    
+    size_t fill_vertices = triangle_count * 3;
+    
+    // Ensure we have enough capacity
+    if (batch->vertex_count + fill_vertices > batch->vertex_capacity) {
+        size_t new_capacity = batch->vertex_capacity * 2;
+        while (batch->vertex_count + fill_vertices > new_capacity) new_capacity *= 2;
+        EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
+        if (new_buffer) {
+            batch->vertex_buffer = new_buffer;
+            batch->vertex_capacity = new_capacity;
+        }
+    }
+    
+    EseVertex *v = &batch->vertex_buffer[batch->vertex_count];
+    size_t vertex_offset = 0;
+    
+    // Tessellate fill vertices
+    _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+    
+    batch->vertex_count += vertex_offset;
+}
+
+// Helper to add polyline stroke vertices directly to a batch
+static void _render_batch_add_polyline_stroke_vertices(EseRenderBatch *batch, const EseDrawListObject *obj, int view_w, int view_h) {
+    log_assert("RENDER_LIST", batch, "_render_batch_add_polyline_stroke_vertices called with NULL batch");
+    log_assert("RENDER_LIST", obj, "_render_batch_add_polyline_stroke_vertices called with NULL obj");
+
+    const float *points;
+    size_t point_count;
+    float stroke_width;
+    draw_list_object_get_polyline(obj, &points, &point_count, &stroke_width);
+    
+    if (point_count < 2) return; // Need at least 2 points for a line
+    
+    // Get screen position from bounds
+    float screen_x, screen_y;
+    int w, h;
+    draw_list_object_get_bounds(obj, &screen_x, &screen_y, &w, &h);
+    
+    // Calculate line count
+    size_t line_count = (point_count > 2 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                       ? point_count - 1  // Last point is duplicate of first
+                       : point_count - 1; // Normal case
+    
+    size_t stroke_vertices = line_count * 6;
+    
+    // Ensure we have enough capacity
+    if (batch->vertex_count + stroke_vertices > batch->vertex_capacity) {
+        size_t new_capacity = batch->vertex_capacity * 2;
+        while (batch->vertex_count + stroke_vertices > new_capacity) new_capacity *= 2;
+        EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
+        if (new_buffer) {
+            batch->vertex_buffer = new_buffer;
+            batch->vertex_capacity = new_capacity;
+        }
+    }
+    
+    EseVertex *v = &batch->vertex_buffer[batch->vertex_count];
+    size_t vertex_offset = 0;
+    
+    // Tessellate stroke vertices
+    _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+    
+    batch->vertex_count += vertex_offset;
 }
 
 // Helper to add vertices to a batch
@@ -390,16 +508,28 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         unsigned char stroke_r, stroke_g, stroke_b, stroke_a;
         draw_list_object_get_polyline_stroke_color(obj, &stroke_r, &stroke_g, &stroke_b, &stroke_a);
         
+        
+        
         // Calculate required vertex count
         size_t fill_vertices = 0;
         size_t stroke_vertices = 0;
         
         if (fill_a > 0 && point_count >= 3) {
-            fill_vertices = (point_count - 2) * 3; // Fan triangulation
+            // For closed polygons, if last point is duplicate of first, use (point_count - 3) triangles
+            // Otherwise use (point_count - 2) triangles
+            size_t triangle_count = (point_count > 3 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                                   ? point_count - 3  // Last point is duplicate of first
+                                   : point_count - 2; // Normal case
+            fill_vertices = triangle_count * 3; // Fan triangulation
         }
         
         if (stroke_a > 0 && point_count >= 2) {
-            stroke_vertices = (point_count - 1) * 6; // Quads for stroke
+            // For closed polygons, if last point is duplicate of first, use (point_count - 1) lines
+            // Otherwise use (point_count - 1) lines
+            size_t line_count = (point_count > 2 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                               ? point_count - 1  // Last point is duplicate of first
+                               : point_count - 1; // Normal case (same for stroke)
+            stroke_vertices = line_count * 6; // Quads for stroke (6 vertices per line segment)
         }
         
         size_t total_vertices = fill_vertices + stroke_vertices;
@@ -422,13 +552,13 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         
         // Add fill vertices if needed
         if (fill_vertices > 0) {
-            _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
-        }
-        
-        // Add stroke vertices if needed
-        if (stroke_vertices > 0) {
-            _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
-        }
+        _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+    }
+    
+    // Add stroke vertices if needed
+    if (stroke_vertices > 0) {
+        _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+    }
         
         batch->vertex_count += vertex_offset;
     }
@@ -499,9 +629,26 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
             unsigned char stroke_r, stroke_g, stroke_b, stroke_a;
             draw_list_object_get_polyline_stroke_color(obj, &stroke_r, &stroke_g, &stroke_b, &stroke_a);
             
-            // Create separate batches for fill and stroke if both are present
+            // Calculate vertex counts
+            size_t fill_vertices = 0;
+            size_t stroke_vertices = 0;
+            
             if (fill_a > 0 && point_count >= 3) {
-                // Check if we need a new fill batch
+                size_t triangle_count = (point_count > 3 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                                       ? point_count - 3  // Last point is duplicate of first
+                                       : point_count - 2; // Normal case
+                fill_vertices = triangle_count * 3;
+            }
+            
+            if (stroke_a > 0 && point_count >= 2) {
+                size_t line_count = (point_count > 2 && points[0] == points[(point_count-1)*2] && points[1] == points[(point_count-1)*2+1]) 
+                                   ? point_count - 1  // Last point is duplicate of first
+                                   : point_count - 1; // Normal case
+                stroke_vertices = line_count * 6;
+            }
+            
+            // Create fill batch if needed
+            if (fill_vertices > 0) {
                 bool new_fill_batch_needed = true;
                 if (current_batch && current_batch->type == RL_COLOR) {
                     if (current_batch->shared_state.color.r == fill_r &&
@@ -524,12 +671,12 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
                     _render_list_add_batch(render_list, current_batch);
                 }
                 
-                // Add the polyline to the current batch
-                _render_batch_add_object_vertices(current_batch, obj, render_list->width, render_list->height);
+                // Add fill vertices directly
+                _render_batch_add_polyline_fill_vertices(current_batch, obj, render_list->width, render_list->height);
             }
             
-            if (stroke_a > 0 && point_count >= 2) {
-                // Check if we need a new stroke batch
+            // Create stroke batch if needed
+            if (stroke_vertices > 0) {
                 bool new_stroke_batch_needed = true;
                 if (current_batch && current_batch->type == RL_COLOR) {
                     if (current_batch->shared_state.color.r == stroke_r &&
@@ -552,8 +699,8 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
                     _render_list_add_batch(render_list, current_batch);
                 }
                 
-                // Add the polyline to the current batch
-                _render_batch_add_object_vertices(current_batch, obj, render_list->width, render_list->height);
+                // Add stroke vertices directly
+                _render_batch_add_polyline_stroke_vertices(current_batch, obj, render_list->width, render_list->height);
             }
             
             continue; // Skip the normal batching logic below
