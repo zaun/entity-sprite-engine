@@ -556,10 +556,10 @@ void renderer_draw(EseRenderer *renderer) {
                 }
                 if (rectColorLocation != -1) {
                     glUniform4f(rectColorLocation, 
-                               (float)batch->shared_state.rect_color.r / 255.0f,
-                               (float)batch->shared_state.rect_color.g / 255.0f,
-                               (float)batch->shared_state.rect_color.b / 255.0f,
-                               (float)batch->shared_state.rect_color.a / 255.0f);
+                               (float)batch->shared_state.color.r / 255.0f,
+                               (float)batch->shared_state.color.g / 255.0f,
+                               (float)batch->shared_state.color.b / 255.0f,
+                               (float)batch->shared_state.color.a / 255.0f);
                 }
 
                 // Upload vertex data to VBO

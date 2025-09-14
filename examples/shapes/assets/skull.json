@@ -1,0 +1,1415 @@
+{
+    "image": "skull",
+    "sprites": [
+                {
+            "name": "skull floating north",
+            "speed": 100,
+            "frames": [
+                "skull floating n0000",
+                "skull floating n0001",
+                "skull floating n0002",
+                "skull floating n0003",
+                "skull floating n0004",
+                "skull floating n0005",
+                "skull floating n0006",
+                "skull floating n0007",
+                "skull floating n0008",
+                "skull floating n0009"
+            ]
+        },
+        {
+            "name": "skull floating south",
+            "speed": 100,
+            "frames": [
+                "skull floating s0000",
+                "skull floating s0001",
+                "skull floating s0002",
+                "skull floating s0003",
+                "skull floating s0004",
+                "skull floating s0005",
+                "skull floating s0006",
+                "skull floating s0007",
+                "skull floating s0008",
+                "skull floating s0009"
+            ]
+        },
+        {
+            "name": "skull floating east",
+            "speed": 100,
+            "frames": [
+                "skull floating e0000",
+                "skull floating e0001",
+                "skull floating e0002",
+                "skull floating e0003",
+                "skull floating e0004",
+                "skull floating e0005",
+                "skull floating e0006",
+                "skull floating e0007",
+                "skull floating e0008",
+                "skull floating e0009"
+            ]
+        },
+        {
+            "name": "skull floating west",
+            "speed": 100,
+            "frames": [
+                "skull floating w0000",
+                "skull floating w0001",
+                "skull floating w0002",
+                "skull floating w0003",
+                "skull floating w0004",
+                "skull floating w0005",
+                "skull floating w0006",
+                "skull floating w0007",
+                "skull floating w0008",
+                "skull floating w0009"
+            ]
+        },
+        {
+            "name": "skull floating north east",
+            "speed": 100,
+            "frames": [
+                "skull floating ne0000",
+                "skull floating ne0001",
+                "skull floating ne0002",
+                "skull floating ne0003",
+                "skull floating ne0004",
+                "skull floating ne0005",
+                "skull floating ne0006",
+                "skull floating ne0007",
+                "skull floating ne0008",
+                "skull floating ne0009"
+            ]
+        },
+        {
+            "name": "skull floating north west",
+            "speed": 100,
+            "frames": [
+                "skull floating nw0000",
+                "skull floating nw0001",
+                "skull floating nw0002",
+                "skull floating nw0003",
+                "skull floating nw0004",
+                "skull floating nw0005",
+                "skull floating nw0006",
+                "skull floating nw0007",
+                "skull floating nw0008",
+                "skull floating nw0009"
+            ]
+        },
+        {
+            "name": "skull floating south east",
+            "speed": 100,
+            "frames": [
+                "skull floating se0000",
+                "skull floating se0001",
+                "skull floating se0002",
+                "skull floating se0003",
+                "skull floating se0004",
+                "skull floating se0005",
+                "skull floating se0006",
+                "skull floating se0007",
+                "skull floating se0008",
+                "skull floating se0009"
+            ]
+        },
+        {
+            "name": "skull floating south west",
+            "speed": 100,
+            "frames": [
+                "skull floating sw0000",
+                "skull floating sw0001",
+                "skull floating sw0002",
+                "skull floating sw0003",
+                "skull floating sw0004",
+                "skull floating sw0005",
+                "skull floating sw0006",
+                "skull floating sw0007",
+                "skull floating sw0008",
+                "skull floating sw0009"
+            ]
+        }
+    ],
+    "frames": [
+        {
+            "name": "skull floating e0000",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0001",
+            "x": 48,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0002",
+            "x": 96,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0003",
+            "x": 144,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0004",
+            "x": 192,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0005",
+            "x": 240,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0006",
+            "x": 288,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0007",
+            "x": 336,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0008",
+            "x": 384,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating e0009",
+            "x": 432,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0000",
+            "x": 480,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0001",
+            "x": 528,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0002",
+            "x": 576,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0003",
+            "x": 624,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0004",
+            "x": 672,
+            "y": 0,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0005",
+            "x": 0,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0006",
+            "x": 48,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0007",
+            "x": 96,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0008",
+            "x": 144,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating n0009",
+            "x": 192,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0000",
+            "x": 240,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0001",
+            "x": 288,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0002",
+            "x": 336,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0003",
+            "x": 384,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0004",
+            "x": 432,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0005",
+            "x": 480,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0006",
+            "x": 528,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0007",
+            "x": 576,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0008",
+            "x": 624,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating ne0009",
+            "x": 672,
+            "y": 64,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0000",
+            "x": 0,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0001",
+            "x": 48,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0002",
+            "x": 96,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0003",
+            "x": 144,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0004",
+            "x": 192,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0005",
+            "x": 240,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0006",
+            "x": 288,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0007",
+            "x": 336,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0008",
+            "x": 384,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating nw0009",
+            "x": 432,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0000",
+            "x": 480,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0001",
+            "x": 528,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0002",
+            "x": 576,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0003",
+            "x": 624,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0004",
+            "x": 672,
+            "y": 128,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0005",
+            "x": 0,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0006",
+            "x": 48,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0007",
+            "x": 96,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0008",
+            "x": 144,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating s0009",
+            "x": 192,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0000",
+            "x": 240,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0001",
+            "x": 288,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0002",
+            "x": 336,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0003",
+            "x": 384,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0004",
+            "x": 432,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0005",
+            "x": 480,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0006",
+            "x": 528,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0007",
+            "x": 576,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0008",
+            "x": 624,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating se0009",
+            "x": 672,
+            "y": 192,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0000",
+            "x": 0,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0001",
+            "x": 48,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0002",
+            "x": 96,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0003",
+            "x": 144,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0004",
+            "x": 192,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0005",
+            "x": 240,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0006",
+            "x": 288,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0007",
+            "x": 336,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0008",
+            "x": 384,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating sw0009",
+            "x": 432,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0000",
+            "x": 480,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0001",
+            "x": 528,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0002",
+            "x": 576,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0003",
+            "x": 624,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0004",
+            "x": 672,
+            "y": 256,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0005",
+            "x": 0,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0006",
+            "x": 48,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0007",
+            "x": 96,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0008",
+            "x": 144,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull floating w0009",
+            "x": 192,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0000",
+            "x": 240,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0001",
+            "x": 288,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0002",
+            "x": 336,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0003",
+            "x": 384,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0004",
+            "x": 432,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0005",
+            "x": 480,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0006",
+            "x": 528,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0007",
+            "x": 576,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0008",
+            "x": 624,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up e0009",
+            "x": 672,
+            "y": 320,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0000",
+            "x": 0,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0001",
+            "x": 48,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0002",
+            "x": 96,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0003",
+            "x": 144,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0004",
+            "x": 192,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0005",
+            "x": 240,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0006",
+            "x": 288,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0007",
+            "x": 336,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0008",
+            "x": 384,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up n0009",
+            "x": 432,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0000",
+            "x": 480,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0001",
+            "x": 528,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0002",
+            "x": 576,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0003",
+            "x": 624,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0004",
+            "x": 672,
+            "y": 384,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0005",
+            "x": 0,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0006",
+            "x": 48,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0007",
+            "x": 96,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0008",
+            "x": 144,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up ne0009",
+            "x": 192,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0000",
+            "x": 240,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0001",
+            "x": 288,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0002",
+            "x": 336,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0003",
+            "x": 384,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0004",
+            "x": 432,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0005",
+            "x": 480,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0006",
+            "x": 528,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0007",
+            "x": 576,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0008",
+            "x": 624,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up nw0009",
+            "x": 672,
+            "y": 448,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0000",
+            "x": 0,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0001",
+            "x": 48,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0002",
+            "x": 96,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0003",
+            "x": 144,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0004",
+            "x": 192,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0005",
+            "x": 240,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0006",
+            "x": 288,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0007",
+            "x": 336,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0008",
+            "x": 384,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up s0009",
+            "x": 432,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0000",
+            "x": 480,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0001",
+            "x": 528,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0002",
+            "x": 576,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0003",
+            "x": 624,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0004",
+            "x": 672,
+            "y": 512,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0005",
+            "x": 0,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0006",
+            "x": 48,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0007",
+            "x": 96,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0008",
+            "x": 144,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up se0009",
+            "x": 192,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0000",
+            "x": 240,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0001",
+            "x": 288,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0002",
+            "x": 336,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0003",
+            "x": 384,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0004",
+            "x": 432,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0005",
+            "x": 480,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0006",
+            "x": 528,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0007",
+            "x": 576,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0008",
+            "x": 624,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up sw0009",
+            "x": 672,
+            "y": 576,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0000",
+            "x": 0,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0001",
+            "x": 48,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0002",
+            "x": 96,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0003",
+            "x": 144,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0004",
+            "x": 192,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0005",
+            "x": 240,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0006",
+            "x": 288,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0007",
+            "x": 336,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0008",
+            "x": 384,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        },
+        {
+            "name": "skull stand up w0009",
+            "x": 432,
+            "y": 640,
+            "rotation": 0,
+            "width": 48,
+            "height": 64
+        }
+    ]
+}
