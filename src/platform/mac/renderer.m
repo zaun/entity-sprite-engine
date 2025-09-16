@@ -114,7 +114,7 @@ bool _renderer_shader_compile_source(EseRenderer* renderer, const char *library_
     log_debug("RENDERER", "Fragment shader source: %s.", shaderSourceString.UTF8String);
 
     if (cs.data) {
-        shaderSourceString = [NSString stringWithUTF8String:fs.data];
+        shaderSourceString = [NSString stringWithUTF8String:cs.data];
         id<MTLLibrary> computeLibrary = [internal->device newLibraryWithSource:shaderSourceString options:nil error:&error];
         if (!computeLibrary) {
             free_shader_blob(vs);

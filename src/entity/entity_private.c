@@ -56,6 +56,9 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->tag_count = 0;
     entity->tag_capacity = 0;
 
+    // Initialize pub/sub subscriptions
+    entity->subscriptions = array_create(4, _entity_subscription_free);
+
     profile_stop(PROFILE_ENTITY_CREATE, "entity_make");
     profile_count_add("entity_make_count");
     return entity;
@@ -112,4 +115,16 @@ bool _entity_test_collision(EseEntity *a, EseEntity *b) {
 
     profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
     return false;
+}
+
+/**
+ * @brief Free function for entity subscription tracking.
+ */
+void _entity_subscription_free(void *value) {
+    if (value == NULL) return;
+    
+    EseEntitySubscription *sub = (EseEntitySubscription *)value;
+    memory_manager.free(sub->topic_name);
+    memory_manager.free(sub->function_name);
+    memory_manager.free(sub);
 }

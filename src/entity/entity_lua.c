@@ -16,6 +16,12 @@
 #include "entity.h"
 #include "utility/profile.h"
 
+// Forward declarations
+static int _entity_lua_subscribe(lua_State *L);
+static int _entity_lua_unsubscribe(lua_State *L);
+static int _entity_lua_publish(lua_State *L);
+static void _entity_remove_subscription(EseEntity *entity, const char *topic_name, const char *function_name);
+
 /**
  * @brief Register an EseEntity pointer as a Lua object.
  */
@@ -924,6 +930,14 @@ static int _entity_lua_index(lua_State *L) {
             lua_rawseti(L, -2, i + 1); // Lua uses 1-based indexing
         }
         return 1;
+    } else if (strcmp(key, "subscribe") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_subscribe, 1);
+        return 1;
+    } else if (strcmp(key, "unsubscribe") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_unsubscribe, 1);
+        return 1;
     }
 
     return 0;
@@ -1107,6 +1121,132 @@ static int _entity_lua_get_count(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua function to subscribe an entity to a topic.
+ */
+static int _entity_lua_subscribe(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    if (!lua_isstring(L, 2)) {
+        return luaL_error(L, "Event name must be a string");
+    }
+    if (!lua_isstring(L, 3)) {
+        return luaL_error(L, "Function name must be a string");
+    }
+
+    const char *event_name = lua_tostring(L, 2);
+    const char *function_name = lua_tostring(L, 3);
+
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    // Subscribe using entity-based callback
+    engine_pubsub_sub(engine, event_name, entity, function_name);
+    
+    // Track subscription in entity
+    EseEntitySubscription *sub = memory_manager.malloc(sizeof(EseEntitySubscription), MMTAG_ENTITY);
+    sub->topic_name = memory_manager.strdup(event_name, MMTAG_ENTITY);
+    sub->function_name = memory_manager.strdup(function_name, MMTAG_ENTITY);
+    array_push(entity->subscriptions, sub);
+    
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
+ * @brief Lua function to unsubscribe an entity from a topic.
+ */
+static int _entity_lua_unsubscribe(lua_State *L) {
+    EseEntity *entity = entity_lua_get(L, 1);
+    if (!entity) {
+        return luaL_error(L, "Invalid entity");
+    }
+
+    if (!lua_isstring(L, 2)) {
+        return luaL_error(L, "Event name must be a string");
+    }
+    if (!lua_isstring(L, 3)) {
+        return luaL_error(L, "Function name must be a string");
+    }
+
+    const char *event_name = lua_tostring(L, 2);
+    const char *function_name = lua_tostring(L, 3);
+
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    // Unsubscribe from pub/sub system
+    engine_pubsub_unsub(engine, event_name, entity, function_name);
+    
+    // Remove from entity's subscription tracking
+    _entity_remove_subscription(entity, event_name, function_name);
+    
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
+ * @brief Lua function to publish data to a topic.
+ */
+static int _entity_lua_publish(lua_State *L) {
+    if (!lua_isstring(L, 1)) {
+        return luaL_error(L, "Event name must be a string");
+    }
+
+    const char *event_name = lua_tostring(L, 1);
+    
+    // Get engine from registry
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Engine not found");
+    }
+
+    // Convert Lua value to EseLuaValue
+    EseLuaValue *data = lua_value_create_nil("data");
+    _convert_lua_value_to_ese_lua_value_in_place(L, 2, data);
+    
+    // Publish
+    engine_pubsub_pub(engine, event_name, data);
+    
+    lua_value_free(data);
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+/**
+ * @brief Helper function to remove subscription from entity tracking.
+ */
+static void _entity_remove_subscription(EseEntity *entity, const char *topic_name, const char *function_name) {
+    if (!entity->subscriptions) return;
+    
+    size_t count = array_size(entity->subscriptions);
+    for (size_t i = 0; i < count; i++) {
+        EseEntitySubscription *sub = array_get(entity->subscriptions, i);
+        if (sub && 
+            strcmp(sub->topic_name, topic_name) == 0 && 
+            strcmp(sub->function_name, function_name) == 0) {
+            
+            // Free the subscription
+            memory_manager.free(sub->topic_name);
+            memory_manager.free(sub->function_name);
+            memory_manager.free(sub);
+            
+            // Remove from array
+            array_remove_at(entity->subscriptions, i);
+            break;
+        }
+    }
+}
+
 void entity_lua_init(EseLuaEngine *engine) {
     if (luaL_newmetatable(engine->runtime, "EntityProxyMeta")) {
         log_debug("LUA", "Adding entity EntityProxyMeta to engine");
@@ -1158,6 +1298,9 @@ void entity_lua_init(EseLuaEngine *engine) {
         
         lua_pushcfunction(engine->runtime, _entity_lua_get_count);
         lua_setfield(engine->runtime, -2, "count");
+        
+        lua_pushcfunction(engine->runtime, _entity_lua_publish);
+        lua_setfield(engine->runtime, -2, "publish");
         
         lua_setglobal(engine->runtime, "Entity");
     } else {

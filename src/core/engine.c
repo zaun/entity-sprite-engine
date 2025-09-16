@@ -17,6 +17,7 @@
 #include "core/engine_lua.h"
 #include "core/engine_private.h"
 #include "core/engine.h"
+#include "core/pubsub.h"
 #include "utility/double_linked_list.h"
 #include "graphics/font.h"
 #include "utility/log.h"
@@ -37,6 +38,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine->renderer = NULL;
     engine->asset_manager = NULL;
     engine->console = console_create();
+    engine->pub_sub = ese_pubsub_create();
 
     engine->draw_list = draw_list_create();
     engine->render_list_a = render_list_create();
@@ -135,6 +137,10 @@ void engine_destroy(EseEngine *engine) {
         asset_manager_destroy(engine->asset_manager);
     }
     ese_input_state_destroy(engine->input_state);
+    
+    if (engine->pub_sub) {
+        ese_pubsub_destroy(engine->pub_sub);
+    }
     ese_display_destroy(engine->display_state);
     ese_camera_destroy(engine->camera_state);
     console_destroy(engine->console);
@@ -559,4 +565,31 @@ EseEntity *engine_find_by_id(EseEngine *engine, const char *uuid_string) {
 
 int engine_get_entity_count(EseEngine *engine) {
     return dlist_size(engine->entities);
+}
+
+// Pub/Sub passthrough functions
+void engine_pubsub_pub(EseEngine *engine, const char *name, const EseLuaValue *data) {
+    log_assert("ENGINE", engine, "engine_pubsub_pub called with NULL engine");
+    log_assert("ENGINE", name, "engine_pubsub_pub called with NULL name");
+    log_assert("ENGINE", data, "engine_pubsub_pub called with NULL data");
+    
+    ese_pubsub_pub(engine->pub_sub, name, data);
+}
+
+void engine_pubsub_sub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name) {
+    log_assert("ENGINE", engine, "engine_pubsub_sub called with NULL engine");
+    log_assert("ENGINE", name, "engine_pubsub_sub called with NULL name");
+    log_assert("ENGINE", entity, "engine_pubsub_sub called with NULL entity");
+    log_assert("ENGINE", function_name, "engine_pubsub_sub called with NULL function_name");
+    
+    ese_pubsub_sub(engine->pub_sub, name, entity, function_name);
+}
+
+void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name) {
+    log_assert("ENGINE", engine, "engine_pubsub_unsub called with NULL engine");
+    log_assert("ENGINE", name, "engine_pubsub_unsub called with NULL name");
+    log_assert("ENGINE", entity, "engine_pubsub_unsub called with NULL entity");
+    log_assert("ENGINE", function_name, "engine_pubsub_unsub called with NULL function_name");
+    
+    ese_pubsub_unsub(engine->pub_sub, name, entity, function_name);
 }

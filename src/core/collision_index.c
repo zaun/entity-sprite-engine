@@ -250,7 +250,7 @@ static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashM
 // DBVH query: internal pairs + DBVH entities vs neighboring grid bins
 static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex *index, EseHashMap *seen) {
     if (!root || !index || !pairs) return;
-    EseArray *entities = arese_ray_create(64, NULL);
+    EseArray *entities = array_create(64, NULL);
     _dbvh_collect_entities(root, entities);
     // internal pairs
     for (size_t i = 0; i < array_size(entities); i++) {
@@ -288,7 +288,7 @@ static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex
             }
         }
     }
-    arese_ray_destroy(entities);
+    array_destroy(entities);
 }
 
 // Convert center+8 neighbors to DBVH and take ownership of those bins
@@ -304,7 +304,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
         }
     }
     // collect entities
-    EseArray *entities = arese_ray_create(64, NULL);
+    EseArray *entities = array_create(64, NULL);
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
             int cell_x = center_x + dx;
@@ -318,7 +318,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
             dlist_iter_free(it);
         }
     }
-    if (array_size(entities) == 0) { arese_ray_destroy(entities); return; }
+    if (array_size(entities) == 0) { array_destroy(entities); return; }
     // build DBVH
     DBVHNode *root = NULL;
     for (size_t i = 0; i < array_size(entities); i++) {
@@ -347,7 +347,7 @@ static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int 
         int_hashmap_set(index->dbvh_regions, center_key, root);
         log_debug("COLLISION_INDEX", "Converted 3x3 centered (%d,%d) to DBVH with %zu entities", center_x, center_y, array_size(entities));
     }
-    arese_ray_destroy(entities);
+    array_destroy(entities);
 }
 
 // ==================== Public API ====================
@@ -357,7 +357,7 @@ EseCollisionIndex *collision_index_create(void) {
     index->cell_size = COLLISION_INDEX_DEFAULT_CELL_SIZE;
     index->bins = int_hashmap_create((EseIntHashMapFreeFn)dlist_free);
     index->dbvh_regions = int_hashmap_create((EseIntHashMapFreeFn)_dbvh_node_destroy);
-    index->collision_pairs = arese_ray_create(128, _free_collision_pair);
+    index->collision_pairs = array_create(128, _free_collision_pair);
     index->last_auto_tune_time = 0.0;
     return index;
 }
@@ -366,7 +366,7 @@ void collision_index_destroy(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "destroy called with NULL index");
     int_hashmap_free(index->bins);
     int_hashmap_free(index->dbvh_regions);
-    arese_ray_destroy(index->collision_pairs);
+    array_destroy(index->collision_pairs);
     memory_manager.free(index);
 }
 

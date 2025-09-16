@@ -11,10 +11,10 @@ typedef struct EseArray EseArray;
 typedef void (*ArrayFreeFn)(void *element);
 
 // Create a new resizable array
-EseArray *arese_ray_create(size_t initial_capacity, ArrayFreeFn free_fn);
+EseArray *array_create(size_t initial_capacity, ArrayFreeFn free_fn);
 
 // Destroy the array and free all memory
-void arese_ray_destroy(EseArray *array);
+void array_destroy(EseArray *array);
 
 // Add an element to the end of the array (resizes if needed)
 bool array_push(EseArray *array, void *element);

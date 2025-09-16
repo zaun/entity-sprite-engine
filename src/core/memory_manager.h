@@ -41,6 +41,7 @@ typedef enum {
     MMTAG_COLLISION_INDEX,
     MMTAG_COLOR,
     MMTAG_POLY_LINE,
+    MMTAG_PUB_SUB,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

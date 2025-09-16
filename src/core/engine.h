@@ -14,6 +14,7 @@
 #include "types/display.h"
 #include "types/input_state.h"
 #include "core/console.h"
+#include "scripting/lua_value.h"
 
 typedef struct EseEntity EseEntity;
 typedef struct EseEngine EseEngine;
@@ -192,5 +193,35 @@ void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const cha
  * @param show True to show the console, false to hide it.
  */
 void engine_show_console(EseEngine *engine, bool show);
+
+// Pub/Sub passthrough functions
+/**
+ * @brief Publishes data to a topic.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param name The topic name to publish to.
+ * @param data The EseLuaValue data to publish.
+ */
+void engine_pubsub_pub(EseEngine *engine, const char *name, const EseLuaValue *data);
+
+/**
+ * @brief Subscribes an entity to a topic with a function name.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param name The topic name to subscribe to.
+ * @param entity The entity to call the function on.
+ * @param function_name The name of the function to call on the entity.
+ */
+void engine_pubsub_sub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name);
+
+/**
+ * @brief Unsubscribes an entity from a topic.
+ * 
+ * @param engine A pointer to the EseEngine instance.
+ * @param name The topic name to unsubscribe from.
+ * @param entity The entity to unsubscribe.
+ * @param function_name The name of the function that was subscribed.
+ */
+void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name);
 
 #endif // ESE_ENGINE_H

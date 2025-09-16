@@ -4,12 +4,21 @@
 #include <stdint.h>
 #include "utility/double_linked_list.h"
 #include "utility/hashmap.h"
+#include "utility/array.h"
 #include "entity/components/entity_component.h"
 #include "types/types.h"
 #include "entity.h"
 
 #define MAX_TAG_LENGTH 16
 #define MAX_TAGS_PER_ENTITY 32
+
+/**
+ * @brief Structure to track entity pub/sub subscriptions.
+ */
+typedef struct {
+    char *topic_name;                       /**< Name of the subscribed topic */
+    char *function_name;                    /**< Name of the function to call */
+} EseEntitySubscription;
 
 /**
  * @brief Internal entity structure.
@@ -43,6 +52,9 @@ struct EseEntity {
     char **tags;                            /**< Array of tag strings */
     size_t tag_count;                       /**< Number of tags */
     size_t tag_capacity;                    /**< Capacity of tag array */
+    
+    // Pub/Sub tracking
+    EseArray *subscriptions;                /**< Array of EseEntitySubscription */
 };
 
 /**
@@ -73,5 +85,7 @@ int _entity_component_find_index(EseEntity *entity, const char *id);
 const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2);
 
 bool _entity_test_collision(EseEntity *a, EseEntity *b);
+
+void _entity_subscription_free(void *value);
 
 #endif // ESE_ENTITY_PRIVATE_H

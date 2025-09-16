@@ -15,6 +15,10 @@
 #include "entity/entity.h"
 #include "entity/components/entity_component_collider.h"
 #include "utility/profile.h"
+#include "core/engine.h"
+#include "core/engine_private.h"
+#include "core/pubsub.h"
+#include "scripting/lua_engine.h"
 
 EseEntity *entity_create(EseLuaEngine *engine) {
     log_assert("ENTITY", engine, "entity_create called with NULL engine");
@@ -69,6 +73,9 @@ EseEntity *entity_copy(EseEntity *entity) {
         copy->tag_capacity = 0;
     }
 
+    // subscriptions are not copied on purpose
+    copy->subscriptions = array_create(4, _entity_subscription_free);
+
     // Copy default props
     copy->default_props = dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy);
 
@@ -113,6 +120,22 @@ void entity_destroy(EseEntity *entity) {
         memory_manager.free(entity->tags[i]);
     }
     memory_manager.free(entity->tags);
+
+    // Clean up pub/sub subscriptions
+    if (entity->subscriptions) {
+        // Get engine to unsubscribe from pub/sub system
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(entity->lua->runtime, ENGINE_KEY);
+        if (engine) {
+            size_t count = array_size(entity->subscriptions);
+            for (size_t i = 0; i < count; i++) {
+                EseEntitySubscription *sub = array_get(entity->subscriptions, i);
+                if (sub) {
+                    engine_pubsub_unsub(engine, sub->topic_name, entity, sub->function_name);
+                }
+            }
+        }
+        array_destroy(entity->subscriptions);
+    }
 
     if (entity->lua_ref != LUA_NOREF) {
         luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
