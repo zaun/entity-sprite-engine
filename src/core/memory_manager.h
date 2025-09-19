@@ -10,7 +10,7 @@ typedef enum {
     MMTAG_ENGINE,
     MMTAG_ASSET,
     MMTAG_ENTITY,
-    MMTAG_ENTITY_COMP_LUA,
+    MMTAG_COMP_LUA,
     MMTAG_LUA,
     MMTAG_LUA_VALUE,
     MMTAG_LUA_SCRIPT,
@@ -42,6 +42,7 @@ typedef enum {
     MMTAG_COLOR,
     MMTAG_POLY_LINE,
     MMTAG_PUB_SUB,
+    MMTAG_THREAD,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

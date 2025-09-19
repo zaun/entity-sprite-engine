@@ -45,7 +45,7 @@ static void _entity_component_lua_register(EseEntityComponentLua *component, boo
 static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, const char *script) {
     log_assert("ENTITY_COMP", engine, "_entity_component_lua_make called with NULL engine");
 
-    EseEntityComponentLua *component = memory_manager.malloc(sizeof(EseEntityComponentLua), MMTAG_ENTITY_COMP_LUA);
+    EseEntityComponentLua *component = memory_manager.malloc(sizeof(EseEntityComponentLua), MMTAG_COMP_LUA);
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
@@ -55,7 +55,7 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->base.type = ENTITY_COMPONENT_LUA;
 
     if (script != NULL) {
-        component->script = memory_manager.strdup(script, MMTAG_ENTITY_COMP_LUA);
+        component->script = memory_manager.strdup(script, MMTAG_COMP_LUA);
     } else {
         component->script = NULL;
     }
@@ -229,14 +229,14 @@ void _entity_component_lua_cache_functions(EseEntityComponentLua *component) {
             // Function exists, cache the reference
             int ref = luaL_ref(L, LUA_REGISTRYINDEX);
             
-            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY_COMP_LUA);
+            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
             cached->function_ref = ref;
             cached->exists = true;
             hashmap_set(component->function_cache, func_name, cached);
         } else {
             // Function doesn't exist, cache as LUA_NOREF
             lua_pop(L, 1); // pop nil
-            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY_COMP_LUA);
+            CachedLuaFunction *cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
             cached->function_ref = LUA_NOREF;
             cached->exists = false;
             hashmap_set(component->function_cache, func_name, cached);
@@ -349,7 +349,7 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
             int ref = luaL_ref(L, LUA_REGISTRYINDEX);
             
             // Memory allocation timing
-            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY_COMP_LUA);
+            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
             cached->function_ref = ref;
             cached->exists = true;
             
@@ -358,7 +358,7 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
         } else {
             // Function doesn't exist, cache as LUA_NOREF
             lua_pop(L, 1); // pop nil
-            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_ENTITY_COMP_LUA);
+            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
             cached->function_ref = LUA_NOREF;
             cached->exists = false;
             hashmap_set(component->function_cache, func_name, cached);
@@ -511,7 +511,7 @@ static int _entity_component_lua_newindex(lua_State *L) {
         
         if (lua_isstring(L, 3)) {
             const char *script = lua_tostring(L, 3);
-            component->script = memory_manager.strdup(script, MMTAG_ENTITY_COMP_LUA);
+            component->script = memory_manager.strdup(script, MMTAG_COMP_LUA);
         }
 
         return 0;
