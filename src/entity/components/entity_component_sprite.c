@@ -12,6 +12,38 @@
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 
+// VTable wrapper functions
+static EseEntityComponent* _sprite_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
+}
+
+static void _sprite_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_sprite_destroy((EseEntityComponentSprite*)component->data);
+}
+
+static void _sprite_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
+}
+
+static void _sprite_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    EntityDrawCallbacks* draw_callbacks = (EntityDrawCallbacks*)callbacks;
+    _entity_component_sprite_draw((EseEntityComponentSprite*)component->data, screen_x, screen_y, draw_callbacks->draw_texture, user_data);
+}
+
+static bool _sprite_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    // Sprite components don't support function execution
+    return false;
+}
+
+// Static vtable instance for sprite components
+static const ComponentVTable sprite_vtable = {
+    .copy = _sprite_vtable_copy,
+    .destroy = _sprite_vtable_destroy,
+    .update = _sprite_vtable_update,
+    .draw = _sprite_vtable_draw,
+    .run_function = _sprite_vtable_run_function
+};
+
 static void _entity_component_sprite_register(EseEntityComponentSprite *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_sprite_register called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_sprite_register component is already registered");
@@ -40,6 +72,10 @@ static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, c
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_SPRITE;
+    component->base.vtable = &sprite_vtable;
+    
+    component->current_frame = 0;
+    component->sprite_ellapse_time = 0;
 
     if (sprite_name != NULL) {
         EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(engine->runtime, ENGINE_KEY);
@@ -54,9 +90,6 @@ static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, c
         component->sprite_name = NULL;
         component->sprite = NULL;
     }
-
-    component->current_frame = 0;
-    component->sprite_ellapse_time = 0;
 
     return &component->base;
 }

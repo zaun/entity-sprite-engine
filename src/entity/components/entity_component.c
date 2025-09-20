@@ -33,30 +33,7 @@ EseEntityComponent *entity_component_copy(EseEntityComponent* component) {
 
     profile_start(PROFILE_ENTITY_COMPONENT_COPY);
 
-    EseEntityComponent *result;
-    switch (component->type) {
-        case ENTITY_COMPONENT_COLLIDER:
-            result = _entity_component_collider_copy((EseEntityComponentCollider*)component->data);
-            break;
-        case ENTITY_COMPONENT_LUA:
-            result = _entity_component_lua_copy((EseEntityComponentLua*)component->data);
-            break;
-        case ENTITY_COMPONENT_MAP:
-            result = _entity_component_ese_map_copy((EseEntityComponentMap*)component->data);
-            break;
-        case ENTITY_COMPONENT_SHAPE:
-            result = _entity_component_shape_copy((EseEntityComponentShape*)component->data);
-            break;
-        case ENTITY_COMPONENT_SPRITE:
-            result = _entity_component_sprite_copy((EseEntityComponentSprite*)component->data);
-            break;
-        case ENTITY_COMPONENT_TEXT:
-            result = _entity_component_text_copy((EseEntityComponentText*)component->data);
-            break;
-        default:
-            result = NULL;
-            break;
-    }
+    EseEntityComponent *result = component->vtable->copy(component);
 
     profile_stop(PROFILE_ENTITY_COMPONENT_COPY, "entity_component_copy");
     profile_count_add("entity_comp_copy_count");
@@ -72,29 +49,7 @@ void entity_component_destroy(EseEntityComponent* component) {
         luaL_unref(component->lua->runtime, LUA_REGISTRYINDEX, component->lua_ref);
     }
     
-    switch (component->type) {
-        case ENTITY_COMPONENT_COLLIDER:
-            _entity_component_collider_destroy((EseEntityComponentCollider*)component->data);
-            break;
-        case ENTITY_COMPONENT_LUA:
-            _entity_component_lua_destroy((EseEntityComponentLua*)component->data);
-            break;
-        case ENTITY_COMPONENT_MAP:
-            _entity_component_ese_map_destroy((EseEntityComponentMap*)component->data);
-            break;
-        case ENTITY_COMPONENT_SHAPE:
-            _entity_component_shape_destroy((EseEntityComponentShape*)component->data);
-            break;
-        case ENTITY_COMPONENT_SPRITE:
-            _entity_component_sprite_destroy((EseEntityComponentSprite*)component->data);
-            break;
-        case ENTITY_COMPONENT_TEXT:
-            _entity_component_text_destroy((EseEntityComponentText*)component->data);
-            break;
-        default:
-            log_error("ENTITY", "Can't free unknown component type");
-            break;
-    }
+    component->vtable->destroy(component);
     
     profile_stop(PROFILE_ENTITY_COMPONENT_DESTROY, "entity_component_destroy");
     profile_count_add("entity_comp_destroy_count");
@@ -117,40 +72,7 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
 
     profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
 
-    switch (component->type) {
-        case ENTITY_COMPONENT_COLLIDER:
-            profile_start(PROFILE_ENTITY_COMP_COLLIDER_UPDATE);
-            // Update world bounds in case entity position changed
-            entity_component_collider_update_world_bounds_only((EseEntityComponentCollider*)component->data);
-            profile_stop(PROFILE_ENTITY_COMP_COLLIDER_UPDATE, "entity_component_collider_update");
-            break;
-        case ENTITY_COMPONENT_LUA:
-            profile_start(PROFILE_ENTITY_COMP_LUA_UPDATE);
-            _entity_component_lua_update((EseEntityComponentLua*)component->data, entity, delta_time);
-            profile_stop(PROFILE_ENTITY_COMP_LUA_UPDATE, "entity_component_lua_update");
-            break;
-        case ENTITY_COMPONENT_MAP:
-            profile_start(PROFILE_ENTITY_COMP_MAP_UPDATE);
-            _entity_component_ese_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
-            profile_stop(PROFILE_ENTITY_COMP_MAP_UPDATE, "entity_component_ese_map_update");
-            break;
-        case ENTITY_COMPONENT_SHAPE:
-            // Shape component has no update function
-            break;
-        case ENTITY_COMPONENT_SPRITE:
-            profile_start(PROFILE_ENTITY_COMP_SPRITE_UPDATE);
-            _entity_component_sprite_update((EseEntityComponentSprite*)component->data, entity, delta_time);
-            profile_stop(PROFILE_ENTITY_COMP_SPRITE_UPDATE, "entity_component_sprite_update");
-            break;
-        case ENTITY_COMPONENT_TEXT:
-            profile_start(PROFILE_ENTITY_COMP_TEXT_UPDATE);
-            _entity_component_text_update((EseEntityComponentText*)component->data, entity, delta_time);
-            profile_stop(PROFILE_ENTITY_COMP_TEXT_UPDATE, "entity_component_text_update");
-            break;
-        default:
-            log_debug("ENTITY_COMP", "Unknown TYPE updaging EseEntityComponent %s", ese_uuid_get_value(component->id));
-            break;
-    }
+    component->vtable->update(component, entity, delta_time);
     
     profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
 }
@@ -246,55 +168,7 @@ void entity_component_draw(
     int screen_y = (int)(entity_y - view_top);
     profile_stop(PROFILE_ENTITY_DRAW_SCREEN_POS, "entity_component_draw_screen_pos");
 
-    switch(component->type) {
-        case ENTITY_COMPONENT_COLLIDER: {
-            profile_start(PROFILE_ENTITY_COMP_COLLIDER_DRAW);
-            _entity_component_collider_draw(
-                (EseEntityComponentCollider*)component->data,
-                screen_x, screen_y, callbacks->draw_rect, callback_user_data
-            );
-            profile_stop(PROFILE_ENTITY_COMP_COLLIDER_DRAW, "entity_component_collider_draw");
-            break;
-        }
-        case ENTITY_COMPONENT_MAP: {
-            profile_start(PROFILE_ENTITY_COMP_MAP_DRAW);
-            _entity_component_ese_map_draw(
-                (EseEntityComponentMap*)component->data,
-                screen_x, screen_y, callbacks->draw_texture, callback_user_data
-            );
-            profile_stop(PROFILE_ENTITY_COMP_MAP_DRAW, "entity_component_ese_map_draw");
-            break;
-        }
-        case ENTITY_COMPONENT_SHAPE: {
-            profile_start(PROFILE_ENTITY_COMP_SHAPE_DRAW);
-            _entity_component_shape_draw(
-                (EseEntityComponentShape*)component->data,
-                screen_x, screen_y, callbacks, callback_user_data
-            );
-            profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
-            break;
-        }
-        case ENTITY_COMPONENT_SPRITE: {
-            profile_start(PROFILE_ENTITY_COMP_SPRITE_DRAW);
-            _entity_component_sprite_draw(
-                (EseEntityComponentSprite*)component->data,
-                screen_x, screen_y, callbacks->draw_texture, callback_user_data
-            );
-            profile_stop(PROFILE_ENTITY_COMP_SPRITE_DRAW, "entity_component_sprite_draw");
-            break;
-        }
-        case ENTITY_COMPONENT_TEXT: {
-            profile_start(PROFILE_ENTITY_COMP_TEXT_DRAW);
-            _entity_component_text_draw(
-                (EseEntityComponentText*)component->data,
-                screen_x, screen_y, callbacks->draw_texture, callback_user_data
-            );
-            profile_stop(PROFILE_ENTITY_COMP_TEXT_DRAW, "entity_component_text_draw");
-            break;
-        }
-        default:
-            break;
-    }
+    component->vtable->draw(component, screen_x, screen_y, callbacks, callback_user_data);
     
     profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
 }
@@ -313,16 +187,7 @@ bool entity_component_run_function(
 
     profile_start(PROFILE_ENTITY_LUA_FUNCTION_CALL);
 
-    bool result;
-    switch (component->type) {
-        case ENTITY_COMPONENT_LUA:
-            result = entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name, argc, argv);
-            break;
-        default:
-            // Other component types don't support function execution
-            result = false;
-            break;
-    }
+    bool result = component->vtable->run_function(component, entity, func_name, argc, (void**)argv);
     
     profile_stop(PROFILE_ENTITY_LUA_FUNCTION_CALL, "entity_component_run_function");
     return result;

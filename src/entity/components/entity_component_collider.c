@@ -18,6 +18,39 @@
 
 static void _entity_component_collider_rect_changed(EseRect *rect, void *userdata);
 
+// VTable wrapper functions
+static EseEntityComponent* _collider_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_collider_copy((EseEntityComponentCollider*)component->data);
+}
+
+static void _collider_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_collider_destroy((EseEntityComponentCollider*)component->data);
+}
+
+static void _collider_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    // Collider update only updates world bounds
+    entity_component_collider_update_world_bounds_only((EseEntityComponentCollider*)component->data);
+}
+
+static void _collider_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    EntityDrawCallbacks* draw_callbacks = (EntityDrawCallbacks*)callbacks;
+    _entity_component_collider_draw((EseEntityComponentCollider*)component->data, screen_x, screen_y, draw_callbacks->draw_rect, user_data);
+}
+
+static bool _collider_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    // Colliders don't support function execution
+    return false;
+}
+
+// Static vtable instance for collider components
+static const ComponentVTable collider_vtable = {
+    .copy = _collider_vtable_copy,
+    .destroy = _collider_vtable_destroy,
+    .update = _collider_vtable_update,
+    .draw = _collider_vtable_draw,
+    .run_function = _collider_vtable_run_function
+};
+
 static void _entity_component_collider_register(EseEntityComponentCollider *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_collider_push called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_collider_push component is already registered");
@@ -46,8 +79,8 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_COLLIDER;
-
-
+    component->base.vtable = &collider_vtable;
+    
     component->rects = memory_manager.malloc(sizeof(EseRect*) * COLLIDER_RECT_CAPACITY, MMTAG_ENTITY);
     component->rects_capacity = COLLIDER_RECT_CAPACITY;
     component->rects_count = 0;
@@ -68,6 +101,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_COLLIDER;
+    copy->base.vtable = &collider_vtable;
 
     // Copy rects
     copy->rects = memory_manager.malloc(sizeof(EseRect*) * src->rects_capacity, MMTAG_ENTITY);

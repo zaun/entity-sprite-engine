@@ -21,6 +21,36 @@ static const char *STANDARD_FUNCTIONS[] = {
 };
 static const size_t STANDARD_FUNCTIONS_COUNT = sizeof(STANDARD_FUNCTIONS) / sizeof(STANDARD_FUNCTIONS[0]);
 
+// VTable wrapper functions
+static EseEntityComponent* _lua_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_lua_copy((EseEntityComponentLua*)component->data);
+}
+
+static void _lua_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_lua_destroy((EseEntityComponentLua*)component->data);
+}
+
+static void _lua_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    _entity_component_lua_update((EseEntityComponentLua*)component->data, entity, delta_time);
+}
+
+static void _lua_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    // Lua components don't have draw functionality
+}
+
+static bool _lua_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    return entity_component_lua_run((EseEntityComponentLua*)component->data, entity, func_name, argc, (EseLuaValue**)argv);
+}
+
+// Static vtable instance for lua components
+static const ComponentVTable lua_vtable = {
+    .copy = _lua_vtable_copy,
+    .destroy = _lua_vtable_destroy,
+    .update = _lua_vtable_update,
+    .draw = _lua_vtable_draw,
+    .run_function = _lua_vtable_run_function
+};
+
 static void _entity_component_lua_register(EseEntityComponentLua *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_lua_register called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_lua_register component is already registered");
@@ -53,6 +83,16 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_LUA;
+    component->base.vtable = &lua_vtable;
+    
+    component->instance_ref = LUA_NOREF;
+    component->engine = engine;
+    component->arg = lua_value_create_number("argument count", 0);
+    component->props = NULL;
+    component->props_count = 0;
+
+    // No free function needed for CachedLuaFunction
+    component->function_cache = hashmap_create(NULL);
 
     if (script != NULL) {
         component->script = memory_manager.strdup(script, MMTAG_COMP_LUA);
@@ -60,12 +100,6 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
         component->script = NULL;
     }
 
-    component->instance_ref = LUA_NOREF;
-    component->engine = engine;
-    component->arg = lua_value_create_number("argument count", 0);
-    component->props = NULL; // Will be allocated when first property is added
-    component->props_count = 0;
-    component->function_cache = hashmap_create(NULL); // No free function needed for CachedLuaFunction
 
     profile_count_add("entity_comp_lua_make_count");
     return &component->base;

@@ -14,6 +14,38 @@
 #include "types/poly_line.h"
 #include "utility/profile.h"
 
+// VTable wrapper functions
+static EseEntityComponent* _shape_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_shape_copy((EseEntityComponentShape*)component->data);
+}
+
+static void _shape_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_shape_destroy((EseEntityComponentShape*)component->data);
+}
+
+static void _shape_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    // Shape components don't have update functionality
+}
+
+static void _shape_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    EntityDrawCallbacks* draw_callbacks = (EntityDrawCallbacks*)callbacks;
+    _entity_component_shape_draw((EseEntityComponentShape*)component->data, screen_x, screen_y, draw_callbacks, user_data);
+}
+
+static bool _shape_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    // Shape components don't support function execution
+    return false;
+}
+
+// Static vtable instance for shape components
+static const ComponentVTable shape_vtable = {
+    .copy = _shape_vtable_copy,
+    .destroy = _shape_vtable_destroy,
+    .update = _shape_vtable_update,
+    .draw = _shape_vtable_draw,
+    .run_function = _shape_vtable_run_function
+};
+
 // Helper function to convert degrees to radians
 static float _degrees_to_radians(float degrees) {
     return degrees * M_PI / 180.0f;
@@ -59,13 +91,11 @@ static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_SHAPE;
-
-    // Create a new polyline for the shape
+    component->base.vtable = &shape_vtable;
+    
+    component->rotation = 0.0f;
     component->polyline = ese_poly_line_create(engine);
     ese_poly_line_ref(component->polyline);
-    
-    // Initialize rotation to 0 degrees
-    component->rotation = 0.0f;
 
     return &component->base;
 }

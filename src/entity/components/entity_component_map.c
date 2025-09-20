@@ -10,6 +10,38 @@
 #include "entity/entity_private.h"
 #include "types/types.h"
 
+// VTable wrapper functions
+static EseEntityComponent* _map_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_ese_map_copy((EseEntityComponentMap*)component->data);
+}
+
+static void _map_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_ese_map_destroy((EseEntityComponentMap*)component->data);
+}
+
+static void _map_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    _entity_component_ese_map_update((EseEntityComponentMap*)component->data, entity, delta_time);
+}
+
+static void _map_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    EntityDrawCallbacks* draw_callbacks = (EntityDrawCallbacks*)callbacks;
+    _entity_component_ese_map_draw((EseEntityComponentMap*)component->data, screen_x, screen_y, draw_callbacks->draw_texture, user_data);
+}
+
+static bool _map_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    // Map components don't support function execution
+    return false;
+}
+
+// Static vtable instance for map components
+static const ComponentVTable map_vtable = {
+    .copy = _map_vtable_copy,
+    .destroy = _map_vtable_destroy,
+    .update = _map_vtable_update,
+    .draw = _map_vtable_draw,
+    .run_function = _map_vtable_run_function
+};
+
 static void _entity_component_ese_map_register(EseEntityComponentMap *component, bool is_lua_owned)
 {
     log_assert("ENTITY_COMP", component, "_entity_component_ese_map_register called with NULL component");
@@ -42,13 +74,13 @@ static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_MAP;
-
+    component->base.vtable = &map_vtable;
+    
     component->map = NULL;
     component->ese_map_pos = ese_point_create(engine);
     ese_point_ref(component->ese_map_pos);
     component->size = 128;
     component->seed = 1000;
-
     component->sprite_frames = NULL;
 
     return &component->base;

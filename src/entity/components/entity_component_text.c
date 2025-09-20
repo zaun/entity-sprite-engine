@@ -13,6 +13,37 @@
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 
+// VTable wrapper functions
+static EseEntityComponent* _text_vtable_copy(EseEntityComponent* component) {
+    return _entity_component_text_copy((EseEntityComponentText*)component->data);
+}
+
+static void _text_vtable_destroy(EseEntityComponent* component) {
+    _entity_component_text_destroy((EseEntityComponentText*)component->data);
+}
+
+static void _text_vtable_update(EseEntityComponent* component, EseEntity* entity, float delta_time) {
+    _entity_component_text_update((EseEntityComponentText*)component->data, entity, delta_time);
+}
+
+static void _text_vtable_draw(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data) {
+    EntityDrawCallbacks* draw_callbacks = (EntityDrawCallbacks*)callbacks;
+    _entity_component_text_draw((EseEntityComponentText*)component->data, screen_x, screen_y, draw_callbacks->draw_texture, user_data);
+}
+
+static bool _text_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
+    // Text components don't support function execution
+    return false;
+}
+
+// Static vtable instance for text components
+static const ComponentVTable text_vtable = {
+    .copy = _text_vtable_copy,
+    .destroy = _text_vtable_destroy,
+    .update = _text_vtable_update,
+    .draw = _text_vtable_draw,
+    .run_function = _text_vtable_run_function
+};
 
 // Font constants (matching console font)
 #define FONT_CHAR_WIDTH 10
@@ -47,22 +78,19 @@ static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, con
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_TEXT;
+    component->base.vtable = &text_vtable;
     
-    log_debug("ENTITY_COMP", "Created text component: text='%s', type=%d, active=%s", 
-              text ? text : "NULL", component->base.type, component->base.active ? "true" : "false");
-
+    component->justify = TEXT_JUSTIFY_LEFT;
+    component->align = TEXT_ALIGN_TOP;
+    component->offset = ese_point_create(engine);
+    ese_point_ref(component->offset);
+    
     // Initialize text
     if (text != NULL) {
         component->text = memory_manager.strdup(text, MMTAG_ENTITY);
     } else {
         component->text = memory_manager.strdup("", MMTAG_ENTITY);
     }
-
-    // Initialize with default values
-    component->justify = TEXT_JUSTIFY_LEFT;
-    component->align = TEXT_ALIGN_TOP;
-    component->offset = ese_point_create(engine);
-    ese_point_ref(component->offset);
 
     return &component->base;
 }
