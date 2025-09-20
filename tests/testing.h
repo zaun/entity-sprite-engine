@@ -44,7 +44,7 @@
 EseLuaEngine* create_test_engine(void) {
     EseLuaEngine *engine = lua_engine_create();
     if (engine) {
-        lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+        lua_engine_add_registry_key(engine, LUA_ENGINE_KEY, engine);
     }
     return engine;
 }

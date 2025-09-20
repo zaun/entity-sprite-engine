@@ -691,7 +691,7 @@ static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index
                     lua_pop(L, 1);
                 }
                 *result = *table_value;
-                lua_value_free(table_value);
+                lua_value_destroy(table_value);
             }
             break;
         }
@@ -750,7 +750,7 @@ static int _entity_lua_dispatch(lua_State *L) {
 
     if (argv) {
         for (int i = 0; i < argc; ++i) {
-            lua_value_free(argv[i]);
+            lua_value_destroy(argv[i]);
         }
         memory_manager.free(argv);
     }
@@ -1217,7 +1217,7 @@ static int _entity_lua_publish(lua_State *L) {
     // Publish
     engine_pubsub_pub(engine, event_name, data);
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     lua_pushboolean(L, true);
     return 1;
 }

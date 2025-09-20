@@ -18,6 +18,11 @@
 #include "../src/types/point.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/scripting/lua_engine_private.h"
+#include "../src/types/types.h"
+#include "../src/vendor/lua/src/lua.h"
+#include "../src/vendor/lua/src/lauxlib.h"
 
 /**
 * C API Test Functions Declarations
@@ -135,7 +140,6 @@ static void test_ese_point_create(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(point, "Point should be created");
     TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_point_get_x(point));
     TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_point_get_y(point));
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_point_get_state(point), "Point should have correct Lua state");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_point_get_lua_ref_count(point), "New point should have ref count 0");
 
     ese_point_destroy(point);
@@ -174,10 +178,10 @@ static void test_ese_point_y(void) {
 static void test_ese_point_ref(void) {
     EsePoint *point = ese_point_create(g_engine);
 
-    ese_point_ref(point);
+    ese_point_ref(g_engine, point);
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_point_get_lua_ref_count(point), "Ref count should be 1");
 
-    ese_point_unref(point);
+    ese_point_unref(g_engine, point);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_point_get_lua_ref_count(point), "Ref count should be 0");
 
     ese_point_destroy(point);
@@ -189,18 +193,17 @@ static void test_ese_point_copy_requires_engine(void) {
 
 static void test_ese_point_copy(void) {
     EsePoint *point = ese_point_create(g_engine);
-    ese_point_ref(point);
+    ese_point_ref(g_engine, point);
     ese_point_set_x(point, 10.0f);
     ese_point_set_y(point, 20.0f);
     EsePoint *copy = ese_point_copy(point);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_point_get_state(copy), "Copy should have correct Lua state");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_point_get_lua_ref_count(copy), "Copy should have ref count 0");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_point_get_x(copy));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_point_get_y(copy));
 
-    ese_point_unref(point);
+    ese_point_unref(g_engine, point);
     ese_point_destroy(point);
     ese_point_destroy(copy);
 }
@@ -322,31 +325,22 @@ static void test_ese_point_lua_integration(void) {
     EseLuaEngine *engine = create_test_engine();
     EsePoint *point = ese_point_create(engine);
 
-    lua_State *before_state = ese_point_get_state(point);
-    TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Point should have a valid Lua state");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Point state should match engine runtime");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_point_get_lua_ref(point), "Point should have no Lua reference initially");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESE_LUA_NOREF, ese_point_get_lua_ref(point), "Point should have no Lua reference initially");
 
-    ese_point_ref(point);
-    lua_State *after_ref_state = ese_point_get_state(point);
-    TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Point should have a valid Lua state");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Point state should match engine runtime");
-    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_point_get_lua_ref(point), "Point should have a valid Lua reference after ref");
+    ese_point_ref(engine, point);
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(ESE_LUA_NOREF, ese_point_get_lua_ref(point), "Point should have a valid Lua reference after ref");
 
-    ese_point_unref(point);
-    lua_State *after_unref_state = ese_point_get_state(point);
-    TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Point should have a valid Lua state");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Point state should match engine runtime");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_point_get_lua_ref(point), "Point should have no Lua reference initially");
+    ese_point_unref(engine, point);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESE_LUA_NOREF, ese_point_get_lua_ref(point), "Point should have no Lua reference after unref");
 
     ese_point_destroy(point);
     lua_engine_destroy(engine);
 }
 
 static void test_ese_point_lua_init(void) {
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     
-    luaL_getmetatable(L, POINT_PROXY_META);
+    luaL_getmetatable(L, "PointMeta");
     TEST_ASSERT_TRUE_MESSAGE(lua_isnil(L, -1), "Metatable should not exist before initialization");
     lua_pop(L, 1);
     
@@ -356,7 +350,7 @@ static void test_ese_point_lua_init(void) {
     
     ese_point_lua_init(g_engine);
     
-    luaL_getmetatable(L, POINT_PROXY_META);
+    luaL_getmetatable(L, "PointMeta");
     TEST_ASSERT_FALSE_MESSAGE(lua_isnil(L, -1), "Metatable should exist after initialization");
     TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "Metatable should be a table");
     lua_pop(L, 1);
@@ -370,10 +364,10 @@ static void test_ese_point_lua_init(void) {
 static void test_ese_point_lua_push(void) {
     ese_point_lua_init(g_engine);
 
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     EsePoint *point = ese_point_create(g_engine);
     
-    ese_point_lua_push(point);
+    ese_point_lua_push(g_engine, point);
     
     EsePoint **ud = (EsePoint **)lua_touserdata(L, -1);
     TEST_ASSERT_EQUAL_PTR_MESSAGE(point, *ud, "The pushed item should be the actual point");
@@ -386,12 +380,12 @@ static void test_ese_point_lua_push(void) {
 static void test_ese_point_lua_get(void) {
     ese_point_lua_init(g_engine);
 
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     EsePoint *point = ese_point_create(g_engine);
     
-    ese_point_lua_push(point);
+    ese_point_lua_push(g_engine, point);
     
-    EsePoint *extracted_point = ese_point_lua_get(L, -1);
+    EsePoint *extracted_point = ese_point_lua_get(g_engine, -1);
     TEST_ASSERT_EQUAL_PTR_MESSAGE(point, extracted_point, "Extracted point should match original");
     
     lua_pop(L, 1);
@@ -404,7 +398,7 @@ static void test_ese_point_lua_get(void) {
 
 static void test_ese_point_lua_new(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     
     const char *testA = "return Point.new()\n";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
@@ -420,7 +414,7 @@ static void test_ese_point_lua_new(void) {
 
     const char *testE = "return Point.new(10, 10)\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "testE Lua code should execute without error");
-    EsePoint *extracted_point = ese_point_lua_get(L, -1);
+    EsePoint *extracted_point = ese_point_lua_get(g_engine, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
     TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_point_get_x(extracted_point), "Extracted point should have x=10");
     TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_point_get_y(extracted_point), "Extracted point should have y=10");
@@ -429,7 +423,7 @@ static void test_ese_point_lua_new(void) {
 
 static void test_ese_point_lua_zero(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     
     const char *testA = "return Point.zero(10)\n";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute with error");
@@ -439,16 +433,16 @@ static void test_ese_point_lua_zero(void) {
 
     const char *testC = "return Point.zero()\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
-    EsePoint *extracted_point = ese_point_lua_get(L, -1);
+    EsePoint *extracted_point = ese_point_lua_get(g_engine, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_point_get_x(extracted_point), "Extracted point should have x=10");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_point_get_y(extracted_point), "Extracted point should have y=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_point_get_x(extracted_point), "Extracted point should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_point_get_y(extracted_point), "Extracted point should have y=0");
     ese_point_destroy(extracted_point);
 }
 
 static void test_ese_point_lua_distance(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
     
     const char *testA = "return Point.distance(Point.new(0, 0), Point.new(10, 0))\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
@@ -483,7 +477,7 @@ static void test_ese_point_lua_distance(void) {
 
 static void test_ese_point_lua_x(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
 
     const char *test1 = "local p = Point.new(0, 0); p.x = \"20\"; return p.y";    
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "testD Lua code should execute with error");
@@ -509,7 +503,7 @@ static void test_ese_point_lua_x(void) {
 
 static void test_ese_point_lua_y(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
 
     const char *test1 = "local p = Point.new(0, 0); p.y = \"20\"; return p.y";    
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "testD Lua code should execute with error");
@@ -535,7 +529,7 @@ static void test_ese_point_lua_y(void) {
 
 static void test_ese_point_lua_tostring(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
 
     const char *test_code = "local p = Point.new(10.5, 20.25); return tostring(p)";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
@@ -549,7 +543,7 @@ static void test_ese_point_lua_tostring(void) {
 
 static void test_ese_point_lua_gc(void) {
     ese_point_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
+    lua_State *L = g_engine->L;
 
     const char *testA = "local p = Point.new(5, 10)";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Point creation should execute without error");
@@ -559,28 +553,28 @@ static void test_ese_point_lua_gc(void) {
     
     const char *testB = "return Point.new(5, 10)";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Point creation should execute without error");
-    EsePoint *extracted_point = ese_point_lua_get(L, -1);
+    EsePoint *extracted_point = ese_point_lua_get(g_engine, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
-    ese_point_ref(extracted_point);
+    ese_point_ref(g_engine, extracted_point);
     
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    ese_point_unref(extracted_point);
+    ese_point_unref(g_engine, extracted_point);
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
     
     const char *testC = "return Point.new(5, 10)";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Point creation should execute without error");
-    extracted_point = ese_point_lua_get(L, -1);
+    extracted_point = ese_point_lua_get(g_engine, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_point, "Extracted point should not be NULL");
-    ese_point_ref(extracted_point);
+    ese_point_ref(g_engine, extracted_point);
     
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    ese_point_unref(extracted_point);
+    ese_point_unref(g_engine, extracted_point);
     ese_point_destroy(extracted_point);
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);

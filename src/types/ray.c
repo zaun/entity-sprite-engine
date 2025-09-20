@@ -3,6 +3,7 @@
 #include <math.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "scripting/lua_value.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/types.h"
@@ -24,7 +25,6 @@ struct EseRay {
     float dx;   /**< X component of the ray direction */
     float dy;   /**< Y component of the ray direction */
 
-    lua_State *state;   /**< Lua State this EseRay belongs to */
     int lua_ref;        /**< Lua registry reference to its own proxy table */
     int lua_ref_count;  /**< Number of times this ray has been referenced in C */
 };
@@ -37,19 +37,19 @@ struct EseRay {
 static EseRay *_ese_ray_make(void);
 
 // Lua metamethods
-static int _ese_ray_lua_gc(lua_State *L);
-static int _ese_ray_lua_index(lua_State *L);
-static int _ese_ray_lua_newindex(lua_State *L);
-static int _ese_ray_lua_tostring(lua_State *L);
+static EseLuaValue* _ese_ray_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua constructors
-static int _ese_ray_lua_new(lua_State *L);
-static int _ese_ray_lua_zero(lua_State *L);
+static EseLuaValue* _ese_ray_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_zero(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua methods
-static int _ese_ray_lua_intersects_rect(lua_State *L);
-static int _ese_ray_lua_get_point_at_distance(lua_State *L);
-static int _ese_ray_lua_normalize(lua_State *L);
+static EseLuaValue* _ese_ray_lua_intersects_rect(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_get_point_at_distance(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_ray_lua_normalize(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -86,24 +86,27 @@ static EseRay *_ese_ray_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _ese_ray_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseRay **ud = (EseRay **)luaL_testudata(L, 1, RAY_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
+static EseLuaValue* _ese_ray_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return NULL;
     }
-    
-    EseRay *ray = *ud;
+
+    // Get the ray from the first argument
+    if (!lua_value_is_ray(argv[0])) {
+        return NULL;
+    }
+
+    EseRay *ray = lua_value_get_ray(argv[0]);
     if (ray) {
-        // If lua_ref == LUA_NOREF, there are no more references to this ray, 
+        // If lua_ref == ESE_LUA_NOREF, there are no more references to this ray, 
         // so we can free it.
-        // If lua_ref != LUA_NOREF, this ray was referenced from C and should not be freed.
-        if (ray->lua_ref == LUA_NOREF) {
+        // If lua_ref != ESE_LUA_NOREF, this ray was referenced from C and should not be freed.
+        if (ray->lua_ref == ESE_LUA_NOREF) {
             ese_ray_destroy(ray);
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 /**
@@ -116,49 +119,70 @@ static int _ese_ray_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
  */
-static int _ese_ray_lua_index(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_RAY_INDEX);
-    EseRay *ray = ese_ray_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!ray || !key) {
+    
+    if (argc != 2) {
         profile_cancel(PROFILE_LUA_RAY_INDEX);
-        return 0;
+        return lua_value_create_error("result", "index requires 2 arguments");
+    }
+
+    if (!lua_value_is_ray(argv[0])) {
+        profile_cancel(PROFILE_LUA_RAY_INDEX);
+        return lua_value_create_error("result", "first argument must be a ray");
+    }
+    
+    EseRay *ray = lua_value_get_ray(argv[0]);
+    if (!ray) {
+        profile_cancel(PROFILE_LUA_RAY_INDEX);
+        return lua_value_create_error("result", "invalid ray");
+    }
+
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_RAY_INDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_RAY_INDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     if (strcmp(key, "x") == 0) {
-        lua_pushnumber(L, ray->x);
+        return lua_value_create_number(ray->x);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "y") == 0) {
-        lua_pushnumber(L, ray->y);
+        return lua_value_create_number(ray->y);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "dx") == 0) {
-        lua_pushnumber(L, ray->dx);
+        return lua_value_create_number(ray->dx);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "dy") == 0) {
-        lua_pushnumber(L, ray->dy);
+        return lua_value_create_number(ray->dy);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "intersects_rect") == 0) {
         lua_pushlightuserdata(L, ray);
         lua_pushcclosure(L, _ese_ray_lua_intersects_rect, 1);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "get_point_at_distance") == 0) {
         lua_pushlightuserdata(L, ray);
         lua_pushcclosure(L, _ese_ray_lua_get_point_at_distance, 1);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "normalize") == 0) {
         lua_pushlightuserdata(L, ray);
         lua_pushcclosure(L, _ese_ray_lua_normalize, 1);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     }
     profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (invalid)");
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -170,50 +194,71 @@ static int _ese_ray_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_ray_lua_newindex(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_RAY_NEWINDEX);
-    EseRay *ray = ese_ray_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!ray || !key) {
+    
+    if (argc != 3) {
         profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
-        return 0;
+        return lua_value_create_error("result", "newindex requires 3 arguments");
+    }
+
+    if (!lua_value_is_ray(argv[0])) {
+        profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
+        return lua_value_create_error("result", "first argument must be a ray");
+    }
+    
+    EseRay *ray = lua_value_get_ray(argv[0]);
+    if (!ray) {
+        profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
+        return lua_value_create_error("result", "invalid ray");
+    }
+
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     if (strcmp(key, "x") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
-            return luaL_error(L, "ray.x must be a number");
+            return lua_value_create_error("result", "ray.x must be a number");
         }
-        ray->x = (float)lua_tonumber(L, 3);
+        ray->x = (float)lua_value_get_number(argv[3-1]);
         profile_stop(PROFILE_LUA_RAY_NEWINDEX, "ray_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     } else if (strcmp(key, "y") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
-            return luaL_error(L, "ray.y must be a number");
+            return lua_value_create_error("result", "ray.y must be a number");
         }
-        ray->y = (float)lua_tonumber(L, 3);
+        ray->y = (float)lua_value_get_number(argv[3-1]);
         profile_stop(PROFILE_LUA_RAY_NEWINDEX, "ray_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     } else if (strcmp(key, "dx") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
-            return luaL_error(L, "ray.dx must be a number");
+            return lua_value_create_error("result", "ray.dx must be a number");
         }
-        ray->dx = (float)lua_tonumber(L, 3);
+        ray->dx = (float)lua_value_get_number(argv[3-1]);
         profile_stop(PROFILE_LUA_RAY_NEWINDEX, "ray_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     } else if (strcmp(key, "dy") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RAY_NEWINDEX);
-            return luaL_error(L, "ray.dy must be a number");
+            return lua_value_create_error("result", "ray.dy must be a number");
         }
-        ray->dy = (float)lua_tonumber(L, 3);
+        ray->dy = (float)lua_value_get_number(argv[3-1]);
         profile_stop(PROFILE_LUA_RAY_NEWINDEX, "ray_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     }
     profile_stop(PROFILE_LUA_RAY_NEWINDEX, "ray_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
+    return lua_value_create_error("result", "unknown or unassignable property '%s'", key);
 }
 
 /**
@@ -225,20 +270,20 @@ static int _ese_ray_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _ese_ray_lua_tostring(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseRay *ray = ese_ray_lua_get(L, 1);
 
     if (!ray) {
-        lua_pushstring(L, "Ray: (invalid)");
-        return 1;
+        return lua_value_create_string("Ray: (invalid)");
+        return lua_value_create_nil();
     }
 
     char buf[128];
     snprintf(buf, sizeof(buf), "Ray: %p (x=%.2f, y=%.2f, dx=%.2f, dy=%.2f)", 
              (void*)ray, ray->x, ray->y, ray->dx, ray->dy);
-    lua_pushstring(L, buf);
+    return lua_value_create_string(buf);
 
-    return 1;
+    return lua_value_create_nil();
 }
 
 // Lua constructors
@@ -253,27 +298,27 @@ static int _ese_ray_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _ese_ray_lua_new(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_RAY_NEW);
     float x = 0.0f, y = 0.0f, dx = 1.0f, dy = 0.0f;
 
-    int n_args = lua_gettop(L);
+    int n_args = argc;
     if (n_args == 4) {
         if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER || 
             lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_RAY_NEW);
-            return luaL_error(L, "Ray.new(number, number, number, number) takes 4 arguments");
+            return lua_value_create_error("result", "Ray.new(number, number, number, number) takes 4 arguments");
         }
-        x = (float)lua_tonumber(L, 1);
-        y = (float)lua_tonumber(L, 2);
-        dx = (float)lua_tonumber(L, 3);
-        dy = (float)lua_tonumber(L, 4);
+        x = (float)lua_value_get_number(argv[1-1]);
+        y = (float)lua_value_get_number(argv[2-1]);
+        dx = (float)lua_value_get_number(argv[3-1]);
+        dy = (float)lua_value_get_number(argv[4-1]);
     } else if (n_args == 2) {
         EsePoint *p = ese_point_lua_get(L, 1);
         EseVector *v = ese_vector_lua_get(L, 2);
         if (!p || !v) {
             profile_cancel(PROFILE_LUA_RAY_NEW);
-            return luaL_error(L, "Ray.new(point, vector) takes 2 arguments");
+            return lua_value_create_error("result", "Ray.new(point, vector) takes 2 arguments");
         }
         x = ese_point_get_x(p);
         y = ese_point_get_y(p);
@@ -281,7 +326,7 @@ static int _ese_ray_lua_new(lua_State *L) {
         dy = ese_vector_get_y(v);
     } else {
         profile_cancel(PROFILE_LUA_RAY_NEW);
-        return luaL_error(L, "Ray.new(x, y, dx, dy) or Ray.new(point, vector)");
+        return lua_value_create_error("result", "Ray.new(x, y, dx, dy) or Ray.new(point, vector)");
     }
 
     // Create the ray using the standard creation function
@@ -301,7 +346,7 @@ static int _ese_ray_lua_new(lua_State *L) {
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RAY_NEW, "ray_lua_new");
-    return 1;
+    return lua_value_create_nil();
 }
 
 /**
@@ -314,14 +359,14 @@ static int _ese_ray_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _ese_ray_lua_zero(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_zero(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_RAY_ZERO);
 
     // Get argument count
-    int argc = lua_gettop(L);
+    int argc = argc;
     if (argc != 0) {
         profile_cancel(PROFILE_LUA_RAY_ZERO);
-        return luaL_error(L, "Ray.zero() takes 0 arguments");
+        return lua_value_create_error("result", "Ray.zero() takes 0 arguments");
     }
 
     // Create the ray using the standard creation function
@@ -337,7 +382,7 @@ static int _ese_ray_lua_zero(lua_State *L) {
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_RAY_ZERO, "ray_lua_zero");
-    return 1;
+    return lua_value_create_nil();
 }
 
 // Lua methods
@@ -350,25 +395,25 @@ static int _ese_ray_lua_zero(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
-static int _ese_ray_lua_intersects_rect(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_intersects_rect(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     // Get argument count
-    int n_args = lua_gettop(L);
+    int n_args = argc;
     if (n_args != 2) {
-        return luaL_error(L, "ray:intersects_rect(rect) takes 1 argument");
+        return lua_value_create_error("result", "ray:intersects_rect(rect) takes 1 argument");
     }
 
     EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
     if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in intersects_rect method");
+        return lua_value_create_error("result", "Invalid EseRay object in intersects_rect method");
     }
     
     EseRect *rect = ese_rect_lua_get(L, 2);
     if (!rect) {
-        return luaL_error(L, "ray:intersects_rect(rect) takes a Rect");
+        return lua_value_create_error("result", "ray:intersects_rect(rect) takes a Rect");
     }
     
-    lua_pushboolean(L, ese_ray_intersects_rect(ray, rect));
-    return 1;
+    return lua_value_create_bool(ese_ray_intersects_rect(ray, rect));
+    return lua_value_create_nil();
 }
 
 /**
@@ -380,28 +425,28 @@ static int _ese_ray_lua_intersects_rect(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 2 - x and y coordinates)
  */
-static int _ese_ray_lua_get_point_at_distance(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_get_point_at_distance(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     // Get argument count
-    int n_args = lua_gettop(L);
+    int n_args = argc;
     if (n_args != 2) {
-        return luaL_error(L, "ray:get_point_at_distance(distance) takes 1 argument");
+        return lua_value_create_error("result", "ray:get_point_at_distance(distance) takes 1 argument");
     }
 
     EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
     if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in get_point_at_distance method");
+        return lua_value_create_error("result", "Invalid EseRay object in get_point_at_distance method");
     }
     
     if (lua_type(L, 2) != LUA_TNUMBER) {
-        return luaL_error(L, "ray:get_point_at_distance(distance) takes a number");
+        return lua_value_create_error("result", "ray:get_point_at_distance(distance) takes a number");
     }
     
-    float distance = (float)lua_tonumber(L, 2);
+    float distance = (float)lua_value_get_number(argv[2-1]);
     float x, y;
     ese_ray_get_point_at_distance(ray, distance, &x, &y);
     
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
+    return lua_value_create_number(x);
+    return lua_value_create_number(y);
     return 2;
 }
 
@@ -414,14 +459,14 @@ static int _ese_ray_lua_get_point_at_distance(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_ray_lua_normalize(lua_State *L) {
+static EseLuaValue* _ese_ray_lua_normalize(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
     if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in normalize method");
+        return lua_value_create_error("result", "Invalid EseRay object in normalize method");
     }
     
     ese_ray_normalize(ray);
-    return 0;
+    return lua_value_create_nil();
 }
 
 // ========================================

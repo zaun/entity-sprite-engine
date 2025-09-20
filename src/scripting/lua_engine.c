@@ -6,9 +6,6 @@
 #include "utility/log.h"
 #include "utility/hashmap.h"
 #include "utility/profile.h"
-#include "vendor/lua/src/lua.h"
-#include "vendor/lua/src/lauxlib.h"
-#include "vendor/lua/src/lualib.h"
 #include "core/engine.h"
 #include "core/console.h"
 #include "core/memory_manager.h"
@@ -21,6 +18,7 @@ const char _ENGINE_SENTINEL = 0;
 const char _ENTITY_LIST_KEY_SENTINEL = 0;
 const char _LUA_ENGINE_SENTINEL = 0;
 
+
 static jmp_buf g_lua_panic_jmp;
 
 static int my_panic(lua_State *L) {
@@ -32,161 +30,160 @@ static int my_panic(lua_State *L) {
 
 EseLuaEngine *lua_engine_create() {
     EseLuaEngine *engine = memory_manager.malloc(sizeof(EseLuaEngine), MMTAG_LUA);
-    engine->internal = memory_manager.malloc(sizeof(EseLuaEngineInternal), MMTAG_LUA);
 
-    engine->internal->memory_limit = 1024 * 1024 * 10; // 10MB
-    engine->internal->memory_used = 0;
+    engine->memory_limit = 1024 * 1024 * 10; // 10MB
+    engine->memory_used = 0;
 
     // Set default limits
-    engine->internal->max_execution_time = (clock_t)((10) * CLOCKS_PER_SEC); // 10 second timeout protection
-    engine->internal->max_instruction_count = 4000000; // 4M instruction limit for security
+    engine->max_execution_time = (clock_t)((10) * CLOCKS_PER_SEC); // 10 second timeout protection
+    engine->max_instruction_count = 4000000; // 4M instruction limit for security
 
     // Initialize Lua runtime
-    engine->runtime = lua_newstate(_lua_engine_limited_alloc, engine);
-    if (!engine->runtime) {
+    engine->L = lua_newstate(_lua_engine_limited_alloc, engine);
+    if (!engine->L) {
         log_error("LUA_ENGINE", "Failed to create Lua runtime");
         memory_manager.free(engine);
         return NULL;
     }
 
-    engine->internal->functions = hashmap_create((EseHashMapFreeFn)memory_manager.free);
+    engine->functions = hashmap_create((EseHashMapFreeFn)memory_manager.free);
 
     
     // Log on lua panic
-    lua_atpanic(engine->runtime, my_panic);
+    lua_atpanic(engine->L, my_panic);
     if (setjmp(g_lua_panic_jmp) != 0) {
         log_error("LUA_ENGINE", "Recovered from Lua panic");
         return NULL;
     }
 
     // Load all standard libraries including JIT
-    luaL_openlibs(engine->runtime);
+    luaL_openlibs(engine->L);
     
     // Enable JIT compiler (it's disabled by default)
-    lua_getglobal(engine->runtime, "jit");
-    if (lua_istable(engine->runtime, -1)) {
-        lua_getfield(engine->runtime, -1, "on");
-        if (lua_isfunction(engine->runtime, -1)) {
+    lua_getglobal(engine->L, "jit");
+    if (lua_istable(engine->L, -1)) {
+        lua_getfield(engine->L, -1, "on");
+        if (lua_isfunction(engine->L, -1)) {
             // Use pcall to safely enable JIT
-            int call_result = lua_pcall(engine->runtime, 0, 0, 0);
+            int call_result = lua_pcall(engine->L, 0, 0, 0);
             if (call_result == LUA_OK) {
                 log_debug("LUA_ENGINE", "JIT compiler enabled");
             } else {
-                const char* error_msg = lua_tostring(engine->runtime, -1);
+                const char* error_msg = lua_tostring(engine->L, -1);
                 log_error("LUA_ENGINE", "Failed to enable JIT: %s", error_msg ? error_msg : "unknown error");
-                lua_pop(engine->runtime, 1);
+                lua_pop(engine->L, 1);
             }
         } else {
             log_error("LUA_ENGINE", "JIT on function not available");
-            lua_pop(engine->runtime, 1);
+            lua_pop(engine->L, 1);
         }
     } else {
         log_error("LUA_ENGINE", "JIT table not available");
     }
-    lua_pop(engine->runtime, 1);
+    lua_pop(engine->L, 1);
     
     // Verify JIT is loaded and working
-    lua_getglobal(engine->runtime, "jit");
-    if (lua_istable(engine->runtime, -1)) {
+    lua_getglobal(engine->L, "jit");
+    if (lua_istable(engine->L, -1)) {
         log_debug("LUA_ENGINE", "JIT library loaded successfully");
         
         // Check JIT status (simple check - just verify the function exists)
-        lua_getfield(engine->runtime, -1, "status");
-        if (lua_isfunction(engine->runtime, -1)) {
+        lua_getfield(engine->L, -1, "status");
+        if (lua_isfunction(engine->L, -1)) {
             log_debug("LUA_ENGINE", "JIT Status: available");
         } else {
             log_debug("LUA_ENGINE", "JIT status field is not a function");
         }
-        lua_pop(engine->runtime, 1);
+        lua_pop(engine->L, 1);
         
         // Check additional JIT info
-        lua_getfield(engine->runtime, -1, "version");
-        if (lua_isstring(engine->runtime, -1)) {
-            log_debug("LUA_ENGINE", "JIT Version: %s", lua_tostring(engine->runtime, -1));
+        lua_getfield(engine->L, -1, "version");
+        if (lua_isstring(engine->L, -1)) {
+            log_debug("LUA_ENGINE", "JIT Version: %s", lua_tostring(engine->L, -1));
         }
-        lua_pop(engine->runtime, 1);
+        lua_pop(engine->L, 1);
         
-        lua_getfield(engine->runtime, -1, "os");
-        if (lua_isstring(engine->runtime, -1)) {
-            log_debug("LUA_ENGINE", "JIT OS: %s", lua_tostring(engine->runtime, -1));
+        lua_getfield(engine->L, -1, "os");
+        if (lua_isstring(engine->L, -1)) {
+            log_debug("LUA_ENGINE", "JIT OS: %s", lua_tostring(engine->L, -1));
         }
-        lua_pop(engine->runtime, 1);
+        lua_pop(engine->L, 1);
         
-        lua_getfield(engine->runtime, -1, "arch");
-        if (lua_isstring(engine->runtime, -1)) {
-            log_debug("LUA_ENGINE", "JIT Arch: %s", lua_tostring(engine->runtime, -1));
+        lua_getfield(engine->L, -1, "arch");
+        if (lua_isstring(engine->L, -1)) {
+            log_debug("LUA_ENGINE", "JIT Arch: %s", lua_tostring(engine->L, -1));
         }
-        lua_pop(engine->runtime, 1);
+        lua_pop(engine->L, 1);
         
         // Check JIT profiling
-        lua_getfield(engine->runtime, -1, "profile");
-        if (lua_isfunction(engine->runtime, -1)) {
+        lua_getfield(engine->L, -1, "profile");
+        if (lua_isfunction(engine->L, -1)) {
             log_debug("LUA_ENGINE", "JIT profile function available");
         } else {
             log_debug("LUA_ENGINE", "JIT profile field is not a function");
         }
-        lua_pop(engine->runtime, 1);
+        lua_pop(engine->L, 1);
     } else {
         log_debug("LUA_ENGINE", "JIT library failed to load!");
     }
-    lua_pop(engine->runtime, 1);
+    lua_pop(engine->L, 1);
 
     // Remove dangerous functions
-    lua_pushnil(engine->runtime);
-    lua_setglobal(engine->runtime, "dofile");
-    lua_pushnil(engine->runtime);
-    lua_setglobal(engine->runtime, "loadfile");
-    lua_pushnil(engine->runtime);
-    lua_setglobal(engine->runtime, "require");
+    lua_pushnil(engine->L);
+    lua_setglobal(engine->L, "dofile");
+    lua_pushnil(engine->L);
+    lua_setglobal(engine->L, "loadfile");
+    lua_pushnil(engine->L);
+    lua_setglobal(engine->L, "require");
 
     // Create the entity_list table and store in registry
-    lua_newtable(engine->runtime);
+    lua_newtable(engine->L);
 
     // Set as global first
-    lua_pushvalue(engine->runtime, -1);  // Copy table
-    lua_setglobal(engine->runtime, "entity_list");
+    lua_pushvalue(engine->L, -1);  // Copy table
+    lua_setglobal(engine->L, "entity_list");
 
     // Then store the same table in registry
-    lua_pushlightuserdata(engine->runtime, ENTITY_LIST_KEY);
-    lua_pushvalue(engine->runtime, -2);  // Copy table again
-    lua_settable(engine->runtime, LUA_REGISTRYINDEX);  // registry[ENTITY_LIST_KEY] = table
+    lua_pushlightuserdata(engine->L, ENTITY_LIST_KEY);
+    lua_pushvalue(engine->L, -2);  // Copy table again
+    lua_settable(engine->L, LUA_REGISTRYINDEX);  // registry[ENTITY_LIST_KEY] = table
 
     // Clean up stack
-    lua_pop(engine->runtime, 1);
+    lua_pop(engine->L, 1);
 
     // Create script_sandbox_master, copy only explicitly safe keys.
-    lua_newtable(engine->runtime);                 // [master]
-    int master_idx = lua_gettop(engine->runtime);
+    lua_newtable(engine->L);                 // [master]
+    int master_idx = lua_gettop(engine->L);
 
-    lua_getglobal(engine->runtime, "_G");          // [master, _G]
-    int g_idx = lua_gettop(engine->runtime);
+    lua_getglobal(engine->L, "_G");          // [master, _G]
+    int g_idx = lua_gettop(engine->L);
 
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "assert");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "pairs");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "ipairs");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "next");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "type");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "tostring");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "tonumber");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "select");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "pcall");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "xpcall");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "math");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "string");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "table");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "print");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "_VERSION");
-    _lua_copy_field(engine->runtime, g_idx, master_idx, "jit");
+    _lua_copy_field(engine->L, g_idx, master_idx, "assert");
+    _lua_copy_field(engine->L, g_idx, master_idx, "pairs");
+    _lua_copy_field(engine->L, g_idx, master_idx, "ipairs");
+    _lua_copy_field(engine->L, g_idx, master_idx, "next");
+    _lua_copy_field(engine->L, g_idx, master_idx, "type");
+    _lua_copy_field(engine->L, g_idx, master_idx, "tostring");
+    _lua_copy_field(engine->L, g_idx, master_idx, "tonumber");
+    _lua_copy_field(engine->L, g_idx, master_idx, "select");
+    _lua_copy_field(engine->L, g_idx, master_idx, "pcall");
+    _lua_copy_field(engine->L, g_idx, master_idx, "xpcall");
+    _lua_copy_field(engine->L, g_idx, master_idx, "math");
+    _lua_copy_field(engine->L, g_idx, master_idx, "string");
+    _lua_copy_field(engine->L, g_idx, master_idx, "table");
+    _lua_copy_field(engine->L, g_idx, master_idx, "print");
+    _lua_copy_field(engine->L, g_idx, master_idx, "_VERSION");
+    _lua_copy_field(engine->L, g_idx, master_idx, "jit");
 
-    lua_pushvalue(engine->runtime, master_idx);
-    lua_setfield(engine->runtime, master_idx, "_G");
+    lua_pushvalue(engine->L, master_idx);
+    lua_setfield(engine->L, master_idx, "_G");
 
-    engine->internal->sandbox_master_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
+    engine->sandbox_master_ref = luaL_ref(engine->L, LUA_REGISTRYINDEX);
 
-    lua_gc(engine->runtime, LUA_GCRESTART, 0);
+    lua_gc(engine->L, LUA_GCRESTART, 0);
 
     // Pop _G
-    lua_pop(engine->runtime, 1);
+    lua_pop(engine->L, 1);
     log_debug("LUA_ENGINE", "Lua engine created successfully");
 
     return engine;
@@ -196,22 +193,22 @@ void lua_engine_destroy(EseLuaEngine *engine) {
     log_assert("LUA_ENGINE", engine, "engine_destroy called with NULL engine");
 
     // Need to iterate and memory_manager.free all script references
-    hashmap_free(engine->internal->functions);
+    hashmap_free(engine->functions);
 
-    if (engine->internal->sandbox_master_ref != LUA_NOREF) {
-        luaL_unref(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref);
+    if (engine->sandbox_master_ref != LUA_NOREF) {
+        luaL_unref(engine->L, LUA_REGISTRYINDEX, engine->sandbox_master_ref);
     }
 
-    lua_close(engine->runtime);
+    lua_close(engine->L);
 
-    memory_manager.free(engine->internal);
+    memory_manager.free(engine);
     memory_manager.free(engine);
 }
 
 void lua_engine_global_lock(EseLuaEngine *engine) {
     log_assert("LUA_ENGINE", engine, "lua_eng_global_lock called with NULL engine");
     
-    lua_State *L = engine->runtime;
+    lua_State *L = engine->L;
 
     // Prevent global writes (lock global)
     lua_getglobal(L, "_G");
@@ -224,8 +221,8 @@ void lua_engine_global_lock(EseLuaEngine *engine) {
     lua_pop(L, 1);
 
     // Lock the sandbox
-    if (engine->internal->sandbox_master_ref != LUA_NOREF) {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref);
+    if (engine->sandbox_master_ref != LUA_NOREF) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, engine->sandbox_master_ref);
         lua_newtable(L);
         lua_pushstring(L, "locked");
         lua_setfield(L, -2, "__metatable");
@@ -237,66 +234,195 @@ void lua_engine_global_lock(EseLuaEngine *engine) {
 void lua_engine_gc(EseLuaEngine *engine) {
     log_assert("LUA_ENGINE", engine, "lua_eng_gc called with NULL engine");
     
-    lua_gc(engine->runtime, LUA_GCSTEP, 0);
+    lua_gc(engine->L, LUA_GCSTEP, 0);
 }
 
-void lua_engine_add_registry_key(lua_State *L, const void *key, void *ptr) {
-    log_assert("LUA_ENGINE", L, "lua_eng_add_registry_key called with NULL L");
-    lua_pushlightuserdata(L, (void *)key);  // push registry key
-    lua_pushlightuserdata(L, ptr);          // push the pointer value
-    lua_settable(L, LUA_REGISTRYINDEX);     // registry[key] = ptr
+void lua_engine_add_registry_key(EseLuaEngine *engine, const void *key, void *ptr) {
+    log_assert("LUA_ENGINE", engine->L, "lua_eng_add_registry_key called with invalid engine");
+    lua_pushlightuserdata(engine->L, (void *)key);  // push registry key
+    lua_pushlightuserdata(engine->L, ptr);          // push the pointer value
+    lua_settable(engine->L, LUA_REGISTRYINDEX);     // registry[key] = ptr
 }
 
-void *lua_engine_get_registry_key(lua_State *L, const void *key) {
-    log_assert("LUA_ENGINE", L, "lua_eng_get_registry_key called with NULL L");
+void *lua_engine_get_registry_key(EseLuaEngine *engine, const void *key) {
+    log_assert("LUA_ENGINE", engine->L, "lua_eng_get_registry_key called with invalid engine");
     void *result;
-    lua_pushlightuserdata(L, (void *)key);  // push registry key
-    lua_gettable(L, LUA_REGISTRYINDEX);     // pushes registry[key]
-    result = lua_touserdata(L, -1);         // get lightuserdata
-    lua_pop(L, 1);                          // pop the value
+    lua_pushlightuserdata(engine->L, (void *)key);  // push registry key
+    lua_gettable(engine->L, LUA_REGISTRYINDEX);     // pushes registry[key]
+    result = lua_touserdata(engine->L, -1);         // get lightuserdata
+    lua_pop(engine->L, 1);                          // pop the value
     return result;
 }
 
-void lua_engine_remove_registry_key(lua_State *L, const void *key) {
-    log_assert("LUA_ENGINE", L, "lua_eng_add_registry_key called with NULL L");
-    lua_pushlightuserdata(L, (void *)key);
-    lua_pushnil(L);
-    lua_settable(L, LUA_REGISTRYINDEX);
+void lua_engine_remove_registry_key(EseLuaEngine *engine, const void *key) {
+    log_assert("LUA_ENGINE", engine->L, "lua_eng_add_registry_key called with invalid engine");
+    lua_pushlightuserdata(engine->L, (void *)key);
+    lua_pushnil(engine->L);
+    lua_settable(engine->L, LUA_REGISTRYINDEX);
 }
 
-void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, lua_CFunction func) {
+
+void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, EseLuaCFunction func) {
     log_assert("LUA_ENGINE", engine, "lua_eng_add_function called with NULL engine");
     log_assert("LUA_ENGINE", function_name, "lua_eng_add_function called with NULL function_name");
     log_assert("LUA_ENGINE", func, "lua_eng_add_function called with NULL func");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_add_function engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine->sandbox_master_ref != LUA_NOREF, "lua_eng_add_function engine->sandbox_master_ref is LUA_NOREF");
 
-    // Add to script_sandbox_master
-    lua_rawgeti(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref); // master
-    lua_pushcfunction(engine->runtime, func);
-    lua_setfield(engine->runtime, -2, function_name);
-    lua_pop(engine->runtime, 1); // master
+    // Add wrapper function to script_sandbox_master with user function as upvalue
+    lua_rawgeti(engine->L, LUA_REGISTRYINDEX, engine->sandbox_master_ref); // master
+    lua_pushlightuserdata(engine->L, (void*)func); // push user function as upvalue
+    lua_pushcclosure(engine->L, _lua_engine_wrapper, 1); // create closure with 1 upvalue
+    lua_setfield(engine->L, -2, function_name);
+    lua_pop(engine->L, 1); // master
 
     log_debug("LUA_ENGINE", "Added C function '%s' to Lua.", function_name);
+}
+
+void lua_engine_add_metatable(EseLuaEngine *engine, const char *name, EseLuaCFunction index_func, EseLuaCFunction newindex_func, EseLuaCFunction gc_func, EseLuaCFunction tostring_func) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_add_metatable called with NULL engine");
+    log_assert("LUA_ENGINE", name, "lua_engine_add_metatable called with NULL name");
+    log_assert("LUA_ENGINE", index_func, "lua_engine_add_metatable called with NULL index_func");
+    log_assert("LUA_ENGINE", newindex_func, "lua_engine_add_metatable called with NULL newindex_func");
+    log_assert("LUA_ENGINE", gc_func, "lua_engine_add_metatable called with NULL gc_func");
+    log_assert("LUA_ENGINE", tostring_func, "lua_engine_add_metatable called with NULL tostring_func");
+
+    if (luaL_newmetatable(engine->L, name)) {
+        log_debug("LUA", "Adding metatable '%s' to engine", name);
+        
+        // Set __name
+        lua_pushstring(engine->L, name);
+        lua_setfield(engine->L, -2, "__name");
+        
+        // Set __index
+        lua_pushlightuserdata(engine->L, (void*)index_func);
+        lua_pushcclosure(engine->L, _lua_engine_wrapper, 1);
+        lua_setfield(engine->L, -2, "__index");
+        
+        // Set __newindex
+        lua_pushlightuserdata(engine->L, (void*)newindex_func);
+        lua_pushcclosure(engine->L, _lua_engine_wrapper, 1);
+        lua_setfield(engine->L, -2, "__newindex");
+        
+        // Set __gc
+        lua_pushlightuserdata(engine->L, (void*)gc_func);
+        lua_pushcclosure(engine->L, _lua_engine_wrapper, 1);
+        lua_setfield(engine->L, -2, "__gc");
+        
+        // Set __tostring
+        lua_pushlightuserdata(engine->L, (void*)tostring_func);
+        lua_pushcclosure(engine->L, _lua_engine_wrapper, 1);
+        lua_setfield(engine->L, -2, "__tostring");
+        
+        // Set __metatable to "locked"
+        lua_pushstring(engine->L, "locked");
+        lua_setfield(engine->L, -2, "__metatable");
+    }
+    lua_pop(engine->L, 1);
+    
+    log_debug("LUA_ENGINE", "Added metatable '%s' to Lua.", name);
+}
+
+void lua_engine_add_globaltable(EseLuaEngine *engine, const char *name, size_t argc, const char **function_names, EseLuaCFunction *functions) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_add_globaltable called with NULL engine");
+    log_assert("LUA_ENGINE", name, "lua_engine_add_globaltable called with NULL name");
+    log_assert("LUA_ENGINE", function_names, "lua_engine_add_globaltable called with NULL function_names");
+    log_assert("LUA_ENGINE", functions, "lua_engine_add_globaltable called with NULL functions");
+
+    // Check if the global table already exists
+    lua_getglobal(engine->L, name);
+    if (lua_isnil(engine->L, -1)) {
+        lua_pop(engine->L, 1); // pop the nil
+        log_debug("LUA", "Creating global table '%s'", name);
+        
+        // Create new table
+        lua_newtable(engine->L);
+        
+        // Add all functions to the table
+        for (size_t i = 0; i < argc; i++) {
+            if (function_names[i] && functions[i]) {
+                // Push the function as an upvalue and create a closure with the wrapper
+                lua_pushlightuserdata(engine->L, (void*)functions[i]);
+                lua_pushcclosure(engine->L, _lua_engine_wrapper, 1);
+                lua_setfield(engine->L, -2, function_names[i]);
+            }
+        }
+        
+        // Set as global
+        lua_setglobal(engine->L, name);
+        
+        log_debug("LUA_ENGINE", "Added global table '%s' with %zu functions to Lua.", name, argc);
+    } else {
+        lua_pop(engine->L, 1); // pop the existing table
+        log_debug("LUA_ENGINE", "Global table '%s' already exists, skipping creation.", name);
+    }
+}
+
+void* lua_engine_create_userdata(EseLuaEngine *engine, const char *metatable_name, size_t size) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_create_userdata called with NULL engine");
+    log_assert("LUA_ENGINE", metatable_name, "lua_engine_create_userdata called with NULL metatable_name");
+    log_assert("LUA_ENGINE", size > 0, "lua_engine_create_userdata called with size 0");
+
+    // Create userdata with the specified size
+    void *userdata = lua_newuserdata(engine->L, size);
+    
+    // Attach the metatable
+    luaL_getmetatable(engine->L, metatable_name);
+    lua_setmetatable(engine->L, -2);
+    
+    log_debug("LUA_ENGINE", "Created userdata with metatable '%s' and size %zu", metatable_name, size);
+    
+    return userdata;
+}
+
+void lua_engine_get_registry_value(EseLuaEngine *engine, int ref) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_get_registry_value called with NULL engine");
+    log_assert("LUA_ENGINE", ref != LUA_NOREF, "lua_engine_get_registry_value called with LUA_NOREF ref");
+
+    lua_rawgeti(engine->L, LUA_REGISTRYINDEX, ref);
+    
+    log_debug("LUA_ENGINE", "Retrieved registry value with ref %d", ref);
+}
+
+int lua_engine_get_reference(EseLuaEngine *engine) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_get_reference called with NULL engine");
+    
+    int ref = luaL_ref(engine->L, LUA_REGISTRYINDEX);
+    
+    log_debug("LUA_ENGINE", "Created reference %d", ref);
+    return ref;
+}
+
+bool lua_engine_is_userdata(EseLuaEngine *engine, int idx) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_is_userdata called with NULL engine");
+    
+    return lua_isuserdata(engine->L, idx);
+}
+
+void* lua_engine_test_userdata(EseLuaEngine *engine, int idx, const char *metatable_name) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_test_userdata called with NULL engine");
+    log_assert("LUA_ENGINE", metatable_name, "lua_engine_test_userdata called with NULL metatable_name");
+    
+    return luaL_testudata(engine->L, idx, metatable_name);
 }
 
 void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lua_ref) {
     log_assert("LUA_ENGINE", engine, "lua_eng_add_global called with NULL engine");
     log_assert("LUA_ENGINE", global_name, "lua_eng_add_global called with NULL global_name");
     log_assert("LUA_ENGINE", lua_ref != LUA_NOREF, "lua_eng_add_global called with LUA_NOREF lua_ref");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_add_global engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine->sandbox_master_ref != LUA_NOREF, "lua_eng_add_global engine->sandbox_master_ref is LUA_NOREF");
 
     // Add to script_sandbox_master
-    lua_rawgeti(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref); // master
-    lua_rawgeti(engine->runtime, LUA_REGISTRYINDEX, lua_ref);
-    lua_setfield(engine->runtime, -2, global_name);
-    lua_pop(engine->runtime, 1); // master
+    lua_rawgeti(engine->L, LUA_REGISTRYINDEX, engine->sandbox_master_ref); // master
+    lua_rawgeti(engine->L, LUA_REGISTRYINDEX, lua_ref);
+    lua_setfield(engine->L, -2, global_name);
+    lua_pop(engine->L, 1); // master
 }
 
 bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const char* module_name) {
     log_assert("LUA_ENGINE", engine, "lua_eng_load_script called with NULL engine");
     log_assert("LUA_ENGINE", filename, "lua_eng_load_script called with NULL filename");
     log_assert("LUA_ENGINE", module_name, "lua_eng_load_script called with NULL module_name");
-    log_assert("LUA_ENGINE", engine->internal->sandbox_master_ref != LUA_NOREF, "lua_eng_load_script engine->internal->sandbox_master_ref is LUA_NOREF");
+    log_assert("LUA_ENGINE", engine->sandbox_master_ref != LUA_NOREF, "lua_eng_load_script engine->sandbox_master_ref is LUA_NOREF");
 
     profile_start(PROFILE_LUA_ENGINE_LOAD_SCRIPT);
 
@@ -307,7 +433,7 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char* filename, const ch
         return false;
     }
 
-    int *func = hashmap_get(engine->internal->functions, filename);
+    int *func = hashmap_get(engine->functions, filename);
     if (func) {
         profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT, "lua_eng_load_script");
         profile_count_add("lua_eng_load_script_already_loaded");
@@ -383,20 +509,20 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
     profile_start(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING);
 
     // Build environment
-    _lua_engine_build_env_from_master(engine->runtime, engine->internal->sandbox_master_ref);
-    int env_idx = lua_gettop(engine->runtime);
+    _lua_engine_build_env_from_master(engine->L, engine->sandbox_master_ref);
+    int env_idx = lua_gettop(engine->L);
 
     // Create module table (STARTUP)
-    lua_newtable(engine->runtime);
-    lua_setfield(engine->runtime, env_idx, module_name);
+    lua_newtable(engine->L);
+    lua_setfield(engine->L, env_idx, module_name);
 
     // Lock environment
-    lua_newtable(engine->runtime);
-    lua_pushcfunction(engine->runtime, _lua_global_write_error);
-    lua_setfield(engine->runtime, -2, "__newindex");
-    lua_pushstring(engine->runtime, "locked");
-    lua_setfield(engine->runtime, -2, "__metatable");
-    lua_setmetatable(engine->runtime, env_idx);
+    lua_newtable(engine->L);
+    lua_pushcfunction(engine->L, _lua_global_write_error);
+    lua_setfield(engine->L, -2, "__newindex");
+    lua_pushstring(engine->L, "locked");
+    lua_setfield(engine->L, -2, "__metatable");
+    lua_setmetatable(engine->L, env_idx);
 
     // run the pre-processor
     char *processed_script = _replace_colon_calls(module_name, script);
@@ -420,16 +546,16 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
     char chunkname[512];
     snprintf(chunkname, sizeof(chunkname), "@%s", name ? name : "unnamed");
 
-    if (luaL_loadbuffer(engine->runtime, wrapped, strlen(wrapped), chunkname) == LUA_OK) {
+    if (luaL_loadbuffer(engine->L, wrapped, strlen(wrapped), chunkname) == LUA_OK) {
         // Push module table as argument
-        lua_getfield(engine->runtime, env_idx, module_name);
+        lua_getfield(engine->L, env_idx, module_name);
 
-        if (lua_pcall(engine->runtime, 1, 1, 0) == LUA_OK) {
-            if (lua_istable(engine->runtime, -1)) {
-                int script_ref = luaL_ref(engine->runtime, LUA_REGISTRYINDEX);
+        if (lua_pcall(engine->L, 1, 1, 0) == LUA_OK) {
+            if (lua_istable(engine->L, -1)) {
+                int script_ref = luaL_ref(engine->L, LUA_REGISTRYINDEX);
                 int *ref = memory_manager.malloc(sizeof(int), MMTAG_LUA);
                 *ref = script_ref;
-                hashmap_set(engine->internal->functions, name, ref);
+                hashmap_set(engine->functions, name, ref);
 
                 memory_manager.free(wrapped);
                 profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING, "lua_eng_load_script_string");
@@ -437,20 +563,20 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
                 return true;
             } else {
                 log_error("LUA_ENGINE", "Script '%s' did not return a table", name);
-                lua_pop(engine->runtime, 1);
+                lua_pop(engine->L, 1);
             }
         } else {
             log_error("LUA_ENGINE", "Error executing script '%s': %s",
-                name, lua_tostring(engine->runtime, -1));
-            lua_pop(engine->runtime, 1);
+                name, lua_tostring(engine->L, -1));
+            lua_pop(engine->L, 1);
         }
     } else {
         log_error("LUA_ENGINE", "Error loading script '%s': %s",
-            name, lua_tostring(engine->runtime, -1));
-        lua_pop(engine->runtime, 1);
+            name, lua_tostring(engine->L, -1));
+        lua_pop(engine->L, 1);
     }
 
-    lua_pop(engine->runtime, 1); // pop env
+    lua_pop(engine->L, 1); // pop env
     memory_manager.free(wrapped);
     profile_cancel(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING);
     profile_count_add("lua_eng_load_script_string_failed");
@@ -463,7 +589,7 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
 
     profile_start(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT);
 
-    int *script_ref = hashmap_get(engine->internal->functions, name);
+    int *script_ref = hashmap_get(engine->functions, name);
     if (!script_ref) {
         log_error("LUA_ENGINE", "Script '%s' not found", name);
         profile_cancel(PROFILE_LUA_ENGINE_INSTANCE_SCRIPT);
@@ -471,7 +597,7 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
         return -1;
     }
 
-    lua_State *L = engine->runtime;
+    lua_State *L = engine->L;
 
     // Push the class table (returned by the script) onto the stack
     lua_rawgeti(L, LUA_REGISTRYINDEX, *script_ref);
@@ -507,74 +633,11 @@ int lua_engine_instance_script(EseLuaEngine *engine, const char *name) {
 void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref) {
     log_assert("LUA_ENGINE", engine, "lua_eng_inst_remove called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    lua_State *L = engine->L;
 
     luaL_unref(L, LUA_REGISTRYINDEX, instance_ref);
 }
 
-/**
- * @brief Converts a Lua value on the stack to an EseLuaValue structure.
- * 
- * @details This function converts the Lua value at the specified stack index
- *          to an EseLuaValue structure. It handles all basic Lua types including
- *          nil, boolean, number, string, table, and userdata.
- * 
- * @param L Lua state pointer
- * @param idx Stack index of the Lua value to convert
- * @param out_result Pointer to EseLuaValue to store the converted result
- * 
- * @warning The caller is responsible for freeing the out_result when done.
- */
-static void _lua_engine_convert_stack_to_luavalue(lua_State *L, int idx, EseLuaValue *out_result) {
-    if (!out_result) return;
-    
-    // Reset the output value
-    lua_value_set_nil(out_result);
-    
-    // Handle negative indices by converting to positive
-    int abs_idx = idx;
-    if (idx < 0) {
-        abs_idx = lua_gettop(L) + idx + 1;
-    }
-    
-    if (lua_isnil(L, abs_idx)) {
-        lua_value_set_nil(out_result);
-    } else if (lua_isboolean(L, abs_idx)) {
-        lua_value_set_bool(out_result, lua_toboolean(L, abs_idx));
-    } else if (lua_isnumber(L, abs_idx)) {
-        lua_value_set_number(out_result, lua_tonumber(L, abs_idx));
-    } else if (lua_isstring(L, abs_idx)) {
-        lua_value_set_string(out_result, lua_tostring(L, abs_idx));
-    } else if (lua_istable(L, abs_idx)) {
-        lua_value_set_table(out_result);
-        
-        // Get table size using lua_objlen (Lua 5.1) or lua_rawlen (Lua 5.2+)
-        size_t table_size = 0;
-        #if LUA_VERSION_NUM >= 502
-            table_size = lua_rawlen(L, abs_idx);
-        #else
-            table_size = lua_objlen(L, abs_idx);
-        #endif
-        
-        // Iterate through table and add items
-        lua_pushnil(L); // First key
-        while (lua_next(L, abs_idx) != 0) {
-            // Key is at index -2, value at index -1
-            EseLuaValue *item = lua_value_create_nil(NULL);
-            _lua_engine_convert_stack_to_luavalue(L, -1, item);
-            
-            // Add to table
-            lua_value_push(out_result, item, false); // false = take ownership
-            
-            lua_pop(L, 1); // Remove value, keep key for next iteration
-        }
-    } else if (lua_isuserdata(L, abs_idx)) {
-        lua_value_set_userdata(out_result, lua_touserdata(L, abs_idx));
-    } else {
-        // For other types (function, thread, etc.), just set as nil
-        lua_value_set_nil(out_result);
-    }
-}
 
 bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc, EseLuaValue *argv[], EseLuaValue *out_result) {
     log_assert("LUA_ENGINE", engine, "lua_eng_run_func_ref called with NULL engine");
@@ -588,7 +651,7 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
         return false;
     }
 
-    lua_State *L = engine->runtime;
+    lua_State *L = engine->L;
 
     // Function lookup timing
     profile_start(PROFILE_LUA_ENGINE_FUNCTION_LOOKUP);
@@ -617,8 +680,8 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int sel
     timeout.start_time = clock();
     timeout.call_count = 0;
     timeout.instruction_count = 0;
-    timeout.max_execution_time = engine->internal->max_execution_time;
-    timeout.max_instruction_count = engine->internal->max_instruction_count;
+    timeout.max_execution_time = engine->max_execution_time;
+    timeout.max_instruction_count = engine->max_instruction_count;
 
     // Set the hook with the timeout as upvalue
     lua_pushlightuserdata(L, &timeout);
@@ -686,7 +749,7 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
 
     profile_start(PROFILE_LUA_ENGINE_RUN_FUNCTION);
 
-    lua_State *L = engine->runtime;
+    lua_State *L = engine->L;
     
     // OPTIMIZATION: Function caching - check if we have a cached function reference
     int cached_func_ref = -1;
@@ -826,8 +889,8 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     timeout.start_time = clock();
     timeout.call_count = 0;
     timeout.instruction_count = 0;
-    timeout.max_execution_time = engine->internal->max_execution_time;
-    timeout.max_instruction_count = engine->internal->max_instruction_count;
+    timeout.max_execution_time = engine->max_execution_time;
+    timeout.max_instruction_count = engine->max_instruction_count;
 
     // Set the hook with the timeout as upvalue (security requirement)
     lua_pushlightuserdata(L, &timeout);
@@ -1064,41 +1127,3 @@ bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_re
     return ok;
 }
 
-
-int lua_isinteger_lj(lua_State *L, int idx) {
-    log_assert("LUA_ENGINE", L, "lua_isinteger_lj called with NULL Lua state");
-    
-    if (!lua_isnumber(L, idx)) return 0;
-    lua_Number n = lua_tonumber(L, idx);
-    lua_Integer i = (lua_Integer)n;
-    return (n == (lua_Number)i);
-}
-
-// Unique key for registry storage
-static const char *LUA_EXTRASPACE_KEY = "lua_extraspace_lj";
-void *lua_getextraspace_lj(lua_State *L) {
-    log_assert("LUA_ENGINE", L, "lua_getextraspace_lj called with NULL Lua state");
-    
-    void *p;
-
-    // Check if already allocated
-    lua_pushlightuserdata(L, (void*)LUA_EXTRASPACE_KEY);
-    lua_gettable(L, LUA_REGISTRYINDEX);
-    p = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-
-    if (!p) {
-        // Allocate space (just sizeof(void*), like Lua 5.3 guarantees)
-        p = lua_newuserdata(L, sizeof(void*));
-        *(void**)p = NULL; // initialize to NULL
-
-        // Store in registry
-        lua_pushlightuserdata(L, (void*)LUA_EXTRASPACE_KEY);
-        lua_pushvalue(L, -2); // copy userdata
-        lua_settable(L, LUA_REGISTRYINDEX);
-
-        lua_pop(L, 1); // pop userdata
-    }
-
-    return p;
-}

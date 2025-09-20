@@ -14,15 +14,15 @@ typedef struct EseRect EseRect;
  * @details This structure stores an arc defined by center point, radius, and start/end angles.
  */
 typedef struct EseArc {
-    float x;           /**< The x-coordinate of the arc's center */
-    float y;           /**< The y-coordinate of the arc's center */
-    float radius;      /**< The radius of the arc */
-    float start_angle; /**< The start angle of the arc in radians */
-    float end_angle;   /**< The end angle of the arc in radians */
+    float x;                /**< The x-coordinate of the arc's center */
+    float y;                /**< The y-coordinate of the arc's center */
+    float radius;           /**< The radius of the arc */
+    float start_angle;      /**< The start angle of the arc in radians */
+    float end_angle;        /**< The end angle of the arc in radians */
 
-    lua_State *state;  /**< Lua State this EseArc belongs to */
-    int lua_ref;       /**< Lua registry reference to its own proxy table */
-    int lua_ref_count; /**< Number of times this arc has been referenced in C */
+    EseLuaEngine *engine;   /**< The engine that owns this arc */
+    int lua_ref;            /**< Lua registry reference to its own proxy table */
+    int lua_ref_count;      /**< Number of times this arc has been referenced in C */
 } EseArc;
 
 // ========================================
@@ -95,7 +95,7 @@ void ese_arc_lua_init(EseLuaEngine *engine);
  * 
  * @param arc Pointer to the EseArc object to push to Lua
  */
-void ese_arc_lua_push(EseArc *arc);
+void ese_arc_lua_push(EseLuaEngine *engine, EseArc *arc);
 
 /**
  * @brief Extracts a EseArc pointer from a Lua userdata object with type safety.
@@ -111,7 +111,7 @@ void ese_arc_lua_push(EseArc *arc);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseArc *ese_arc_lua_get(lua_State *L, int idx);
+EseArc *ese_arc_lua_get(EseLuaEngine *engine, int idx);
 
 /**
  * @brief References a EseArc object for Lua access with reference counting.
@@ -123,7 +123,7 @@ EseArc *ese_arc_lua_get(lua_State *L, int idx);
  * 
  * @param arc Pointer to the EseArc object to reference
  */
-void ese_arc_ref(EseArc *arc);
+void ese_arc_ref(EseLuaEngine *engine, EseArc *arc);
 
 /**
  * @brief Unreferences a EseArc object, decrementing the reference count.
@@ -133,7 +133,7 @@ void ese_arc_ref(EseArc *arc);
  * 
  * @param arc Pointer to the EseArc object to unreference
  */
-void ese_arc_unref(EseArc *arc);
+void ese_arc_unref(EseLuaEngine *engine, EseArc *arc);
 
 // Mathematical operations
 /**

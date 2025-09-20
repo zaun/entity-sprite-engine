@@ -95,7 +95,7 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
 
     memory_manager.free(component->script);
     ese_uuid_destroy(component->base.id);
-    lua_value_free(component->arg);
+    lua_value_destroy(component->arg);
 
     memory_manager.free(component);
     

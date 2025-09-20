@@ -7,7 +7,6 @@
 #define POINT_PROXY_META "PointProxyMeta"
 
 // Forward declarations
-typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 
 /**
@@ -114,13 +113,6 @@ void ese_point_set_y(EsePoint *point, float y);
 float ese_point_get_y(const EsePoint *point);
 
 // Lua-related access
-/**
- * @brief Gets the Lua state associated with this point.
- * 
- * @param point Pointer to the EsePoint object
- * @return Pointer to the Lua state, or NULL if none
- */
-lua_State *ese_point_get_state(const EsePoint *point);
 
 /**
  * @brief Gets the Lua registry reference for this point.
@@ -181,13 +173,14 @@ void ese_point_lua_init(EseLuaEngine *engine);
 /**
  * @brief Pushes a EsePoint object to the Lua stack.
  * 
- * @details If the point has no Lua references (lua_ref == LUA_NOREF), creates a new
+ * @details If the point has no Lua references (lua_ref == ESE_LUA_NOREF), creates a new
  *          proxy table. If the point has Lua references, retrieves the existing
  *          proxy table from the registry.
  * 
+ * @param engine EseLuaEngine pointer
  * @param point Pointer to the EsePoint object to push to Lua
  */
-void ese_point_lua_push(EsePoint *point);
+void ese_point_lua_push(EseLuaEngine *engine, EsePoint *point);
 
 /**
  * @brief Extracts a EsePoint pointer from a Lua userdata object with type safety.
@@ -197,25 +190,26 @@ void ese_point_lua_push(EsePoint *point);
  *          type checking to ensure the object is a valid EsePoint proxy table
  *          with the correct metatable and userdata pointer.
  * 
- * @param L Lua state pointer
+ * @param engine EseLuaEngine pointer
  * @param idx Stack index of the Lua EsePoint object
  * @return Pointer to the EsePoint object, or NULL if extraction fails or type check fails
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EsePoint *ese_point_lua_get(lua_State *L, int idx);
+EsePoint *ese_point_lua_get(EseLuaEngine *engine, int idx);
 
 /**
  * @brief References a EsePoint object for Lua access with reference counting.
  * 
- * @details If point->lua_ref is LUA_NOREF, pushes the point to Lua and references it,
+ * @details If point->lua_ref is ESE_LUA_NOREF, pushes the point to Lua and references it,
  *          setting lua_ref_count to 1. If point->lua_ref is already set, increments
  *          the reference count by 1. This prevents the point from being garbage
  *          collected while C code holds references to it.
  * 
+ * @param engine EseLuaEngine pointer
  * @param point Pointer to the EsePoint object to reference
  */
-void ese_point_ref(EsePoint *point);
+void ese_point_ref(EseLuaEngine *engine, EsePoint *point);
 
 /**
  * @brief Unreferences a EsePoint object, decrementing the reference count.
@@ -223,9 +217,10 @@ void ese_point_ref(EsePoint *point);
  * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua reference
  *          is removed from the registry. This function does NOT free memory.
  * 
+ * @param engine EseLuaEngine pointer
  * @param point Pointer to the EsePoint object to unreference
  */
-void ese_point_unref(EsePoint *point);
+void ese_point_unref(EseLuaEngine *engine, EsePoint *point);
 
 // Mathematical operations
 /**

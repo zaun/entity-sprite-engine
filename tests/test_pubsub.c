@@ -190,7 +190,7 @@ static void test_pubsub_subscribe(void) {
     }
     lua_pop(L, 2); // Pop data table and entity
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     entity_destroy(entity);
 }
 
@@ -239,8 +239,8 @@ static void test_pubsub_unsubscribe(void) {
     }
     lua_pop(L, 2);
     
-    lua_value_free(data1);
-    lua_value_free(data2);
+    lua_value_destroy(data1);
+    lua_value_destroy(data2);
     entity_destroy(entity);
 }
 
@@ -272,7 +272,7 @@ static void test_pubsub_publish(void) {
     }
     lua_pop(L, 2);
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     entity_destroy(entity);
 }
 
@@ -321,7 +321,7 @@ static void test_pubsub_multiple_subscribers(void) {
     }
     lua_pop(L, 2);
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     entity_destroy(entity1);
     entity_destroy(entity2);
 }
@@ -379,8 +379,8 @@ static void test_pubsub_multiple_topics(void) {
     }
     lua_pop(L, 2);
     
-    lua_value_free(data1);
-    lua_value_free(data2);
+    lua_value_destroy(data1);
+    lua_value_destroy(data2);
     entity_destroy(entity);
 }
 
@@ -398,7 +398,7 @@ static void test_pubsub_empty_topic(void) {
         entity_destroy(entity);
     }
     
-    lua_value_free(data);
+    lua_value_destroy(data);
 }
 
 static void test_pubsub_null_handling(void) {
@@ -412,6 +412,6 @@ static void test_pubsub_null_handling(void) {
     // Test with NULL data - should abort in debug builds
     ASSERT_DEATH((engine_pubsub_pub(g_engine, "test_topic", NULL)), "Should abort on NULL data");
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     entity_destroy(entity);
 }

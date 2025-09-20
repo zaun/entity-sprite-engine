@@ -416,8 +416,8 @@ static void test_component_function_execution() {
                     exec_result = entity_component_lua_run(lua_comp, mock_entity, "void_function", 0, NULL);
                     TEST_ASSERT(exec_result, "Void function should execute successfully");
                     
-                    lua_value_free(arg1);
-                    lua_value_free(arg2);
+                    lua_value_destroy(arg1);
+                    lua_value_destroy(arg2);
                 }
                 
                 printf("✓ PASS: Function execution tests completed successfully\n");

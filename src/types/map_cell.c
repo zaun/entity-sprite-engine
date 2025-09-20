@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "scripting/lua_value.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "vendor/lua/src/lauxlib.h"
@@ -24,7 +25,6 @@ typedef struct EseMapCell {
     void *data;              /**< Game-specific data (JSON, custom struct, etc.) */
 
     // Lua integration
-    lua_State *state;        /**< Lua State this EseMapCell belongs to */
     int lua_ref;             /**< Lua registry reference to its own userdata */
     int lua_ref_count;       /**< Number of times this map cell has been referenced in C */
 } EseMapCell;
@@ -37,23 +37,23 @@ typedef struct EseMapCell {
 static EseMapCell *_ese_mapcell_make(void);
 
 // Lua metamethods
-static int _ese_mapcell_lua_gc(lua_State *L);
-static int _ese_mapcell_lua_index(lua_State *L);
-static int _ese_mapcell_lua_newindex(lua_State *L);
-static int _ese_mapcell_lua_tostring(lua_State *L);
+static EseLuaValue* _ese_mapcell_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua constructors
-static int _ese_mapcell_lua_new(lua_State *L);
+static EseLuaValue* _ese_mapcell_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua method implementations
-static int _ese_mapcell_lua_add_layer(lua_State *L);
-static int _ese_mapcell_lua_remove_layer(lua_State *L);
-static int _ese_mapcell_lua_get_layer(lua_State *L);
-static int _ese_mapcell_lua_set_layer(lua_State *L);
-static int _ese_mapcell_lua_clear_layers(lua_State *L);
-static int _ese_mapcell_lua_has_flag(lua_State *L);
-static int _ese_mapcell_lua_set_flag(lua_State *L);
-static int _ese_mapcell_lua_clear_flag(lua_State *L);
+static EseLuaValue* _ese_mapcell_lua_add_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_remove_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_get_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_set_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_clear_layers(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_has_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_set_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_mapcell_lua_clear_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -93,24 +93,27 @@ static EseMapCell *_ese_mapcell_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _ese_mapcell_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseMapCell **ud = (EseMapCell **)luaL_testudata(L, 1, MAP_CELL_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
+static EseLuaValue* _ese_mapcell_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return NULL;
     }
-    
-    EseMapCell *cell = *ud;
+
+    // Get the map cell from the first argument
+    if (!lua_value_is_map_cell(argv[0])) {
+        return NULL;
+    }
+
+    EseMapCell *cell = lua_value_get_map_cell(argv[0]);
     if (cell) {
-        // If lua_ref == LUA_NOREF, there are no more references to this cell, 
+        // If lua_ref == ESE_LUA_NOREF, there are no more references to this cell, 
         // so we can free it.
-        // If lua_ref != LUA_NOREF, this cell was referenced from C and should not be freed.
-        if (cell->lua_ref == LUA_NOREF) {
+        // If lua_ref != ESE_LUA_NOREF, this cell was referenced from C and should not be freed.
+        if (cell->lua_ref == ESE_LUA_NOREF) {
             ese_mapcell_destroy(cell);
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 /**
@@ -122,62 +125,83 @@ static int _ese_mapcell_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _ese_mapcell_lua_index(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_MAPCELL_INDEX);
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!cell || !key) {
+    
+    if (argc != 2) {
         profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
-        return 0;
+        return lua_value_create_error("result", "index requires 2 arguments");
+    }
+
+    if (!lua_value_is_map_cell(argv[0])) {
+        profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
+        return lua_value_create_error("result", "first argument must be a map cell");
+    }
+    
+    EseMapCell *cell = lua_value_get_map_cell(argv[0]);
+    if (!cell) {
+        profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
+        return lua_value_create_error("result", "invalid map cell");
+    }
+
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     if (strcmp(key, "isDynamic") == 0) {
-        lua_pushboolean(L, cell->isDynamic);
+        return lua_value_create_bool(cell->isDynamic);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "flags") == 0) {
-        lua_pushnumber(L, cell->flags);
+        return lua_value_create_number(cell->flags);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "layer_count") == 0) {
-        lua_pushnumber(L, cell->layer_count);
+        return lua_value_create_number(cell->layer_count);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "add_layer") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_add_layer);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "remove_layer") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_remove_layer);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "get_layer") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_get_layer);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "set_layer") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_set_layer);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "clear_layers") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_clear_layers);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "has_flag") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_has_flag);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "set_flag") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_set_flag);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "clear_flag") == 0) {
         lua_pushcfunction(L, _ese_mapcell_lua_clear_flag);
         profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
-        return 1;
+        return lua_value_create_nil();
     }
     profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (invalid)");
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -189,34 +213,34 @@ static int _ese_mapcell_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_mapcell_lua_newindex(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_MAPCELL_NEWINDEX);
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
+    const char *key = lua_value_get_string(argv[2-1]);
     if (!cell || !key) {
         profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
-        return 0;
+        return lua_value_create_nil();
     }
 
     if (strcmp(key, "isDynamic") == 0) {
         if (lua_type(L, 3) != LUA_TBOOLEAN) {
             profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
-            return luaL_error(L, "mapcell.isDynamic must be a boolean");
+            return lua_value_create_error("result", "mapcell.isDynamic must be a boolean");
         }
         cell->isDynamic = lua_toboolean(L, 3);
         profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     } else if (strcmp(key, "flags") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
             profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
-            return luaL_error(L, "mapcell.flags must be a number");
+            return lua_value_create_error("result", "mapcell.flags must be a number");
         }
-        cell->flags = (uint32_t)lua_tonumber(L, 3);
+        cell->flags = (uint32_t)lua_value_get_number(argv[3-1]);
         profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     }
     profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
+    return lua_value_create_error("result", "unknown or unassignable property '%s'", key);
 }
 
 /**
@@ -228,20 +252,20 @@ static int _ese_mapcell_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _ese_mapcell_lua_tostring(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
 
     if (!cell) {
-        lua_pushstring(L, "MapCell: (invalid)");
-        return 1;
+        return lua_value_create_string("MapCell: (invalid)");
+        return lua_value_create_nil();
     }
 
     char buf[128];
     snprintf(buf, sizeof(buf), "MapCell: %p (layers=%zu, flags=%u, dynamic=%d)",
              (void*)cell, cell->layer_count, cell->flags, cell->isDynamic);
-    lua_pushstring(L, buf);
+    return lua_value_create_string(buf);
 
-    return 1;
+    return lua_value_create_nil();
 }
 
 // Lua constructors
@@ -255,14 +279,14 @@ static int _ese_mapcell_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the userdata)
  */
-static int _ese_mapcell_lua_new(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_MAPCELL_NEW);
 
     // Get argument count
-    int argc = lua_gettop(L);
+    int argc = argc;
     if (argc != 0) {
         profile_cancel(PROFILE_LUA_MAPCELL_NEW);
-        return luaL_error(L, "MapCell.new() takes 0 arguments");
+        return lua_value_create_error("result", "MapCell.new() takes 0 arguments");
     }
 
     // Create the map cell
@@ -279,101 +303,101 @@ static int _ese_mapcell_lua_new(lua_State *L) {
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_MAPCELL_NEW, "mapcell_lua_new");
-    return 1;
+    return lua_value_create_nil();
 }
 
 // Lua method implementations
-static int _ese_mapcell_lua_add_layer(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_add_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in add_layer");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in add_layer");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "add_layer(tile_id) requires a number");
+        return lua_value_create_error("result", "add_layer(tile_id) requires a number");
 
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    lua_pushboolean(L, ese_mapcell_add_layer(cell, tile_id));
-    return 1;
+    uint8_t tile_id = (uint8_t)lua_value_get_number(argv[2-1]);
+    return lua_value_create_bool(ese_mapcell_add_layer(cell, tile_id));
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_remove_layer(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_remove_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in remove_layer");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in remove_layer");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "remove_layer(index) requires a number");
+        return lua_value_create_error("result", "remove_layer(index) requires a number");
 
-    size_t idx = (size_t)lua_tonumber(L, 2);
-    lua_pushboolean(L, ese_mapcell_remove_layer(cell, idx));
-    return 1;
+    size_t idx = (size_t)lua_value_get_number(argv[2-1]);
+    return lua_value_create_bool(ese_mapcell_remove_layer(cell, idx));
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_get_layer(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_get_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in get_layer");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in get_layer");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "get_layer(index) requires a number");
+        return lua_value_create_error("result", "get_layer(index) requires a number");
 
-    size_t idx = (size_t)lua_tonumber(L, 2);
-    lua_pushnumber(L, ese_mapcell_get_layer(cell, idx));
-    return 1;
+    size_t idx = (size_t)lua_value_get_number(argv[2-1]);
+    return lua_value_create_number(ese_mapcell_get_layer(cell, idx));
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_set_layer(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_set_layer(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in set_layer");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in set_layer");
 
     if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
-        return luaL_error(L, "set_layer(index, tile_id) requires two numbers");
+        return lua_value_create_error("result", "set_layer(index, tile_id) requires two numbers");
 
-    size_t idx = (size_t)lua_tonumber(L, 2);
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 3);
-    lua_pushboolean(L, ese_mapcell_set_layer(cell, idx, tile_id));
-    return 1;
+    size_t idx = (size_t)lua_value_get_number(argv[2-1]);
+    uint8_t tile_id = (uint8_t)lua_value_get_number(argv[3-1]);
+    return lua_value_create_bool(ese_mapcell_set_layer(cell, idx, tile_id));
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_clear_layers(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_clear_layers(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in clear_layers");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in clear_layers");
 
     ese_mapcell_clear_layers(cell);
-    return 0;
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_has_flag(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_has_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in has_flag");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in has_flag");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "has_flag(flag) requires a number");
+        return lua_value_create_error("result", "has_flag(flag) requires a number");
 
-    uint32_t flag = (uint32_t)lua_tonumber(L, 2);
-    lua_pushboolean(L, ese_mapcell_has_flag(cell, flag));
-    return 1;
+    uint32_t flag = (uint32_t)lua_value_get_number(argv[2-1]);
+    return lua_value_create_bool(ese_mapcell_has_flag(cell, flag));
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_set_flag(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_set_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in set_flag");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in set_flag");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "set_flag(flag) requires a number");
+        return lua_value_create_error("result", "set_flag(flag) requires a number");
 
-    uint32_t flag = (uint32_t)lua_tonumber(L, 2);
+    uint32_t flag = (uint32_t)lua_value_get_number(argv[2-1]);
     ese_mapcell_set_flag(cell, flag);
-    return 0;
+    return lua_value_create_nil();
 }
 
-static int _ese_mapcell_lua_clear_flag(lua_State *L) {
+static EseLuaValue* _ese_mapcell_lua_clear_flag(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
-    if (!cell) return luaL_error(L, "Invalid MapCell in clear_flag");
+    if (!cell) return lua_value_create_error("result", "Invalid MapCell in clear_flag");
 
     if (!lua_isnumber(L, 2))
-        return luaL_error(L, "clear_flag(flag) requires a number");
+        return lua_value_create_error("result", "clear_flag(flag) requires a number");
 
-    uint32_t flag = (uint32_t)lua_tonumber(L, 2);
+    uint32_t flag = (uint32_t)lua_value_get_number(argv[2-1]);
     ese_mapcell_clear_flag(cell, flag);
-    return 0;
+    return lua_value_create_nil();
 }
 
 // ========================================
@@ -585,7 +609,7 @@ bool ese_mapcell_remove_layer(EseMapCell *cell, size_t layer_index) {
 }
 
 uint8_t ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index) {
-    if (!cell || layer_index >= cell->layer_count) return 0;
+    if (!cell || layer_index >= cell->layer_count) return lua_value_create_nil();
     return cell->tile_ids[layer_index];
 }
 
@@ -605,7 +629,7 @@ bool ese_mapcell_has_layers(const EseMapCell *cell) {
 }
 
 size_t ese_mapcell_get_layer_count(const EseMapCell *cell) {
-    if (!cell) return 0;
+    if (!cell) return lua_value_create_nil();
     return cell->layer_count;
 }
 
@@ -637,6 +661,6 @@ void ese_mapcell_set_flags(EseMapCell *cell, uint32_t flags) {
 }
 
 uint32_t ese_mapcell_get_flags(const EseMapCell *cell) {
-    if (!cell) return 0;
+    if (!cell) return lua_value_create_nil();
     return cell->flags;
 }

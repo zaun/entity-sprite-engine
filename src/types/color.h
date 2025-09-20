@@ -218,7 +218,7 @@ void ese_color_lua_init(EseLuaEngine *engine);
  * 
  * @param color Pointer to the EseColor object to push to Lua
  */
-void ese_color_lua_push(EseColor *color);
+void ese_color_lua_push(EseLuaEngine *engine, EseColor *color);
 
 /**
  * @brief Extracts a EseColor pointer from a Lua userdata object with type safety.
@@ -234,7 +234,7 @@ void ese_color_lua_push(EseColor *color);
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseColor *ese_color_lua_get(lua_State *L, int idx);
+EseColor *ese_color_lua_get(EseLuaEngine *engine, int idx);
 
 /**
  * @brief References a EseColor object for Lua access with reference counting.
@@ -246,7 +246,7 @@ EseColor *ese_color_lua_get(lua_State *L, int idx);
  * 
  * @param color Pointer to the EseColor object to reference
  */
-void ese_color_ref(EseColor *color);
+void ese_color_ref(EseLuaEngine *engine, EseColor *color);
 
 /**
  * @brief Unreferences a EseColor object, decrementing the reference count.

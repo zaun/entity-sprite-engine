@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "scripting/lua_value.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/display.h"
@@ -15,17 +16,17 @@
 static EseDisplay *_ese_display_make(void);
 
 // Lua metamethods
-static int _ese_display_lua_gc(lua_State *L);
-static int _ese_display_lua_index(lua_State *L);
-static int _ese_display_lua_newindex(lua_State *L);
-static int _ese_display_lua_tostring(lua_State *L);
+static EseLuaValue* _ese_display_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_display_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_display_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_display_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua constructors
-// static int _ese_display_lua_new(lua_State *L); // REMOVED
+// static EseLuaValue* _ese_display_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]); // REMOVED
 
 // Lua viewport helpers
-static int _ese_display_viewport_index(lua_State *L);
-static int _ese_display_readonly_error(lua_State *L);
+static EseLuaValue* _ese_display_viewport_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_display_readonly_error(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -48,8 +49,7 @@ static EseDisplay *_ese_display_make() {
     display->aspect_ratio = 1.0f;
     display->viewport.width = 0;
     display->viewport.height = 0;
-    display->state = NULL;
-    display->lua_ref = LUA_NOREF;
+    display->lua_ref = ESE_LUA_NOREF;
     display->lua_ref_count = 0;
     return display;
 }
@@ -64,24 +64,27 @@ static EseDisplay *_ese_display_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _ese_display_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseDisplay **ud = (EseDisplay **)luaL_testudata(L, 1, "DisplayMeta");
-    if (!ud) {
-        return 0; // Not our userdata
+static EseLuaValue* _ese_display_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return NULL;
     }
-    
-    EseDisplay *display = *ud;
+
+    // Get the display from the first argument
+    if (!lua_value_is_display(argv[0])) {
+        return NULL;
+    }
+
+    EseDisplay *display = lua_value_get_display(argv[0]);
     if (display) {
-        // If lua_ref == LUA_NOREF, there are no more references to this display, 
+        // If lua_ref == ESE_LUA_NOREF, there are no more references to this display, 
         // so we can free it.
-        // If lua_ref != LUA_NOREF, this display was referenced from C and should not be freed.
-        if (display->lua_ref == LUA_NOREF) {
+        // If lua_ref != ESE_LUA_NOREF, this display was referenced from C and should not be freed.
+        if (display->lua_ref == ESE_LUA_NOREF) {
             ese_display_destroy(display);
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 /**
@@ -94,35 +97,54 @@ static int _ese_display_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _ese_display_lua_index(lua_State *L) {
+static EseLuaValue* _ese_display_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_DISPLAY_INDEX);
-    EseDisplay *display = ese_display_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!display || !key) {
+    
+    if (argc != 2) {
         profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
-        return 0;
+        return lua_value_create_error("result", "index requires 2 arguments");
+    }
+
+    // Get the display from the first argument
+    if (!lua_value_is_display(argv[0])) {
+        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
+        return lua_value_create_error("result", "first argument must be a display");
+    }
+    
+    EseDisplay *display = lua_value_get_display(argv[0]);
+    if (!display) {
+        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
+        return lua_value_create_error("result", "invalid display");
+    }
+
+    // Get the property name
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     // Simple properties
     if (strcmp(key, "fullscreen") == 0) {
-        lua_pushboolean(L, display->fullscreen);
         profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (fullscreen)");
-        return 1;
+        return lua_value_create_bool(display->fullscreen);
     }
     if (strcmp(key, "width") == 0) {
-        lua_pushinteger(L, display->width);
         profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (width)");
-        return 1;
+        return lua_value_create_number(display->width);
     }
     if (strcmp(key, "height") == 0) {
-        lua_pushinteger(L, display->height);
         profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (height)");
-        return 1;
+        return lua_value_create_number(display->height);
     }
     if (strcmp(key, "aspect_ratio") == 0) {
-        lua_pushnumber(L, display->aspect_ratio);
         profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (aspect_ratio)");
-        return 1;
+        return lua_value_create_number(display->aspect_ratio);
     }
 
     // viewport table proxy (read-only)
@@ -146,11 +168,11 @@ static int _ese_display_lua_index(lua_State *L) {
         lua_setmetatable(L, -2);
 
         profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (viewport)");
-        return 1;
+        return lua_value_create_nil();
     }
 
     profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (invalid)");
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -162,10 +184,10 @@ static int _ese_display_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Never returns (always calls luaL_error)
  */
-static int _ese_display_lua_newindex(lua_State *L) {
+static EseLuaValue* _ese_display_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_DISPLAY_NEWINDEX);
     profile_stop(PROFILE_LUA_DISPLAY_NEWINDEX, "ese_display_lua_newindex (error)");
-    return luaL_error(L, "Display object is read-only");
+    return lua_value_create_error("result", "Display object is read-only");
 }
 
 /**
@@ -177,23 +199,29 @@ static int _ese_display_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _ese_display_lua_tostring(lua_State *L) {
-    EseDisplay *display = ese_display_lua_get(L, 1);
+static EseLuaValue* _ese_display_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return lua_value_create_error("result", "tostring requires 1 argument");
+    }
+    
+    if (!lua_value_is_display(argv[0])) {
+        return lua_value_create_error("result", "first argument must be a display");
+    }
+    
+    EseDisplay *display = lua_value_get_display(argv[0]);
     if (!display) {
-        lua_pushstring(L, "Display: (invalid)");
-        return 1;
+        return lua_value_create_string("Display: (invalid)");
     }
     char buf[256];
     snprintf(buf, sizeof(buf), "Display: %p (%dx%d, %s, viewport: %dx%d)", 
              (void *)display, display->width, display->height,
              display->fullscreen ? "fullscreen" : "windowed",
              display->viewport.width, display->viewport.height);
-    lua_pushstring(L, buf);
-    return 1;
+    return lua_value_create_string(buf);
 }
 
 // Lua constructors
-// static int _ese_display_lua_new(lua_State *L) { // REMOVED
+// static EseLuaValue* _ese_display_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) { // REMOVED
 //     // Create the display using the standard creation function
 //     EseDisplay *display = _ese_display_make();
 //     display->state = L;
@@ -206,7 +234,7 @@ static int _ese_display_lua_tostring(lua_State *L) {
 //     luaL_getmetatable(L, "DisplayMeta");
 //     lua_setmetatable(L, -2);
 // 
-//     return 1;
+//     return lua_value_create_nil();
 // }
 
 // Lua viewport helpers
@@ -221,19 +249,19 @@ static int _ese_display_lua_tostring(lua_State *L) {
  */
 static int _ese_display_viewport_index(lua_State *L) {
     EseViewport *viewport = (EseViewport *)lua_touserdata(L, lua_upvalueindex(1));
-    const char *key = lua_tostring(L, 2);
-    if (!viewport || !key) return 0;
+    const char *key = lua_value_get_string(argv[2-1]);
+    if (!viewport || !key) return lua_value_create_nil();
 
     if (strcmp(key, "width") == 0) {
         lua_pushinteger(L, viewport->width);
-        return 1;
+        return lua_value_create_nil();
     }
     if (strcmp(key, "height") == 0) {
         lua_pushinteger(L, viewport->height);
-        return 1;
+        return lua_value_create_nil();
     }
 
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -246,7 +274,7 @@ static int _ese_display_viewport_index(lua_State *L) {
  * @return Never returns (always calls luaL_error)
  */
 static int _ese_display_readonly_error(lua_State *L) {
-    return luaL_error(L, "Display tables are read-only");
+    return lua_value_create_error("result", "Display tables are read-only");
 }
 
 // ========================================

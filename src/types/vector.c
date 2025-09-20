@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "scripting/lua_value.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/vector.h"
@@ -20,7 +21,6 @@ struct EseVector {
     float x;            /**< The x-component of the vector */
     float y;            /**< The y-component of the vector */
 
-    lua_State *state;   /**< Lua State this EseVector belongs to */
     int lua_ref;        /**< Lua registry reference to its own proxy table */
     int lua_ref_count;  /**< Number of times this vector has been referenced in C */
 };
@@ -33,19 +33,19 @@ struct EseVector {
 static EseVector *_ese_vector_make(void);
 
 // Lua metamethods
-static int _ese_vector_lua_gc(lua_State *L);
-static int _ese_vector_lua_index(lua_State *L);
-static int _ese_vector_lua_newindex(lua_State *L);
-static int _ese_vector_lua_tostring(lua_State *L);
+static EseLuaValue* _ese_vector_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua constructors
-static int _ese_vector_lua_new(lua_State *L);
-static int _ese_vector_lua_zero(lua_State *L);
+static EseLuaValue* _ese_vector_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_zero(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua methods
-static int _ese_vector_lua_set_direction(lua_State *L);
-static int _ese_vector_lua_magnitude(lua_State *L);
-static int _ese_vector_lua_normalize(lua_State *L);
+static EseLuaValue* _ese_vector_lua_set_direction(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_magnitude(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _ese_vector_lua_normalize(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -80,24 +80,27 @@ static EseVector *_ese_vector_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _ese_vector_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseVector **ud = (EseVector **)luaL_testudata(L, 1, VECTOR_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
+static EseLuaValue* _ese_vector_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return NULL;
     }
-    
-    EseVector *vector = *ud;
+
+    // Get the vector from the first argument
+    if (!lua_value_is_vector(argv[0])) {
+        return NULL;
+    }
+
+    EseVector *vector = lua_value_get_vector(argv[0]);
     if (vector) {
-        // If lua_ref == LUA_NOREF, there are no more references to this vector, 
+        // If lua_ref == ESE_LUA_NOREF, there are no more references to this vector, 
         // so we can free it.
-        // If lua_ref != LUA_NOREF, this vector was referenced from C and should not be freed.
-        if (vector->lua_ref == LUA_NOREF) {
+        // If lua_ref != ESE_LUA_NOREF, this vector was referenced from C and should not be freed.
+        if (vector->lua_ref == ESE_LUA_NOREF) {
             ese_vector_destroy(vector);
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 /**
@@ -110,41 +113,54 @@ static int _ese_vector_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
  */
-static int _ese_vector_lua_index(lua_State *L) {
+static EseLuaValue* _ese_vector_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_VECTOR_INDEX);
-    EseVector *vector = ese_vector_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!vector || !key) {
+    
+    if (argc != 2) {
         profile_cancel(PROFILE_LUA_VECTOR_INDEX);
-        return 0;
+        return lua_value_create_error("result", "index requires 2 arguments");
+    }
+
+    if (!lua_value_is_vector(argv[0])) {
+        profile_cancel(PROFILE_LUA_VECTOR_INDEX);
+        return lua_value_create_error("result", "first argument must be a vector");
+    }
+    
+    EseVector *vector = lua_value_get_vector(argv[0]);
+    if (!vector) {
+        profile_cancel(PROFILE_LUA_VECTOR_INDEX);
+        return lua_value_create_error("result", "invalid vector");
+    }
+
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_VECTOR_INDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_VECTOR_INDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     if (strcmp(key, "x") == 0) {
-        lua_pushnumber(L, vector->x);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
-        return 1;
+        return lua_value_create_number(vector->x);
     } else if (strcmp(key, "y") == 0) {
-        lua_pushnumber(L, vector->y);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
-        return 1;
+        return lua_value_create_number(vector->y);
     } else if (strcmp(key, "set_direction") == 0) {
-        lua_pushlightuserdata(L, vector);
-        lua_pushcclosure(L, _ese_vector_lua_set_direction, 1);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
-        return 1;
+        return lua_value_create_cfunc(_ese_vector_lua_set_direction, lua_value_create_vector(vector));
     } else if (strcmp(key, "magnitude") == 0) {
-        lua_pushlightuserdata(L, vector);
-        lua_pushcclosure(L, _ese_vector_lua_magnitude, 1);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
-        return 1;
+        return lua_value_create_cfunc(_ese_vector_lua_magnitude, lua_value_create_vector(vector));
     } else if (strcmp(key, "normalize") == 0) {
-        lua_pushlightuserdata(L, vector);
-        lua_pushcclosure(L, _ese_vector_lua_normalize, 1);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
-        return 1;
+        return lua_value_create_cfunc(_ese_vector_lua_normalize, lua_value_create_vector(vector));
     }
     profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index");
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -156,34 +172,55 @@ static int _ese_vector_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_vector_lua_newindex(lua_State *L) {
+static EseLuaValue* _ese_vector_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_VECTOR_NEWINDEX);
-    EseVector *vector = ese_vector_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!vector || !key) {
+    
+    if (argc != 3) {
         profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
-        return 0;
+        return lua_value_create_error("result", "newindex requires 3 arguments");
+    }
+
+    if (!lua_value_is_vector(argv[0])) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
+        return lua_value_create_error("result", "first argument must be a vector");
+    }
+    
+    EseVector *vector = lua_value_get_vector(argv[0]);
+    if (!vector) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
+        return lua_value_create_error("result", "invalid vector");
+    }
+
+    if (!lua_value_is_string(argv[1])) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
+        return lua_value_create_error("result", "second argument must be a string");
+    }
+    
+    const char *key = lua_value_get_string(argv[1]);
+    if (!key) {
+        profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
+        return lua_value_create_error("result", "invalid key");
     }
 
     if (strcmp(key, "x") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
+        if (!lua_value_is_number(argv[2])) {
             profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
-            return luaL_error(L, "vector.x must be a number");
+            return lua_value_create_error("result", "vector.x must be a number");
         }
-        vector->x = (float)lua_tonumber(L, 3);
+        vector->x = (float)lua_value_get_number(argv[2]);
         profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     } else if (strcmp(key, "y") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
+        if (!lua_value_is_number(argv[2])) {
             profile_cancel(PROFILE_LUA_VECTOR_NEWINDEX);
-            return luaL_error(L, "vector.y must be a number");
+            return lua_value_create_error("result", "vector.y must be a number");
         }
-        vector->y = (float)lua_tonumber(L, 3);
+        vector->y = (float)lua_value_get_number(argv[2]);
         profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
-        return 0;
+        return lua_value_create_nil();
     }
     profile_stop(PROFILE_LUA_VECTOR_NEWINDEX, "vector_lua_newindex (setter)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
+    return lua_value_create_error("result", "unknown or unassignable property '%s'", key);
 }
 
 /**
@@ -195,19 +232,23 @@ static int _ese_vector_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _ese_vector_lua_tostring(lua_State *L) {
-    EseVector *vector = ese_vector_lua_get(L, 1);
-
+static EseLuaValue* _ese_vector_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return lua_value_create_error("result", "tostring requires 1 argument");
+    }
+    
+    if (!lua_value_is_vector(argv[0])) {
+        return lua_value_create_error("result", "first argument must be a vector");
+    }
+    
+    EseVector *vector = lua_value_get_vector(argv[0]);
     if (!vector) {
-        lua_pushstring(L, "Vector: (invalid)");
-        return 1;
+        return lua_value_create_string("Vector: (invalid)");
     }
 
     char buf[128];
     snprintf(buf, sizeof(buf), "Vector: %p (x=%.2f, y=%.2f)", (void*)vector, vector->x, vector->y);
-    lua_pushstring(L, buf);
-
-    return 1;
+    return lua_value_create_string(buf);
 }
 
 // Lua constructors
@@ -222,44 +263,35 @@ static int _ese_vector_lua_tostring(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _ese_vector_lua_new(lua_State *L) {
+static EseLuaValue* _ese_vector_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_VECTOR_NEW);
 
-    // Get argument count
-    int argc = lua_gettop(L);
     if (argc != 2) {
         profile_cancel(PROFILE_LUA_VECTOR_NEW);
-        return luaL_error(L, "Vector.new(number, number) takes 2 arguments");
+        return lua_value_create_error("result", "Vector.new(number, number) takes 2 arguments");
     }
     
-    if (lua_type(L, 1) != LUA_TNUMBER) {
+    if (!lua_value_is_number(argv[0])) {
         profile_cancel(PROFILE_LUA_VECTOR_NEW);
-        return luaL_error(L, "Vector.new(number, number) arguments must be numbers");
+        return lua_value_create_error("result", "Vector.new(number, number) arguments must be numbers");
     }
-    if (lua_type(L, 2) != LUA_TNUMBER) {
+    if (!lua_value_is_number(argv[1])) {
         profile_cancel(PROFILE_LUA_VECTOR_NEW);  
-        return luaL_error(L, "Vector.new(number, number) arguments must be numbers");
+        return lua_value_create_error("result", "Vector.new(number, number) arguments must be numbers");
     }
 
-    float x = (float)lua_tonumber(L, 1);
-    float y = (float)lua_tonumber(L, 2);
+    float x = (float)lua_value_get_number(argv[0]);
+    float y = (float)lua_value_get_number(argv[1]);
 
     // Create the vector using the standard creation function
     EseVector *vector = _ese_vector_make();
     vector->x = x;
     vector->y = y;
-    vector->state = L;
-    
-    // Create userdata directly
-    EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
-    *ud = vector;
-
-    // Attach metatable
-    luaL_getmetatable(L, VECTOR_PROXY_META);
-    lua_setmetatable(L, -2);
+    vector->lua_ref = ESE_LUA_NOREF;
+    vector->lua_ref_count = 0;
 
     profile_stop(PROFILE_LUA_VECTOR_NEW, "vector_lua_new");
-    return 1;
+    return lua_value_create_vector(vector);
 }
 
 /**
@@ -272,30 +304,23 @@ static int _ese_vector_lua_new(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
-static int _ese_vector_lua_zero(lua_State *L) {
+static EseLuaValue* _ese_vector_lua_zero(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_VECTOR_ZERO);
 
-    // Get argument count
-    int argc = lua_gettop(L);
     if (argc != 0) {
         profile_cancel(PROFILE_LUA_VECTOR_ZERO);
-        return luaL_error(L, "Vector.zero() takes 0 arguments");
+        return lua_value_create_error("result", "Vector.zero() takes 0 arguments");
     }
 
     // Create the vector using the standard creation function
-    EseVector *vector = _ese_vector_make();  // We'll set the state manually
-    vector->state = L;
-    
-    // Create userdata directly
-    EseVector **ud = (EseVector **)lua_newuserdata(L, sizeof(EseVector *));
-    *ud = vector;
-
-    // Attach metatable
-    luaL_getmetatable(L, VECTOR_PROXY_META);
-    lua_setmetatable(L, -2);
+    EseVector *vector = _ese_vector_make();
+    vector->x = 0.0f;
+    vector->y = 0.0f;
+    vector->lua_ref = ESE_LUA_NOREF;
+    vector->lua_ref_count = 0;
 
     profile_stop(PROFILE_LUA_VECTOR_ZERO, "vector_lua_zero");
-    return 1;
+    return lua_value_create_vector(vector);
 }
 
 // Lua methods
@@ -308,27 +333,26 @@ static int _ese_vector_lua_zero(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_vector_lua_set_direction(lua_State *L) {
-    // Get argument count
-    int n_args = lua_gettop(L);
-    if (n_args == 3) {
-        if (lua_type(L, 2) != LUA_TSTRING || lua_type(L, 3) != LUA_TNUMBER) {
-            return luaL_error(L, "vector:magnitude(string, number) takes a string and a number");
-        }
-    } else {
-        return luaL_error(L, "vector:set_direction(string, number) takes 2 arguments");
+static EseLuaValue* _ese_vector_lua_set_direction(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 2) {
+        return lua_value_create_error("result", "vector:set_direction(string, number) takes 2 arguments");
     }
 
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!lua_value_is_string(argv[0]) || !lua_value_is_number(argv[1])) {
+        return lua_value_create_error("result", "vector:set_direction(string, number) takes a string and a number");
+    }
+
+    // Get vector from upvalue (this function is called as a method)
+    EseVector *vector = lua_value_get_vector(argv[0]);
     if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in set_direction method");
+        return lua_value_create_error("result", "Invalid EseVector object in set_direction method");
     }
     
-    const char *direction = lua_tostring(L, 2);
-    float magnitude = (float)lua_tonumber(L, 3);
+    const char *direction = lua_value_get_string(argv[0]);
+    float magnitude = (float)lua_value_get_number(argv[1]);
 
     ese_vector_set_direction(vector, direction, magnitude);
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -340,20 +364,18 @@ static int _ese_vector_lua_set_direction(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - the magnitude value)
  */
-static int _ese_vector_lua_magnitude(lua_State *L) {
-    // Get argument count
-    int n_args = lua_gettop(L);
-    if (n_args != 1) {
-        return luaL_error(L, "vector:magnitude() takes 0 arguments");
+static EseLuaValue* _ese_vector_lua_magnitude(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return lua_value_create_error("result", "vector:magnitude() takes 0 arguments");
     }
 
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    // Get vector from upvalue (this function is called as a method)
+    EseVector *vector = lua_value_get_vector(argv[0]);
     if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in magnitude method");
+        return lua_value_create_error("result", "Invalid EseVector object in magnitude method");
     }
     
-    lua_pushnumber(L, ese_vector_magnitude(vector));
-    return 1;
+    return lua_value_create_number(ese_vector_magnitude(vector));
 }
 
 /**
@@ -365,20 +387,19 @@ static int _ese_vector_lua_magnitude(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_vector_lua_normalize(lua_State *L) {
-    // Get argument count
-    int n_args = lua_gettop(L);
-    if (n_args != 1) {
-        return luaL_error(L, "vector:normalize() takes 0 arguments");
+static EseLuaValue* _ese_vector_lua_normalize(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return lua_value_create_error("result", "vector:normalize() takes 0 arguments");
     }
 
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
+    // Get vector from upvalue (this function is called as a method)
+    EseVector *vector = lua_value_get_vector(argv[0]);
     if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in normalize method");
+        return lua_value_create_error("result", "Invalid EseVector object in normalize method");
     }
     
     ese_vector_normalize(vector);
-    return 0;
+    return lua_value_create_nil();
 }
 
 // ========================================
@@ -529,20 +550,13 @@ EseVector *ese_vector_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void ese_vector_ref(EseVector *vector) {
+void ese_vector_ref(EseVector *vector, EseLuaEngine *engine) {
     log_assert("VECTOR", vector, "ese_vector_ref called with NULL vector");
+    log_assert("VECTOR", engine, "ese_vector_ref called with NULL engine");
     
-    if (vector->lua_ref == LUA_NOREF) {
+    if (vector->lua_ref == ESE_LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseVector **ud = (EseVector **)lua_newuserdata(vector->state, sizeof(EseVector *));
-        *ud = vector;
-
-        // Attach metatable
-        luaL_getmetatable(vector->state, VECTOR_PROXY_META);
-        lua_setmetatable(vector->state, -2);
-
-        // Store hard reference to prevent garbage collection
-        vector->lua_ref = luaL_ref(vector->state, LUA_REGISTRYINDEX);
+        vector->lua_ref = lua_engine_get_reference(engine, lua_engine_create_userdata(engine, vector, "VectorMeta"));
         vector->lua_ref_count = 1;
     } else {
         // Already referenced - just increment count
@@ -555,13 +569,12 @@ void ese_vector_ref(EseVector *vector) {
 void vector_unref(EseVector *vector) {
     if (!vector) return;
     
-    if (vector->lua_ref != LUA_NOREF && vector->lua_ref_count > 0) {
+    if (vector->lua_ref != ESE_LUA_NOREF && vector->lua_ref_count > 0) {
         vector->lua_ref_count--;
         
         if (vector->lua_ref_count == 0) {
             // No more references - remove from registry
-            luaL_unref(vector->state, LUA_REGISTRYINDEX, vector->lua_ref);
-            vector->lua_ref = LUA_NOREF;
+            vector->lua_ref = ESE_LUA_NOREF;
         }
     }
 

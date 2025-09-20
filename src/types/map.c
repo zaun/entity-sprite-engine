@@ -88,160 +88,160 @@ void ese_map_lua_push(EseMap *map) {
 
 /* ----------------- Lua Methods ----------------- */
 
-static int _ese_map_lua_get_cell(lua_State *L) {
+static EseLuaValue* _ese_map_lua_get_cell(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    if (!map) return luaL_error(L, "Invalid Map in get_cell");
+    if (!map) return lua_value_create_error("result", "Invalid Map in get_cell");
 
     if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
-        return luaL_error(L, "get_cell(x, y) requires two numbers");
+        return lua_value_create_error("result", "get_cell(x, y) requires two numbers");
 
-    uint32_t x = (uint32_t)lua_tonumber(L, 2);
-    uint32_t y = (uint32_t)lua_tonumber(L, 3);
+    uint32_t x = (uint32_t)lua_value_get_number(argv[2-1]);
+    uint32_t y = (uint32_t)lua_value_get_number(argv[3-1]);
 
     if (x >= map->width || y >= map->height ) {
         lua_pushnil(L);
-        return 1;
+        return lua_value_create_nil();
     }
 
     EseMapCell *cell = ese_map_get_cell(map, x, y);
     if (!cell) {
         lua_pushnil(L);
-        return 1;
+        return lua_value_create_nil();
     }
     
     // Check if the cell has a valid state pointer for Lua operations
     if (!ese_mapcell_get_state(cell)) {
         lua_pushnil(L);
-        return 1;
+        return lua_value_create_nil();
     }
     
     ese_mapcell_lua_push(cell);
-    return 1;
+    return lua_value_create_nil();
 }
 
-static int _ese_map_lua_set_cell(lua_State *L) {
+static EseLuaValue* _ese_map_lua_set_cell(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    if (!map) return luaL_error(L, "Invalid Map in set_cell");
+    if (!map) return lua_value_create_error("result", "Invalid Map in set_cell");
 
     if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
-        return luaL_error(L, "set_cell(x, y, cell) requires coordinates");
+        return lua_value_create_error("result", "set_cell(x, y, cell) requires coordinates");
 
-    uint32_t x = (uint32_t)lua_tonumber(L, 2);
-    uint32_t y = (uint32_t)lua_tonumber(L, 3);
+    uint32_t x = (uint32_t)lua_value_get_number(argv[2-1]);
+    uint32_t y = (uint32_t)lua_value_get_number(argv[3-1]);
 
     EseMapCell *new_cell = ese_mapcell_lua_get(L, 4);
-    if (!new_cell) return luaL_error(L, "set_cell requires a valid MapCell");
+    if (!new_cell) return lua_value_create_error("result", "set_cell requires a valid MapCell");
 
     if (!ese_map_set_cell(map, x, y, new_cell)) {
-        lua_pushboolean(L, false);
-        return 1;
+        return lua_value_create_bool(false);
+        return lua_value_create_nil();
     }
-    lua_pushboolean(L, true);
-    return 1;
+    return lua_value_create_bool(true);
+    return lua_value_create_nil();
 }
 
-static int _ese_map_lua_resize(lua_State *L) {
+static EseLuaValue* _ese_map_lua_resize(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    if (!map) return luaL_error(L, "Invalid Map in resize");
+    if (!map) return lua_value_create_error("result", "Invalid Map in resize");
 
     if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
-        return luaL_error(L, "resize(width, height) requires two numbers");
+        return lua_value_create_error("result", "resize(width, height) requires two numbers");
 
-    uint32_t new_width = (uint32_t)lua_tonumber(L, 2);
-    uint32_t new_height = (uint32_t)lua_tonumber(L, 3);
+    uint32_t new_width = (uint32_t)lua_value_get_number(argv[2-1]);
+    uint32_t new_height = (uint32_t)lua_value_get_number(argv[3-1]);
 
-    lua_pushboolean(L, ese_map_resize(map, new_width, new_height));
-    return 1;
+    return lua_value_create_bool(ese_map_resize(map, new_width, new_height));
+    return lua_value_create_nil();
 }
 
-static int _ese_map_lua_set_tileset(lua_State *L) {
+static EseLuaValue* _ese_map_lua_set_tileset(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    if (!map) return luaL_error(L, "Invalid Map in set_tileset");
+    if (!map) return lua_value_create_error("result", "Invalid Map in set_tileset");
 
     EseTileSet *tileset = ese_tileset_lua_get(L, 2);
-    if (!tileset) return luaL_error(L, "set_tileset requires a valid Tileset");
+    if (!tileset) return lua_value_create_error("result", "set_tileset requires a valid Tileset");
 
     ese_map_set_tileset(map, tileset);
-    return 0;
+    return lua_value_create_nil();
 }
 
 /* ----------------- Metamethods ----------------- */
 
-static int _ese_map_lua_index(lua_State *L) {
+static EseLuaValue* _ese_map_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!map || !key) return 0;
+    const char *key = lua_value_get_string(argv[2-1]);
+    if (!map || !key) return lua_value_create_nil();
 
     if (strcmp(key, "title") == 0) {
-        lua_pushstring(L, map->title ? map->title : "");
-        return 1;
+        return lua_value_create_string(map->title ? map->title : "");
+        return lua_value_create_nil();
     } else if (strcmp(key, "author") == 0) {
-        lua_pushstring(L, map->author ? map->author : "");
-        return 1;
+        return lua_value_create_string(map->author ? map->author : "");
+        return lua_value_create_nil();
     } else if (strcmp(key, "version") == 0) {
-        lua_pushnumber(L, map->version);
-        return 1;
+        return lua_value_create_number(map->version);
+        return lua_value_create_nil();
     } else if (strcmp(key, "type") == 0) {
-        lua_pushstring(L, ese_map_type_to_string(map->type));
-        return 1;
+        return lua_value_create_string(ese_map_type_to_string(map->type));
+        return lua_value_create_nil();
     } else if (strcmp(key, "width") == 0) {
-        lua_pushnumber(L, map->width);
-        return 1;
+        return lua_value_create_number(map->width);
+        return lua_value_create_nil();
     } else if (strcmp(key, "height") == 0) {
-        lua_pushnumber(L, map->height);
-        return 1;
+        return lua_value_create_number(map->height);
+        return lua_value_create_nil();
     } else if (strcmp(key, "tileset") == 0) {
         if (map->tileset) {
             ese_tileset_lua_push(map->tileset);
         } else {
             lua_pushnil(L);
         }
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "get_cell") == 0) {
         lua_pushcfunction(L, _ese_map_lua_get_cell);
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "set_cell") == 0) {
         lua_pushcfunction(L, _ese_map_lua_set_cell);
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "resize") == 0) {
         lua_pushcfunction(L, _ese_map_lua_resize);
-        return 1;
+        return lua_value_create_nil();
     } else if (strcmp(key, "set_tileset") == 0) {
         lua_pushcfunction(L, _ese_map_lua_set_tileset);
-        return 1;
+        return lua_value_create_nil();
     }
 
-    return 0;
+    return lua_value_create_nil();
 }
 
-static int _ese_map_lua_newindex(lua_State *L) {
+static EseLuaValue* _ese_map_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!map || !key) return 0;
+    const char *key = lua_value_get_string(argv[2-1]);
+    if (!map || !key) return lua_value_create_nil();
 
     if (strcmp(key, "title") == 0) {
-        ese_map_set_title(map, lua_tostring(L, 3));
-        return 0;
+        ese_map_set_title(map, lua_value_get_string(argv[3-1]));
+        return lua_value_create_nil();
     } else if (strcmp(key, "author") == 0) {
-        ese_map_set_author(map, lua_tostring(L, 3));
-        return 0;
+        ese_map_set_author(map, lua_value_get_string(argv[3-1]));
+        return lua_value_create_nil();
     } else if (strcmp(key, "version") == 0) {
-        ese_map_set_version(map, (int)lua_tonumber(L, 3));
-        return 0;
+        ese_map_set_version(map, (int)lua_value_get_number(argv[3-1]));
+        return lua_value_create_nil();
     } else if (strcmp(key, "type") == 0) {
-        const char *type_str = lua_tostring(L, 3);
+        const char *type_str = lua_value_get_string(argv[3-1]);
         if (type_str) map->type = ese_map_type_from_string(type_str);
-        return 0;
+        return lua_value_create_nil();
     }
 
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
+    return lua_value_create_error("result", "unknown or unassignable property '%s'", key);
 }
 
-static int _ese_map_lua_gc(lua_State *L) {
+static EseLuaValue* _ese_map_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     // Get from userdata
     EseMap **ud = (EseMap **)luaL_testudata(L, 1, MAP_PROXY_META);
     if (!ud) {
-        return 0; // Not our userdata
+        return lua_value_create_nil(); // Not our userdata
     }
     
     EseMap *map = *ud;
@@ -254,14 +254,14 @@ static int _ese_map_lua_gc(lua_State *L) {
         }
     }
 
-    return 0;
+    return lua_value_create_nil();
 }
 
-static int _ese_map_lua_tostring(lua_State *L) {
+static EseLuaValue* _ese_map_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     EseMap *map = ese_map_lua_get(L, 1);
     if (!map) {
-        lua_pushstring(L, "Map: (invalid)");
-        return 1;
+        return lua_value_create_string("Map: (invalid)");
+        return lua_value_create_nil();
     }
 
     char buf[160];
@@ -270,31 +270,31 @@ static int _ese_map_lua_tostring(lua_State *L) {
              map->title ? map->title : "(null)",
              map->width, map->height,
              ese_map_type_to_string(map->type));
-    lua_pushstring(L, buf);
-    return 1;
+    return lua_value_create_string(buf);
+    return lua_value_create_nil();
 }
 
 /* ----------------- Lua Init ----------------- */
 
-static int _ese_map_lua_new(lua_State *L) {
+static EseLuaValue* _ese_map_lua_new(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
     profile_start(PROFILE_LUA_MAP_NEW);
 
     if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2)) {
         profile_cancel(PROFILE_LUA_MAP_NEW);
-        return luaL_error(L, "Map.new(width, height, [type]) requires at least two numbers");
+        return lua_value_create_error("result", "Map.new(width, height, [type]) requires at least two numbers");
     }
 
-    uint32_t width = (uint32_t)lua_tonumber(L, 1);
-    uint32_t height = (uint32_t)lua_tonumber(L, 2);
+    uint32_t width = (uint32_t)lua_value_get_number(argv[1-1]);
+    uint32_t height = (uint32_t)lua_value_get_number(argv[2-1]);
     EseMapType type = MAP_TYPE_GRID;
 
     if (width == 0 || height == 0) {
         profile_cancel(PROFILE_LUA_MAP_NEW);
-        return luaL_error(L, "Map.new(width, height, [type]) width and height must be greater than 0");
+        return lua_value_create_error("result", "Map.new(width, height, [type]) width and height must be greater than 0");
     }
 
     if (lua_isstring(L, 3)) {
-        type = ese_map_type_from_string(lua_tostring(L, 3));
+        type = ese_map_type_from_string(lua_value_get_string(argv[3-1]));
     }
 
     EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
@@ -314,7 +314,7 @@ static int _ese_map_lua_new(lua_State *L) {
     lua_setmetatable(L, -2);
 
     profile_stop(PROFILE_LUA_MAP_NEW, "ese_map_lua_new");
-    return 1;
+    return lua_value_create_nil();
 }
 
 void ese_map_lua_init(EseLuaEngine *engine) {

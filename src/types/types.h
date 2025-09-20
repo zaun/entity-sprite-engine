@@ -1,6 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define ESE_LUA_NOREF -999
+
 #include "types/arc.h"
 #include "types/camera.h"
 #include "types/color.h"

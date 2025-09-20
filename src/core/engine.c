@@ -18,6 +18,7 @@
 #include "core/engine_private.h"
 #include "core/engine.h"
 #include "core/pubsub.h"
+#include "types/camera.h"
 #include "utility/double_linked_list.h"
 #include "graphics/font.h"
 #include "utility/log.h"
@@ -52,28 +53,28 @@ EseEngine *engine_create(const char *startup_script) {
     engine->lua_engine = lua_engine_create();
 
     // Add lookups
-    lua_engine_add_registry_key(engine->lua_engine->runtime, ENGINE_KEY, engine);
-    lua_engine_add_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY, engine->lua_engine);
+    lua_engine_add_registry_key(engine->lua_engine, ENGINE_KEY, engine);
+    lua_engine_add_registry_key(engine->lua_engine, LUA_ENGINE_KEY, engine->lua_engine);
 
     // Add Entities
     entity_lua_init(engine->lua_engine);
-    entity_component_lua_init(engine->lua_engine);
+    // entity_component_lua_init(engine->lua_engine);
 
     // Add types
     ese_arc_lua_init(engine->lua_engine);
-    ese_camera_lua_init(engine->lua_engine);
-    ese_color_lua_init(engine->lua_engine);
-    ese_display_lua_init(engine->lua_engine);
-    ese_input_state_lua_init(engine->lua_engine);
-    ese_map_lua_init(engine->lua_engine);
-    ese_mapcell_lua_init(engine->lua_engine);
+    // ese_camera_lua_init(engine->lua_engine);
+    // ese_color_lua_init(engine->lua_engine);
+    // ese_display_lua_init(engine->lua_engine);
+    // ese_input_state_lua_init(engine->lua_engine);
+    // ese_map_lua_init(engine->lua_engine);
+    // ese_mapcell_lua_init(engine->lua_engine);
     ese_point_lua_init(engine->lua_engine);
-    ese_poly_line_lua_init(engine->lua_engine);
-    ese_ray_lua_init(engine->lua_engine);
+    // ese_poly_line_lua_init(engine->lua_engine);
+    // ese_ray_lua_init(engine->lua_engine);
     ese_rect_lua_init(engine->lua_engine);
-    ese_tileset_lua_init(engine->lua_engine);
-    ese_vector_lua_init(engine->lua_engine);
-    ese_uuid_lua_init(engine->lua_engine);
+    // ese_tileset_lua_init(engine->lua_engine);
+    // ese_vector_lua_init(engine->lua_engine);
+    // ese_uuid_lua_init(engine->lua_engine);
     
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
@@ -97,8 +98,8 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_global(engine->lua_engine, "Display", ese_display_get_lua_ref(engine->display_state));
 
     engine->camera_state = ese_camera_create(engine->lua_engine);
-    ese_camera_ref(engine->camera_state);
-    lua_engine_add_global(engine->lua_engine, "Camera", engine->camera_state->lua_ref);
+    ese_camera_ref(engine->lua_engine, engine->camera_state);
+    lua_engine_add_global(engine->lua_engine, "Camera", ese_camera_get_lua_ref(engine->camera_state));
 
     // Lock global
     lua_engine_global_lock(engine->lua_engine);
@@ -148,8 +149,8 @@ void engine_destroy(EseEngine *engine) {
     collision_index_destroy(engine->collision_bin);
 
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
-    lua_engine_remove_registry_key(engine->lua_engine->runtime, ENGINE_KEY);
-    lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
+    lua_engine_remove_registry_key(engine->lua_engine, ENGINE_KEY);
+    lua_engine_remove_registry_key(engine->lua_engine, LUA_ENGINE_KEY);
     lua_engine_destroy(engine->lua_engine);
 
     memory_manager.free(engine);
@@ -273,10 +274,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Display and camera updates
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     // Camera's view rectangle (centered)
-    float view_left   = ese_point_get_x(engine->camera_state->position) - ese_display_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_right  = ese_point_get_x(engine->camera_state->position) + ese_display_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_top    = ese_point_get_y(engine->camera_state->position) - ese_display_get_viewport_height(engine->display_state) / 2.0f;
-    float view_bottom = ese_point_get_y(engine->camera_state->position) + ese_display_get_viewport_height(engine->display_state) / 2.0f;
+    EsePoint *camera_pos = ese_camera_get_position(engine->camera_state);
+    float view_left   = ese_point_get_x(camera_pos) - ese_display_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_right  = ese_point_get_x(camera_pos) + ese_display_get_viewport_width(engine->display_state)  / 2.0f;
+    float view_top    = ese_point_get_y(camera_pos) - ese_display_get_viewport_height(engine->display_state) / 2.0f;
+    float view_bottom = ese_point_get_y(camera_pos) + ese_display_get_viewport_height(engine->display_state) / 2.0f;
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_display_camera");
 
     // Entity PASS ONE - Update each active entity.
@@ -371,10 +373,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
             .draw_polyline = _engine_add_polyline_to_draw_list
         };
         
+        EsePoint *camera_pos = ese_camera_get_position(engine->camera_state);
         entity_draw(
             entity,
-            ese_point_get_x(engine->camera_state->position),
-            ese_point_get_y(engine->camera_state->position),
+            ese_point_get_x(camera_pos),
+            ese_point_get_y(camera_pos),
             ese_display_get_viewport_width(engine->display_state),
             ese_display_get_viewport_height(engine->display_state),
             &callbacks,
@@ -419,7 +422,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_renderer");
 
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
+    lua_engine_gc(engine->lua_engine);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
 
     // Delete entities

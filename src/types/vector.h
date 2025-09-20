@@ -180,7 +180,7 @@ EseVector *ese_vector_lua_get(lua_State *L, int idx);
  * 
  * @param vector Pointer to the EseVector object to reference
  */
-void ese_vector_ref(EseVector *vector);
+void ese_vector_ref(EseVector *vector, EseLuaEngine *engine);
 
 /**
  * @brief Unreferences a EseVector object, decrementing the reference count.

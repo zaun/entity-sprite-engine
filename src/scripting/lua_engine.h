@@ -2,31 +2,12 @@
 #define ESE_LUA_ENGINE_H
 
 #include <stdbool.h>
-
-// Required for anyone useing the lua_engine
-#include "../vendor/lua/src/lua.h"
-#include "../vendor/lua/src/lauxlib.h"
-#include "../vendor/lua/src/lualib.h"
 #include "lua_value.h"
 
 // Forward declarations
 typedef struct EseLuaValue EseLuaValue;
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngineInternal EseLuaEngineInternal;
+typedef struct EseLuaEngine EseLuaEngine;
 
-/**
- * @brief Main interface for the Lua scripting engine.
- * 
- * @details This structure provides the public interface for Lua scripting
- *          functionality. It contains a Lua state for script execution
- *          and internal state for configuration and security management.
- *          The engine enforces memory limits, execution timeouts, and
- *          provides a sandboxed environment for safe script execution.
- */
-typedef struct EseLuaEngine {
-    lua_State *runtime;             /**< Lua state for script execution */
-    EseLuaEngineInternal *internal; /**< Internal state and configuration */
-} EseLuaEngine;
 
 extern const char _ENGINE_SENTINEL;
 #define ENGINE_KEY ((void *)&_ENGINE_SENTINEL)
@@ -37,7 +18,8 @@ extern const char _LUA_ENGINE_SENTINEL;
 extern const char _ENTITY_LIST_KEY_SENTINEL;
 #define ENTITY_LIST_KEY ((void *)&_ENTITY_LIST_KEY_SENTINEL)
 
-typedef int (*lua_CFunction) (lua_State *L);
+// Function pointer type for C functions that use EseLuaEngine
+typedef EseLuaValue* (*EseLuaCFunction) (EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 /**
  * @brief Creates and initializes a new EseLuaEngine instance with security restrictions.
@@ -78,7 +60,7 @@ void lua_engine_gc(EseLuaEngine *engine);
   * @param key    A unique key (e.g. address of a static sentinel).
   * @param ptr    Pointer to store
   */
- void lua_engine_add_registry_key(lua_State *L, const void *key, void *ptr);
+ void lua_engine_add_registry_key(EseLuaEngine *engine, const void *key, void *ptr);
 
  /**
   * @brief Retrieves the Lua value stored under the given key in the
@@ -88,17 +70,31 @@ void lua_engine_gc(EseLuaEngine *engine);
   * @param key      The same key you used to add it.
   * @return         Stored pointer or NULL if none
   */
- void *lua_engine_get_registry_key(lua_State *L, const void *key);
+void *lua_engine_get_registry_key(EseLuaEngine *engine, const void *key);
 
- /**
+/**
   * @brief Removes the entry for the given key from the registry.
   *
   * @param L        lua_State pointer
   * @param key      The key whose value you want to delete.
   */
- void lua_engine_remove_registry_key(lua_State *L, const void *key);
+ void lua_engine_remove_registry_key(EseLuaEngine *engine, const void *key);
 
-void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, lua_CFunction func);
+void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, EseLuaCFunction func);
+
+void lua_engine_add_metatable(EseLuaEngine *engine, const char *name, EseLuaCFunction index_func, EseLuaCFunction newindex_func, EseLuaCFunction gc_func, EseLuaCFunction tostring_func);
+
+void lua_engine_add_globaltable(EseLuaEngine *engine, const char *name, size_t argc, const char **function_names, EseLuaCFunction *functions);
+
+void* lua_engine_create_userdata(EseLuaEngine *engine, const char *metatable_name, size_t size);
+
+void lua_engine_get_registry_value(EseLuaEngine *engine, int ref);
+
+int lua_engine_get_reference(EseLuaEngine *engine);
+
+bool lua_engine_is_userdata(EseLuaEngine *engine, int idx);
+
+void* lua_engine_test_userdata(EseLuaEngine *engine, int idx, const char *metatable_name);
 
 void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lua_ref);
 
@@ -235,7 +231,5 @@ bool lua_engine_run_function(
     EseLuaValue *out_result
 );
 
-int lua_isinteger_lj(lua_State *L, int idx);
-void *lua_getextraspace_lj(lua_State *L);
 
 #endif // ESE_LUA_ENGINE_H

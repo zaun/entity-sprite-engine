@@ -10,7 +10,8 @@
 #ifndef ESE_ENGINE_LUA_H
 #define ESE_ENGINE_LUA_H
 
-typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EseLuaValue EseLuaValue;
 
 /**
  * @brief Prints a message to the engine's log.
@@ -23,7 +24,7 @@ typedef struct lua_State lua_State;
  * 
  * @note This function asserts that the Lua state `L` is not NULL.
  */
-int _lua_print(lua_State *L);
+EseLuaValue* _lua_print(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 /**
  * @brief Loads a script file via the asset manager.
@@ -36,7 +37,7 @@ int _lua_print(lua_State *L);
  * 
  * @note This function validates that it receives exactly one string argument.
  */
-int _lua_asset_load_script(lua_State *L);
+EseLuaValue* _lua_asset_load_script(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 /**
  * @brief Loads a sprite atlas file via the asset manager.
@@ -49,7 +50,7 @@ int _lua_asset_load_script(lua_State *L);
  * 
  * @note This function validates that it receives exactly one string argument.
  */
-int _lua_asset_load_atlas(lua_State *L);
+EseLuaValue* _lua_asset_load_atlas(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 /**
  * @brief Loads a shader file into the renderer.
@@ -59,18 +60,18 @@ int _lua_asset_load_atlas(lua_State *L);
  * 
  * @note This function validates that it receives exactly one string argument.
  */
-int _lua_asset_load_shader(lua_State *L);
+EseLuaValue* _lua_asset_load_shader(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_asset_load_map(lua_State *L);
+EseLuaValue* _lua_asset_load_map(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_asset_get_map(lua_State *L);
+EseLuaValue* _lua_asset_get_map(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_set_pipeline(lua_State *L);
+EseLuaValue* _lua_set_pipeline(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_detect_collision(lua_State *L);
+EseLuaValue* _lua_detect_collision(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_scene_clear(lua_State *L);
+EseLuaValue* _lua_scene_clear(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
-int _lua_scene_reset(lua_State *L);
+EseLuaValue* _lua_scene_reset(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 #endif // ESE_ENGINE_LUA_H

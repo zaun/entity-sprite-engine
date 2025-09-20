@@ -2,25 +2,10 @@
 #define ESE_CAMERA_STATE_H
 
 // Forward declarations
-typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EsePoint EsePoint;
+typedef struct EseCamera EseCamera;
 
-/**
- * @brief Represents the complete state of a 2D camera.
- * 
- * @details This structure stores the position, rotation, and scale of a camera in 2D space.
- *          The position is represented as a EsePoint object.
- */
-typedef struct {
-    EsePoint *position; /**< The position of the camera as a EsePoint object */
-    float rotation; /**< The rotation of the camera in radians */
-    float scale; /**< The scale/zoom level of the camera */
-
-    lua_State *state;  /**< Lua State this EseCamera belongs to */
-    int lua_ref;       /**< Lua registry reference to its own proxy table */
-    int lua_ref_count; /**< Number of times this camera has been referenced in C */
-} EseCamera;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -94,7 +79,7 @@ void ese_camera_lua_init(EseLuaEngine *engine);
  * 
  * @param camera_state Pointer to the EseCamera object to push to Lua
  */
-void ese_camera_lua_push(EseCamera *camera_state);
+void ese_camera_lua_push(EseLuaEngine *engine, EseCamera *camera_state);
 
 /**
  * @brief Extracts a EseCamera pointer from a Lua userdata object with type safety.
@@ -104,25 +89,26 @@ void ese_camera_lua_push(EseCamera *camera_state);
  *          type checking to ensure the object is a valid EseCamera proxy table
  *          with the correct metatable and userdata pointer.
  * 
- * @param L Lua state pointer
+ * @param engine EseLuaEngine pointer
  * @param idx Stack index of the Lua EseCamera object
  * @return Pointer to the EseCamera object, or NULL if extraction fails or type check fails
  * 
  * @warning Returns NULL for invalid objects - always check return value before use
  */
-EseCamera *ese_camera_lua_get(lua_State *L, int idx);
+EseCamera *ese_camera_lua_get(EseLuaEngine *engine, int idx);
 
 /**
  * @brief References a EseCamera object for Lua access with reference counting.
  * 
- * @details If camera_state->lua_ref is LUA_NOREF, pushes the camera to Lua and references it,
+ * @details If camera_state->lua_ref is ESE_LUA_NOREF, pushes the camera to Lua and references it,
  *          setting lua_ref_count to 1. If camera_state->lua_ref is already set, increments
  *          the reference count by 1. This prevents the camera from being garbage
  *          collected while C code holds references to it.
  * 
+ * @param engine EseLuaEngine pointer
  * @param camera_state Pointer to the EseCamera object to reference
  */
-void ese_camera_ref(EseCamera *camera_state);
+void ese_camera_ref(EseLuaEngine *engine, EseCamera *camera_state);
 
 /**
  * @brief Unreferences a EseCamera object, decrementing the reference count.
@@ -130,8 +116,24 @@ void ese_camera_ref(EseCamera *camera_state);
  * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua reference
  *          is removed from the registry. This function does NOT free memory.
  * 
+ * @param engine EseLuaEngine pointer
  * @param camera_state Pointer to the EseCamera object to unreference
  */
-void ese_camera_unref(EseCamera *camera_state);
+void ese_camera_unref(EseLuaEngine *engine, EseCamera *camera_state);
+
+// Property access
+void ese_camera_set_position(EseCamera *camera_state, EsePoint *position);
+EsePoint *ese_camera_get_position(const EseCamera *camera_state);
+void ese_camera_set_rotation(EseCamera *camera_state, float rotation);
+float ese_camera_get_rotation(const EseCamera *camera_state);
+void ese_camera_set_scale(EseCamera *camera_state, float scale);
+float ese_camera_get_scale(const EseCamera *camera_state);
+
+// Lua-related access
+int ese_camera_get_lua_ref(const EseCamera *camera_state);
+int ese_camera_get_lua_ref_count(const EseCamera *camera_state);
+
+// Utility
+size_t ese_camera_sizeof(void);
 
 #endif // ESE_CAMERA_STATE_H

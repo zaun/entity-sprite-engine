@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "scripting/lua_value.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/input_state.h"
@@ -44,16 +45,16 @@ static const char *const input_state_key_names[] = {
 static EseInputState *_input_state_make(void);
 
 // Lua metamethods
-static int _input_state_lua_gc(lua_State *L);
-static int _input_state_lua_index(lua_State *L);
-static int _input_state_lua_newindex(lua_State *L);
-static int _input_state_lua_tostring(lua_State *L);
+static EseLuaValue* _input_state_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_lua_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_lua_newindex(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_lua_tostring(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // Lua helpers
-static int _input_state_keys_index(lua_State *L);
-static int _input_state_mouse_buttons_index(lua_State *L);
-static int _input_state_key_index(lua_State *L);
-static int _input_state_readonly_error(lua_State *L);
+static EseLuaValue* _input_state_keys_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_mouse_buttons_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_key_index(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
+static EseLuaValue* _input_state_readonly_error(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -79,8 +80,7 @@ static EseInputState *_input_state_make() {
     input->mouse_y = 0;
     input->mouse_scroll_dx = 0;
     input->mouse_scroll_dy = 0;
-    input->state = NULL;
-    input->lua_ref = LUA_NOREF;
+    input->lua_ref = ESE_LUA_NOREF;
     input->lua_ref_count = 0;
     return input;
 }
@@ -95,24 +95,27 @@ static EseInputState *_input_state_make() {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _input_state_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseInputState **ud = (EseInputState **)luaL_testudata(L, 1, INPUT_STATE_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
+static EseLuaValue* _input_state_lua_gc(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]) {
+    if (argc != 1) {
+        return NULL;
     }
-    
-    EseInputState *input = *ud;
+
+    // Get the input state from the first argument
+    if (!lua_value_is_input_state(argv[0])) {
+        return NULL;
+    }
+
+    EseInputState *input = lua_value_get_input_state(argv[0]);
     if (input) {
-        // If lua_ref == LUA_NOREF, there are no more references to this input, 
+        // If lua_ref == ESE_LUA_NOREF, there are no more references to this input, 
         // so we can free it.
-        // If lua_ref != LUA_NOREF, this input was referenced from C and should not be freed.
-        if (input->lua_ref == LUA_NOREF) {
+        // If lua_ref != ESE_LUA_NOREF, this input was referenced from C and should not be freed.
+        if (input->lua_ref == ESE_LUA_NOREF) {
             ese_input_state_destroy(input);
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 /**
@@ -128,10 +131,10 @@ static int _input_state_lua_gc(lua_State *L) {
 static int _input_state_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_INPUT_STATE_INDEX);
     EseInputState *input = ese_input_state_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
+    const char *key = lua_value_get_string(argv[2-1]);
     if (!input || !key) {
         profile_cancel(PROFILE_LUA_INPUT_STATE_INDEX);
-        return 0;
+        return lua_value_create_nil();
     }
 
     // keys_down, keys_pressed, keys_released tables
@@ -162,29 +165,29 @@ static int _input_state_lua_index(lua_State *L) {
         lua_setmetatable(L, -2);
 
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (keys_table)");
-        return 1;
+        return lua_value_create_nil();
     }
 
     // mouse_x, mouse_y, mouse_scroll_dx, mouse_scroll_dy
     if (strcmp(key, "mouse_x") == 0) {
         lua_pushinteger(L, input->mouse_x);
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_x)");
-        return 1;
+        return lua_value_create_nil();
     }
     if (strcmp(key, "mouse_y") == 0) {
         lua_pushinteger(L, input->mouse_y);
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_y)");
-        return 1;
+        return lua_value_create_nil();
     }
     if (strcmp(key, "mouse_scroll_dx") == 0) {
         lua_pushinteger(L, input->mouse_scroll_dx);
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_scroll_dx)");
-        return 1;
+        return lua_value_create_nil();
     }
     if (strcmp(key, "mouse_scroll_dy") == 0) {
         lua_pushinteger(L, input->mouse_scroll_dy);
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_scroll_dy)");
-        return 1;
+        return lua_value_create_nil();
     }
 
     // mouse_buttons table proxy (read-only)
@@ -205,7 +208,7 @@ static int _input_state_lua_index(lua_State *L) {
         lua_setmetatable(L, -2);
 
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_buttons)");
-        return 1;
+        return lua_value_create_nil();
     }
 
     // KEY table with constants
@@ -220,11 +223,11 @@ static int _input_state_lua_index(lua_State *L) {
         }
 
         profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (KEY_table)");
-        return 1;
+        return lua_value_create_nil();
     }
 
     profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (invalid)");
-    return 0;
+    return lua_value_create_nil();
 }
 
 /**
@@ -239,7 +242,7 @@ static int _input_state_lua_index(lua_State *L) {
 static int _input_state_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_INPUT_STATE_NEWINDEX);
     profile_stop(PROFILE_LUA_INPUT_STATE_NEWINDEX, "input_state_lua_newindex (error)");
-    return luaL_error(L, "Input object is read-only");
+    return lua_value_create_error("result", "Input object is read-only");
 }
 
 /**
@@ -254,8 +257,8 @@ static int _input_state_lua_newindex(lua_State *L) {
 static int _input_state_lua_tostring(lua_State *L) {
     EseInputState *input = ese_input_state_lua_get(L, 1);
     if (!input) {
-        lua_pushstring(L, "Input: (invalid)");
-        return 1;
+        return lua_value_create_string("Input: (invalid)");
+        return lua_value_create_nil();
     }
     char buf[1024];
     snprintf(
@@ -303,8 +306,8 @@ static int _input_state_lua_tostring(lua_State *L) {
         input->keys_down[InputKey_LSHIFT] ? '<': ' ',
         input->keys_down[InputKey_RSHIFT] ? '>': ' '
     );
-    lua_pushstring(L, buf);
-    return 1;
+    return lua_value_create_string(buf);
+    return lua_value_create_nil();
 }
 
 // Lua helpers
@@ -321,8 +324,8 @@ static int _input_state_keys_index(lua_State *L) {
     bool *arr = (bool *)lua_touserdata(L, lua_upvalueindex(1));
     int key_idx = (int)luaL_checkinteger(L, 2);
     log_assert("INPUT_STATE", (key_idx >= 0 && key_idx < InputKey_MAX), "Invalid key index");
-    lua_pushboolean(L, arr[key_idx]);
-    return 1;
+    return lua_value_create_bool(arr[key_idx]);
+    return lua_value_create_nil();
 }
 
 /**
@@ -338,10 +341,10 @@ static int _input_state_mouse_buttons_index(lua_State *L) {
     EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
     int btn = (int)luaL_checkinteger(L, 2);
     if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
-        return luaL_error(L, "Invalid mouse button index");
+        return lua_value_create_error("result", "Invalid mouse button index");
     }
-    lua_pushboolean(L, input->mouse_buttons[btn]);
-    return 1;
+    return lua_value_create_bool(input->mouse_buttons[btn]);
+    return lua_value_create_nil();
 }
 
 
@@ -355,20 +358,20 @@ static int _input_state_mouse_buttons_index(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - integer key value)
  */
 static int _input_state_key_index(lua_State *L) {
-    const char *key_name = lua_tostring(L, 2);
+    const char *key_name = lua_value_get_string(argv[2-1]);
     if (!key_name) {
-        return luaL_error(L, "Key name must be a string");
+        return lua_value_create_error("result", "Key name must be a string");
     }
     
     // Find the key name in the array
     for (int i = 0; i < InputKey_MAX; i++) {
         if (strcmp(input_state_key_names[i], key_name) == 0) {
             lua_pushinteger(L, i);
-            return 1;
+            return lua_value_create_nil();
         }
     }
     
-    return luaL_error(L, "Unknown key name: %s", key_name);
+    return lua_value_create_error("result", "Unknown key name: %s", key_name);
 }
 
 /**
@@ -381,7 +384,7 @@ static int _input_state_key_index(lua_State *L) {
  * @return Never returns (always calls luaL_error)
  */
 static int _input_state_readonly_error(lua_State *L) {
-    return luaL_error(L, "Input tables are read-only");
+    return lua_value_create_error("result", "Input tables are read-only");
 }
 
 // ========================================

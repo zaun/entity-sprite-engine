@@ -141,7 +141,7 @@ void entity_destroy(EseEntity *entity) {
         luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
     }
     if (entity->lua_val_ref) {
-        lua_value_free(entity->lua_val_ref);
+        lua_value_destroy(entity->lua_val_ref);
     }
 
     dlist_free(entity->default_props);

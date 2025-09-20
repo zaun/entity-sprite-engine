@@ -213,7 +213,7 @@ static void test_entity_subscribe() {
         }
         lua_pop(L, 2); // Pop data table and entity
         
-        lua_value_free(data);
+        lua_value_destroy(data);
         entity_destroy(entity);
     }
 }
@@ -260,8 +260,8 @@ static void test_entity_unsubscribe() {
             }
             lua_pop(L, 2); // Pop data table and entity
             
-            lua_value_free(data1);
-            lua_value_free(data2);
+            lua_value_destroy(data1);
+            lua_value_destroy(data2);
             entity_destroy(entity);
         }
         
@@ -314,9 +314,9 @@ static void test_entity_publish() {
             }
             lua_pop(L, 2); // Pop data table and entity
             
-            lua_value_free(string_data);
-            lua_value_free(number_data);
-            lua_value_free(bool_data);
+            lua_value_destroy(string_data);
+            lua_value_destroy(number_data);
+            lua_value_destroy(bool_data);
             entity_destroy(entity);
         }
         
@@ -384,7 +384,7 @@ static void test_entity_multiple_subscribers() {
             }
             lua_pop(L, 2);
             
-            lua_value_free(data);
+            lua_value_destroy(data);
             entity_destroy(entity1);
             entity_destroy(entity2);
         }
@@ -442,8 +442,8 @@ static void test_entity_multiple_topics() {
             }
             lua_pop(L, 2);
             
-            lua_value_free(data1);
-            lua_value_free(data2);
+            lua_value_destroy(data1);
+            lua_value_destroy(data2);
             entity_destroy(entity);
         }
         
@@ -519,7 +519,7 @@ static void test_entity_auto_cleanup() {
             engine_pubsub_pub(g_engine, "topic2", data);
             engine_pubsub_pub(g_engine, "topic3", data);
             
-            lua_value_free(data);
+            lua_value_destroy(data);
         }
         
     }
@@ -607,7 +607,7 @@ static void test_entity_pubsub_data_passing() {
             }
             lua_pop(L, 2);
             
-            lua_value_free(complex_data);
+            lua_value_destroy(complex_data);
             entity_destroy(entity);
         }
         
@@ -645,7 +645,7 @@ static void test_entity_pubsub_error_handling() {
             // This test is commented out as it would cause an abort in debug builds
             // engine_pubsub_pub(engine, "error_test_event", NULL);
             
-            lua_value_free(data);
+            lua_value_destroy(data);
             entity_destroy(entity);
         }
         
