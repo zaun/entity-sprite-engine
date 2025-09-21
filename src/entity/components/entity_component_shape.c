@@ -37,13 +37,21 @@ static bool _shape_vtable_run_function(EseEntityComponent* component, EseEntity*
     return false;
 }
 
+static void _shape_vtable_ref(EseEntityComponent* component) {
+}
+
+static void _shape_vtable_unref(EseEntityComponent* component) {
+}
+
 // Static vtable instance for shape components
 static const ComponentVTable shape_vtable = {
     .copy = _shape_vtable_copy,
     .destroy = _shape_vtable_destroy,
     .update = _shape_vtable_update,
     .draw = _shape_vtable_draw,
-    .run_function = _shape_vtable_run_function
+    .run_function = _shape_vtable_run_function,
+    .ref = _shape_vtable_ref,
+    .unref = _shape_vtable_unref
 };
 
 // Helper function to convert degrees to radians

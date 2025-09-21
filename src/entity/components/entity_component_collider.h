@@ -56,4 +56,8 @@ bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collid
 
 void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collider, bool draw_debug);
 
+void entity_component_collider_ref(EseEntityComponentCollider *component);
+
+void entity_component_collider_unref(EseEntityComponentCollider *component);
+
 #endif // ESE_ENTITY_COMPONENT_COLLIDER_H

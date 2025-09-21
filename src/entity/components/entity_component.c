@@ -44,10 +44,6 @@ void entity_component_destroy(EseEntityComponent* component) {
     log_assert("ENTITY_COMP", component, "entity_component_destroy called with NULL component");
 
     profile_start(PROFILE_ENTITY_COMPONENT_DESTROY);
-
-    if (component->lua_ref != LUA_NOREF) {
-        luaL_unref(component->lua->runtime, LUA_REGISTRYINDEX, component->lua_ref);
-    }
     
     component->vtable->destroy(component);
     
@@ -61,7 +57,7 @@ void entity_component_push(EseEntityComponent *component) {
 
     profile_start(PROFILE_ENTITY_LUA_PROPERTY_ACCESS);
 
-    // Push the proxy table back onto the stack for Lua to receive
+    // Push the userdata/proxy back onto the stack for Lua to receive
     lua_rawgeti(component->lua->runtime, LUA_REGISTRYINDEX, component->lua_ref);
     
     profile_stop(PROFILE_ENTITY_LUA_PROPERTY_ACCESS, "entity_component_push");
@@ -202,8 +198,27 @@ void *entity_component_get_data(EseEntityComponent *component) {
 EseEntityComponent *entity_component_get(lua_State *L) {
     log_assert("ENTITY_COMP", L, "entity_component_get called with NULL L");
 
+    // Check if it's userdata (for collider and lua components) or table (for other components)
+    if (lua_isuserdata(L, 1)) {
+        // Handle userdata - check if it's a collider component
+        EseEntityComponentCollider **ud_collider = (EseEntityComponentCollider **)luaL_testudata(L, 1, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+        if (ud_collider) {
+            return &(*ud_collider)->base;
+        }
+        
+        // Handle userdata - check if it's a lua component
+        EseEntityComponentLua **ud_lua = (EseEntityComponentLua **)luaL_testudata(L, 1, ENTITY_COMPONENT_LUA_PROXY_META);
+        if (ud_lua) {
+            return &(*ud_lua)->base;
+        }
+        
+        luaL_argerror(L, 1, "expected a component userdata, got unknown userdata type");
+        return NULL;
+    }
+
+    // Handle table-based components (legacy)
     if (!lua_istable(L, 1)) {
-        luaL_argerror(L, 1, "expected a component proxy table, got non-table");
+        luaL_argerror(L, 1, "expected a component proxy table or userdata, got non-table/non-userdata");
         return NULL;
     }
 
@@ -221,13 +236,10 @@ EseEntityComponent *entity_component_get(lua_State *L) {
 
     lua_pop(L, 2);
 
+    // Skip collider component here since it's handled above as userdata
     if (strcmp(metatable_name, ENTITY_COMPONENT_COLLIDER_PROXY_META) == 0) {
-        EseEntityComponentCollider *collider_comp = _entity_component_collider_get(L, 1);
-        if (collider_comp == NULL) {
-            luaL_error(L, "internal error: Collider metatable name identified, but _get returned NULL.");
-            return NULL;
-        }
-        return &collider_comp->base;
+        luaL_argerror(L, 1, "collider component should be userdata, not table");
+        return NULL;
     } else if (strcmp(metatable_name, ENTITY_COMPONENT_LUA_PROXY_META) == 0) {
         EseEntityComponentLua *lua_comp = _entity_component_lua_get(L, 1);
         if (lua_comp == NULL) {

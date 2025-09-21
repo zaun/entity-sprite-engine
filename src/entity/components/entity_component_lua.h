@@ -95,4 +95,24 @@ void _entity_component_lua_cache_functions(EseEntityComponentLua *component);
  */
 void _entity_component_lua_clear_cache(EseEntityComponentLua *component);
 
+/**
+ * @brief Increments the reference count for a Lua component.
+ * 
+ * @details Creates a Lua userdata proxy for the component and stores it in the registry.
+ *          If the component is already referenced, just increments the reference count.
+ * 
+ * @param component Pointer to the EntityComponentLua component.
+ */
+void entity_component_lua_ref(EseEntityComponentLua *component);
+
+/**
+ * @brief Decrements the reference count for a Lua component.
+ * 
+ * @details Decrements the reference count and removes the Lua reference if it reaches zero.
+ *          Does not free the component memory - that's handled by the destroy function.
+ * 
+ * @param component Pointer to the EntityComponentLua component.
+ */
+void entity_component_lua_unref(EseEntityComponentLua *component);
+
 #endif // ENTITY_COMPONENT_LUA_PRIVATE_H

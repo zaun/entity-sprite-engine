@@ -98,7 +98,9 @@ void entity_destroy(EseEntity *entity) {
 
     profile_start(PROFILE_ENTITY_DESTROY);
 
+    ese_uuid_unref(entity->id);
     ese_uuid_destroy(entity->id);
+    ese_point_unref(entity->position);
     ese_point_destroy(entity->position);
 
     hashmap_free(entity->current_collisions);

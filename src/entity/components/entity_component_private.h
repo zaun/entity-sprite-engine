@@ -31,6 +31,8 @@ typedef struct ComponentVTable {
     void (*update)(EseEntityComponent* component, EseEntity* entity, float delta_time);
     void (*draw)(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data);
     bool (*run_function)(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]);
+    void (*ref)(EseEntityComponent* component);
+    void (*unref)(EseEntityComponent* component);
 } ComponentVTable;
 
 /**
@@ -50,7 +52,8 @@ typedef struct EseEntityComponent {
 
     EseEntity *entity;              /**< EseEntity this component belongs to */
     EseLuaEngine *lua;              /**< EseLuaEngine this component belongs to */
-    int lua_ref;                    /**< Lua registry reference to its own proxy table */
+    int lua_ref;                    /**< Lua registry reference to its own userdata */
+    int lua_ref_count;              /**< Reference count for Lua userdata */
 } EseEntityComponent;
 
 

@@ -33,13 +33,21 @@ static bool _map_vtable_run_function(EseEntityComponent* component, EseEntity* e
     return false;
 }
 
+static void _map_vtable_ref(EseEntityComponent* component) {
+}
+
+static void _map_vtable_unref(EseEntityComponent* component) {
+}
+
 // Static vtable instance for map components
 static const ComponentVTable map_vtable = {
     .copy = _map_vtable_copy,
     .destroy = _map_vtable_destroy,
     .update = _map_vtable_update,
     .draw = _map_vtable_draw,
-    .run_function = _map_vtable_run_function
+    .run_function = _map_vtable_run_function,
+    .ref = _map_vtable_ref,
+    .unref = _map_vtable_unref
 };
 
 static void _entity_component_ese_map_register(EseEntityComponentMap *component, bool is_lua_owned)

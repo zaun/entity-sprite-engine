@@ -1,6 +1,7 @@
 #include <string.h>
 #include <math.h>
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
@@ -17,6 +18,30 @@
 #define COLLIDER_RECT_CAPACITY 5
 
 static void _entity_component_collider_rect_changed(EseRect *rect, void *userdata);
+
+/**
+ * @brief Helper function to get the collider component from a rects proxy table.
+ * 
+ * @details Extracts the collider component from the __component field of a rects proxy table.
+ * 
+ * @param L Lua state pointer
+ * @param idx Stack index of the rects proxy table
+ * @return Pointer to the collider component, or NULL if extraction fails
+ */
+static EseEntityComponentCollider *_entity_component_collider_rects_get_component(lua_State *L, int idx) {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
+        return NULL;
+    }
+    
+    // Get the userdata and check metatable
+    EseEntityComponentCollider **ud = (EseEntityComponentCollider **)luaL_testudata(L, idx, "ColliderRectsProxyMeta");
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
+    }
+    
+    return *ud;
+}
 
 // VTable wrapper functions
 static EseEntityComponent* _collider_vtable_copy(EseEntityComponent* component) {
@@ -42,32 +67,63 @@ static bool _collider_vtable_run_function(EseEntityComponent* component, EseEnti
     return false;
 }
 
+static void _collider_vtable_ref(EseEntityComponent* component) {
+    entity_component_collider_ref((EseEntityComponentCollider*)component->data);
+}
+
+static void _collider_vtable_unref(EseEntityComponent* component) {
+    entity_component_collider_unref((EseEntityComponentCollider*)component->data);
+}
+
 // Static vtable instance for collider components
 static const ComponentVTable collider_vtable = {
     .copy = _collider_vtable_copy,
     .destroy = _collider_vtable_destroy,
     .update = _collider_vtable_update,
     .draw = _collider_vtable_draw,
-    .run_function = _collider_vtable_run_function
+    .run_function = _collider_vtable_run_function,
+    .ref = _collider_vtable_ref,
+    .unref = _collider_vtable_unref
 };
 
-static void _entity_component_collider_register(EseEntityComponentCollider *component, bool is_lua_owned) {
-    log_assert("ENTITY_COMP", component, "_entity_component_collider_push called with NULL component");
-    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_collider_push component is already registered");
 
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
+void entity_component_collider_ref(EseEntityComponentCollider *component) {
+    log_assert("ENTITY_COMP", component, "entity_component_collider_ref called with NULL component");
+    
+    if (component->base.lua_ref == LUA_NOREF) {
+        // First time referencing - create userdata and store reference
+        EseEntityComponentCollider **ud = (EseEntityComponentCollider **)lua_newuserdata(component->base.lua->runtime, sizeof(EseEntityComponentCollider *));
+        *ud = component;
 
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
+        // Attach metatable
+        luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+        lua_setmetatable(component->base.lua->runtime, -2);
 
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_COLLIDER_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
+        // Store hard reference to prevent garbage collection
+        component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+        component->base.lua_ref_count = 1;
+    } else {
+        // Already referenced - just increment count
+        component->base.lua_ref_count++;
+    }
 
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+    profile_count_add("entity_component_collider_ref_count");
+}
+
+void entity_component_collider_unref(EseEntityComponentCollider *component) {
+    if (!component) return;
+    
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        
+        if (component->base.lua_ref_count == 0) {
+            // No more references - remove from registry
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+        }
+    }
+
+    profile_count_add("entity_component_collider_unref_count");
 }
 
 static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine) {
@@ -75,9 +131,9 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
     component->base.type = ENTITY_COMPONENT_COLLIDER;
     component->base.vtable = &collider_vtable;
     
@@ -97,9 +153,9 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->base.data = copy;
     copy->base.active = true;
     copy->base.id = ese_uuid_create(src->base.lua);
-    ese_uuid_ref(copy->base.id);
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
+    copy->base.lua_ref_count = 0;
     copy->base.type = ENTITY_COMPONENT_COLLIDER;
     copy->base.vtable = &collider_vtable;
 
@@ -121,14 +177,34 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
 void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
     log_assert("ENTITY_COMP", component, "_entity_component_collider_destroy called with NULL src");
 
+    // Unref the component to clean up Lua references
+    entity_component_collider_unref(component);
+
+    if (component->base.lua_ref_count > 0 && component->base.lua_ref != LUA_NOREF) {
+        return;
+    }
+
     ese_uuid_destroy(component->base.id);
 
     for (size_t i = 0; i < component->rects_count; ++i) {
         // Remove watcher before destroying rect
         ese_rect_remove_watcher(component->rects[i], _entity_component_collider_rect_changed, component);
+        ese_rect_unref(component->rects[i]);
         ese_rect_destroy(component->rects[i]);
     }
     memory_manager.free(component->rects);
+
+    // Clean up collision bounds from entity if this component created them
+    if (component->base.entity) {
+        if (component->base.entity->collision_bounds) {
+            ese_rect_destroy(component->base.entity->collision_bounds);
+            component->base.entity->collision_bounds = NULL;
+        }
+        if (component->base.entity->collision_world_bounds) {
+            ese_rect_destroy(component->base.entity->collision_world_bounds);
+            component->base.entity->collision_world_bounds = NULL;
+        }
+    }
 
     memory_manager.free(component);
 }
@@ -165,10 +241,16 @@ static int _entity_component_collider_new(lua_State *L) {
 
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_collider_make(lua);
-
-    // Push EseEntityComponent to Lua
-    _entity_component_collider_register((EseEntityComponentCollider *)component->data, true);
-    entity_component_push(component);
+    component->lua = lua;
+    
+    // For Lua-created components, don't create a hard reference - let Lua manage the lifecycle
+    // Create userdata directly without storing a persistent reference
+    EseEntityComponentCollider **ud = (EseEntityComponentCollider **)lua_newuserdata(L, sizeof(EseEntityComponentCollider *));
+    *ud = (EseEntityComponentCollider *)component->data;
+    
+    // Attach metatable
+    luaL_getmetatable(L, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+    lua_setmetatable(L, -2);
     
     if (rect) {
         entity_component_collider_rects_add((EseEntityComponentCollider *)component->data, rect);
@@ -178,41 +260,20 @@ static int _entity_component_collider_new(lua_State *L) {
 }
 
 EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx) {
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    log_assert("ENTITY_COMP", L, "_entity_component_collider_get called with NULL Lua state");
+    
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseEntityComponentCollider **ud = (EseEntityComponentCollider **)luaL_testudata(L, idx, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, ENTITY_COMPONENT_COLLIDER_PROXY_META);
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *comp = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseEntityComponentCollider *)comp;
+    return *ud;
 }
 
 /**
@@ -226,25 +287,15 @@ static int _entity_component_collider_rects_add(lua_State *L) {
         return luaL_error(L, "Invalid collider component in upvalue.");
     }
 
-    // The rect parameter is at index 1 (first argument to the function)
-    EseRect *rect = ese_rect_lua_get(L, 1);
+    // The rect parameter is at index 2 (self is at index 1 when called with colon syntax)
+    EseRect *rect = ese_rect_lua_get(L, 2);
     if (rect == NULL) {
-        return luaL_argerror(L, 1, "Expected a Rect argument.");
+        return luaL_argerror(L, 2, "Expected a Rect argument.");
     }
 
     // Add the rect to the collider
     entity_component_collider_rects_add(collider, rect);
 
-    // Mark the rect as no longer owned by Lua
-    // Note: We need to get the rect's proxy table to set this flag
-    lua_getfield(L, 1, "__is_lua_owned");
-    if (!lua_isnil(L, -1)) {
-        lua_pop(L, 1); // Pop the current value
-        lua_pushboolean(L, false);
-        lua_setfield(L, 1, "__is_lua_owned");
-    } else {
-        lua_pop(L, 1); // Pop the nil
-    }
 
     return 0;
 }
@@ -253,8 +304,7 @@ static int _entity_component_collider_rects_add(lua_State *L) {
  * @brief Lua function to remove a component from an entity.
  */
 static int _entity_component_collider_rects_remove(lua_State *L) {
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, 1);
-    
+    EseEntityComponentCollider *collider = _entity_component_collider_rects_get_component(L, 1);
     if (!collider) {
         return luaL_error(L, "Invalid collider object.");
     }
@@ -292,11 +342,6 @@ static int _entity_component_collider_rects_remove(lua_State *L) {
 
     // Update entity's collision bounds after removing rect
     entity_component_collider_update_bounds(collider);
-
-    // C no longer owns the memory
-    lua_pushstring(L, "__is_lua_owned");
-    lua_pushboolean(L, true);
-    lua_settable(L, 2);
     
     lua_pushboolean(L, true);
     return 1;
@@ -306,8 +351,7 @@ static int _entity_component_collider_rects_remove(lua_State *L) {
  * @brief Lua function to insert a component at a specific index.
  */
 static int _entity_component_collider_rects_insert(lua_State *L) {
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, 1);
-    
+    EseEntityComponentCollider *collider = _entity_component_collider_rects_get_component(L, 1);
     if (!collider) {
         return luaL_error(L, "Invalid collider object.");
     }
@@ -350,10 +394,6 @@ static int _entity_component_collider_rects_insert(lua_State *L) {
     // Update entity's collision bounds after inserting rect
     entity_component_collider_update_bounds(collider);
     
-    lua_pushstring(L, "__is_lua_owned");
-    lua_pushboolean(L, false);
-    lua_settable(L, 2);
-    
     return 0;
 }
 
@@ -361,8 +401,7 @@ static int _entity_component_collider_rects_insert(lua_State *L) {
  * @brief Lua function to remove and return the last component.
  */
 static int _entity_component_collider_rects_pop(lua_State *L) {
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, 1);
-    
+    EseEntityComponentCollider *collider = _entity_component_collider_rects_get_component(L, 1);
     if (!collider) {
         return luaL_error(L, "Invalid collider object.");
     }
@@ -384,10 +423,8 @@ static int _entity_component_collider_rects_pop(lua_State *L) {
     // Update entity's collision bounds after removing rect
     entity_component_collider_update_bounds(collider);
     
-    // Get the existing Lua proxy for the rect from its Lua reference
-    lua_rawgeti(L, LUA_REGISTRYINDEX, ese_rect_get_lua_ref(rect));    
-    lua_pushboolean(L, true);
-    lua_setfield(L, -2, "__is_lua_owned");
+    // Push the rect to Lua using the proper API
+    ese_rect_lua_push(rect);
 
     return 1;
 }
@@ -396,8 +433,7 @@ static int _entity_component_collider_rects_pop(lua_State *L) {
  * @brief Lua function to remove and return the first component.
  */
 static int _entity_component_collider_rects_shift(lua_State *L) {
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, 1);
-    
+    EseEntityComponentCollider *collider = _entity_component_collider_rects_get_component(L, 1);
     if (!collider) {
         return luaL_error(L, "Invalid collider object.");
     }
@@ -424,10 +460,8 @@ static int _entity_component_collider_rects_shift(lua_State *L) {
     // Update entity's collision bounds after removing rect
     entity_component_collider_update_bounds(collider);
     
-    // Get the existing Lua proxy for the rect from its Lua reference
-    lua_rawgeti(L, LUA_REGISTRYINDEX, ese_rect_get_lua_ref(rect));    
-    lua_pushboolean(L, true);
-    lua_setfield(L, -2, "__is_lua_owned");
+    // Push the rect to Lua using the proper API
+    ese_rect_lua_push(rect);
     
     return 1;
 }
@@ -462,10 +496,11 @@ static int _entity_component_collider_index(lua_State *L) {
         lua_pushboolean(L, component->draw_debug);
         return 1;
     } else if (strcmp(key, "rects") == 0) {
-        // Create components proxy table
-        lua_newtable(L);
-        lua_pushlightuserdata(L, component);
-        lua_setfield(L, -2, "__component");
+        // Create rects proxy userdata
+        EseEntityComponentCollider **ud = (EseEntityComponentCollider **)lua_newuserdata(L, sizeof(EseEntityComponentCollider *));
+        *ud = component;
+        
+        // Attach metatable
         luaL_getmetatable(L, "ColliderRectsProxyMeta");
         lua_setmetatable(L, -2);
         return 1;
@@ -525,17 +560,7 @@ static int _entity_component_collider_newindex(lua_State *L) {
  * @return Number of return values pushed to Lua stack (1 for valid properties, 0 otherwise)
  */
 static int _entity_component_collider_rects_rects_index(lua_State *L) {
-    // Get the collider component from the proxy table's __component field
-    lua_getfield(L, 1, "__component");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        lua_pushnil(L);
-        return 1;
-    }
-    
-    EseEntityComponentCollider *component = (EseEntityComponentCollider *)lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __component value
-
+    EseEntityComponentCollider *component = _entity_component_collider_rects_get_component(L, 1);
     if (!component) {
         lua_pushnil(L);
         return 1;
@@ -547,8 +572,8 @@ static int _entity_component_collider_rects_rects_index(lua_State *L) {
         if (index >= 0 && index < (int)component->rects_count) {
             EseRect *rect = component->rects[index];
             
-            // Get the existing Lua proxy for the component from its Lua reference
-            lua_rawgeti(L, LUA_REGISTRYINDEX, ese_rect_get_lua_ref(rect));
+            // Push the rect using the proper API
+            ese_rect_lua_push(rect);
             return 1;
         } else {
             lua_pushnil(L);
@@ -587,26 +612,26 @@ static int _entity_component_collider_rects_rects_index(lua_State *L) {
 /**
  * @brief Lua __gc metamethod for EseEntityComponentCollider objects.
  *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseEntityComponentCollider's memory was allocated by Lua and should be freed.
- * If false, the EseEntityComponentCollider's memory is managed externally (by C) and is not freed here.
+ * @details For userdata-based components, we don't need to check ownership flags.
+ * The component will be destroyed when its reference count reaches zero.
  *
  * @param L Lua state pointer
  * @return Always 0 (no return values)
  */
 static int _entity_component_collider_gc(lua_State *L) {
-    EseEntityComponentCollider *component = _entity_component_collider_get(L, 1);
+    // Get from userdata
+    EseEntityComponentCollider **ud = (EseEntityComponentCollider **)luaL_testudata(L, 1, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
     
+    EseEntityComponentCollider *component = *ud;
     if (component) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-        
-        if (is_lua_owned) {
+        // If lua_ref == LUA_NOREF, there are no more references to this component, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this component was referenced from C and should not be freed.
+        if (component->base.lua_ref == LUA_NOREF) {
             _entity_component_collider_destroy(component);
-            log_debug("LUA_GC", "EntityComponentCollider object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "EntityComponentCollider object (C-owned) garbage collected, C memory *not* freed.");
         }
     }
     
@@ -699,8 +724,8 @@ EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine) {
     
     EseEntityComponent *component = _entity_component_collider_make(engine);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_collider_register((EseEntityComponentCollider *)component->data, false);
+    // Register with Lua using ref system
+    entity_component_collider_ref((EseEntityComponentCollider *)component->data);
 
     return component;
 }

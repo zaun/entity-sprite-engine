@@ -35,13 +35,21 @@ static bool _sprite_vtable_run_function(EseEntityComponent* component, EseEntity
     return false;
 }
 
+static void _sprite_vtable_ref(EseEntityComponent* component) {
+}
+
+static void _sprite_vtable_unref(EseEntityComponent* component) {
+}
+
 // Static vtable instance for sprite components
 static const ComponentVTable sprite_vtable = {
     .copy = _sprite_vtable_copy,
     .destroy = _sprite_vtable_destroy,
     .update = _sprite_vtable_update,
     .draw = _sprite_vtable_draw,
-    .run_function = _sprite_vtable_run_function
+    .run_function = _sprite_vtable_run_function,
+    .ref = _sprite_vtable_ref,
+    .unref = _sprite_vtable_unref
 };
 
 static void _entity_component_sprite_register(EseEntityComponentSprite *component, bool is_lua_owned) {

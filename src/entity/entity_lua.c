@@ -133,6 +133,7 @@ static EseEntity *_entity_lua_components_get_entity(lua_State *L, int idx) {
  * @brief Add the passed component to the entity.
  */
 static int _entity_lua_components_add(lua_State *L) {
+    bool is_updated = lua_isuserdata(L, 1);
     // Initial stack: [component]
     EseEntity *entity = (EseEntity *)lua_touserdata(L, lua_upvalueindex(1));
 
@@ -145,6 +146,12 @@ static int _entity_lua_components_add(lua_State *L) {
     }
 
     entity_component_add(entity, comp);
+    
+    if (is_updated) {
+        comp->vtable->ref(comp);
+        lua_pushboolean(L, true);
+        return 1;
+    }
 
     // LUA no longer owns the memory
     lua_pushstring(L, "__is_lua_owned");
@@ -165,6 +172,7 @@ static int _entity_lua_components_add(lua_State *L) {
  * @brief Lua function to remove a component from an entity.
  */
 static int _entity_lua_components_remove(lua_State *L) {
+    bool is_updated = lua_isuserdata(L, 1);
     // Initial stack: [entity, component]
     EseEntity *entity = _entity_lua_components_get_entity(L, 1);
     
@@ -207,6 +215,12 @@ static int _entity_lua_components_remove(lua_State *L) {
     
     entity->component_count--;
     entity->components[entity->component_count] = NULL;
+    
+    if (is_updated) {
+        comp_to_remove->vtable->unref(comp_to_remove);
+        lua_pushboolean(L, true);
+        return 1;
+    }
 
     // C no longer owns the memory.
     lua_pushstring(L, "__is_lua_owned");
@@ -227,6 +241,7 @@ static int _entity_lua_components_remove(lua_State *L) {
  * @brief Lua function to insert a component at a specific index.
  */
 static int _entity_lua_components_insert(lua_State *L) {
+    bool is_updated = lua_isuserdata(L, 1);
     // Initial stack: [entity, component, index]
     EseEntity *entity = _entity_lua_components_get_entity(L, 1);
     
@@ -274,6 +289,12 @@ static int _entity_lua_components_insert(lua_State *L) {
     entity->components[index] = comp;
     entity->component_count++;
     
+    if (is_updated) {
+        comp->vtable->ref(comp);
+        lua_pushboolean(L, true);
+        return 1;
+    }
+    
     // The component is now owned by C
     lua_pushstring(L, "__is_lua_owned");
     // Stack: [entity, component, index, "__is_lua_owned"]
@@ -309,6 +330,10 @@ static int _entity_lua_components_pop(lua_State *L) {
     EseEntityComponent *comp = entity->components[entity->component_count - 1];
     entity->components[entity->component_count - 1] = NULL;
     entity->component_count--;
+    
+    // if (is_updated) {
+    //     comp->vtable->unref(comp);
+    // }
     
     // Get the existing Lua proxy for the component from its Lua reference
     lua_rawgeti(L, LUA_REGISTRYINDEX, comp->lua_ref);
@@ -350,6 +375,10 @@ static int _entity_lua_components_shift(lua_State *L) {
     
     entity->component_count--;
     entity->components[entity->component_count] = NULL;
+    
+    // if (is_updated) {
+    //     comp->vtable->unref(comp);
+    // }
     
     // Get the existing Lua proxy for the component from its Lua reference
     lua_rawgeti(L, LUA_REGISTRYINDEX, comp->lua_ref);

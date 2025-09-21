@@ -21,6 +21,7 @@ static const char *STANDARD_FUNCTIONS[] = {
 };
 static const size_t STANDARD_FUNCTIONS_COUNT = sizeof(STANDARD_FUNCTIONS) / sizeof(STANDARD_FUNCTIONS[0]);
 
+
 // VTable wrapper functions
 static EseEntityComponent* _lua_vtable_copy(EseEntityComponent* component) {
     return _entity_component_lua_copy((EseEntityComponentLua*)component->data);
@@ -42,34 +43,68 @@ static bool _lua_vtable_run_function(EseEntityComponent* component, EseEntity* e
     return entity_component_lua_run((EseEntityComponentLua*)component->data, entity, func_name, argc, (EseLuaValue**)argv);
 }
 
+static void _lua_vtable_ref(EseEntityComponent* component) {
+    entity_component_lua_ref((EseEntityComponentLua*)component->data);
+}
+
+static void _lua_vtable_unref(EseEntityComponent* component) {
+    entity_component_lua_unref((EseEntityComponentLua*)component->data);
+}
+
 // Static vtable instance for lua components
 static const ComponentVTable lua_vtable = {
     .copy = _lua_vtable_copy,
     .destroy = _lua_vtable_destroy,
     .update = _lua_vtable_update,
     .draw = _lua_vtable_draw,
-    .run_function = _lua_vtable_run_function
+    .run_function = _lua_vtable_run_function,
+    .ref = _lua_vtable_ref,
+    .unref = _lua_vtable_unref
 };
 
 static void _entity_component_lua_register(EseEntityComponentLua *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component, "_entity_component_lua_register called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_lua_register component is already registered");
 
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_LUA_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+    // Use the ref system instead of manual registration
+    entity_component_lua_ref(component);
     
     profile_count_add("entity_comp_lua_register_count");
+}
+
+void entity_component_lua_ref(EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component, "entity_component_lua_ref called with NULL component");
+    
+    if (component->base.lua_ref == LUA_NOREF) {
+        // First time referencing - create userdata and store reference
+        EseEntityComponentLua **ud = (EseEntityComponentLua **)lua_newuserdata(component->base.lua->runtime, sizeof(EseEntityComponentLua *));
+        *ud = component;
+
+        // Attach metatable
+        luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_LUA_PROXY_META);
+        lua_setmetatable(component->base.lua->runtime, -2);
+
+        // Store hard reference to prevent garbage collection
+        component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+        component->base.lua_ref_count = 1;
+    } else {
+        // Already referenced, just increment count
+        component->base.lua_ref_count++;
+    }
+}
+
+void entity_component_lua_unref(EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component, "entity_component_lua_unref called with NULL component");
+    
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        
+        if (component->base.lua_ref_count == 0) {
+            // No more references, remove from registry
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+        }
+    }
 }
 
 static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, const char *script) {
@@ -79,7 +114,6 @@ static EseEntityComponent *_entity_component_lua_make(EseLuaEngine *engine, cons
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
     component->base.type = ENTITY_COMPONENT_LUA;
@@ -117,14 +151,25 @@ EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src)
 void _entity_component_lua_destroy(EseEntityComponentLua *component) {
     log_assert("ENTITY_COMP", component, "_entity_component_lua_destroy called with NULL src");
 
-    if (component->instance_ref != LUA_NOREF && component->engine) {
-        lua_engine_instance_remove(component->engine, component->instance_ref);
+
+    // Unref the component to clean up Lua references (only if it was registered)
+    entity_component_lua_unref(component);
+
+    if (component->base.lua_ref_count > 0 && component->base.lua_ref != LUA_NOREF) {
+        return;
     }
 
-    // Clear and free the function cache
+    // Clean up instance reference if it exists (regardless of ref status)
+    if (component->instance_ref != LUA_NOREF && component->engine) {
+        lua_engine_instance_remove(component->engine, component->instance_ref);
+        component->instance_ref = LUA_NOREF;
+    }
+
+    // Clear and free the function cache (regardless of ref status)
     if (component->function_cache) {
         _entity_component_lua_clear_cache(component);
         hashmap_free(component->function_cache);
+        component->function_cache = NULL;
     }
 
     memory_manager.free(component->script);
@@ -219,9 +264,14 @@ static int _entity_component_lua_new(lua_State *L) {
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_lua_make(engine, script);
     
-    // Push EseEntityComponent to Lua
-    _entity_component_lua_register((EseEntityComponentLua *)component->data, true);
-    entity_component_push(component);
+    // For Lua-created components, don't create a hard reference - let Lua manage the lifecycle
+    // Create userdata directly without storing a persistent reference
+    EseEntityComponentLua **ud = (EseEntityComponentLua **)lua_newuserdata(L, sizeof(EseEntityComponentLua *));
+    *ud = (EseEntityComponentLua *)component->data;
+    
+    // Attach metatable
+    luaL_getmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META);
+    lua_setmetatable(L, -2);
     
     profile_count_add("entity_comp_lua_new_count");
     return 1;
@@ -365,41 +415,47 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
             profile_stop(PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE, "entity_comp_lua_function_cache");
         }
         
-        // Registry access timing
-        lua_rawgeti(L, LUA_REGISTRYINDEX, component->instance_ref);
-        
-        if (!lua_istable(L, -1)) {
+        // After potential pre-caching, check the cache again for this function
+        cached = hashmap_get(component->function_cache, func_name);
+
+        // If it is now cached (e.g., standard lifecycle function), skip manual lookup
+        if (!cached) {
+            // Registry access timing
+            lua_rawgeti(L, LUA_REGISTRYINDEX, component->instance_ref);
+            
+            if (!lua_istable(L, -1)) {
+                lua_pop(L, 1);
+                profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
+                profile_count_add("entity_comp_lua_run_instance_not_table");
+                return false;
+            }
+            
+            // Function field lookup timing
+            lua_getfield(L, -1, func_name);
+            
+            if (lua_isfunction(L, -1)) {
+                // Function reference creation timing
+                int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+                
+                // Memory allocation timing
+                cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
+                cached->function_ref = ref;
+                cached->exists = true;
+                
+                // Hashmap insertion timing
+                hashmap_set(component->function_cache, func_name, cached);
+            } else {
+                // Function doesn't exist, cache as LUA_NOREF
+                lua_pop(L, 1); // pop nil
+                cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
+                cached->function_ref = LUA_NOREF;
+                cached->exists = false;
+                hashmap_set(component->function_cache, func_name, cached);
+            }
+            
+            // Pop the instance table
             lua_pop(L, 1);
-            profile_cancel(PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN);
-            profile_count_add("entity_comp_lua_run_instance_not_table");
-            return false;
         }
-        
-        // Function field lookup timing
-        lua_getfield(L, -1, func_name);
-        
-        if (lua_isfunction(L, -1)) {
-            // Function reference creation timing
-            int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-            
-            // Memory allocation timing
-            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
-            cached->function_ref = ref;
-            cached->exists = true;
-            
-            // Hashmap insertion timing
-            hashmap_set(component->function_cache, func_name, cached);
-        } else {
-            // Function doesn't exist, cache as LUA_NOREF
-            lua_pop(L, 1); // pop nil
-            cached = memory_manager.malloc(sizeof(CachedLuaFunction), MMTAG_COMP_LUA);
-            cached->function_ref = LUA_NOREF;
-            cached->exists = false;
-            hashmap_set(component->function_cache, func_name, cached);
-        }
-        
-        // Pop the instance table
-        lua_pop(L, 1);
     }
     
     // If function doesn't exist, ignore
@@ -424,41 +480,18 @@ bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entit
 }
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx) {
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseEntityComponentLua **ud = (EseEntityComponentLua **)luaL_testudata(L, idx, ENTITY_COMPONENT_LUA_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META);
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *comp = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseEntityComponentLua *)comp;
+    return *ud;
 }
 
 /**
@@ -565,18 +598,20 @@ static int _entity_component_lua_newindex(lua_State *L) {
  * @return Always 0 (no return values)
  */
 static int _entity_component_lua_gc(lua_State *L) {
-    EseEntityComponentLua *component = _entity_component_lua_get(L, 1);
+    // Get from userdata
+    EseEntityComponentLua **ud = (EseEntityComponentLua **)luaL_testudata(L, 1, ENTITY_COMPONENT_LUA_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
     
+    EseEntityComponentLua *component = *ud;
     if (component) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-        
-        if (is_lua_owned) {
+        // If lua_ref == LUA_NOREF, there are no more references to this component, 
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this component was referenced from C and should not be freed.
+        if (component->base.lua_ref == LUA_NOREF) {
             _entity_component_lua_destroy(component);
-            log_debug("LUA_GC", "EntityComponentLua object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "EntityComponentLua object (C-owned) garbage collected, C memory *not* freed.");
+            *ud = NULL; // Null out the pointer to prevent reuse
         }
     }
     
@@ -601,6 +636,7 @@ static int _entity_component_lua_tostring(lua_State *L) {
     
     return 1;
 }
+
 
 void _entity_component_lua_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_lua_init called with NULL engine");
@@ -646,8 +682,8 @@ EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char
     
     EseEntityComponent *component = _entity_component_lua_make(engine, script);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_lua_register((EseEntityComponentLua *)component->data, false);
+    // Register with Lua using ref system
+    entity_component_lua_ref((EseEntityComponentLua *)component->data);
 
     profile_count_add("entity_comp_lua_create_count");
     return component;

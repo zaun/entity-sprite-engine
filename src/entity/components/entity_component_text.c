@@ -36,13 +36,21 @@ static bool _text_vtable_run_function(EseEntityComponent* component, EseEntity* 
     return false;
 }
 
+static void _text_vtable_ref(EseEntityComponent* component) {
+}
+
+static void _text_vtable_unref(EseEntityComponent* component) {
+}
+
 // Static vtable instance for text components
 static const ComponentVTable text_vtable = {
     .copy = _text_vtable_copy,
     .destroy = _text_vtable_destroy,
     .update = _text_vtable_update,
     .draw = _text_vtable_draw,
-    .run_function = _text_vtable_run_function
+    .run_function = _text_vtable_run_function,
+    .ref = _text_vtable_ref,
+    .unref = _text_vtable_unref
 };
 
 // Font constants (matching console font)

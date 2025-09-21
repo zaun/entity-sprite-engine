@@ -24,7 +24,6 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     EseEntity *entity = memory_manager.malloc(sizeof(EseEntity), MMTAG_ENTITY);
     entity->position = ese_point_create(engine);
     ese_point_ref(entity->position);
-
     entity->id = ese_uuid_create(engine);
     ese_uuid_ref(entity->id);
     entity->active = true;
