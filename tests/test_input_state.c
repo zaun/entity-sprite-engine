@@ -111,6 +111,8 @@ int main(void) {
     RUN_TEST(test_ese_input_state_lua_key_constants);
     RUN_TEST(test_ese_input_state_lua_tostring);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

@@ -586,20 +586,21 @@ EseRect *ese_rect_copy(const EseRect *source) {
 void ese_rect_destroy(EseRect *rect) {
     if (!rect) return;
     
-    // Free watcher arrays if they exist
-    if (rect->watchers) {
-        memory_manager.free(rect->watchers);
-        rect->watchers = NULL;
-    }
-    if (rect->watcher_userdata) {
-        memory_manager.free(rect->watcher_userdata);
-        rect->watcher_userdata = NULL;
-    }
-    rect->watcher_count = 0;
-    rect->watcher_capacity = 0;
-    
     if (rect->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
+    
+        // Free watcher arrays if they exist
+        if (rect->watchers) {
+            memory_manager.free(rect->watchers);
+            rect->watchers = NULL;
+        }
+        if (rect->watcher_userdata) {
+            memory_manager.free(rect->watcher_userdata);
+            rect->watcher_userdata = NULL;
+        }
+        rect->watcher_count = 0;
+        rect->watcher_capacity = 0;
+
         memory_manager.free(rect);
     } else {
         ese_rect_unref(rect);

@@ -179,6 +179,8 @@ int main() {
         engine_destroy(g_engine);
         g_engine = NULL;
     }
+
+    memory_manager.destroy();
     
     return result;
 }

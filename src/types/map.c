@@ -362,22 +362,22 @@ EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, Es
 
 void ese_map_destroy(EseMap *map) {
     if (!map || map->destroyed) return;
-    
+
+    // If Lua still has a hard reference, just drop one ref and return.
+    // Avoid freeing internals while Lua may still access the map.
+    if (map->lua_ref != LUA_NOREF) {
+        ese_map_unref(map);
+        return;
+    }
+
     map->destroyed = true;
-    
+
     _free_cells_array(map);
     if (map->tileset) ese_tileset_destroy(map->tileset);
     if (map->title) memory_manager.free(map->title);
     if (map->author) memory_manager.free(map->author);
-    
-    if (map->lua_ref == LUA_NOREF) {
-        // No Lua references, safe to free immediately
-        memory_manager.free(map);
-    } else {
-        // Don't free memory here - let Lua GC handle it
-        // As the script may still have a reference to it.
-        ese_map_unref(map);
-    }
+
+    memory_manager.free(map);
 }
 
 EseMap *ese_map_lua_get(lua_State *L, int idx) {

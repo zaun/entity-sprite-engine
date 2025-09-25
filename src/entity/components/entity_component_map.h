@@ -24,7 +24,7 @@ typedef struct EseEntityComponentMap
     EseEntityComponent base;        /**< Base component structure */
 
     EseMap *map;                    /**< Reference to the map to render (not owned) */
-    EsePoint *ese_map_pos;              /**< Map cell position to center on */
+    EsePoint *position;             /**< Map cell position to center on */
     int size;                       /**< Tile size in pixels */
     uint32_t seed;                  /**< Random seed for procedural generation */
     

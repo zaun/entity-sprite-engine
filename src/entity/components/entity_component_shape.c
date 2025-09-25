@@ -38,9 +38,30 @@ static bool _shape_vtable_run_function(EseEntityComponent* component, EseEntity*
 }
 
 static void _shape_vtable_ref(EseEntityComponent* component) {
+    EseEntityComponentShape *shape = (EseEntityComponentShape*)component->data;
+    log_assert("ENTITY_COMP", shape, "shape vtable ref called with NULL");
+    if (shape->base.lua_ref == LUA_NOREF) {
+        EseEntityComponentShape **ud = (EseEntityComponentShape **)lua_newuserdata(shape->base.lua->runtime, sizeof(EseEntityComponentShape *));
+        *ud = shape;
+        luaL_getmetatable(shape->base.lua->runtime, ENTITY_COMPONENT_SHAPE_PROXY_META);
+        lua_setmetatable(shape->base.lua->runtime, -2);
+        shape->base.lua_ref = luaL_ref(shape->base.lua->runtime, LUA_REGISTRYINDEX);
+        shape->base.lua_ref_count = 1;
+    } else {
+        shape->base.lua_ref_count++;
+    }
 }
 
 static void _shape_vtable_unref(EseEntityComponent* component) {
+    EseEntityComponentShape *shape = (EseEntityComponentShape*)component->data;
+    if (!shape) return;
+    if (shape->base.lua_ref != LUA_NOREF && shape->base.lua_ref_count > 0) {
+        shape->base.lua_ref_count--;
+        if (shape->base.lua_ref_count == 0) {
+            luaL_unref(shape->base.lua->runtime, LUA_REGISTRYINDEX, shape->base.lua_ref);
+            shape->base.lua_ref = LUA_NOREF;
+        }
+    }
 }
 
 // Static vtable instance for shape components
@@ -75,19 +96,8 @@ static void _entity_component_shape_register(EseEntityComponentShape *component,
     log_assert("ENTITY_COMP", component, "_entity_component_shape_register called with NULL component");
     log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_shape_register component is already registered");
 
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_SHAPE_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
+    // Use the ref system to register userdata in the registry
+    _shape_vtable_ref(&component->base);
 }
 
 static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
@@ -95,9 +105,9 @@ static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
     component->base.type = ENTITY_COMPONENT_SHAPE;
     component->base.vtable = &shape_vtable;
     
@@ -114,7 +124,8 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
     EseEntityComponent *copy = _entity_component_shape_make(src->base.lua);
     EseEntityComponentShape *shape_copy = (EseEntityComponentShape *)copy->data;
     
-    // Copy the polyline
+    // Replace the initially created polyline: unref then destroy to free immediately
+    ese_poly_line_unref(shape_copy->polyline);
     ese_poly_line_destroy(shape_copy->polyline);
     shape_copy->polyline = ese_poly_line_copy(src->polyline);
     ese_poly_line_ref(shape_copy->polyline);
@@ -125,6 +136,18 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
 void _entity_component_shape_destroy(EseEntityComponentShape *component) {
     if (component == NULL) return;
 
+    // Unref the component to clean up Lua references
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+        } else {
+            return;
+        }
+    }
+
+    ese_poly_line_unref(component->polyline);
     ese_poly_line_destroy(component->polyline);
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
@@ -152,49 +175,28 @@ static int _entity_component_shape_new(lua_State *L) {
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_shape_make(lua);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_shape_register((EseEntityComponentShape *)component->data, true);
-    entity_component_push(component);
+    // For Lua-created components, create userdata without storing a persistent ref
+    EseEntityComponentShape **ud = (EseEntityComponentShape **)lua_newuserdata(L, sizeof(EseEntityComponentShape *));
+    *ud = (EseEntityComponentShape *)component->data;
+    luaL_getmetatable(L, ENTITY_COMPONENT_SHAPE_PROXY_META);
+    lua_setmetatable(L, -2);
     
     return 1;
 }
 
 EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx) {
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseEntityComponentShape **ud = (EseEntityComponentShape **)luaL_testudata(L, idx, ENTITY_COMPONENT_SHAPE_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, ENTITY_COMPONENT_SHAPE_PROXY_META);
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *comp = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseEntityComponentShape *)comp;
+    return *ud;
 }
 
 /**
@@ -227,14 +229,8 @@ static int _entity_component_shape_index(lua_State *L) {
         lua_pushnumber(L, component->rotation);
         return 1;
     } else if (strcmp(key, "polyline") == 0) {
-        // Push the polyline to Lua
-        lua_newtable(L);
-        lua_pushlightuserdata(L, component->polyline);
-        lua_setfield(L, -2, "__ptr");
-        lua_pushstring(L, "PolyLineProxyMeta");
-        lua_setfield(L, -2, "__name");
-        luaL_getmetatable(L, "PolyLineProxyMeta");
-        lua_setmetatable(L, -2);
+        // Push the polyline via its Lua proxy
+        ese_poly_line_lua_push(component->polyline);
         return 1;
     }
     
@@ -291,7 +287,9 @@ static int _entity_component_shape_newindex(lua_State *L) {
         }
 
         if (component->polyline) {
-            ese_poly_line_unref(component->polyline);
+            EsePolyLine *old_pl = component->polyline;
+            ese_poly_line_unref(old_pl);
+            ese_poly_line_destroy(old_pl);
         }
         component->polyline = new_polyline;
         ese_poly_line_ref(component->polyline);
@@ -313,18 +311,17 @@ static int _entity_component_shape_newindex(lua_State *L) {
  * @return Always 0 (no return values)
  */
 static int _entity_component_shape_gc(lua_State *L) {
-    EseEntityComponentShape *component = _entity_component_shape_get(L, 1);
+    // Get from userdata
+    EseEntityComponentShape **ud = (EseEntityComponentShape **)luaL_testudata(L, 1, ENTITY_COMPONENT_SHAPE_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
     
+    EseEntityComponentShape *component = *ud;
     if (component) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-        
-        if (is_lua_owned) {
+        if (component->base.lua_ref == LUA_NOREF) {
             _entity_component_shape_destroy(component);
-            log_debug("LUA_GC", "EntityComponentShape object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "EntityComponentShape object (C-owned) garbage collected, C memory *not* freed.");
+            *ud = NULL;
         }
     }
     
@@ -562,8 +559,8 @@ EseEntityComponent *entity_component_shape_create(EseLuaEngine *engine) {
     
     EseEntityComponent *component = _entity_component_shape_make(engine);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_shape_register((EseEntityComponentShape *)component->data, false);
+    // Register with Lua using ref system
+    component->vtable->ref(component);
 
     return component;
 }

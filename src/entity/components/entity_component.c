@@ -211,6 +211,12 @@ EseEntityComponent *entity_component_get(lua_State *L) {
         if (ud_lua) {
             return &(*ud_lua)->base;
         }
+
+        // Handle userdata - check if it's a map component
+        EseEntityComponentMap **ud_map = (EseEntityComponentMap **)luaL_testudata(L, 1, ENTITY_COMPONENT_MAP_PROXY_META);
+        if (ud_map) {
+            return &(*ud_map)->base;
+        }
         
         luaL_argerror(L, 1, "expected a component userdata, got unknown userdata type");
         return NULL;

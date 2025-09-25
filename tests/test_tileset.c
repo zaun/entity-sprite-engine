@@ -93,6 +93,8 @@ int main(void) {
     RUN_TEST(test_ese_tileset_set_seed);
     RUN_TEST(test_ese_tileset_get_sprite_random);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

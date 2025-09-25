@@ -95,6 +95,8 @@ int main(void) {
     RUN_TEST(test_sandbox_environment);
     RUN_TEST(test_null_pointer_aborts);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

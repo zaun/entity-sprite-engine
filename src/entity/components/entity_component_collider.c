@@ -287,10 +287,15 @@ static int _entity_component_collider_rects_add(lua_State *L) {
         return luaL_error(L, "Invalid collider component in upvalue.");
     }
 
-    // The rect parameter is at index 2 (self is at index 1 when called with colon syntax)
+    // Support both colon and dot syntax:
+    //  - rects:add(rect)  -> rect at index 2
+    //  - rects.add(rect)  -> rect at index 1
     EseRect *rect = ese_rect_lua_get(L, 2);
     if (rect == NULL) {
-        return luaL_argerror(L, 2, "Expected a Rect argument.");
+        rect = ese_rect_lua_get(L, 1);
+        if (rect == NULL) {
+            return luaL_argerror(L, 1, "Expected a Rect argument.");
+        }
     }
 
     // Add the rect to the collider

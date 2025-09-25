@@ -133,9 +133,21 @@ static EseEntity *_entity_lua_components_get_entity(lua_State *L, int idx) {
  * @brief Add the passed component to the entity.
  */
 static int _entity_lua_components_add(lua_State *L) {
-    bool is_updated = lua_isuserdata(L, 1);
-    // Initial stack: [component]
+    // Supports both calls:
+    //  - components:add(component)  -> stack: [components_proxy, component]
+    //  - components.add(component)  -> stack: [component]
+    int top = lua_gettop(L);
+    int comp_idx = 1;
+    if (top >= 2 && lua_istable(L, 1)) {
+        comp_idx = 2;
+    }
+
+    bool is_updated = lua_isuserdata(L, comp_idx);
     EseEntity *entity = (EseEntity *)lua_touserdata(L, lua_upvalueindex(1));
+
+    // Move the component argument to index 1 so entity_component_get can read it
+    lua_pushvalue(L, comp_idx);
+    lua_replace(L, 1);
 
     EseEntityComponent *comp = entity_component_get(L);
     if (comp == NULL) {
@@ -172,8 +184,8 @@ static int _entity_lua_components_add(lua_State *L) {
  * @brief Lua function to remove a component from an entity.
  */
 static int _entity_lua_components_remove(lua_State *L) {
-    bool is_updated = lua_isuserdata(L, 1);
-    // Initial stack: [entity, component]
+    // Expected stack: [components_proxy, component]
+    bool is_updated = lua_isuserdata(L, 2);
     EseEntity *entity = _entity_lua_components_get_entity(L, 1);
     
     if (!entity) {
@@ -183,6 +195,10 @@ static int _entity_lua_components_remove(lua_State *L) {
         return 1;
     }
     
+    // Move the component argument to index 1 so entity_component_get can read it
+    lua_pushvalue(L, 2);
+    lua_replace(L, 1);
+
     EseEntityComponent *comp_to_remove = entity_component_get(L);
     if (comp_to_remove == NULL) {
         luaL_argerror(L, 2, "Expected a component object.");
@@ -241,8 +257,8 @@ static int _entity_lua_components_remove(lua_State *L) {
  * @brief Lua function to insert a component at a specific index.
  */
 static int _entity_lua_components_insert(lua_State *L) {
-    bool is_updated = lua_isuserdata(L, 1);
-    // Initial stack: [entity, component, index]
+    // Expected stack: [components_proxy, component, index]
+    bool is_updated = lua_isuserdata(L, 2);
     EseEntity *entity = _entity_lua_components_get_entity(L, 1);
     
     if (!entity) {
@@ -252,6 +268,10 @@ static int _entity_lua_components_insert(lua_State *L) {
         return 1;
     }
     
+    // Move the component argument to index 1 so entity_component_get can read it
+    lua_pushvalue(L, 2);
+    lua_replace(L, 1);
+
     EseEntityComponent *comp = entity_component_get(L);
     if (comp == NULL) {
         luaL_argerror(L, 2, "Expected a component object.");
@@ -425,6 +445,9 @@ static int _entity_lua_components_find(lua_State *L) {
             // Stack: [..., result_table, component_proxy, metatable]
             lua_getfield(L, -1, "__name");
             // Stack: [..., result_table, component_proxy, metatable, __name_string]
+            if (lua_isstring(L, -1)) {
+                const char *mt_name = lua_tostring(L, -1);
+            }
             
             if (lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), full_metatable_name) == 0) {
                 lua_pop(L, 2); // Pop name and metatable

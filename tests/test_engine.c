@@ -96,6 +96,8 @@ int main(void) {
     // RUN_TEST(test_engine_null_pointer_handling);
     RUN_TEST(test_engine_edge_cases);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

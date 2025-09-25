@@ -250,6 +250,16 @@ static int _ese_poly_line_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "stroke_color") == 0) {
+        int vtype = lua_type(L, 3);
+        if (vtype == LUA_TNIL || vtype == LUA_TNONE) {
+            if (poly_line->stroke_color) {
+                ese_color_unref(poly_line->stroke_color);
+                poly_line->stroke_color = NULL;
+            }
+            _ese_poly_line_notify_watchers(poly_line);
+            profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
+            return 0;
+        }
         EseColor *color = ese_color_lua_get(L, 3);
         if (!color) {
             profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
@@ -264,6 +274,16 @@ static int _ese_poly_line_lua_newindex(lua_State *L) {
         profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "fill_color") == 0) {
+        int vtype = lua_type(L, 3);
+        if (vtype == LUA_TNIL || vtype == LUA_TNONE) {
+            if (poly_line->fill_color) {
+                ese_color_unref(poly_line->fill_color);
+                poly_line->fill_color = NULL;
+            }
+            _ese_poly_line_notify_watchers(poly_line);
+            profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
+            return 0;
+        }
         EseColor *color = ese_color_lua_get(L, 3);
         if (!color) {
             profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
@@ -330,11 +350,9 @@ static int _ese_poly_line_lua_new(lua_State *L) {
     EsePolyLine *poly_line = _ese_poly_line_make();
     poly_line->state = L;
 
-    // Create userdata directly
+    // Create userdata directly; Lua owns it (no registry ref)
     EsePolyLine **ud = (EsePolyLine **)lua_newuserdata(L, sizeof(EsePolyLine *));
     *ud = poly_line;
-
-    // Attach metatable
     luaL_getmetatable(L, POLY_LINE_PROXY_META);
     lua_setmetatable(L, -2);
 
@@ -422,13 +440,23 @@ static int _ese_poly_line_lua_get_point(lua_State *L) {
     }
     
     size_t index = (size_t)lua_tonumber(L, 2);
-    EsePoint *point = ese_poly_line_get_point(poly_line, index);
-    if (!point) {
+    if (index >= poly_line->point_count) {
         profile_cancel(PROFILE_LUA_POLY_LINE_GET_POINT);
         return luaL_error(L, "Invalid point index");
     }
-    
+
+    size_t coord_index = index * 2;
+    float x = poly_line->points ? poly_line->points[coord_index] : 0.0f;
+    float y = poly_line->points ? poly_line->points[coord_index + 1] : 0.0f;
+    log_error("POLY_LINE", "get_point index=%zu x=%.2f y=%.2f count=%zu", index, x, y, poly_line->point_count);
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(poly_line->state, LUA_ENGINE_KEY);
+    EsePoint *point = ese_point_create(engine);
+    ese_point_set_x(point, x);
+    ese_point_set_y(point, y);
+
     ese_point_lua_push(point);
+
     profile_stop(PROFILE_LUA_POLY_LINE_GET_POINT, "poly_line_lua_get_point");
     return 1;
 }
@@ -491,8 +519,8 @@ EsePolyLine *ese_poly_line_copy(const EsePolyLine *source) {
     EsePolyLine *copy = (EsePolyLine *)memory_manager.malloc(sizeof(EsePolyLine), MMTAG_POLY_LINE);
     copy->type = source->type;
     copy->stroke_width = source->stroke_width;
-    copy->stroke_color = source->stroke_color; // Shallow copy - shared reference
-    copy->fill_color = source->fill_color;     // Shallow copy - shared reference
+    copy->stroke_color = NULL;
+    copy->fill_color = NULL;
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     copy->lua_ref_count = 0;
@@ -511,43 +539,57 @@ EsePolyLine *ese_poly_line_copy(const EsePolyLine *source) {
         copy->points = NULL;
     }
     
+    // Colors: increase ref counts if present
+    if (source->stroke_color) {
+        copy->stroke_color = source->stroke_color;
+        ese_color_ref(copy->stroke_color);
+    }
+    if (source->fill_color) {
+        copy->fill_color = source->fill_color;
+        ese_color_ref(copy->fill_color);
+    }
+
     return copy;
 }
 
 void ese_poly_line_destroy(EsePolyLine *poly_line) {
     if (!poly_line) return;
-    
-    // Free points array
-    if (poly_line->points) {
-        memory_manager.free(poly_line->points);
-        poly_line->points = NULL;
-    }
-    poly_line->point_count = 0;
-    poly_line->point_capacity = 0;
 
-    if (poly_line->stroke_color) {
-        ese_color_unref(poly_line->stroke_color);
-        poly_line->stroke_color = NULL;
-    }
-    if (poly_line->fill_color) {
-        ese_color_unref(poly_line->fill_color);
-        poly_line->fill_color = NULL;
-    }
-    
-    // Free watcher arrays if they exist
-    if (poly_line->watchers) {
-        memory_manager.free(poly_line->watchers);
-        poly_line->watchers = NULL;
-    }
-    if (poly_line->watcher_userdata) {
-        memory_manager.free(poly_line->watcher_userdata);
-        poly_line->watcher_userdata = NULL;
-    }
-    poly_line->watcher_count = 0;
-    poly_line->watcher_capacity = 0;
     
     if (poly_line->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
+
+        // Free points array
+        if (poly_line->points) {
+            memory_manager.free(poly_line->points);
+            poly_line->points = NULL;
+        }
+        poly_line->point_count = 0;
+        poly_line->point_capacity = 0;
+
+        if (poly_line->stroke_color) {
+            ese_color_unref(poly_line->stroke_color);
+            ese_color_destroy(poly_line->stroke_color);
+            poly_line->stroke_color = NULL;
+        }
+        if (poly_line->fill_color) {
+            ese_color_unref(poly_line->fill_color);
+            ese_color_destroy(poly_line->fill_color);
+            poly_line->fill_color = NULL;
+        }
+        
+        // Free watcher arrays if they exist
+        if (poly_line->watchers) {
+            memory_manager.free(poly_line->watchers);
+            poly_line->watchers = NULL;
+        }
+        if (poly_line->watcher_userdata) {
+            memory_manager.free(poly_line->watcher_userdata);
+            poly_line->watcher_userdata = NULL;
+        }
+        poly_line->watcher_count = 0;
+        poly_line->watcher_capacity = 0;
+
         memory_manager.free(poly_line);
     } else {
         // Don't free memory here - let Lua GC handle it

@@ -103,6 +103,8 @@ int main(void) {
     RUN_TEST(test_lua_value_edge_cases);
     RUN_TEST(test_lua_value_memory_management);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

@@ -114,6 +114,8 @@ int main(void) {
     RUN_TEST(test_ese_point_lua_tostring);
     RUN_TEST(test_ese_point_lua_gc);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

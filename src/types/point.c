@@ -363,20 +363,21 @@ EsePoint *ese_point_copy(const EsePoint *source) {
 void ese_point_destroy(EsePoint *point) {
     if (!point) return;
     
-    // Free watcher arrays if they exist
-    if (point->watchers) {
-        memory_manager.free(point->watchers);
-        point->watchers = NULL;
-    }
-    if (point->watcher_userdata) {
-        memory_manager.free(point->watcher_userdata);
-        point->watcher_userdata = NULL;
-    }
-    point->watcher_count = 0;
-    point->watcher_capacity = 0;
-    
     if (point->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
+    
+        // Free watcher arrays if they exist
+        if (point->watchers) {
+            memory_manager.free(point->watchers);
+            point->watchers = NULL;
+        }
+        if (point->watcher_userdata) {
+            memory_manager.free(point->watcher_userdata);
+            point->watcher_userdata = NULL;
+        }
+        point->watcher_count = 0;
+        point->watcher_capacity = 0;
+
         memory_manager.free(point);
     } else {
         // Don't free memory here - let Lua GC handle it

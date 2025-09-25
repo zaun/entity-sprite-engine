@@ -34,9 +34,30 @@ static bool _map_vtable_run_function(EseEntityComponent* component, EseEntity* e
 }
 
 static void _map_vtable_ref(EseEntityComponent* component) {
+    EseEntityComponentMap *map = (EseEntityComponentMap*)component->data;
+    log_assert("ENTITY_COMP", map, "map vtable ref called with NULL");
+    if (map->base.lua_ref == LUA_NOREF) {
+        EseEntityComponentMap **ud = (EseEntityComponentMap **)lua_newuserdata(map->base.lua->runtime, sizeof(EseEntityComponentMap *));
+        *ud = map;
+        luaL_getmetatable(map->base.lua->runtime, ENTITY_COMPONENT_MAP_PROXY_META);
+        lua_setmetatable(map->base.lua->runtime, -2);
+        map->base.lua_ref = luaL_ref(map->base.lua->runtime, LUA_REGISTRYINDEX);
+        map->base.lua_ref_count = 1;
+    } else {
+        map->base.lua_ref_count++;
+    }
 }
 
 static void _map_vtable_unref(EseEntityComponent* component) {
+    EseEntityComponentMap *map = (EseEntityComponentMap*)component->data;
+    if (!map) return;
+    if (map->base.lua_ref != LUA_NOREF && map->base.lua_ref_count > 0) {
+        map->base.lua_ref_count--;
+        if (map->base.lua_ref_count == 0) {
+            luaL_unref(map->base.lua->runtime, LUA_REGISTRYINDEX, map->base.lua_ref);
+            map->base.lua_ref = LUA_NOREF;
+        }
+    }
 }
 
 // Static vtable instance for map components
@@ -50,25 +71,6 @@ static const ComponentVTable map_vtable = {
     .unref = _map_vtable_unref
 };
 
-static void _entity_component_ese_map_register(EseEntityComponentMap *component, bool is_lua_owned)
-{
-    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_register called with NULL component");
-    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_ese_map_register component is already registered");
-
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_MAP_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
-}
 
 static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
 {
@@ -78,15 +80,15 @@ static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
     component->base.type = ENTITY_COMPONENT_MAP;
     component->base.vtable = &map_vtable;
     
     component->map = NULL;
-    component->ese_map_pos = ese_point_create(engine);
-    ese_point_ref(component->ese_map_pos);
+    component->position = ese_point_create(engine);
+    ese_point_ref(component->position);
     component->size = 128;
     component->seed = 1000;
     component->sprite_frames = NULL;
@@ -102,20 +104,26 @@ EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *
     copy->base.data = copy;
     copy->base.active = true;
     copy->base.id = ese_uuid_create(src->base.lua);
-    ese_uuid_ref(copy->base.id);
     copy->base.lua = src->base.lua;
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_MAP;
 
     copy->map = src->map;
-    copy->ese_map_pos = ese_point_create(src->base.lua);
-    ese_point_ref(copy->ese_map_pos);
-    ese_point_set_x(copy->ese_map_pos, ese_point_get_x(src->ese_map_pos));
-    ese_point_set_y(copy->ese_map_pos, ese_point_get_y(src->ese_map_pos));
+    copy->position = ese_point_create(src->base.lua);
+    ese_point_ref(copy->position);
+    ese_point_set_x(copy->position, ese_point_get_x(src->position));
+    ese_point_set_y(copy->position, ese_point_get_y(src->position));
+    copy->size = src->size;
+    copy->seed = src->seed;
 
-    size_t cells = copy->map->width * copy->map->height;
-    copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
-    memset(copy->sprite_frames, 0, cells);
+    if (copy->map) {
+        ese_map_ref(copy->map);
+        size_t cells = copy->map->width * copy->map->height;
+        copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
+        memset(copy->sprite_frames, 0, sizeof(int) * cells);
+    } else {
+        copy->sprite_frames = NULL;
+    }
 
     return &copy->base;
 }
@@ -124,9 +132,25 @@ void _entity_component_ese_map_destroy(EseEntityComponentMap *component)
 {
     log_assert("ENTITY_COMP", component, "_entity_component_ese_map_destroy called with NULL src");
 
-    // we don't own component->map
+    // Unref the component to clean up Lua references
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+        } else {
+            return;
+        }
+    }
+
+    // Unref map if present (we don't own it)
+    if (component->map) {
+        ese_map_unref(component->map);
+        component->map = NULL;
+    }
     ese_uuid_destroy(component->base.id);
-    ese_point_destroy(component->ese_map_pos);
+    ese_point_unref(component->position);
+    ese_point_destroy(component->position);
 
     memory_manager.free(component->sprite_frames);
 
@@ -167,55 +191,30 @@ static int _entity_component_ese_map_new(lua_State *L)
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_ese_map_make(lua);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_ese_map_register((EseEntityComponentMap *)component->data, true);
-    entity_component_push(component);
+    // For Lua-created components, create userdata without storing a persistent ref
+    EseEntityComponentMap **ud = (EseEntityComponentMap **)lua_newuserdata(L, sizeof(EseEntityComponentMap *));
+    *ud = (EseEntityComponentMap *)component->data;
+
+    luaL_getmetatable(L, ENTITY_COMPONENT_MAP_PROXY_META);
+    lua_setmetatable(L, -2);
 
     return 1;
 }
 
 EseEntityComponentMap *_entity_component_ese_map_get(lua_State *L, int idx)
 {
-
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx))
-    {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
 
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx))
-    {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseEntityComponentMap **ud = (EseEntityComponentMap **)luaL_testudata(L, idx, ENTITY_COMPONENT_MAP_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
 
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, ENTITY_COMPONENT_MAP_PROXY_META);
-
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2))
-    {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL;   // Wrong metatable
-    }
-
-    lua_pop(L, 2); // Pop both metatables
-
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1))
-    {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-
-    // Extract the pointer
-    void *comp = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-
-    return (EseEntityComponentMap *)comp;
+    return *ud;
 }
 
 /**
@@ -255,7 +254,7 @@ static int _entity_component_ese_map_index(lua_State *L)
     {
         if (component->map)
         {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->map->lua_ref);
+            ese_map_lua_push(component->map);
         }
         else
         {
@@ -265,7 +264,7 @@ static int _entity_component_ese_map_index(lua_State *L)
     }
     else if (strcmp(key, "position") == 0)
     {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, ese_point_get_lua_ref(component->ese_map_pos));
+        ese_point_lua_push(component->position);
         return 1;
     }
     else if (strcmp(key, "size") == 0)
@@ -294,6 +293,7 @@ static int _entity_component_ese_map_newindex(lua_State *L)
 {
     EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
     const char *key = lua_tostring(L, 2);
+    log_debug("ENTITY_COMP_MAP", "__newindex key=%s", key ? key : "(null)");
 
     // SAFETY: Silently ignore writes to freed components
     if (!component)
@@ -323,7 +323,6 @@ static int _entity_component_ese_map_newindex(lua_State *L)
         if (component->map) {
             ese_map_unref(component->map);
         }
-        printf("Setting map\n");
         component->map = ese_map_lua_get(L, 3);
         if (!component->map) {
             return luaL_error(L, "map must be a Map object");
@@ -337,7 +336,7 @@ static int _entity_component_ese_map_newindex(lua_State *L)
 
         size_t cells = component->map->width * component->map->height;
         component->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
-        memset(component->sprite_frames, 0, cells);
+        memset(component->sprite_frames, 0, sizeof(int) * cells);
 
         return 0;
     }
@@ -349,18 +348,18 @@ static int _entity_component_ese_map_newindex(lua_State *L)
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
         // Copy values, don't copy reference (ownership safety)
-        ese_point_set_x(component->ese_map_pos, ese_point_get_x(new_position_point));
-        ese_point_set_y(component->ese_map_pos, ese_point_get_y(new_position_point));
+        ese_point_set_x(component->position, ese_point_get_x(new_position_point));
+        ese_point_set_y(component->position, ese_point_get_y(new_position_point));
         return 0;
     }
     else if (strcmp(key, "size") == 0)
     {
-        if (!lua_isinteger_lj(L, 3))
+        if (!lua_isnumber(L, 3))
         {
             return luaL_error(L, "size must be a number");
         }
 
-        int new_size = lua_tointeger(L, 3);
+        int new_size = (int)lua_tonumber(L, 3);
 
         if (new_size < 0) {
             new_size = 0;
@@ -399,22 +398,17 @@ static int _entity_component_ese_map_newindex(lua_State *L)
  */
 static int _entity_component_ese_map_gc(lua_State *L)
 {
-    EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
+    // Get from userdata
+    EseEntityComponentMap **ud = (EseEntityComponentMap **)luaL_testudata(L, 1, ENTITY_COMPONENT_MAP_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
 
-    if (component)
-    {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned)
-        {
+    EseEntityComponentMap *component = *ud;
+    if (component) {
+        if (component->base.lua_ref == LUA_NOREF) {
             _entity_component_ese_map_destroy(component);
-            log_debug("LUA_GC", "EseEntityComponentMap object (Lua-owned) garbage collected and C memory freed.");
-        }
-        else
-        {
-            log_debug("LUA_GC", "EseEntityComponentMap object (C-owned) garbage collected, C memory *not* freed.");
+            *ud = NULL;
         }
     }
 
@@ -462,6 +456,8 @@ void _entity_component_ese_map_init(EseLuaEngine *engine)
         lua_setfield(L, -2, "__gc");
         lua_pushcfunction(L, _entity_component_ese_map_tostring);
         lua_setfield(L, -2, "__tostring");
+        lua_pushstring(L, "locked");
+        lua_setfield(L, -2, "__metatable");
     }
     lua_pop(L, 1);
 
@@ -496,8 +492,8 @@ void _entity_component_ese_map_draw_grid(
     const int tw = component->size, th = component->size;
 
     // center cell
-    float cx = ese_point_get_x(component->ese_map_pos);
-    float cy = ese_point_get_y(component->ese_map_pos);
+    float cx = ese_point_get_x(component->position);
+    float cy = ese_point_get_y(component->position);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -557,8 +553,8 @@ void _entity_component_ese_map_draw_hex_point_up(
     const int tw = (int)(th * 0.866025f); // sqrt(3) / 2 ≈ 0.866025
 
     // center cell
-    float cx = ese_point_get_x(component->ese_map_pos);
-    float cy = ese_point_get_y(component->ese_map_pos);
+    float cx = ese_point_get_x(component->position);
+    float cy = ese_point_get_y(component->position);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -625,8 +621,8 @@ void _entity_component_ese_map_draw_hex_flat_up(
     const int tw = (int)(th * 1.154701f); // 2 / sqrt(3) ≈ 1.154701
 
     // center cell
-    float cx = ese_point_get_x(component->ese_map_pos);
-    float cy = ese_point_get_y(component->ese_map_pos);
+    float cx = ese_point_get_x(component->position);
+    float cy = ese_point_get_y(component->position);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -693,8 +689,8 @@ void _entity_component_ese_map_draw_iso(
     const int tw = th * 2;
 
     // center cell
-    float cx = ese_point_get_x(component->ese_map_pos);
-    float cy = ese_point_get_y(component->ese_map_pos);
+    float cx = ese_point_get_x(component->position);
+    float cy = ese_point_get_y(component->position);
 
     for (uint32_t y = 0; y < component->map->height; y++)
     {
@@ -779,8 +775,8 @@ EseEntityComponent *entity_component_ese_map_create(EseLuaEngine *engine)
 
     EseEntityComponent *component = _entity_component_ese_map_make(engine);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_ese_map_register((EseEntityComponentMap *)component->data, false);
+    // Register with Lua using ref system
+    component->vtable->ref(component);
 
     return component;
 }

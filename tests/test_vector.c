@@ -101,6 +101,8 @@ int main(void) {
     RUN_TEST(test_ese_vector_lua_tostring);
     RUN_TEST(test_ese_vector_lua_gc);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 

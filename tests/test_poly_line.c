@@ -140,6 +140,8 @@ int main(void) {
     RUN_TEST(test_ese_poly_line_lua_tostring);
     RUN_TEST(test_ese_poly_line_lua_gc);
 
+    memory_manager.destroy();
+
     return UNITY_END();
 }
 
@@ -278,6 +280,8 @@ static void test_ese_poly_line_copy(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_point_get_y(copy_point1));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 30.0f, ese_point_get_x(copy_point2));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, ese_point_get_y(copy_point2));
+    ese_point_destroy(copy_point1);
+    ese_point_destroy(copy_point2);
 
     ese_point_destroy(point1);
     ese_point_destroy(point2);
@@ -301,6 +305,7 @@ static void test_ese_poly_line_add_point(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(retrieved_point, "Retrieved point should not be NULL");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_point_get_x(retrieved_point));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_point_get_y(retrieved_point));
+    ese_point_destroy(retrieved_point);
     
     ese_point_destroy(point);
     ese_poly_line_destroy(poly_line);
@@ -328,6 +333,7 @@ static void test_ese_poly_line_remove_point(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(remaining_point, "Remaining point should not be NULL");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 30.0f, ese_point_get_x(remaining_point));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, ese_point_get_y(remaining_point));
+    ese_point_destroy(remaining_point);
     
     success = ese_poly_line_remove_point(poly_line, 5);
     TEST_ASSERT_FALSE_MESSAGE(success, "Should fail to remove point at invalid index");
@@ -349,6 +355,7 @@ static void test_ese_poly_line_get_point(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(retrieved_point, "Retrieved point should not be NULL");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 15.0f, ese_point_get_x(retrieved_point));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 25.0f, ese_point_get_y(retrieved_point));
+    ese_point_destroy(retrieved_point);
     
     EsePoint *invalid_point = ese_poly_line_get_point(poly_line, 5);
     TEST_ASSERT_NULL_MESSAGE(invalid_point, "Getting point at invalid index should return NULL");

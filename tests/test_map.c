@@ -62,12 +62,6 @@ static void test_ese_map_lua_tostring(void);
 static void test_ese_map_lua_gc(void);
 
 /**
-* Error Handling Test Functions Declarations
-*/
-static void test_ese_map_null_pointer_handling(void);
-static void test_ese_map_edge_cases(void);
-
-/**
 * Test suite setup and teardown
 */
 static EseLuaEngine *g_engine = NULL;
@@ -153,10 +147,9 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_ese_map_lua_get_cell);
     RUN_TEST(test_ese_map_lua_set_cell);
     RUN_TEST(test_ese_map_lua_tostring);
-    // RUN_TEST(test_ese_map_lua_gc);
+    RUN_TEST(test_ese_map_lua_gc);
 
-    // RUN_TEST(test_ese_map_null_pointer_handling);
-    // RUN_TEST(test_ese_map_edge_cases);
+    memory_manager.destroy();
 
     return UNITY_END();
 }
@@ -710,86 +703,4 @@ static void test_ese_map_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
-}
-
-/**
-* Error Handling Test Functions
-*/
-
-static void test_ese_map_null_pointer_handling(void) {
-    // Test ese_map_destroy with NULL - this should not crash
-    ese_map_destroy(NULL);
-
-    // Test ese_map_ref with NULL - this will abort, so we skip it
-    // ese_map_ref(NULL);
-
-    // Test ese_map_unref with NULL - this will abort, so we skip it  
-    // ese_map_unref(NULL);
-
-    // Skip NULL pointer tests that might cause segfaults
-    // These functions may not handle NULL properly
-
-    // Test ese_map_lua_push with NULL map - this will cause a segfault, so we skip it
-    // ASSERT_DEATH(ese_map_lua_push(NULL), "ese_map_lua_push should abort with NULL map");
-
-    // Test ese_map_lua_get with NULL Lua state
-    EseMap *extracted_map = ese_map_lua_get(NULL, 1);
-    TEST_ASSERT_NULL_MESSAGE(extracted_map, "ese_map_lua_get should return NULL with NULL Lua state");
-}
-
-static void test_ese_map_edge_cases(void) {
-    EseMap *map = ese_map_create(g_engine, 10, 10, MAP_TYPE_GRID, false);
-
-    // Test ese_map_get_cell with edge coordinates
-    EseMapCell *cell_edge = ese_map_get_cell(map, 9, 9); // Last valid cell
-    TEST_ASSERT_NOT_NULL_MESSAGE(cell_edge, "ese_map_get_cell should return valid cell at edge");
-
-    EseMapCell *cell_out = ese_map_get_cell(map, 10, 10); // Just out of bounds
-    TEST_ASSERT_NULL_MESSAGE(cell_out, "ese_map_get_cell should return NULL just out of bounds");
-
-    // Test ese_map_set_cell with edge coordinates
-    EseMapCell *source_cell = ese_mapcell_create(g_engine);
-    bool result = ese_map_set_cell(map, 9, 9, source_cell); // Last valid cell
-    TEST_ASSERT_TRUE_MESSAGE(result, "ese_map_set_cell should succeed at edge");
-
-    result = ese_map_set_cell(map, 10, 10, source_cell); // Just out of bounds
-    TEST_ASSERT_FALSE_MESSAGE(result, "ese_map_set_cell should fail just out of bounds");
-
-    // Test ese_map_resize with zero dimensions
-    result = ese_map_resize(map, 0, 0);
-    TEST_ASSERT_FALSE_MESSAGE(result, "ese_map_resize should fail with zero dimensions");
-
-    // Test ese_map_resize with very large dimensions
-    result = ese_map_resize(map, 1000, 1000);
-    TEST_ASSERT_TRUE_MESSAGE(result, "ese_map_resize should succeed with large dimensions");
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1000, map->width, "Map should have large width");
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1000, map->height, "Map should have large height");
-
-    // Test ese_map_set_title with empty string
-    result = ese_map_set_title(map, "");
-    TEST_ASSERT_TRUE_MESSAGE(result, "ese_map_set_title should succeed with empty string");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("", map->title, "Map should have empty title");
-
-    // Test ese_map_set_author with empty string
-    result = ese_map_set_author(map, "");
-    TEST_ASSERT_TRUE_MESSAGE(result, "ese_map_set_author should succeed with empty string");
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("", map->author, "Map should have empty author");
-
-    // Test ese_map_set_title with NULL string - this might cause issues, so we skip it
-    // result = ese_map_set_title(map, NULL);
-    // TEST_ASSERT_FALSE_MESSAGE(result, "ese_map_set_title should fail with NULL string");
-
-    // Test ese_map_set_author with NULL string - this might cause issues, so we skip it
-    // result = ese_map_set_author(map, NULL);
-    // TEST_ASSERT_FALSE_MESSAGE(result, "ese_map_set_author should fail with NULL string");
-
-    // Test ese_map_set_version with extreme values
-    ese_map_set_version(map, 0);
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, map->version, "Map should have version 0");
-
-    ese_map_set_version(map, UINT32_MAX);
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(UINT32_MAX, map->version, "Map should have max version");
-    
-    ese_map_destroy(map);
-    ese_mapcell_destroy(source_cell);
 }

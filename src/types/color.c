@@ -613,20 +613,21 @@ EseColor *ese_color_copy(const EseColor *source) {
 void ese_color_destroy(EseColor *color) {
     if (!color) return;
     
-    // Free watcher arrays if they exist
-    if (color->watchers) {
-        memory_manager.free(color->watchers);
-        color->watchers = NULL;
-    }
-    if (color->watcher_userdata) {
-        memory_manager.free(color->watcher_userdata);
-        color->watcher_userdata = NULL;
-    }
-    color->watcher_count = 0;
-    color->watcher_capacity = 0;
-    
     if (color->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
+    
+        // Free watcher arrays if they exist
+        if (color->watchers) {
+            memory_manager.free(color->watchers);
+            color->watchers = NULL;
+        }
+        if (color->watcher_userdata) {
+            memory_manager.free(color->watcher_userdata);
+            color->watcher_userdata = NULL;
+        }
+        color->watcher_count = 0;
+        color->watcher_capacity = 0;
+
         memory_manager.free(color);
     } else {
         // Don't free memory here - let Lua GC handle it
