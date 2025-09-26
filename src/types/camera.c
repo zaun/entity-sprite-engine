@@ -35,6 +35,7 @@ static int _ese_camera_lua_tostring(lua_State *L);
 static EseCamera *_ese_camera_make(EseLuaEngine *engine) {
     EseCamera *camera_state = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_CAMERA);
     camera_state->position = ese_point_create(engine);
+    ese_point_ref(camera_state->position);
     camera_state->rotation = 0.0f;
     camera_state->scale = 1.0f;
     camera_state->state = NULL;
@@ -207,6 +208,7 @@ EseCamera *ese_camera_copy(const EseCamera *source) {
 
     EseCamera *copy = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_CAMERA);
     copy->position = ese_point_copy(source->position);
+    ese_point_ref(copy->position);
     copy->rotation = source->rotation;
     copy->scale = source->scale;
     copy->state = source->state;
@@ -220,6 +222,7 @@ void ese_camera_destroy(EseCamera *camera_state) {
     
     if (camera_state->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
+        ese_point_unref(camera_state->position);
         ese_point_destroy(camera_state->position);
         memory_manager.free(camera_state);
     } else {

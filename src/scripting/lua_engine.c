@@ -421,6 +421,10 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
     snprintf(chunkname, sizeof(chunkname), "@%s", name ? name : "unnamed");
 
     if (luaL_loadbuffer(engine->runtime, wrapped, strlen(wrapped), chunkname) == LUA_OK) {
+        // // Push the per-script environment table as the chunk's environment
+        // lua_pushvalue(engine->runtime, env_idx);
+        // lua_setfenv(engine->runtime, -2);
+    
         // Push module table as argument
         lua_getfield(engine->runtime, env_idx, module_name);
 

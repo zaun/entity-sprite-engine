@@ -270,15 +270,6 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         return;
     }
 
-    // Display and camera updates
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    // Camera's view rectangle (centered)
-    float view_left   = ese_point_get_x(engine->camera_state->position) - ese_display_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_right  = ese_point_get_x(engine->camera_state->position) + ese_display_get_viewport_width(engine->display_state)  / 2.0f;
-    float view_top    = ese_point_get_y(engine->camera_state->position) - ese_display_get_viewport_height(engine->display_state) / 2.0f;
-    float view_bottom = ese_point_get_y(engine->camera_state->position) + ese_display_get_viewport_height(engine->display_state) / 2.0f;
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_display_camera");
-
     // Entity PASS ONE - Update each active entity.
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     
