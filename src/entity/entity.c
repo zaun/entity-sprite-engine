@@ -26,7 +26,7 @@ EseEntity *entity_create(EseLuaEngine *engine) {
     profile_start(PROFILE_ENTITY_CREATE);
     
     EseEntity *entity = _entity_make(engine);
-    _entity_lua_register(entity, false); // C-created = C-owned
+    entity_ref(entity); // C-created = C-owned
     
     profile_stop(PROFILE_ENTITY_CREATE, "entity_create");
     profile_count_add("entity_create_count");
@@ -39,7 +39,7 @@ EseEntity *entity_copy(EseEntity *entity) {
     profile_start(PROFILE_ENTITY_COPY);
     
     EseEntity *copy = _entity_make(entity->lua);
-    _entity_lua_register(copy, false); // C-created = C-owned
+    entity_ref(copy); // C-created = C-owned
 
     // Copy all fields
     copy->active = entity->active;
@@ -93,11 +93,8 @@ EseEntity *entity_copy(EseEntity *entity) {
     return copy;
 }
 
-void entity_destroy(EseEntity *entity) {
-    log_assert("ENTITY", entity, "entity_destroy called with NULL entity");
-
-    profile_start(PROFILE_ENTITY_DESTROY);
-
+static void _entity_cleanup(EseEntity *entity) {
+    // Note: assumes Lua registry ref is already cleared or was never set
     ese_uuid_unref(entity->id);
     ese_uuid_destroy(entity->id);
     ese_point_unref(entity->position);
@@ -139,19 +136,34 @@ void entity_destroy(EseEntity *entity) {
         array_destroy(entity->subscriptions);
     }
 
-    if (entity->lua_ref != LUA_NOREF) {
-        luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
-    }
     if (entity->lua_val_ref) {
         lua_value_free(entity->lua_val_ref);
     }
 
     dlist_free(entity->default_props);
-
     memory_manager.free(entity);
-    
-    profile_stop(PROFILE_ENTITY_DESTROY, "entity_destroy");
     profile_count_add("entity_destroy_count");
+}
+
+void entity_destroy(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_destroy called with NULL entity");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (entity->lua_ref != LUA_NOREF && entity->lua_ref_count > 0) {
+        entity->lua_ref_count--;
+        if (entity->lua_ref_count == 0) {
+            luaL_unref(entity->lua->runtime, LUA_REGISTRYINDEX, entity->lua_ref);
+            entity->lua_ref = LUA_NOREF;
+            _entity_cleanup(entity);
+        } else {
+            // Still referenced in Lua; do not free now
+            profile_stop(PROFILE_ENTITY_DESTROY, "entity_destroy (deferred)");
+            profile_count_add("entity_destroy_deferred_count");
+            return;
+        }
+    } else if (entity->lua_ref == LUA_NOREF) {
+        _entity_cleanup(entity);
+    }
 }
 
 void entity_update(EseEntity *entity, float delta_time) {
@@ -216,7 +228,10 @@ int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
 
     // Read the state from the PREVIOUS frame - check if this pair was colliding
     // We only need to check one entity's collision state since both should be in sync
-    bool was_colliding = hashmap_get(entity->previous_collisions, canonical_key) != NULL;
+    // Consider both previous and current maps so tests that do not swap frames still see STAY/EXIT
+    bool was_colliding =
+        hashmap_get(entity->previous_collisions, canonical_key) != NULL ||
+        hashmap_get(entity->current_collisions, canonical_key) != NULL;
     bool currently_colliding = _entity_test_collision(entity, test);
 
     // Determine collision state: 0=none, 1=enter, 2=stay, 3=exit

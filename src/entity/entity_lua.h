@@ -16,12 +16,9 @@ typedef struct EseEntity EseEntity;
 void entity_lua_init(EseLuaEngine *engine);
 
 /**
- * @brief Pushes an EseEntity pointer as a Lua userdata object onto the stack.
- * 
- * @param entity Pointer to the EseEntity object to wrap for Lua access
- * @param is_lua_owned True if LUA will handle freeing
+ * @brief Increment the Lua registry ref-count for an entity and create userdata if needed.
  */
-void _entity_lua_register(EseEntity *entity, bool is_lua_owned);
+void entity_ref(EseEntity *entity);
 
 void entity_lua_push(EseEntity *entity);
 

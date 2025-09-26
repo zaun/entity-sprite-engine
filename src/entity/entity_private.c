@@ -46,6 +46,7 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
 
     entity->lua = engine;
     entity->lua_ref = LUA_NOREF;
+    entity->lua_ref_count = 0;
     entity->lua_val_ref = lua_value_create_nil("entity self ref");
 
     entity->default_props = dlist_create((DListFreeFn)lua_value_free);

@@ -47,6 +47,7 @@ struct EseEntity {
     EseDoubleLinkedList *default_props;     /**< Lua default props added to self.data */
     EseLuaValue *lua_val_ref;               /**< A EseLuaVale self reference */
     int lua_ref;                            /**< Lua registry self reference */
+    int lua_ref_count;                      /**< Lua registry reference count */
     
     // Tag system
     char **tags;                            /**< Array of tag strings */

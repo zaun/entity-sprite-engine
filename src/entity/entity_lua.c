@@ -23,31 +23,30 @@ static int _entity_lua_publish(lua_State *L);
 static void _entity_remove_subscription(EseEntity *entity, const char *topic_name, const char *function_name);
 
 /**
- * @brief Register an EseEntity pointer as a Lua object.
+ * @brief Increment ref-count and ensure a Lua userdata exists/registered for the entity.
  */
-void _entity_lua_register(EseEntity *entity, bool is_lua_owned) {
+void entity_ref(EseEntity *entity) {
     log_assert("ENTITY", entity, "_entity_lua_register called with NULL entity");
-    log_assert("ENTITY", entity->lua_ref == LUA_NOREF, "_entity_lua_register entity is already registered");
-
     profile_start(PROFILE_ENTITY_LUA_REGISTER);
-
+    if (entity->lua_ref == LUA_NOREF) {
+        // Create userdata holding the entity pointer
+        EseEntity **ud = (EseEntity **)lua_newuserdata(entity->lua->runtime, sizeof(EseEntity *));
+        *ud = entity;
+        // Attach metatable
+        luaL_getmetatable(entity->lua->runtime, "EntityProxyMeta");
+        lua_setmetatable(entity->lua->runtime, -2);
+    // Initialize environment table (Lua 5.1 userdata env) for `data`
     lua_newtable(entity->lua->runtime);
-    lua_pushlightuserdata(entity->lua->runtime, entity);
-    lua_setfield(entity->lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(entity->lua->runtime, is_lua_owned);
-    lua_setfield(entity->lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(entity->lua->runtime, "EntityProxyMeta");
-    lua_setmetatable(entity->lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    entity->lua_ref = luaL_ref(entity->lua->runtime, LUA_REGISTRYINDEX);
-    lua_value_set_ref(entity->lua_val_ref, entity->lua_ref);
-    
-    profile_stop(PROFILE_ENTITY_LUA_REGISTER, "entity_lua_register");
-    profile_count_add("entity_lua_register_count");
+    lua_setfenv(entity->lua->runtime, -2);
+        // Store a reference to this userdata in the Lua registry
+        entity->lua_ref = luaL_ref(entity->lua->runtime, LUA_REGISTRYINDEX);
+        entity->lua_ref_count = 1;
+        lua_value_set_ref(entity->lua_val_ref, entity->lua_ref);
+    } else {
+        entity->lua_ref_count++;
+    }
+    profile_stop(PROFILE_ENTITY_LUA_REGISTER, "entity_ref");
+    profile_count_add("entity_ref_count");
 }
 
 void entity_lua_push(EseEntity *entity) {
@@ -67,38 +66,9 @@ void entity_lua_push(EseEntity *entity) {
  * @brief Extracts an EseEntity pointer from a Lua userdata object with type safety.
  */
 EseEntity *entity_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) {
-        log_debug("ENTITY", "Not a table");
-        return NULL;
-    }
-    
-    if (!lua_getmetatable(L, idx)) {
-        log_debug("ENTITY", "Metatable get failed");
-        return NULL;
-    }
-    
-    luaL_getmetatable(L, "EntityProxyMeta");
-    
-    if (!lua_rawequal(L, -1, -2)) {
-        log_debug("ENTITY", "Not a EntityProxyMeta");
-        lua_pop(L, 2);
-        return NULL;
-    }
-    
-    lua_pop(L, 2);
-    
-    lua_getfield(L, idx, "__ptr");
-    
-    if (!lua_islightuserdata(L, -1)) {
-        log_debug("ENTITY", "Missing __ptr");
-        lua_pop(L, 1);
-        return NULL;
-    }
-    
-    void *entity = lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    
-    return (EseEntity *)entity;
+    EseEntity **ud = (EseEntity **)luaL_testudata(L, idx, "EntityProxyMeta");
+    if (!ud) return NULL;
+    return *ud;
 }
 
 /**
@@ -111,8 +81,8 @@ static int _entity_lua_new(lua_State *L) {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     engine_add_entity(engine, entity);
 
-    // always C-owned: GC of the Lua proxy will NOT free the C object
-    _entity_lua_register(entity, false);
+    // ensure C-owned registry ref & userdata exist
+    entity_ref(entity);
     entity_lua_push(entity);
     
     profile_count_add("entity_lua_new_count");
@@ -767,8 +737,8 @@ static int _entity_lua_dispatch(lua_State *L) {
     int func_name_index = 1;
     int argc = 0;
     
-    // Check if first argument is a table (entity from colon syntax)
-    if (lua_istable(L, 1)) {
+    // Check if first argument is an Entity userdata (colon syntax: entity:dispatch('func_name', ...))
+    if (entity_lua_get(L, 1) != NULL) {
         // Colon syntax: entity:dispatch('func_name') 
         // Stack: [entity, 'func_name', ...args]
         func_name_index = 2;
@@ -948,14 +918,14 @@ static int _entity_lua_index(lua_State *L) {
         luaL_getmetatable(L, "ComponentsProxyMeta");
         lua_setmetatable(L, -2);
         return 1;
-    } else if (strcmp(key, "data") == 0) {
-        // Check if script_data table already exists
-        lua_getfield(L, 1, "__data");
-        if (lua_isnil(L, -1)) {
+    } else if (strcmp(key, "data") == 0 || strcmp(key, "__data") == 0) {
+        // Return or initialize the userdata environment table (Lua 5.1)
+        lua_getfenv(L, 1);
+        if (!lua_istable(L, -1)) {
             lua_pop(L, 1);
             lua_newtable(L);
             lua_pushvalue(L, -1);
-            lua_setfield(L, 1, "__data");
+            lua_setfenv(L, 1);
         }
         return 1;
     } else if (strcmp(key, "add_tag") == 0) {
@@ -1052,16 +1022,13 @@ static int _entity_lua_newindex(lua_State *L) {
         return 0;
     } else if (strcmp(key, "components") == 0) {
         return luaL_error(L, "Entity components is not assignable");
-    } else if (strcmp(key, "data") == 0) {
+    } else if (strcmp(key, "data") == 0 || strcmp(key, "__data") == 0) {
         // Allow assignment to data (must be a table)
         if (!lua_istable(L, 3)) {
             return luaL_error(L, "Entity data must be a table");
         }
-        lua_setfield(L, 1, "__data");
-        return 0;
-    } else if (strcmp(key, "__data") == 0) {
-        // Allow internal assignment for script_data
-        lua_rawset(L, 1);
+        lua_pushvalue(L, 3);
+        lua_setfenv(L, 1);
         return 0;
     }
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -1072,20 +1039,13 @@ static int _entity_lua_newindex(lua_State *L) {
  */
 static int _entity_lua_gc(lua_State *L) {
     EseEntity *entity = entity_lua_get(L, 1);
-
-    if (entity) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-
-        if (is_lua_owned) {
-            entity_destroy(entity);
-            log_debug("LUA_GC", "Entity object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "Entity object (C-owned) garbage collected, C memory *not* freed.");
-        }
+    if (!entity) return 0;
+    if (entity->lua_ref == LUA_NOREF) {
+        entity_destroy(entity);
+        log_debug("LUA_GC", "Entity userdata GC: freed C entity (no registry ref).");
+    } else {
+        log_debug("LUA_GC", "Entity userdata GC: registry-ref'd entity not freed.");
     }
-
     return 0;
 }
 
@@ -1361,30 +1321,29 @@ void entity_lua_init(EseLuaEngine *engine) {
 }
 
 bool _entity_lua_to_data(EseEntity *entity, EseLuaValue *value) {
-    // Get the entity's proxy table from registry
+    // Get the entity's userdata from registry
     lua_State *L = entity->lua->runtime;
     lua_rawgeti(L, LUA_REGISTRYINDEX, entity->lua_ref);
-    if (!lua_istable(L, -1)) {
+    if (!lua_isuserdata(L, -1)) {
         lua_pop(L, 1);
-        log_error("ENTITY", "entity_add_prop: invalid entity Lua reference");
+        log_error("ENTITY", "entity_add_prop: invalid entity Lua reference (expected userdata)");
         return false;
     }
     
-    // Get the __data table from the entity proxy table
-    lua_getfield(L, -1, "__data");
+    // Get or create environment table (Lua 5.1)
+    lua_getfenv(L, -1);
     if (!lua_istable(L, -1)) {
-        // If the __data table doesn't exist, create it.
-        lua_pop(L, 1); // Pop the nil value
+        lua_pop(L, 1);
         lua_newtable(L);
         lua_pushvalue(L, -1);
-        lua_setfield(L, -3, "__data"); 
+        lua_setfenv(L, -3);
     }
 
-    // Convert EseLuaValue to Lua stack value and set the property inside the __data table
+    // Convert EseLuaValue to Lua stack value and set property in data table
     _lua_value_to_stack(L, value);
     lua_setfield(L, -2, lua_value_get_name(value));
 
-    // Clean up stack
+    // Clean up stack: pop data table and userdata
     lua_pop(L, 2);
     return true;
 }
