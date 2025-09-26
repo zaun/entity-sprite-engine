@@ -133,6 +133,16 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
     return copy;
 }
 
+void _entity_component_ese_shape_cleanup(EseEntityComponentShape *component)
+{
+    ese_poly_line_unref(component->polyline);
+    ese_poly_line_destroy(component->polyline);
+    ese_uuid_destroy(component->base.id);
+    memory_manager.free(component);
+    profile_count_add("entity_comp_shape_destroy_count");
+}
+
+
 void _entity_component_shape_destroy(EseEntityComponentShape *component) {
     if (component == NULL) return;
 
@@ -142,15 +152,14 @@ void _entity_component_shape_destroy(EseEntityComponentShape *component) {
         if (component->base.lua_ref_count == 0) {
             luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
             component->base.lua_ref = LUA_NOREF;
+            _entity_component_ese_shape_cleanup(component);
         } else {
+            // We dont "own" the polyline so dont free it
             return;
         }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_ese_shape_cleanup(component);
     }
-
-    ese_poly_line_unref(component->polyline);
-    ese_poly_line_destroy(component->polyline);
-    ese_uuid_destroy(component->base.id);
-    memory_manager.free(component);
 }
 
 /**

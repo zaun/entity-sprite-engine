@@ -1,6 +1,7 @@
 #include <string.h>
 #include "core/memory_manager.h"
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "scripting/lua_engine.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_map.h"
@@ -128,33 +129,41 @@ EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *
     return &copy->base;
 }
 
-void _entity_component_ese_map_destroy(EseEntityComponentMap *component)
+void _entity_component_ese_map_cleanup(EseEntityComponentMap *component)
 {
-    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_destroy called with NULL src");
-
-    // Unref the component to clean up Lua references
-    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
-        component->base.lua_ref_count--;
-        if (component->base.lua_ref_count == 0) {
-            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
-            component->base.lua_ref = LUA_NOREF;
-        } else {
-            return;
-        }
-    }
-
     // Unref map if present (we don't own it)
     if (component->map) {
         ese_map_unref(component->map);
         component->map = NULL;
     }
+    if (component->sprite_frames) {
+        memory_manager.free(component->sprite_frames);
+    }
     ese_uuid_destroy(component->base.id);
     ese_point_unref(component->position);
     ese_point_destroy(component->position);
-
-    memory_manager.free(component->sprite_frames);
-
     memory_manager.free(component);
+    profile_count_add("entity_comp_map_destroy_count");
+}
+
+void _entity_component_ese_map_destroy(EseEntityComponentMap *component)
+{
+    log_assert("ENTITY_COMP", component, "_entity_component_ese_map_destroy called with NULL src");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_ese_map_cleanup(component);
+        } else {
+            // We dont "own" the sprite so dont free it}
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_ese_map_cleanup(component);
+    }
 }
 
 void _entity_component_ese_map_update(EseEntityComponentMap *component, EseEntity *entity, float delta_time)

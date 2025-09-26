@@ -1,5 +1,6 @@
 #include <string.h>
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
@@ -37,9 +38,30 @@ static bool _text_vtable_run_function(EseEntityComponent* component, EseEntity* 
 }
 
 static void _text_vtable_ref(EseEntityComponent* component) {
+    EseEntityComponentText *text = (EseEntityComponentText*)component->data;
+    log_assert("ENTITY_COMP", text, "text vtable ref called with NULL");
+    if (text->base.lua_ref == LUA_NOREF) {
+        EseEntityComponentText **ud = (EseEntityComponentText **)lua_newuserdata(text->base.lua->runtime, sizeof(EseEntityComponentText *));
+        *ud = text;
+        luaL_getmetatable(text->base.lua->runtime, ENTITY_COMPONENT_TEXT_PROXY_META);
+        lua_setmetatable(text->base.lua->runtime, -2);
+        text->base.lua_ref = luaL_ref(text->base.lua->runtime, LUA_REGISTRYINDEX);
+        text->base.lua_ref_count = 1;
+    } else {
+        text->base.lua_ref_count++;
+    }
 }
 
 static void _text_vtable_unref(EseEntityComponent* component) {
+    EseEntityComponentText *text = (EseEntityComponentText*)component->data;
+    if (!text) return;
+    if (text->base.lua_ref != LUA_NOREF && text->base.lua_ref_count > 0) {
+        text->base.lua_ref_count--;
+        if (text->base.lua_ref_count == 0) {
+            luaL_unref(text->base.lua->runtime, LUA_REGISTRYINDEX, text->base.lua_ref);
+            text->base.lua_ref = LUA_NOREF;
+        }
+    }
 }
 
 // Static vtable instance for text components
@@ -58,33 +80,14 @@ static const ComponentVTable text_vtable = {
 #define FONT_CHAR_HEIGHT 20
 #define FONT_SPACING 1
 
-static void _entity_component_text_register(EseEntityComponentText *component, bool is_lua_owned) {
-    log_assert("ENTITY_COMP", component, "_entity_component_text_register called with NULL component");
-    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_text_register component is already registered");
-
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_TEXT_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
-}
-
 static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, const char *text) {
     EseEntityComponentText *component = memory_manager.malloc(sizeof(EseEntityComponentText), MMTAG_ENTITY);
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
     component->base.type = ENTITY_COMPONENT_TEXT;
     component->base.vtable = &text_vtable;
     
@@ -92,7 +95,7 @@ static EseEntityComponent *_entity_component_text_make(EseLuaEngine *engine, con
     component->align = TEXT_ALIGN_TOP;
     component->offset = ese_point_create(engine);
     ese_point_ref(component->offset);
-    
+
     // Initialize text
     if (text != NULL) {
         component->text = memory_manager.strdup(text, MMTAG_ENTITY);
@@ -120,13 +123,33 @@ EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *sr
     return copy;
 }
 
-void _entity_component_text_destroy(EseEntityComponentText *component) {
-    log_assert("ENTITY_COMP", component, "_entity_component_text_destroy called with NULL src");
-
+void _entity_component_ese_text_cleanup(EseEntityComponentText *component)
+{
     memory_manager.free(component->text);
+    ese_point_unref(component->offset);
     ese_point_destroy(component->offset);
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
+    profile_count_add("entity_comp_text_destroy_count");
+}
+
+void _entity_component_text_destroy(EseEntityComponentText *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_text_destroy called with NULL src");
+
+    // Unref the component to clean up Lua references
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_ese_text_cleanup(component);
+        } else {
+            // We dont "own" the offset so dont free it
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_ese_text_cleanup(component);
+    }
 }
 
 void _entity_component_text_update(EseEntityComponentText *component, EseEntity *entity, float delta_time) {
@@ -140,16 +163,25 @@ void _entity_component_text_update(EseEntityComponentText *component, EseEntity 
 
 static int _entity_component_text_index(lua_State *L) {
     EseEntityComponentText *component = _entity_component_text_get(L, 1);
-    if (!component) {
-        return 0;
-    }
-
     const char *key = lua_tostring(L, 2);
+    
+    // SAFETY: Return nil for freed components
+    if (!component) {
+        lua_pushnil(L);
+        return 1;
+    }
+    
     if (!key) {
         return 0;
     }
 
-    if (strcmp(key, "text") == 0) {
+    if (strcmp(key, "active") == 0) {
+        lua_pushboolean(L, component->base.active);
+        return 1;
+    } else if (strcmp(key, "id") == 0) {
+        lua_pushstring(L, ese_uuid_get_value(component->base.id));
+        return 1;
+    } else if (strcmp(key, "text") == 0) {
         lua_pushstring(L, component->text ? component->text : "");
         return 1;
     } else if (strcmp(key, "justify") == 0) {
@@ -159,14 +191,7 @@ static int _entity_component_text_index(lua_State *L) {
         lua_pushinteger(L, (int)component->align);
         return 1;
     } else if (strcmp(key, "offset") == 0) {
-        // Push the offset point to Lua
-        lua_newtable(L);
-        lua_pushlightuserdata(L, component->offset);
-        lua_setfield(L, -2, "__ptr");
-        lua_pushstring(L, "PointProxyMeta");
-        lua_setfield(L, -2, "__name");
-        luaL_getmetatable(L, "PointProxyMeta");
-        lua_setmetatable(L, -2);
+        ese_point_lua_push(component->offset);
         return 1;
     }
 
@@ -175,21 +200,33 @@ static int _entity_component_text_index(lua_State *L) {
 
 static int _entity_component_text_newindex(lua_State *L) {
     EseEntityComponentText *component = _entity_component_text_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    
+    // SAFETY: Silently ignore writes to freed components
     if (!component) {
         return 0;
     }
-
-    const char *key = lua_tostring(L, 2);
+    
     if (!key) {
         return 0;
     }
 
-    if (strcmp(key, "text") == 0) {
+    if (strcmp(key, "active") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            return luaL_error(L, "active must be a boolean");
+        }
+        component->base.active = lua_toboolean(L, 3);
+        lua_pushboolean(L, component->base.active);
+        return 1;
+    } else if (strcmp(key, "id") == 0) {
+        return luaL_error(L, "id is read-only");
+    } else if (strcmp(key, "text") == 0) {
         const char *new_text = lua_tostring(L, 3);
         if (new_text) {
             memory_manager.free(component->text);
             component->text = memory_manager.strdup(new_text, MMTAG_ENTITY);
         }
+        return 0;
     } else if (strcmp(key, "justify") == 0) {
         if (lua_isinteger_lj(L, 3)) {
             int justify_val = (int)lua_tointeger(L, 3);
@@ -197,6 +234,7 @@ static int _entity_component_text_newindex(lua_State *L) {
                 component->justify = (EseTextJustify)justify_val;
             }
         }
+        return 0;
     } else if (strcmp(key, "align") == 0) {
         if (lua_isinteger_lj(L, 3)) {
             int align_val = (int)lua_tointeger(L, 3);
@@ -204,40 +242,33 @@ static int _entity_component_text_newindex(lua_State *L) {
                 component->align = (EseTextAlign)align_val;
             }
         }
+        return 0;
     } else if (strcmp(key, "offset") == 0) {
-        if (lua_istable(L, 3)) {
-            // Try to get the point from the table
-            lua_getfield(L, 3, "__ptr");
-            if (lua_islightuserdata(L, -1)) {
-                EsePoint *new_offset = (EsePoint *)lua_touserdata(L, -1);
-                if (new_offset) {
-                    ese_point_set_x(component->offset, ese_point_get_x(new_offset));
-                    ese_point_set_y(component->offset, ese_point_get_y(new_offset));
-                }
-            }
-            lua_pop(L, 1);
+        EsePoint *new_offset = ese_point_lua_get(L, 3);
+        if (!new_offset) {
+            return luaL_error(L, "offset must be a Point object");
         }
-    }
-
-    return 0;
-}
-
-static int _entity_component_text_gc(lua_State *L) {
-    EseEntityComponentText *component = _entity_component_text_get(L, 1);
-    if (!component) {
+        ese_point_set_x(component->offset, ese_point_get_x(new_offset));
+        ese_point_set_y(component->offset, ese_point_get_y(new_offset));
         return 0;
     }
 
-    // Check if this is a Lua-owned component
-    lua_getfield(L, 1, "__is_lua_owned");
-    bool is_lua_owned = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-        
-    if (is_lua_owned) {
-        _entity_component_text_destroy(component);
-        log_debug("LUA_GC", "EntityComponentText object (Lua-owned) garbage collected and C memory freed.");
-    } else {
-        log_debug("LUA_GC", "EntityComponentText object (C-owned) garbage collected, C memory *not* freed.");
+    return luaL_error(L, "unknown or unassignable property '%s'", key);
+}
+
+static int _entity_component_text_gc(lua_State *L) {
+    // Get from userdata
+    EseEntityComponentText **ud = (EseEntityComponentText **)luaL_testudata(L, 1, ENTITY_COMPONENT_TEXT_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
+    
+    EseEntityComponentText *component = *ud;
+    if (component) {
+        if (component->base.lua_ref == LUA_NOREF) {
+            _entity_component_text_destroy(component);
+            *ud = NULL;
+        }
     }
     
     return 0;
@@ -282,32 +313,28 @@ static int _entity_component_text_new(lua_State *L) {
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_text_make(lua, text);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_text_register((EseEntityComponentText *)component->data, true);
-    entity_component_push(component);
-    
+    // For Lua-created components, create userdata without storing a persistent ref
+    EseEntityComponentText **ud = (EseEntityComponentText **)lua_newuserdata(L, sizeof(EseEntityComponentText *));
+    *ud = (EseEntityComponentText *)component->data;
+    luaL_getmetatable(L, ENTITY_COMPONENT_TEXT_PROXY_META);
+    lua_setmetatable(L, -2);
+
     return 1;
 }
 
 EseEntityComponentText *_entity_component_text_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
-
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
+    
+    // Get the userdata and check metatable
+    EseEntityComponentText **ud = (EseEntityComponentText **)luaL_testudata(L, idx, ENTITY_COMPONENT_TEXT_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
-
-    EseEntityComponentText *component = (EseEntityComponentText *)lua_touserdata(L, -1);
-    lua_pop(L, 1);
-
-    if (!component || component->base.type != ENTITY_COMPONENT_TEXT) {
-        return NULL;
-    }
-
-    return component;
+    
+    return *ud;
 }
 
 void _entity_component_text_init(EseLuaEngine *engine) {
@@ -328,6 +355,8 @@ void _entity_component_text_init(EseLuaEngine *engine) {
         lua_setfield(L, -2, "__gc");
         lua_pushcfunction(L, _entity_component_text_tostring);
         lua_setfield(L, -2, "__tostring");
+        lua_pushstring(L, "locked");
+        lua_setfield(L, -2, "__metatable");
     }
     lua_pop(L, 1);
     
@@ -442,8 +471,8 @@ EseEntityComponent *entity_component_text_create(EseLuaEngine *engine, const cha
     
     EseEntityComponent *component = _entity_component_text_make(engine, text);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_text_register((EseEntityComponentText *)component->data, false);
+    // Register with Lua using ref system
+    component->vtable->ref(component);
 
     return component;
 }

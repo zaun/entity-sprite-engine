@@ -10,7 +10,7 @@
 // ========================================
 
 // Core helpers
-static EseCamera *_ese_camera_make(void);
+static EseCamera *_ese_camera_make(EseLuaEngine *engine);
 
 // Lua metamethods
 static int _ese_camera_lua_gc(lua_State *L);
@@ -18,8 +18,6 @@ static int _ese_camera_lua_index(lua_State *L);
 static int _ese_camera_lua_newindex(lua_State *L);
 static int _ese_camera_lua_tostring(lua_State *L);
 
-// Lua constructors
-// static int _ese_camera_lua_new(lua_State *L); // REMOVED
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -34,9 +32,9 @@ static int _ese_camera_lua_tostring(lua_State *L);
  * 
  * @return Pointer to the newly created EseCamera, or NULL on allocation failure
  */
-static EseCamera *_ese_camera_make() {
+static EseCamera *_ese_camera_make(EseLuaEngine *engine) {
     EseCamera *camera_state = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_CAMERA);
-    camera_state->position = NULL;
+    camera_state->position = ese_point_create(engine);
     camera_state->rotation = 0.0f;
     camera_state->scale = 1.0f;
     camera_state->state = NULL;
@@ -96,15 +94,9 @@ static int _ese_camera_lua_index(lua_State *L) {
     }
 
     if (strcmp(key, "position") == 0) {
-        if (camera_state->position == NULL) {
-            lua_pushnil(L);
-            profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (position_nil)");
-            return 1;
-        } else {
-            ese_point_lua_push(camera_state->position);
-            profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (position)");
-            return 1;
-        }
+        ese_point_lua_push(camera_state->position);
+        profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (position)");
+        return 1;
     } else if (strcmp(key, "rotation") == 0) {
         lua_pushnumber(L, camera_state->rotation);
         profile_stop(PROFILE_LUA_CAMERA_INDEX, "ese_camera_lua_index (rotation)");
@@ -202,11 +194,8 @@ static int _ese_camera_lua_tostring(lua_State *L) {
 // Core lifecycle
 EseCamera *ese_camera_create(EseLuaEngine *engine) {
     log_debug("CAMERA", "Creating camera state");
-    EseCamera *camera_state = _ese_camera_make();
+    EseCamera *camera_state = _ese_camera_make(engine);
     camera_state->state = engine->runtime;
-
-    camera_state->position = ese_point_create(engine);
-    ese_point_ref(camera_state->position);
 
     return camera_state;
 }
@@ -218,7 +207,6 @@ EseCamera *ese_camera_copy(const EseCamera *source) {
 
     EseCamera *copy = (EseCamera *)memory_manager.malloc(sizeof(EseCamera), MMTAG_CAMERA);
     copy->position = ese_point_copy(source->position);
-    ese_point_ref(copy->position); 
     copy->rotation = source->rotation;
     copy->scale = source->scale;
     copy->state = source->state;
@@ -232,17 +220,12 @@ void ese_camera_destroy(EseCamera *camera_state) {
     
     if (camera_state->lua_ref == LUA_NOREF) {
         // No Lua references, safe to free immediately
-        if (camera_state->position) {
-            ese_point_unref(camera_state->position);
-        }
+        ese_point_destroy(camera_state->position);
         memory_manager.free(camera_state);
     } else {
-        if (camera_state->position) {
-            ese_point_unref(camera_state->position);
-        }
-        ese_camera_unref(camera_state);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
+        ese_camera_unref(camera_state);
     }
 }
 

@@ -1,5 +1,6 @@
 #include <string.h>
 #include "utility/log.h"
+#include "utility/profile.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
@@ -36,9 +37,30 @@ static bool _sprite_vtable_run_function(EseEntityComponent* component, EseEntity
 }
 
 static void _sprite_vtable_ref(EseEntityComponent* component) {
+    EseEntityComponentSprite *sprite = (EseEntityComponentSprite*)component->data;
+    log_assert("ENTITY_COMP", sprite, "sprite vtable ref called with NULL");
+    if (sprite->base.lua_ref == LUA_NOREF) {
+        EseEntityComponentSprite **ud = (EseEntityComponentSprite **)lua_newuserdata(sprite->base.lua->runtime, sizeof(EseEntityComponentSprite *));
+        *ud = sprite;
+        luaL_getmetatable(sprite->base.lua->runtime, ENTITY_COMPONENT_SPRITE_PROXY_META);
+        lua_setmetatable(sprite->base.lua->runtime, -2);
+        sprite->base.lua_ref = luaL_ref(sprite->base.lua->runtime, LUA_REGISTRYINDEX);
+        sprite->base.lua_ref_count = 1;
+    } else {
+        sprite->base.lua_ref_count++;
+    }
 }
 
 static void _sprite_vtable_unref(EseEntityComponent* component) {
+    EseEntityComponentSprite *sprite = (EseEntityComponentSprite*)component->data;
+    if (!sprite) return;
+    if (sprite->base.lua_ref != LUA_NOREF && sprite->base.lua_ref_count > 0) {
+        sprite->base.lua_ref_count--;
+        if (sprite->base.lua_ref_count == 0) {
+            luaL_unref(sprite->base.lua->runtime, LUA_REGISTRYINDEX, sprite->base.lua_ref);
+            sprite->base.lua_ref = LUA_NOREF;
+        }
+    }
 }
 
 // Static vtable instance for sprite components
@@ -52,33 +74,16 @@ static const ComponentVTable sprite_vtable = {
     .unref = _sprite_vtable_unref
 };
 
-static void _entity_component_sprite_register(EseEntityComponentSprite *component, bool is_lua_owned) {
-    log_assert("ENTITY_COMP", component, "_entity_component_sprite_register called with NULL component");
-    log_assert("ENTITY_COMP", component->base.lua_ref == LUA_NOREF, "_entity_component_sprite_register component is already registered");
-
-    lua_newtable(component->base.lua->runtime);
-    lua_pushlightuserdata(component->base.lua->runtime, component);
-    lua_setfield(component->base.lua->runtime, -2, "__ptr");
-
-    // Store the ownership flag
-    lua_pushboolean(component->base.lua->runtime, is_lua_owned);
-    lua_setfield(component->base.lua->runtime, -2, "__is_lua_owned");
-
-    luaL_getmetatable(component->base.lua->runtime, ENTITY_COMPONENT_SPRITE_PROXY_META);
-    lua_setmetatable(component->base.lua->runtime, -2);
-
-    // Store a reference to this proxy table in the Lua registry
-    component->base.lua_ref = luaL_ref(component->base.lua->runtime, LUA_REGISTRYINDEX);
-}
+// (legacy table-proxy registration removed; using userdata + ref counting)
 
 static EseEntityComponent *_entity_component_sprite_make(EseLuaEngine *engine, const char *sprite_name) {
     EseEntityComponentSprite *component = memory_manager.malloc(sizeof(EseEntityComponentSprite), MMTAG_ENTITY);
     component->base.data = component;
     component->base.active = true;
     component->base.id = ese_uuid_create(engine);
-    ese_uuid_ref(component->base.id);
     component->base.lua = engine;
     component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
     component->base.type = ENTITY_COMPONENT_SPRITE;
     component->base.vtable = &sprite_vtable;
     
@@ -110,15 +115,33 @@ EseEntityComponent *_entity_component_sprite_copy(const EseEntityComponentSprite
     return copy;
 }
 
-void _entity_component_sprite_destroy(EseEntityComponentSprite *component) {
-    log_assert("ENTITY_COMP", component, "_entity_component_sprite_destroy called with NULL src");
-
-    // We dont "own" the sprite so dont free it
-
+void _entity_component_ese_sprite_cleanup(EseEntityComponentSprite *component)
+{
     memory_manager.free(component->sprite_name);
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
+    profile_count_add("entity_comp_sprite_destroy_count");
 }
+
+void _entity_component_sprite_destroy(EseEntityComponentSprite *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_sprite_destroy called with NULL src");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_ese_sprite_cleanup(component);
+        } else {
+            // We dont "own" the sprite so dont free it}
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_ese_sprite_cleanup(component);
+    }
+}
+
 
 void _entity_component_sprite_update(EseEntityComponentSprite *component, EseEntity *entity, float delta_time) {
     log_assert("ENTITY_COMP", component, "entity_component_lua_update called with NULL component");
@@ -170,49 +193,28 @@ static int _entity_component_sprite_new(lua_State *L) {
     // Create EseEntityComponent wrapper
     EseEntityComponent *component = _entity_component_sprite_make(lua, sprite_name);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_sprite_register((EseEntityComponentSprite *)component->data, true);
-    entity_component_push(component);
+    // For Lua-created components, create userdata without storing a persistent ref
+    EseEntityComponentSprite **ud = (EseEntityComponentSprite **)lua_newuserdata(L, sizeof(EseEntityComponentSprite *));
+    *ud = (EseEntityComponentSprite *)component->data;
+    luaL_getmetatable(L, ENTITY_COMPONENT_SPRITE_PROXY_META);
+    lua_setmetatable(L, -2);
     
     return 1;
 }
 
 EseEntityComponentSprite *_entity_component_sprite_get(lua_State *L, int idx) {
-    // Check if the value at idx is a table
-    if (!lua_istable(L, idx)) {
+    // Check if it's userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Check if it has the correct metatable
-    if (!lua_getmetatable(L, idx)) {
-        return NULL; // No metatable
+    // Get the userdata and check metatable
+    EseEntityComponentSprite **ud = (EseEntityComponentSprite **)luaL_testudata(L, idx, ENTITY_COMPONENT_SPRITE_PROXY_META);
+    if (!ud) {
+        return NULL; // Wrong metatable or not userdata
     }
     
-    // Get the expected metatable for comparison
-    luaL_getmetatable(L, ENTITY_COMPONENT_SPRITE_PROXY_META);
-    
-    // Compare metatables
-    if (!lua_rawequal(L, -1, -2)) {
-        lua_pop(L, 2); // Pop both metatables
-        return NULL; // Wrong metatable
-    }
-    
-    lua_pop(L, 2); // Pop both metatables
-    
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    
-    // Check if __ptr exists and is light userdata
-    if (!lua_islightuserdata(L, -1)) {
-        lua_pop(L, 1); // Pop the __ptr value (or nil)
-        return NULL;
-    }
-    
-    // Extract the pointer
-    void *comp = lua_touserdata(L, -1);
-    lua_pop(L, 1); // Pop the __ptr value
-    
-    return (EseEntityComponentSprite *)comp;
+    return *ud;
 }
 
 /**
@@ -313,18 +315,17 @@ static int _entity_component_sprite_newindex(lua_State *L) {
  * @return Always 0 (no return values)
  */
 static int _entity_component_sprite_gc(lua_State *L) {
-    EseEntityComponentSprite *component = _entity_component_sprite_get(L, 1);
+    // Get from userdata
+    EseEntityComponentSprite **ud = (EseEntityComponentSprite **)luaL_testudata(L, 1, ENTITY_COMPONENT_SPRITE_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
+    }
     
+    EseEntityComponentSprite *component = *ud;
     if (component) {
-        lua_getfield(L, 1, "__is_lua_owned");
-        bool is_lua_owned = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-        
-        if (is_lua_owned) {
+        if (component->base.lua_ref == LUA_NOREF) {
             _entity_component_sprite_destroy(component);
-            log_debug("LUA_GC", "EntityComponentSprite object (Lua-owned) garbage collected and C memory freed.");
-        } else {
-            log_debug("LUA_GC", "EntityComponentSprite object (C-owned) garbage collected, C memory *not* freed.");
+            *ud = NULL;
         }
     }
     
@@ -414,8 +415,8 @@ EseEntityComponent *entity_component_sprite_create(EseLuaEngine *engine, const c
     
     EseEntityComponent *component = _entity_component_sprite_make(engine, sprite_name);
 
-    // Push EseEntityComponent to Lua
-    _entity_component_sprite_register((EseEntityComponentSprite *)component->data, false);
+    // Register with Lua using ref system
+    component->vtable->ref(component);
 
     return component;
 }

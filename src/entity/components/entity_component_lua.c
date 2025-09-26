@@ -148,23 +148,7 @@ EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src)
     return copy;
 }
 
-void _entity_component_lua_destroy(EseEntityComponentLua *component) {
-    log_assert("ENTITY_COMP", component, "_entity_component_lua_destroy called with NULL src");
-
-
-    // Unref the component to clean up Lua references (only if it was registered)
-    entity_component_lua_unref(component);
-
-    if (component->base.lua_ref_count > 0 && component->base.lua_ref != LUA_NOREF) {
-        return;
-    }
-
-    // Clean up instance reference if it exists (regardless of ref status)
-    if (component->instance_ref != LUA_NOREF && component->engine) {
-        lua_engine_instance_remove(component->engine, component->instance_ref);
-        component->instance_ref = LUA_NOREF;
-    }
-
+void _entity_component_lua_cleanup(EseEntityComponentLua *component) {
     // Clear and free the function cache (regardless of ref status)
     if (component->function_cache) {
         _entity_component_lua_clear_cache(component);
@@ -173,12 +157,29 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
     }
 
     memory_manager.free(component->script);
-    ese_uuid_destroy(component->base.id);
     lua_value_free(component->arg);
-
+    ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
-    
     profile_count_add("entity_comp_lua_destroy_count");
+}
+
+void _entity_component_lua_destroy(EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_lua_destroy called with NULL src");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_lua_cleanup(component);
+        } else {
+            // We dont "own" the sprite so dont free it}
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_lua_cleanup(component);
+    }
 }
 
 void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity, double delta_time) {

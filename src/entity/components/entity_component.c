@@ -198,91 +198,43 @@ void *entity_component_get_data(EseEntityComponent *component) {
 EseEntityComponent *entity_component_get(lua_State *L) {
     log_assert("ENTITY_COMP", L, "entity_component_get called with NULL L");
 
-    // Check if it's userdata (for collider and lua components) or table (for other components)
-    if (lua_isuserdata(L, 1)) {
-        // Handle userdata - check if it's a collider component
-        EseEntityComponentCollider **ud_collider = (EseEntityComponentCollider **)luaL_testudata(L, 1, ENTITY_COMPONENT_COLLIDER_PROXY_META);
-        if (ud_collider) {
-            return &(*ud_collider)->base;
-        }
-        
-        // Handle userdata - check if it's a lua component
-        EseEntityComponentLua **ud_lua = (EseEntityComponentLua **)luaL_testudata(L, 1, ENTITY_COMPONENT_LUA_PROXY_META);
-        if (ud_lua) {
-            return &(*ud_lua)->base;
-        }
-
-        // Handle userdata - check if it's a map component
-        EseEntityComponentMap **ud_map = (EseEntityComponentMap **)luaL_testudata(L, 1, ENTITY_COMPONENT_MAP_PROXY_META);
-        if (ud_map) {
-            return &(*ud_map)->base;
-        }
-        
-        luaL_argerror(L, 1, "expected a component userdata, got unknown userdata type");
-        return NULL;
+    // Handle userdata - check if it's a collider component
+    EseEntityComponentCollider **ud_collider = (EseEntityComponentCollider **)luaL_testudata(L, 1, ENTITY_COMPONENT_COLLIDER_PROXY_META);
+    if (ud_collider) {
+        return &(*ud_collider)->base;
+    }
+    
+    // Handle userdata - check if it's a lua component
+    EseEntityComponentLua **ud_lua = (EseEntityComponentLua **)luaL_testudata(L, 1, ENTITY_COMPONENT_LUA_PROXY_META);
+    if (ud_lua) {
+        return &(*ud_lua)->base;
     }
 
-    // Handle table-based components (legacy)
-    if (!lua_istable(L, 1)) {
-        luaL_argerror(L, 1, "expected a component proxy table or userdata, got non-table/non-userdata");
-        return NULL;
+    // Handle userdata - check if it's a map component
+    EseEntityComponentMap **ud_map = (EseEntityComponentMap **)luaL_testudata(L, 1, ENTITY_COMPONENT_MAP_PROXY_META);
+    if (ud_map) {
+        return &(*ud_map)->base;
     }
 
-    if (!lua_getmetatable(L, 1)) {
-        luaL_argerror(L, 1, "expected a component proxy table, got table without metatable");
-        return NULL;
+    // Handle userdata - check if it's a shape component
+    EseEntityComponentShape **ud_shape = (EseEntityComponentShape **)luaL_testudata(L, 1, ENTITY_COMPONENT_SHAPE_PROXY_META);
+    if (ud_shape) {
+        return &(*ud_shape)->base;
     }
 
-    lua_getfield(L, -1, "__name");
-
-    const char *metatable_name = NULL;
-    if (lua_isstring(L, -1)) {
-        metatable_name = lua_tostring(L, -1);
+    // Handle userdata - check if it's a sprite component
+    EseEntityComponentSprite **ud_sprite = (EseEntityComponentSprite **)luaL_testudata(L, 1, ENTITY_COMPONENT_SPRITE_PROXY_META);
+    if (ud_sprite) {
+        return &(*ud_sprite)->base;
     }
-
-    lua_pop(L, 2);
-
-    // Skip collider component here since it's handled above as userdata
-    if (strcmp(metatable_name, ENTITY_COMPONENT_COLLIDER_PROXY_META) == 0) {
-        luaL_argerror(L, 1, "collider component should be userdata, not table");
-        return NULL;
-    } else if (strcmp(metatable_name, ENTITY_COMPONENT_LUA_PROXY_META) == 0) {
-        EseEntityComponentLua *lua_comp = _entity_component_lua_get(L, 1);
-        if (lua_comp == NULL) {
-            luaL_error(L, "internal error: Lua Base metatable name identified, but _get returned NULL.");
-            return  NULL;
-        }
-        return &lua_comp->base;
-    } else if (strcmp(metatable_name, ENTITY_COMPONENT_MAP_PROXY_META) == 0) {
-        EseEntityComponentMap *ese_map_comp = _entity_component_ese_map_get(L, 1);
-        if (ese_map_comp == NULL) {
-            luaL_error(L, "internal error: Map metatable name identified, but _get returned NULL.");
-            return NULL;
-        }
-        return &ese_map_comp->base;
-    } else if (strcmp(metatable_name, ENTITY_COMPONENT_SHAPE_PROXY_META) == 0) {
-        EseEntityComponentShape *shape_comp = _entity_component_shape_get(L, 1);
-        if (shape_comp == NULL) {
-            luaL_error(L, "internal error: Shape metatable name identified, but _get returned NULL.");
-            return NULL;
-        }
-        return &shape_comp->base;
-    } else if (strcmp(metatable_name, ENTITY_COMPONENT_SPRITE_PROXY_META) == 0) {
-        EseEntityComponentSprite *sprite_comp = _entity_component_sprite_get(L, 1);
-        if (sprite_comp == NULL) {
-            luaL_error(L, "internal error: Sprite metatable name identified, but _get returned NULL.");
-            return NULL;
-        }
-        return &sprite_comp->base;
-    } else if (strcmp(metatable_name, ENTITY_COMPONENT_TEXT_PROXY_META) == 0) {
-        EseEntityComponentText *text_comp = _entity_component_text_get(L, 1);
-        if (text_comp == NULL) {
-            luaL_error(L, "internal error: Text metatable name identified, but _get returned NULL.");
-            return NULL;
-        }
-        return &text_comp->base;
-    } else {
-        luaL_error(L, "unknown component type with metatable name: %s", metatable_name);
-        return NULL;
+    
+    // Handle userdata - check if it's a text component
+    EseEntityComponentText **ud_text = (EseEntityComponentText **)luaL_testudata(L, 1, ENTITY_COMPONENT_TEXT_PROXY_META);
+    if (ud_text) {
+        return &(*ud_text)->base;
     }
+    
+    luaL_argerror(L, 1, "expected a component userdata, got unknown userdata type");
+    return NULL;
+
 }

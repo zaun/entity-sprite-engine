@@ -174,18 +174,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     return &copy->base;
 }
 
-void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
-    log_assert("ENTITY_COMP", component, "_entity_component_collider_destroy called with NULL src");
-
-    // Unref the component to clean up Lua references
-    entity_component_collider_unref(component);
-
-    if (component->base.lua_ref_count > 0 && component->base.lua_ref != LUA_NOREF) {
-        return;
-    }
-
-    ese_uuid_destroy(component->base.id);
-
+void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
     for (size_t i = 0; i < component->rects_count; ++i) {
         // Remove watcher before destroying rect
         ese_rect_remove_watcher(component->rects[i], _entity_component_collider_rect_changed, component);
@@ -205,8 +194,28 @@ void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
             component->base.entity->collision_world_bounds = NULL;
         }
     }
-
+    ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
+    profile_count_add("entity_comp_collider_destroy_count");
+}
+
+void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
+    log_assert("ENTITY_COMP", component, "_entity_component_collider_destroy called with NULL src");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_collider_cleanup(component);
+        } else {
+            // We dont "own" the collider so dont free it
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_collider_cleanup(component);
+    }
 }
 
 
