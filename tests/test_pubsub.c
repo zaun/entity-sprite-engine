@@ -114,22 +114,9 @@ int main(void) {
 
 // Helper function to create and initialize engine
 static EseEngine* create_test_engine_with_entity_support(void) {
-    EseLuaEngine *lua_engine = create_test_engine();
-    if (!lua_engine) {
-        return NULL;
-    }
-    
-    EseEngine *engine = engine_create(NULL); // No startup script
-    if (engine) {
-        // Set up registry keys that entity system needs
-        lua_engine_add_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY, engine->lua_engine);
-        lua_engine_add_registry_key(engine->lua_engine->runtime, ENGINE_KEY, engine);
-        
-        // Initialize entity system
-        entity_lua_init(engine->lua_engine);
-        entity_component_lua_init(engine->lua_engine);
-    }
-    return engine;
+    // engine_create already creates a Lua engine, sets registry keys,
+    // and initializes entity systems. No extra Lua engine needed here.
+    return engine_create(NULL);
 }
 
 // Helper function to create test entity with Lua component

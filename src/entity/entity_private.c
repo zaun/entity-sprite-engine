@@ -40,8 +40,9 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->collision_bounds = NULL;
     entity->collision_world_bounds = NULL;
 
-    entity->components = memory_manager.malloc(sizeof(EseEntityComponent*) * ENTITY_INITIAL_CAPACITY, MMTAG_ENTITY);
-    entity->component_capacity = ENTITY_INITIAL_CAPACITY;
+    // Lazily allocate components array on first insert to reduce baseline allocations
+    entity->components = NULL;
+    entity->component_capacity = 0;
     entity->component_count = 0;
 
     entity->lua = engine;
@@ -49,15 +50,16 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     entity->lua_ref_count = 0;
     entity->lua_val_ref = lua_value_create_nil("entity self ref");
 
-    entity->default_props = dlist_create((DListFreeFn)lua_value_free);
+    // Lazily create default_props when first property is added
+    entity->default_props = NULL;
 
     // Initialize tag system
     entity->tags = NULL;
     entity->tag_count = 0;
     entity->tag_capacity = 0;
 
-    // Initialize pub/sub subscriptions
-    entity->subscriptions = array_create(4, _entity_subscription_free);
+    // Lazily create pub/sub subscriptions list on first subscribe
+    entity->subscriptions = NULL;
 
     profile_stop(PROFILE_ENTITY_CREATE, "entity_make");
     profile_count_add("entity_make_count");

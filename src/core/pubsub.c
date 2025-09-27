@@ -96,11 +96,8 @@ static EseArray *_ese_get_or_create_topic_subscriptions(EsePubSub *pub_sub, cons
     if (subscriptions == NULL) {
         subscriptions = array_create(4, NULL);
         log_assert("pub_sub", subscriptions != NULL, "Failed to create subscriptions array");
-        
-        char *topic_name = memory_manager.strdup(name, MMTAG_PUB_SUB);
-        log_assert("pub_sub", topic_name != NULL, "Failed to duplicate topic name");
-        
-        hashmap_set(pub_sub->topics, topic_name, subscriptions);
+        // hashmap_set copies the key internally, no need to strdup here
+        hashmap_set(pub_sub->topics, name, subscriptions);
     }
     
     return subscriptions;
@@ -142,16 +139,24 @@ void ese_pubsub_unsub(EsePubSub *pub_sub, const char *name, EseEntity *entity, c
             subscription->entity == entity &&
             strcmp(subscription->function_name, function_name) == 0) {
             
-            memory_manager.free(subscription->function_name);
-            memory_manager.free(subscription);
+            // Remove from array; array_remove_at will free the item if a free_fn was set.
+            // Since the array was created with free_fn = NULL, free explicitly here.
             array_remove_at(subscriptions, i);
+            if (subscription->function_name) {
+                memory_manager.free(subscription->function_name);
+            }
+            memory_manager.free(subscription);
             break;
         }
     }
     
     // If no more subscriptions, remove the topic
     if (array_size(subscriptions) == 0) {
-        hashmap_remove(pub_sub->topics, name);
+        // hashmap_remove returns the stored value without freeing it; free explicitly
+        EseArray *removed = (EseArray *)hashmap_remove(pub_sub->topics, name);
+        if (removed) {
+            _ese_subscription_free(removed);
+        }
     }
 }
 

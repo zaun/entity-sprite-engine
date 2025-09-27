@@ -659,11 +659,6 @@ static int _entity_lua_find_by_id(lua_State *L) {
 
 // Function to convert a Lua value on the stack to an EseLuaValue struct in place
 static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index, EseLuaValue *result) {
-    // Initialize the struct to NIL first
-    result->type = LUA_VAL_NIL;
-    result->name = NULL;
-    result->value.string = NULL;
-
     int arg_type = lua_type(L, index);
     printf("DEBUG: Converting argument type %d at index %d\n", arg_type, index);
     switch (arg_type) {
@@ -689,31 +684,28 @@ static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index
         }
         case LUA_TTABLE: {
             printf("DEBUG: Processing LUA_TTABLE\n");
-            // Create a temporary table EseLuaValue
-            EseLuaValue *table_value = lua_value_create_table(NULL);
-            if (table_value) {
-                lua_pushnil(L);
-                while (lua_next(L, index) != 0) {
-                    const char *key_str = NULL;
-                    int key_type = lua_type(L, -2);
-                    
-                    if (key_type == LUA_TSTRING) {
-                        key_str = lua_tostring(L, -2);
-                    } else if (key_type == LUA_TNUMBER) {
-                        char num_str[64];
-                        snprintf(num_str, sizeof(num_str), "%g", lua_tonumber(L, -2));
-                        key_str = num_str;
-                    }
-                    
-                    EseLuaValue *item_ptr = lua_value_create_nil(key_str);
-                    if (item_ptr) {
-                        _convert_lua_value_to_ese_lua_value_in_place(L, -1, item_ptr);
-                        lua_value_push(table_value, item_ptr, false);
-                    }
-                    lua_pop(L, 1);
+            // Initialize result as a table and fill it directly to avoid shallow-copy bugs
+            lua_value_set_table(result);
+            lua_pushnil(L);
+            while (lua_next(L, index) != 0) {
+                const char *key_str = NULL;
+                int key_type = lua_type(L, -2);
+
+                if (key_type == LUA_TSTRING) {
+                    key_str = lua_tostring(L, -2);
+                } else if (key_type == LUA_TNUMBER) {
+                    char num_str[64];
+                    snprintf(num_str, sizeof(num_str), "%g", lua_tonumber(L, -2));
+                    key_str = num_str;
                 }
-                *result = *table_value;
-                lua_value_free(table_value);
+
+                EseLuaValue *item_ptr = lua_value_create_nil(key_str);
+                if (item_ptr) {
+                    _convert_lua_value_to_ese_lua_value_in_place(L, -1, item_ptr);
+                    // Transfer ownership of the new item to the result table
+                    lua_value_push(result, item_ptr, false);
+                }
+                lua_pop(L, 1);
             }
             break;
         }
@@ -1162,6 +1154,9 @@ static int _entity_lua_subscribe(lua_State *L) {
     engine_pubsub_sub(engine, event_name, entity, function_name);
     
     // Track subscription in entity
+    if (!entity->subscriptions) {
+        entity->subscriptions = array_create(4, _entity_subscription_free);
+    }
     EseEntitySubscription *sub = memory_manager.malloc(sizeof(EseEntitySubscription), MMTAG_ENTITY);
     sub->topic_name = memory_manager.strdup(event_name, MMTAG_ENTITY);
     sub->function_name = memory_manager.strdup(function_name, MMTAG_ENTITY);
@@ -1246,14 +1241,13 @@ static void _entity_remove_subscription(EseEntity *entity, const char *topic_nam
         if (sub && 
             strcmp(sub->topic_name, topic_name) == 0 && 
             strcmp(sub->function_name, function_name) == 0) {
-            
-            // Free the subscription
-            memory_manager.free(sub->topic_name);
-            memory_manager.free(sub->function_name);
-            memory_manager.free(sub);
-            
-            // Remove from array
+            // Remove from array; the array's free_fn will free the subscription
             array_remove_at(entity->subscriptions, i);
+            // If now empty, destroy and reset to NULL to release backing storage
+            if (array_size(entity->subscriptions) == 0) {
+                array_destroy(entity->subscriptions);
+                entity->subscriptions = NULL;
+            }
             break;
         }
     }

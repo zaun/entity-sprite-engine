@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <execinfo.h>
 #include <signal.h>
-#include "test_utils.h"
+#include "testing.h"
 #include "../src/entity/entity.h"
 #include "../src/entity/entity_lua.h"
 #include "../src/entity/components/entity_component.h"
@@ -30,6 +30,44 @@
 #include "../src/core/engine_private.h"
 #include "../src/utility/log.h"
 #include "../src/types/rect.h"
+#include "../src/types/input_state.h"
+
+// Compatibility layer to map the old test_utils.h macros to Unity
+#ifdef TEST_ASSERT
+#undef TEST_ASSERT
+#endif
+#define TEST_ASSERT(condition, message) TEST_ASSERT_MESSAGE((condition), (message))
+
+#ifdef TEST_ASSERT_EQUAL
+#undef TEST_ASSERT_EQUAL
+#endif
+#define TEST_ASSERT_EQUAL(expected, actual, message) TEST_ASSERT_EQUAL_INT_MESSAGE((expected), (actual), (message))
+
+#ifdef TEST_ASSERT_NOT_NULL
+#undef TEST_ASSERT_NOT_NULL
+#endif
+#define TEST_ASSERT_NOT_NULL(ptr, message) TEST_ASSERT_TRUE_MESSAGE(((ptr) != NULL), (message))
+
+#ifdef TEST_ASSERT_NULL
+#undef TEST_ASSERT_NULL
+#endif
+#define TEST_ASSERT_NULL(ptr, message) TEST_ASSERT_TRUE_MESSAGE(((ptr) == NULL), (message))
+
+#ifdef TEST_ASSERT_ABORT
+#undef TEST_ASSERT_ABORT
+#endif
+#define TEST_ASSERT_ABORT(expr, message) ASSERT_DEATH((expr), (message))
+
+#ifndef test_begin
+#define test_begin(name) do { (void)(name); } while (0)
+#endif
+#ifndef test_end
+#define test_end(name) do { (void)(name); } while (0)
+#endif
+
+// Unity-style globals
+static EseLuaEngine *test_engine = NULL;
+static EseEntity *test_entity_global = NULL;
 
 // Test function declarations
 static void test_entity_creation();
@@ -38,7 +76,8 @@ static void test_entity_update();
 static void test_entity_run_function();
 static void test_entity_collision_detection();
 static void test_entity_collision_callbacks();
-static void test_entity_collision();
+// Rename to match Unity test implementation name
+static void test_entity_collision_with_rect(void);
 static void test_entity_draw();
 static void test_entity_component_management();
 static void test_entity_tags();
@@ -49,19 +88,7 @@ static void test_entity_data_in_init();
 static void test_entity_data_in_init_lua_created();
 static void test_entity_colon_syntax_preprocessor();
 
-// Helper function to create and initialize engine
-static EseLuaEngine* create_test_engine() {
-    EseLuaEngine *engine = lua_engine_create();
-    if (engine) {
-        // Set up registry keys that entity system needs
-        lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
-        
-        // Initialize entity system
-        entity_lua_init(engine);
-        entity_component_lua_init(engine);
-    }
-    return engine;
-}
+// Using create_test_engine() from testing.h
 
 // Mock draw callback functions
 static bool mock_texture_callback_called = false;
@@ -95,64 +122,24 @@ static void mock_polyline_callback(float x, float y, int z, const float* points,
     mock_polyline_callback_count++;
 }
 
-void segfault_handler(int signo, siginfo_t *info, void *context) {
-    void *buffer[32];
-    int nptrs = backtrace(buffer, 32);
-    char **strings = backtrace_symbols(buffer, nptrs);
-    if (strings) {
-        fprintf(stderr, "---- BACKTRACE START ----\n");
-        for (int i = 0; i < nptrs; i++) {
-            fprintf(stderr, "%s\n", strings[i]);
-        }
-        fprintf(stderr, "---- BACKTRACE  END  ----\n");
-        free(strings);
-    }
-
-    signal(signo, SIG_DFL);
-    raise(signo);
+// Unity setup/teardown
+void setUp(void) {
+    test_engine = create_test_engine();
+    TEST_ASSERT_NOT_NULL(test_engine, "Engine should be created");
+    test_entity_global = entity_create(test_engine);
+    TEST_ASSERT_NOT_NULL(test_entity_global, "Entity should be created");
+    mock_reset();
 }
 
-int main() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-
-    sa.sa_sigaction = segfault_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    sigaddset(&sa.sa_mask, SIGINT);
-
-    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
-        perror("Error setting SIGSEGV handler");
-        return EXIT_FAILURE;
+void tearDown(void) {
+    if (test_entity_global) {
+        entity_destroy(test_entity_global);
+        test_entity_global = NULL;
     }
-    
-    test_suite_begin("🧪 Starting Entity Tests");
-    
-    // Initialize required systems
-    log_init();
-    
-    // Run all test suites
-    test_entity_creation();
-    test_entity_copy();
-    test_entity_update();
-    test_entity_run_function();
-    test_entity_collision_detection();
-    test_entity_collision_callbacks();
-    test_entity_collision();
-    test_entity_draw();
-    test_entity_component_management();
-    test_entity_tags();
-    test_entity_lua_integration();
-    test_entity_null_pointer_aborts();
-    test_entity_dispatch();
-    test_entity_data_in_init();
-    test_entity_data_in_init_lua_created();
-    test_entity_colon_syntax_preprocessor();
-    
-    // Print final summary
-    test_suite_end("🎯 Final Test Summary");
-    
-    return 0;
+    if (test_engine) {
+        lua_engine_destroy(test_engine);
+        test_engine = NULL;
+    }
 }
 
 // Test basic entity creation
@@ -393,7 +380,7 @@ static void test_entity_collision_callbacks() {
 }
 
 // Test entity collision with rect
-static void test_entity_collision() {
+static void test_entity_collision_with_rect(void) {
     test_begin("Entity Collision with Rect");
 
     const char *script = 
@@ -951,4 +938,30 @@ static void test_entity_colon_syntax_preprocessor() {
     lua_engine_destroy(engine);
     
     test_end("Entity Colon Syntax Preprocessor");
+}
+
+// Unity test runner
+int main(void) {
+    log_init();
+    UNITY_BEGIN();
+
+    RUN_TEST(test_entity_creation);
+    RUN_TEST(test_entity_copy);
+    RUN_TEST(test_entity_update);
+    RUN_TEST(test_entity_run_function);
+    RUN_TEST(test_entity_collision_detection);
+    RUN_TEST(test_entity_collision_callbacks);
+    RUN_TEST(test_entity_collision_with_rect);
+    RUN_TEST(test_entity_draw);
+    RUN_TEST(test_entity_component_management);
+    RUN_TEST(test_entity_tags);
+    RUN_TEST(test_entity_lua_integration);
+    RUN_TEST(test_entity_null_pointer_aborts);
+    RUN_TEST(test_entity_dispatch);
+    RUN_TEST(test_entity_data_in_init);
+    RUN_TEST(test_entity_data_in_init_lua_created);
+    RUN_TEST(test_entity_colon_syntax_preprocessor);
+
+    memory_manager.destroy();
+    return UNITY_END();
 }

@@ -26,6 +26,7 @@ EseEntity *entity_create(EseLuaEngine *engine) {
     profile_start(PROFILE_ENTITY_CREATE);
     
     EseEntity *entity = _entity_make(engine);
+    log_debug("ENTITY", "create %p", (void*)entity);
     entity_ref(entity); // C-created = C-owned
     
     profile_stop(PROFILE_ENTITY_CREATE, "entity_create");
@@ -73,11 +74,11 @@ EseEntity *entity_copy(EseEntity *entity) {
         copy->tag_capacity = 0;
     }
 
-    // subscriptions are not copied on purpose
-    copy->subscriptions = array_create(4, _entity_subscription_free);
+    // subscriptions are not copied on purpose; start as NULL lazily
+    copy->subscriptions = NULL;
 
     // Copy default props
-    copy->default_props = dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy);
+    copy->default_props = entity->default_props ? dlist_copy(entity->default_props, (DListCopyFn)lua_value_copy) : NULL;
 
     // Apply copied default_props to the new entity's Lua __data table
     EseDListIter *iter = dlist_iter_create(copy->default_props);
@@ -134,13 +135,17 @@ static void _entity_cleanup(EseEntity *entity) {
             }
         }
         array_destroy(entity->subscriptions);
+        entity->subscriptions = NULL;
     }
 
     if (entity->lua_val_ref) {
         lua_value_free(entity->lua_val_ref);
     }
 
-    dlist_free(entity->default_props);
+    if (entity->default_props) {
+        dlist_free(entity->default_props);
+    }
+    log_debug("ENTITY", "free %p", (void*)entity);
     memory_manager.free(entity);
     profile_count_add("entity_destroy_count");
 }
@@ -390,6 +395,17 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
 
     profile_start(PROFILE_ENTITY_COMPONENT_ADD);
 
+    // Lazily allocate components array on first add
+    if (entity->component_capacity == 0) {
+        size_t initial_capacity = 10; // matches ENTITY_INITIAL_CAPACITY previously used
+        entity->components = memory_manager.malloc(
+            sizeof(EseEntityComponent*) * initial_capacity,
+            MMTAG_ENTITY
+        );
+        entity->component_capacity = initial_capacity;
+        entity->component_count = 0;
+    }
+
     if (entity->component_count == entity->component_capacity) {
         size_t new_capacity = entity->component_capacity * 2;
         EseEntityComponent **new_components = memory_manager.realloc(
@@ -450,6 +466,9 @@ bool entity_add_prop(EseEntity *entity, EseLuaValue *value) {
     log_assert("ENTITY", prop_name, "entity_add_prop called with NULL value name");
 
     if (_entity_lua_to_data(entity, value)) {
+        if (!entity->default_props) {
+            entity->default_props = dlist_create((DListFreeFn)lua_value_free);
+        }
         dlist_append(entity->default_props, value);
         return true;
     }
@@ -458,7 +477,7 @@ bool entity_add_prop(EseEntity *entity, EseLuaValue *value) {
 }
 
 int entity_get_lua_ref(EseEntity *entity) {
-    log_assert("ENTITY", entity, "entity_component_remove called with NULL entity");
+    log_assert("ENTITY", entity, "entity_get_lua_ref called with NULL entity");
     return entity->lua_ref;
 }
 

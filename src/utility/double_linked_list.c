@@ -59,6 +59,7 @@ EseDoubleLinkedList* dlist_create(DListFreeFn free_fn) {
     list->tail = NULL;
     list->size = 0;
     list->free_fn = free_fn;
+    log_debug("DLIST", "create %p", (void*)list);
     return list;
 }
 
@@ -89,6 +90,7 @@ void dlist_free(EseDoubleLinkedList* list) {
         memory_manager.free(node);
         node = next;
     }
+    log_debug("DLIST", "free %p", (void*)list);
     memory_manager.free(list);
 }
 
