@@ -137,6 +137,8 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->base.type = ENTITY_COMPONENT_COLLIDER;
     component->base.vtable = &collider_vtable;
     
+    component->offset = ese_point_create(engine);
+    ese_point_ref(component->offset);
     component->rects = memory_manager.malloc(sizeof(EseRect*) * COLLIDER_RECT_CAPACITY, MMTAG_ENTITY);
     component->rects_capacity = COLLIDER_RECT_CAPACITY;
     component->rects_count = 0;
@@ -158,6 +160,9 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->base.lua_ref_count = 0;
     copy->base.type = ENTITY_COMPONENT_COLLIDER;
     copy->base.vtable = &collider_vtable;
+
+    copy->offset = ese_point_copy(src->offset);
+    ese_point_ref(copy->offset);
 
     // Copy rects
     copy->rects = memory_manager.malloc(sizeof(EseRect*) * src->rects_capacity, MMTAG_ENTITY);
@@ -182,6 +187,9 @@ void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
         ese_rect_destroy(component->rects[i]);
     }
     memory_manager.free(component->rects);
+
+    ese_point_unref(component->offset);
+    ese_point_destroy(component->offset);
 
     // Clean up collision bounds from entity if this component created them
     if (component->base.entity) {
@@ -513,6 +521,9 @@ static int _entity_component_collider_index(lua_State *L) {
     } else if (strcmp(key, "draw_debug") == 0) {
         lua_pushboolean(L, component->draw_debug);
         return 1;
+    } else if (strcmp(key, "offset") == 0) {
+        ese_point_lua_push(component->offset);
+        return 1;
     } else if (strcmp(key, "rects") == 0) {
         // Create rects proxy userdata
         EseEntityComponentCollider **ud = (EseEntityComponentCollider **)lua_newuserdata(L, sizeof(EseEntityComponentCollider *));
@@ -555,6 +566,17 @@ static int _entity_component_collider_newindex(lua_State *L) {
         return 1;
     } else if (strcmp(key, "id") == 0) {
         return luaL_error(L, "id is read-only");
+    } else if (strcmp(key, "offset") == 0) {
+        EsePoint *new_position_point = ese_point_lua_get(L, 3);
+        if (!new_position_point) {
+            return luaL_error(L, "Collider offset must be a EsePoint object");
+        }
+        // Copy values, don't copy reference (ownership safety)
+        ese_point_set_x(component->offset, ese_point_get_x(new_position_point));
+        ese_point_set_y(component->offset, ese_point_get_y(new_position_point));
+        // Pop the point off the stack
+        lua_pop(L, 1);
+        return 0;
     } else if (strcmp(key, "draw_debug") == 0) {
         if (!lua_isboolean(L, 3)) {
             return luaL_error(L, "draw_debug must be a boolean");
@@ -729,8 +751,11 @@ void _entity_component_collider_draw(EseEntityComponentCollider *collider, float
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *rect = collider->rects[i];
         rectCallback(
-            screen_x, screen_y, collider->base.entity->draw_order,
-            ese_rect_get_width(rect), ese_rect_get_height(rect), ese_rect_get_rotation(rect), false,
+            screen_x + ese_point_get_x(collider->offset),
+            screen_y + ese_point_get_y(collider->offset),
+            collider->base.entity->draw_order,
+            ese_rect_get_width(rect), ese_rect_get_height(rect),
+            ese_rect_get_rotation(rect), false,
             0, 0, 255, 255,
             callback_user_data
         );
@@ -809,8 +834,8 @@ void entity_component_collider_update_bounds(EseEntityComponentCollider *collide
         if (!r) continue;
         
         // Use rect coordinates directly (they're already relative to entity)
-        float rx = ese_rect_get_x(r);
-        float ry = ese_rect_get_y(r);
+        float rx = ese_rect_get_x(r) + ese_point_get_x(collider->offset);
+        float ry = ese_rect_get_y(r) + ese_point_get_y(collider->offset);
         float rw = ese_rect_get_width(r);
         float rh = ese_rect_get_height(r);
         

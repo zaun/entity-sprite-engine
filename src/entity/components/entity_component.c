@@ -95,15 +95,15 @@ bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntit
 
     for (size_t i = 0; i < colliderA->rects_count; i++) {
         EseRect *rect_a = colliderA->rects[i];
-        float a_x = ese_rect_get_x(rect_a) + pos_a_x;
-        float a_y = ese_rect_get_y(rect_a) + pos_a_y;
+        float a_x = ese_rect_get_x(rect_a) + ese_point_get_x(colliderA->offset) + pos_a_x;
+        float a_y = ese_rect_get_y(rect_a) + ese_point_get_y(colliderA->offset) + pos_a_y;
         float a_w = ese_rect_get_width(rect_a);
         float a_h = ese_rect_get_height(rect_a);
         
         for (size_t j = 0; j < colliderB->rects_count; j++) {
             EseRect *rect_b = colliderB->rects[j];
-            float b_x = ese_rect_get_x(rect_b) + pos_b_x;
-            float b_y = ese_rect_get_y(rect_b) + pos_b_y;
+            float b_x = ese_rect_get_x(rect_b) + ese_point_get_x(colliderB->offset) + pos_b_x;
+            float b_y = ese_rect_get_y(rect_b) + ese_point_get_y(colliderB->offset) + pos_b_y;
             float b_w = ese_rect_get_width(rect_b);
             float b_h = ese_rect_get_height(rect_b);
             

@@ -14,6 +14,7 @@ function STARTUP:makeskull()
     end
 
     local skull_collider = EntityComponentCollider.new()
+    skull_collider.draw_debug = true
     skull_collider.rects.add(Rect.new(0, 0, 48, 64))
     skull.components.add(skull_collider)
 
@@ -59,6 +60,12 @@ function STARTUP:startup()
     map_manager.position.y = Display.viewport.height / 2
 
     local horse = Entity.new()
+
+    if asset_load_script("topDownController.lua") then
+        local lua_comp = EntityComponentLua.new()
+        lua_comp.script = "topDownController.lua"
+        horse.components.add(lua_comp)
+    end
 
     if asset_load_script("horse.lua") then
         local lua_comp = EntityComponentLua.new()

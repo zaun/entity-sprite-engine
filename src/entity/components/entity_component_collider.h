@@ -12,6 +12,7 @@ typedef struct EseSprite EseSprite;
 typedef struct EseEntity EseEntity;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseRect EseRect;
+typedef struct EsePoint EsePoint;
 
 /**
  * @brief Component that provides collision detection capabilities to an entity.
@@ -24,6 +25,7 @@ typedef struct EseRect EseRect;
 typedef struct EseEntityComponentCollider {
     EseEntityComponent base;        /**< Base component structure */
 
+    EsePoint *offset;               /**< Offset of the collider */
     EseRect **rects;                /**< Array of collision rectangles */
     size_t rects_count;             /**< Number of collision rectangles */
     size_t rects_capacity;          /**< Allocated capacity for rectangles array */
