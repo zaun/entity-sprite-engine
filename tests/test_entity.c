@@ -126,6 +126,9 @@ static void mock_polyline_callback(float x, float y, int z, const float* points,
 void setUp(void) {
     test_engine = create_test_engine();
     TEST_ASSERT_NOT_NULL(test_engine, "Engine should be created");
+    // Register Lua bindings for entities/components for bare LuaEngine tests
+    entity_lua_init(test_engine);
+    entity_component_lua_init(test_engine);
     test_entity_global = entity_create(test_engine);
     TEST_ASSERT_NOT_NULL(test_entity_global, "Entity should be created");
     mock_reset();
@@ -178,21 +181,19 @@ static void test_entity_copy() {
     "        self:add_tag(self.data.prop)\n"
     "    end\n"
     "end\n";
-    
-    EseLuaEngine *engine = create_test_engine();
-    
-    bool load_resultA = lua_engine_load_script_from_string(engine, scriptA, "test_entity_script_a", "ENTITY");
+        
+    bool load_resultA = lua_engine_load_script_from_string(test_engine, scriptA, "test_entity_script_a", "ENTITY");
     TEST_ASSERT(load_resultA, "Test script should load successfully");
-    bool load_resultB = lua_engine_load_script_from_string(engine, scriptB, "test_entity_script_b", "ENTITY");
+    bool load_resultB = lua_engine_load_script_from_string(test_engine, scriptB, "test_entity_script_b", "ENTITY");
     TEST_ASSERT(load_resultB, "Test script should load successfully");
 
     if (load_resultA && load_resultB) {
         
-        EseEntity *original = entity_create(engine);
+        EseEntity *original = entity_create(test_engine);
         entity_add_tag(original, "test_tag");
         entity_add_prop(original, lua_value_create_string("prop", "foo"));
 
-        EseEntityComponent *lua_compA = entity_component_lua_create(engine, "test_entity_script_a");
+        EseEntityComponent *lua_compA = entity_component_lua_create(test_engine, "test_entity_script_a");
         entity_component_add(original, lua_compA);
 
         entity_update(original, 0.016f);
@@ -203,7 +204,7 @@ static void test_entity_copy() {
         TEST_ASSERT(original != copy, "Copy should be a different pointer");
         TEST_ASSERT(entity_has_tag(copy, "test_tag"), "Verify tag was copied");
 
-        EseEntityComponent *lua_compB = entity_component_lua_create(engine, "test_entity_script_b");
+        EseEntityComponent *lua_compB = entity_component_lua_create(test_engine, "test_entity_script_b");
         entity_component_add(copy, lua_compB);
 
         entity_update(copy, 0.016f);
@@ -213,9 +214,6 @@ static void test_entity_copy() {
         entity_destroy(copy);    
         entity_destroy(original);
     }
-
-    // Clean up
-    lua_engine_destroy(engine);
     
     test_end("Entity Copy");
 }
@@ -229,14 +227,13 @@ static void test_entity_update() {
     "    self:add_tag('test_tag')\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
 
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
 
     if (load_result) {
-        EseEntityComponent *lua_comp = entity_component_lua_create(engine, "test_entity_script");
+        EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, "test_entity_script");
         entity_component_add(entity, lua_comp);
             
         entity_update(entity, 0.016f);
@@ -246,7 +243,6 @@ static void test_entity_update() {
 
     // Clean up
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Update");
 }
@@ -261,16 +257,15 @@ static void test_entity_run_function() {
     "    self:add_tag(arg)\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
     
     // Load test script
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
     
     if (load_result) {        
         // Add Lua component with the test script
-        EseEntityComponent *lua_comp = entity_component_lua_create(engine, "test_entity_script");
+        EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, "test_entity_script");
         entity_component_add(entity, lua_comp);
         
         EseLuaValue *arg = lua_value_create_string("arg", "my_tag");        
@@ -282,7 +277,6 @@ static void test_entity_run_function() {
     }
     
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Run Function");
 }
@@ -291,9 +285,8 @@ static void test_entity_run_function() {
 static void test_entity_collision_detection() {
     test_begin("Entity Collision Detection");
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity1 = entity_create(engine);
-    EseEntity *entity2 = entity_create(engine);
+    EseEntity *entity1 = entity_create(test_engine);
+    EseEntity *entity2 = entity_create(test_engine);
     
     // Test collision state with no collider components
     int collision_state = entity_check_collision_state(entity1, entity2);
@@ -305,7 +298,6 @@ static void test_entity_collision_detection() {
     
     entity_destroy(entity1);
     entity_destroy(entity2);
-    lua_engine_destroy(engine);
     
     test_end("Entity Collision Detection");
 }
@@ -325,16 +317,15 @@ static void test_entity_collision_callbacks() {
     "    self:add_tag('exit')\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity1 = entity_create(engine);
-    EseEntity *entity2 = entity_create(engine);
+    EseEntity *entity1 = entity_create(test_engine);
+    EseEntity *entity2 = entity_create(test_engine);
 
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
     
     if (load_result) {
-        EseEntityComponent *lua_comp1 = entity_component_lua_create(engine, "test_entity_script");
-        EseEntityComponent *lua_comp2 = entity_component_lua_create(engine, "test_entity_script");
+        EseEntityComponent *lua_comp1 = entity_component_lua_create(test_engine, "test_entity_script");
+        EseEntityComponent *lua_comp2 = entity_component_lua_create(test_engine, "test_entity_script");
         entity_component_add(entity1, lua_comp1);
         entity_component_add(entity2, lua_comp2);
 
@@ -374,7 +365,6 @@ static void test_entity_collision_callbacks() {
         entity_destroy(entity1);
         entity_destroy(entity2);
     }
-    lua_engine_destroy(engine);
     
     test_end("Entity Collision Callbacks");
 }
@@ -396,29 +386,27 @@ static void test_entity_collision_with_rect(void) {
     "    self:add_tag('exit')\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
     
     if (load_result) {
-        EseEntity *entity1 = entity_create(engine);
-        EseEntity *entity2 = entity_create(engine);
+        EseEntity *entity1 = entity_create(test_engine);
+        EseEntity *entity2 = entity_create(test_engine);
 
-        EseEntityComponent *lua_comp1 = entity_component_lua_create(engine, "test_entity_script");
-        EseEntityComponent *lua_comp2 = entity_component_lua_create(engine, "test_entity_script");
+        EseEntityComponent *lua_comp1 = entity_component_lua_create(test_engine, "test_entity_script");
+        EseEntityComponent *lua_comp2 = entity_component_lua_create(test_engine, "test_entity_script");
 
         entity_component_add(entity1, lua_comp1);
         entity_component_add(entity2, lua_comp2);
 
-        EseEntityComponent *collider1 = entity_component_collider_create(engine);
-        EseEntityComponent *collider2 = entity_component_collider_create(engine);
+        EseEntityComponent *collider1 = entity_component_collider_create(test_engine);
+        EseEntityComponent *collider2 = entity_component_collider_create(test_engine);
 
         entity_component_add(entity1, collider1);
         entity_component_add(entity2, collider2);
 
-        EseRect *rect1 = ese_rect_create(engine);
-        EseRect *rect2 = ese_rect_create(engine);
+        EseRect *rect1 = ese_rect_create(test_engine);
+        EseRect *rect2 = ese_rect_create(test_engine);
 
         ese_rect_set_x(rect1, 0);
         ese_rect_set_y(rect1, 0);
@@ -495,8 +483,6 @@ static void test_entity_collision_with_rect(void) {
         entity_destroy(entity1);
         entity_destroy(entity2);
     }            
-        
-    lua_engine_destroy(engine);
     
     test_end("Entity Collision with Rect");
 }
@@ -505,8 +491,7 @@ static void test_entity_collision_with_rect(void) {
 static void test_entity_draw() {
     test_begin("Entity Draw");
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
         
     // Test drawing with no components
     EntityDrawCallbacks callbacks = {
@@ -519,10 +504,10 @@ static void test_entity_draw() {
     TEST_ASSERT(!mock_texture_callback_called, "Texture callback should not be called with no components");
     TEST_ASSERT(!mock_rect_callback_called, "Rect callback should not be called with no components");
     
-    EseEntityComponent *collider = entity_component_collider_create(engine);
+    EseEntityComponent *collider = entity_component_collider_create(test_engine);
     entity_component_add(entity, collider);
 
-    EseRect *rect = ese_rect_create(engine);
+    EseRect *rect = ese_rect_create(test_engine);
     ese_rect_set_x(rect, 0);
     ese_rect_set_y(rect, 0);
     ese_rect_set_width(rect, 100);
@@ -540,7 +525,6 @@ static void test_entity_draw() {
     // TODO: add a sprite component and test that the texture callback is called
 
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Draw");
 }
@@ -549,13 +533,12 @@ static void test_entity_draw() {
 static void test_entity_component_management() {
     test_begin("Entity Component Management");
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
 
     TEST_ASSERT(entity_component_count(entity) == 0, "Entity should have no components");
     
     // Test adding a component
-    EseEntityComponent *lua_comp = entity_component_lua_create(engine, NULL);
+    EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, NULL);
     const char *comp_id = entity_component_add(entity, lua_comp);
     
     TEST_ASSERT(entity_component_count(entity) == 1, "Entity should have one component");
@@ -572,7 +555,6 @@ static void test_entity_component_management() {
     
     // Clean up
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Component Management");
 }
@@ -581,8 +563,7 @@ static void test_entity_component_management() {
 static void test_entity_tags() {
     test_begin("Entity Tags");
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
     
     // Test adding a tag
     bool add_result = entity_add_tag(entity, "test_tag");
@@ -610,7 +591,6 @@ static void test_entity_tags() {
     
     // Clean up
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Tags");
 }
@@ -624,15 +604,13 @@ static void test_entity_lua_integration() {
     "    self:add_tag('test_tag')\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
 
     // Test getting Lua reference
     int lua_ref = entity_get_lua_ref(entity);
     TEST_ASSERT(lua_ref != LUA_NOREF, "Entity should have a valid Lua reference");
     
     entity_destroy(entity);    
-    lua_engine_destroy(engine);
     
     test_end("Entity Lua Integration");
 }
@@ -640,10 +618,8 @@ static void test_entity_lua_integration() {
 // Test NULL pointer aborts
 static void test_entity_null_pointer_aborts() {
     test_begin("Entity NULL Pointer Abort Tests");
-    
-    EseLuaEngine *engine = create_test_engine();
-    
-    EseEntity *entity = entity_create(engine);
+        
+    EseEntity *entity = entity_create(test_engine);
         
     // Test that creation functions abort with NULL pointers
     TEST_ASSERT_ABORT(entity_create(NULL), "entity_create should abort with NULL engine");
@@ -692,7 +668,6 @@ static void test_entity_null_pointer_aborts() {
     TEST_ASSERT_ABORT(entity_get_lua_ref(NULL), "entity_get_lua_ref should abort with NULL entity");
     
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity NULL Pointer Abort Tests");
 }
@@ -796,14 +771,13 @@ static void test_entity_data_in_init() {
     "    end\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
 
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_data_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_data_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
 
     if (load_result) {
-        EseEntityComponent *lua_comp = entity_component_lua_create(engine, "test_entity_data_script");
+        EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, "test_entity_data_script");
         entity_component_add(entity, lua_comp);
         
         // First update should trigger entity_init and set up data
@@ -820,7 +794,6 @@ static void test_entity_data_in_init() {
 
     // Clean up
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Data in Init");
 }
@@ -911,14 +884,13 @@ static void test_entity_colon_syntax_preprocessor() {
     "    end\n"
     "end\n";
     
-    EseLuaEngine *engine = create_test_engine();
-    EseEntity *entity = entity_create(engine);
+    EseEntity *entity = entity_create(test_engine);
 
-    bool load_result = lua_engine_load_script_from_string(engine, script, "test_entity_colon_script", "ENTITY");
+    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_colon_script", "ENTITY");
     TEST_ASSERT(load_result, "Test script should load successfully");
 
     if (load_result) {
-        EseEntityComponent *lua_comp = entity_component_lua_create(engine, "test_entity_colon_script");
+        EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, "test_entity_colon_script");
         entity_component_add(entity, lua_comp);
         
         // First update should trigger entity_init and call setup_test
@@ -935,7 +907,6 @@ static void test_entity_colon_syntax_preprocessor() {
 
     // Clean up
     entity_destroy(entity);
-    lua_engine_destroy(engine);
     
     test_end("Entity Colon Syntax Preprocessor");
 }

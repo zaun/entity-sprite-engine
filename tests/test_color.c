@@ -451,28 +451,14 @@ static void test_ese_color_lua_new(void) {
     lua_State *L = g_engine->runtime;
     
     const char *testA = "return Color.new()\n";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
-    EseColor *extracted_color = ese_color_lua_get(L, -1);
-    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
-    lua_pop(L, 1);
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Color.new() should error (requires 3 or 4 numbers)");
 
     const char *testB = "return Color.new(0.5)\n";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "testB Lua code should execute without error");
-    extracted_color = ese_color_lua_get(L, -1);
-    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_color_get_r(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(extracted_color));
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
-    lua_pop(L, 1);
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Color.new(r) should error (requires 3 or 4 numbers)");
 
     const char *testC = "return Color.new(0.1, 0.2, 0.3, 0.4)\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
-    extracted_color = ese_color_lua_get(L, -1);
+    EseColor *extracted_color = ese_color_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.1f, ese_color_get_r(extracted_color));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.2f, ese_color_get_g(extracted_color));
@@ -480,8 +466,18 @@ static void test_ese_color_lua_new(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.4f, ese_color_get_a(extracted_color));
     lua_pop(L, 1);
 
-    const char *testD = "return Color.new(\"0.5\", \"0.6\")\n";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testD Lua code should execute without error (Lua converts strings to numbers)");
+    const char *testD = "return Color.new(0.1, 0.2, 0.3)\n";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "testC Lua code should execute without error");
+    extracted_color = ese_color_lua_get(L, -1);
+    TEST_ASSERT_NOT_NULL_MESSAGE(extracted_color, "Extracted color should not be NULL");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.1f, ese_color_get_r(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.2f, ese_color_get_g(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.3f, ese_color_get_b(extracted_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_a(extracted_color));
+    lua_pop(L, 1);
+
+    const char *testE = "return Color.new(\"0.5\", \"0.6\")\n";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testE), "string args should error (numbers required)");
 }
 
 static void test_ese_color_lua_white(void) {
@@ -563,12 +559,12 @@ static void test_ese_color_lua_set_hex(void) {
     ese_color_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
-    const char *test_code2 = "local c = Color.new(); c:set_hex(\"#FF0000\"); return c.r\n";
+    const char *test_code2 = "local c = Color.new(0, 0, 0); c:set_hex(\"#FF0000\"); return c.r\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "set_hex should execute without error");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, lua_tonumber(L, -1));
     lua_pop(L, 1);
 
-    const char *test_error = "local c = Color.new(); c:set_hex(\"invalid\"); return c\n";
+    const char *test_error = "local c = Color.new(0, 0, 0); c:set_hex(\"invalid\"); return c\n";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "set_hex with invalid string should error");
 }
 
@@ -576,12 +572,12 @@ static void test_ese_color_lua_set_byte(void) {
     ese_color_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
     
-    const char *test_code = "local c = Color.new(); c:set_byte(255, 128, 64, 192); return c.r\n";
+    const char *test_code = "local c = Color.new(0, 0, 0); c:set_byte(255, 128, 64, 192); return c.r\n";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "set_byte should execute without error");
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, lua_tonumber(L, -1));
     lua_pop(L, 1);
 
-    const char *test_error = "local c = Color.new(); c:set_byte(255, 128); return c\n";
+    const char *test_error = "local c = Color.new(0, 0, 0); c:set_byte(255, 128); return c\n";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_error), "set_byte with wrong number of args should error");
 }
 

@@ -12,5 +12,3 @@ Todo:
 
 unit tests with leaks/old framework:
 - entity_pubsub
-- entity
-- pubsub

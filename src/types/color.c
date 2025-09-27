@@ -549,33 +549,32 @@ static int _ese_color_lua_set_hex(lua_State *L) {
 static int _ese_color_lua_set_byte(lua_State *L) {
     profile_start(PROFILE_LUA_COLOR_SET_BYTE);
 
-    // Get argument count
+    // Expect self + 4 numeric args
     int argc = lua_gettop(L);
     if (argc != 5) {
-        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
         return luaL_error(L, "Color.set_byte(r, g, b, a) takes 4 arguments");
     }
     
-    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER ||
-        lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER ||
-        lua_type(L, 5) != LUA_TNUMBER) {
+    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER ||
+        lua_type(L, 4) != LUA_TNUMBER || lua_type(L, 5) != LUA_TNUMBER) {
         profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
         return luaL_error(L, "Color.set_byte(r, g, b, a) arguments must be numbers");
     }
-    
+
     EseColor *color = ese_color_lua_get(L, 1);
     if (!color) {
         profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
         return luaL_error(L, "set_byte requires a color");
     }
-    
+
     unsigned char r = (unsigned char)lua_tonumber(L, 2);
     unsigned char g = (unsigned char)lua_tonumber(L, 3);
     unsigned char b = (unsigned char)lua_tonumber(L, 4);
     unsigned char a = (unsigned char)lua_tonumber(L, 5);
-    
+
     ese_color_set_byte(color, r, g, b, a);
-    
+
     profile_stop(PROFILE_LUA_COLOR_SET_BYTE, "ese_color_lua_set_byte");
     return 0;
 }

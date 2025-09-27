@@ -275,8 +275,7 @@ static int _entity_component_sprite_newindex(lua_State *L) {
             return luaL_error(L, "active must be a boolean");
         }
         component->base.active = lua_toboolean(L, 3);
-        lua_pushboolean(L, component->base.active);
-        return 1;
+        return 0;
     } else if (strcmp(key, "id") == 0) {
         return luaL_error(L, "id is read-only");
     } else if (strcmp(key, "sprite") == 0) {
@@ -299,6 +298,8 @@ static int _entity_component_sprite_newindex(lua_State *L) {
             component->sprite = engine_get_sprite(engine, component->sprite_name);
             return 0;
         }
+        // nil path handled: sprite cleared and name freed above
+        return 0;
     }
     
     return luaL_error(L, "unknown or unassignable property '%s'", key);

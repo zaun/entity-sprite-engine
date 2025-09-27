@@ -296,30 +296,26 @@ static int _entity_component_collider_rects_add(lua_State *L) {
         return luaL_error(L, "Invalid collider component in upvalue.");
     }
 
-    int n_args = lua_gettop(L);
-    EseRect *rect;
-    if (n_args == 2) {
-        // collider:add(rect)
-        // collider.add(collider, rect)
-        EseEntityComponentCollider *collider = _entity_component_collider_get(L, 1);
-        if (collider == NULL) {
-            return luaL_argerror(L, 1, "Expected a Rect argument.");
-        }
-        rect = ese_rect_lua_get(L, 2);
-    } else if (n_args == 1) {
-        // collider.add(rect)
-        rect = ese_rect_lua_get(L, 1);
-    }
+	int n_args = lua_gettop(L);
+	EseRect *rect = NULL;
+	if (n_args == 2) {
+		// Called as: c.rects:add(rect) -> [self, rect]
+		rect = ese_rect_lua_get(L, 2);
+	} else if (n_args == 1) {
+		// Called as: c.rects.add(rect) -> [rect]
+		rect = ese_rect_lua_get(L, 1);
+	} else {
+		return luaL_argerror(L, 1, "Expected a Rect argument.");
+	}
 
-    if (rect == NULL) {
-        return luaL_argerror(L, 1, "Expected a Rect argument.");
-    }
+	if (rect == NULL) {
+		return luaL_argerror(L, (n_args == 2 ? 2 : 1), "Expected a Rect argument.");
+	}
 
-    // Add the rect to the collider
-    entity_component_collider_rects_add(collider, rect);
+	// Add the rect to the collider
+	entity_component_collider_rects_add(collider, rect);
 
-
-    return 0;
+	return 0;
 }
 
 /**
