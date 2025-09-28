@@ -1,6 +1,7 @@
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "utility/log.h"
@@ -103,7 +104,7 @@ struct EseDrawListObject {
     float rot_x;                          /**< The x coordinate for the rotation pivot point (normalized) */
     float rot_y;                          /**< The y coordinate for the rotation pivot point (normalized) */
 
-    int z_index;                          /**< The z-index / draw order of the object */
+    uint64_t z_index;                     /**< The z-index / draw order of the object */
 };
 
 /**
@@ -122,8 +123,8 @@ struct EseDrawList {
 static int _compare_draw_list_object_z(const void *a, const void *b) {
     const EseDrawListObject *obj_a = *(const EseDrawListObject **)a;
     const EseDrawListObject *obj_b = *(const EseDrawListObject **)b;
-    int za = draw_list_object_get_z_index(obj_a);
-    int zb = draw_list_object_get_z_index(obj_b);
+    uint64_t za = draw_list_object_get_z_index(obj_a);
+    uint64_t zb = draw_list_object_get_z_index(obj_b);
     return (za > zb) - (za < zb);
 }
 
@@ -270,13 +271,13 @@ void draw_list_object_set_bounds(EseDrawListObject* object, float x, float y, in
     // Note: Polyline objects don't use width/height as they are defined by their points
 }
 
-void draw_list_object_set_z_index(EseDrawListObject* object, int z_index) {
+void draw_list_object_set_z_index(EseDrawListObject* object, uint64_t z_index) {
     log_assert("RENDER_LIST", object, "draw_list_object_set_z_index called with NULL object");
 
     object->z_index = z_index;
 }
 
-int draw_list_object_get_z_index(const EseDrawListObject* object) {
+uint64_t draw_list_object_get_z_index(const EseDrawListObject* object) {
     log_assert("RENDER_LIST", object, "draw_list_object_get_z_index called with NULL object");
 
     return object->z_index;

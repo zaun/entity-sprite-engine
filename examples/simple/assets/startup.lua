@@ -54,12 +54,13 @@ function STARTUP:startup()
     map_comp.position.x = 6
     map_comp.position.y = 4
     local map_manager = Entity.new()
-    map_manager.draw_order = -1000
+    map_manager.draw_order = 0
     map_manager.components.add(map_comp)
     map_manager.position.x = Display.viewport.width / 2
     map_manager.position.y = Display.viewport.height / 2
 
     local horse = Entity.new()
+    horse.draw_order = 1
 
     if asset_load_script("topDownController.lua") then
         local lua_comp = EntityComponentLua.new()

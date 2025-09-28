@@ -12,6 +12,10 @@
 #define MAX_TAG_LENGTH 16
 #define MAX_TAGS_PER_ENTITY 32
 
+#define DRAW_ORDER_SHIFT 48
+#define DRAW_ORDER_SCALE (1ULL << DRAW_ORDER_SHIFT)
+#define DRAW_ORDER_MAX_USERZ ((1ULL << (64 - DRAW_ORDER_SHIFT)) - 1ULL)
+
 /**
  * @brief Structure to track entity pub/sub subscriptions.
  */
@@ -28,7 +32,7 @@ struct EseEntity {
     bool active;                            /**< Whether entity is active */
     bool visible;                           /**< Whether entity is visible */
     bool persistent;                        /**< Whether entity is persistent */
-    int draw_order;                         /**< Drawing order (z-index) */
+    uint64_t draw_order;                    /**< Drawing order (z-index) */
 
     bool destroyed;                         /**< Whether entity is destroyed */
     

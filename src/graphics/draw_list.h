@@ -62,9 +62,9 @@ void draw_list_object_set_bounds(EseDrawListObject* object, float x, float y, in
 
 void draw_list_object_get_bounds(const EseDrawListObject* object, float* x, float* y, int* w, int* h);
 
-void draw_list_object_set_z_index(EseDrawListObject* object, int z_index);
+void draw_list_object_set_z_index(EseDrawListObject* object, uint64_t z_index);
 
-int  draw_list_object_get_z_index(const EseDrawListObject* object);
+uint64_t draw_list_object_get_z_index(const EseDrawListObject* object);
 
 /* Set rotation in radians (rotation around pivot point) */
 void draw_list_object_set_rotation(EseDrawListObject* object, float radians);

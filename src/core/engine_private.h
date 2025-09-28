@@ -11,6 +11,7 @@
 #ifndef ESE_ENGINE_PRIVATE_H
 #define ESE_ENGINE_PRIVATE_H
 
+#include <stdint.h>
 #include "core/asset_manager.h"
 #include "core/collision_index.h"
 #include "core/console.h"
@@ -89,21 +90,21 @@ void _engine_render_list_clear(EseEngine *engine);
  * @warning The `user_data` pointer is assumed to be a valid `EseRenderList*`.
  */
 void _engine_add_texture_to_draw_list(
-    float screen_x, float screen_y, float screen_w, float screen_h, int z_index,
+    float screen_x, float screen_y, float screen_w, float screen_h, uint64_t z_index,
     const char *texture_id, float texture_x1, float texture_y1, float texture_x2, float texture_y2,
     int width, int height,
     void *user_data
 );
 
 void _engine_add_rect_to_draw_list(
-    float screen_x, float screen_y, int z_index,
+    float screen_x, float screen_y, uint64_t z_index,
     int width, int height, float rotation, bool filled,
     unsigned char r, unsigned char g, unsigned char b, unsigned char a,
     void *user_data
 );
 
 void _engine_add_polyline_to_draw_list(
-    float screen_x, float screen_y, int z_index,
+    float screen_x, float screen_y, uint64_t z_index,
     const float* points, size_t point_count, float stroke_width,
     unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
     unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a,

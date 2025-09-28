@@ -10,6 +10,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -74,17 +75,17 @@ static void mock_reset() {
     mock_polyline_callback_count = 0;
 }
 
-static void mock_texture_callback(float x, float y, float w, float h, int z, const char *tex_id, float tx1, float ty1, float tx2, float ty2, int width, int height, void *user_data) {
+static void mock_texture_callback(float x, float y, float w, float h, uint64_t z, const char *tex_id, float tx1, float ty1, float tx2, float ty2, int width, int height, void *user_data) {
     mock_texture_callback_called = true;
     mock_texture_callback_count++;
 }
 
-static void mock_rect_callback(float x, float y, int z, int width, int height, float rotation, bool filled, unsigned char r, unsigned char g, unsigned char b, unsigned char a, void *user_data) {
+static void mock_rect_callback(float x, float y, uint64_t z, int width, int height, float rotation, bool filled, unsigned char r, unsigned char g, unsigned char b, unsigned char a, void *user_data) {
     mock_rect_callback_called = true;
     mock_rect_callback_count++;
 }
 
-static void mock_polyline_callback(float x, float y, int z, const float* points, size_t point_count, float stroke_width, unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a, unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a, void *user_data) {
+static void mock_polyline_callback(float x, float y, uint64_t z, const float* points, size_t point_count, float stroke_width, unsigned char fill_r, unsigned char fill_g, unsigned char fill_b, unsigned char fill_a, unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b, unsigned char stroke_a, void *user_data) {
     mock_polyline_callback_called = true;
     mock_polyline_callback_count++;
 }

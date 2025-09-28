@@ -16,6 +16,7 @@
 #include "entity.h"
 #include "utility/profile.h"
 
+
 // Forward declarations
 static int _entity_lua_subscribe(lua_State *L);
 static int _entity_lua_unsubscribe(lua_State *L);
@@ -888,7 +889,7 @@ static int _entity_lua_index(lua_State *L) {
         lua_pushboolean(L, entity->persistent);
         return 1;
     } else if (strcmp(key, "draw_order") == 0) {
-        lua_pushinteger(L, entity->draw_order);
+        lua_pushinteger(L, (lua_Integer)(entity->draw_order >> DRAW_ORDER_SHIFT));
         return 1;
     } else if (strcmp(key, "position") == 0) {
         if (entity->position != NULL && ese_point_get_lua_ref(entity->position) != LUA_NOREF) {
@@ -999,7 +1000,13 @@ static int _entity_lua_newindex(lua_State *L) {
         if (!lua_isinteger_lj(L, 3)) {
             return luaL_error(L, "Entity draw_order must be an integer");
         }
-        entity->draw_order = (int)lua_tointeger(L, 3);
+
+        int public_z = (int)lua_tointeger(L, 3);
+        if (public_z < 0 || (uint64_t)public_z > DRAW_ORDER_MAX_USERZ) {
+            return luaL_error(L, "Entity draw_order must be an integer between 0 and %llu",  (unsigned long long)DRAW_ORDER_MAX_USERZ);
+        }
+
+        entity->draw_order = ((uint64_t)public_z << DRAW_ORDER_SHIFT);
         return 0;
     } else if (strcmp(key, "position") == 0) {
         EsePoint *new_position_point = ese_point_lua_get(L, 3);

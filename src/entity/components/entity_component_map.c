@@ -525,9 +525,9 @@ void _entity_component_ese_map_draw_grid(
                     continue;
                 }
 
-                int z_index = component->base.entity->draw_order;
-                z_index += y * component->map->width;
-                z_index += x;
+                uint64_t z_index = component->base.entity->draw_order;
+                z_index += ((uint64_t)i << DRAW_ORDER_SHIFT);
+                z_index += y * component->map->width + x;
 
                 const char *texture_id;
                 float x1, y1, x2, y2;
