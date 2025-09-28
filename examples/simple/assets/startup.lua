@@ -37,19 +37,19 @@ function STARTUP:startup()
         return
     end
 
-    if asset_load_atlas("grassland", "grassland.json") == false then
+    if asset_load_atlas("sceneA", "grassland.jsonc") == false then
         print("Tileset atlas failed")
         return
     end
 
-    if asset_load_map("game", "map.json") == false then
+    if asset_load_map("sceneA", "map.jsonc") == false then
         print("Map failed")
         return
     end
 
     -- Setup the map display, cetner of screen
     local map_comp = EntityComponentMap.new()
-    map_comp.map = asset_get_map("game:map.json")
+    map_comp.map = asset_get_map("sceneA:map.jsonc")
     map_comp.size = 64
     map_comp.position.x = 6
     map_comp.position.y = 4

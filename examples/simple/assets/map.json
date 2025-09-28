@@ -1,51 +1,278 @@
-// Basic map in JSONC
 {
-   "title": "Example Map",
+   // Expanded map 25x25 with a ring transition between grass and dirt.
+   "title": "Example Map Expanded 25x25",
    "author": "Alice",
    "version": 1,
    "type": "grid",
-   "width": 6,
-   "height": 4,
+   "width": 25,
+   "height": 25,
    "tileset": {
-      "0": [                                              // Keys MUST be converted to numbers, non-numbers are invalid
-         { "sprite":"grassland:s-g", "weight": 1 }        // Solid Grass
+      "0": [ // Solid Grass
+         { "sprite":"grassland:s-g-1", "weight": 20 },
+         { "sprite":"grassland:s-g-2", "weight": 2 },
+         { "sprite":"grassland:s-g-3", "weight": 5 }
       ],
-      "1": [
-         { "sprite":"grassland:t-g-d-1", "weight": 20 },  // Top Grass to Dirt
+      "1": [ // Top Grass to Dirt
+         { "sprite":"grassland:t-g-d-1", "weight": 20 },
          { "sprite":"grassland:t-g-d-2", "weight": 5 },
          { "sprite":"grassland:t-g-d-3", "weight": 2 }
       ],
-      "2": [
-         { "sprite":"grassland:tl-g-d", "weight": 1 }     // Top Left Grass to Dirt
+      "2": [ // Top Left Grass to Dirt
+         { "sprite":"grassland:tl-g-d", "weight": 1 }
       ],
-      "3": [
-         { "sprite":"grassland:tr-g-d", "weight": 1 }     // Top Right Grass to Dirt
+      "3": [ // Top Right Grass to Dirt
+         { "sprite":"grassland:tr-g-d", "weight": 1 }
+      ],
+      "4": [ // Left Grass to Dirt
+         { "sprite":"grassland:l-g-d-1", "weight": 2 },
+         { "sprite":"grassland:l-g-d-2", "weight": 2 },
+         { "sprite":"grassland:l-g-d-3", "weight": 20 }
+      ],
+      "5": [ // Right Grass to Dirt
+         { "sprite":"grassland:r-g-d-1", "weight": 20 },     
+         { "sprite":"grassland:r-g-d-2", "weight": 2 },
+         { "sprite":"grassland:r-g-d-3", "weight": 2 }
+      ],
+      "6": [ // Solid Dirt
+         { "sprite":"grassland:s-d-1", "weight": 5 },
+         { "sprite":"grassland:s-d-2", "weight": 20 },
+         { "sprite":"grassland:s-d-3", "weight": 2 }
+      ],
+      "7": [ // Bottom Left Grass to Dirt
+         { "sprite":"grassland:bl-g-d", "weight": 1 }
+      ],
+      "8": [ // Bottom Grass to Dirt
+         { "sprite":"grassland:b-g-d-1", "weight": 2 },
+         { "sprite":"grassland:b-g-d-2", "weight": 5 },
+         { "sprite":"grassland:b-g-d-3", "weight": 20 }
+      ],
+      "9": [ // Bottom Right Grass to Dirt
+         { "sprite":"grassland:br-g-d", "weight": 1 }
       ]
    },
-   "cells":[                                              // MUST be width * height in size, ALL tile_ids in layers MUST be defined in tileset.
-      { "layers": [ 0 ] },                                // MUST have layers, flags defalut is 0, isDynamic is false
-      { "layers": [ 0 ], "flags": 0, "isDynamic": true },
-      { "layers": [ 1 ] },
-      { "layers": [ 1 ] },
-      { "layers": [ 2 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 1, 2 ] },
-      { "layers": [ ] },                                  // No tile IDs, this is valid
-      { "layers": [ ] },
-      { "layers": [ 3, 1 ], "flags": 2 },
-      { "layers": [ ] },
-      { "layers": [ ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 3 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] },
-      { "layers": [ 0 ] }
+   "cells": [
+     { "layers": [ 2 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 3 ] },
+ 
+     // Row 1 (y=1)
+     { "layers": [ 0 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 2 (y=2)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 3 (y=3)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 4 (y=4)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 5 (y=5)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 6 (y=6)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 7 (y=7)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 8 (y=8)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 9 (y=9)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 10 (y=10)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 11 (y=11)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 12 (y=12)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 13 (y=13)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 14 (y=14)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 15 (y=15)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 16 (y=16)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 17 (y=17)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 18 (y=18)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 19 (y=19)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 20 (y=20)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 21 (y=21)
+     { "layers": [ 0 ] },{ "layers": [ 4 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },
+     { "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 6 ] },{ "layers": [ 5 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 22 (y=22)
+     { "layers": [ 0 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },{ "layers": [ 1 ] },
+     { "layers": [ 0 ] },
+ 
+     // Row 23 (y=23)
+     { "layers": [ 7 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },{ "layers": [ 8 ] },
+     { "layers": [ 9 ] },
+ 
+     // Row 24 (y=24)
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },{ "layers": [ 0 ] },
+     { "layers": [ 0 ] }
    ]
-}
+ }

@@ -37,6 +37,24 @@ if(PLATFORM STREQUAL "MAC")
         "-Wl,-rpath,@executable_path/../Frameworks"
     )
 
+    # Always sync assets at build time so changes are picked up by `make`
+    add_custom_target(simple_assets_sync ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:simple_demo>/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
+            "$<TARGET_FILE_DIR:simple_demo>/resources/"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:simple_demo>/Resources/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
+            "$<TARGET_BUNDLE_CONTENT_DIR:simple_demo>/Resources/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+            "$<TARGET_BUNDLE_CONTENT_DIR:simple_demo>/Info.plist"
+        COMMENT "Syncing simple_demo assets"
+        VERBATIM
+    )
+    add_dependencies(simple_assets_sync simple_demo)
+
     # Copy assets to macOS bundle Resources directory
     add_custom_command(
         TARGET simple_demo POST_BUILD
@@ -66,6 +84,17 @@ elseif(PLATFORM STREQUAL "LINUX")
 
     # Link with the engine library
     target_link_libraries(simple_demo PRIVATE entityspriteengine)
+
+    # Always sync assets at build time so changes are picked up by `make`
+    add_custom_target(simple_assets_sync ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:simple_demo>/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
+            "$<TARGET_FILE_DIR:simple_demo>/resources/"
+        COMMENT "Syncing simple_demo assets"
+        VERBATIM
+    )
+    add_dependencies(simple_assets_sync simple_demo)
 
     # Copy assets to a resources directory next to the executable
     add_custom_command(

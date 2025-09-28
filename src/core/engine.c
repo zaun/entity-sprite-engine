@@ -159,7 +159,7 @@ void engine_add_entity(EseEngine *engine, EseEntity *entity) {
     log_assert("ENGINE", engine, "engine_add_entity called with NULL engine");
     log_assert("ENGINE", entity, "engine_add_entity called with NULL entity");
 
-    log_debug("ENGINE", "Added entity %s", ese_uuid_get_value(entity->id));
+    log_verbose("ENGINE", "Added entity %s", ese_uuid_get_value(entity->id));
     dlist_append(engine->entities, entity);
 }
 
@@ -167,7 +167,7 @@ void engine_remove_entity(EseEngine *engine, EseEntity *entity) {
     log_assert("ENGINE", engine, "engine_remove_entity called with NULL engine");
     log_assert("ENGINE", entity, "engine_remove_entity called with NULL entity");
 
-    log_debug("ENGINE", "Removed entity %s", ese_uuid_get_value(entity->id));
+    log_verbose("ENGINE", "Removed entity %s", ese_uuid_get_value(entity->id));
     dlist_append(engine->del_entities, entity);
 }
 

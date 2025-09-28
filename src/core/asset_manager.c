@@ -358,7 +358,7 @@ bool asset_manager_load_sprite_atlas(
     texture_id = memory_manager.malloc(texture_id_len, MMTAG_ASSET);
     snprintf(texture_id, texture_id_len, "%s:%s", group, image);
 
-    // Load image with stb_image (try multiple extensions)
+    // Load image with stb_image (probe extensions only if none provided)
     int img_width, img_height, img_channels;
     unsigned char *image_data = NULL;
     char *image_path = NULL;
@@ -366,23 +366,41 @@ bool asset_manager_load_sprite_atlas(
     const char *extensions[] = {"png", "jpg", "jpeg", "bmp"};
     char full_filename[256];
     
-    for (int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
-        if (snprintf(full_filename, sizeof(full_filename), "%s.%s", image, extensions[i]) >= sizeof(full_filename)) {
-            continue;
-        }
-        
-        char *temp_path = filesystem_get_resource(full_filename);
+    const char *dot = strchr(image, '.');
+    if (dot) {
+        // Image already has an extension; use it directly
+        char *temp_path = filesystem_get_resource(image);
         if (temp_path) {
             if (access(temp_path, F_OK) == 0) {
                 image_path = temp_path;
-                break;
+            } else {
+                memory_manager.free(temp_path);
             }
-            memory_manager.free(temp_path);
+        }
+    } else {
+        // Probe common extensions when none provided
+        for (int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
+            if (snprintf(full_filename, sizeof(full_filename), "%s.%s", image, extensions[i]) >= sizeof(full_filename)) {
+                continue;
+            }
+            
+            char *temp_path = filesystem_get_resource(full_filename);
+            if (temp_path) {
+                if (access(temp_path, F_OK) == 0) {
+                    image_path = temp_path;
+                    break;
+                }
+                memory_manager.free(temp_path);
+            }
         }
     }
     
     if (!image_path) {
-        log_error("ASSET_MANAGER", "Error: Image file not found: %s (tried png, jpg, jpeg, bmp)", image);
+        if (dot) {
+            log_error("ASSET_MANAGER", "Error: Image file not found: %s", image);
+        } else {
+            log_error("ASSET_MANAGER", "Error: Image file not found: %s (tried png, jpg, jpeg, bmp)", image);
+        }
         cJSON_Delete(json);
         memory_manager.free(texture_id);
         return false;
@@ -707,7 +725,9 @@ bool asset_manager_load_map(
                 cJSON_Delete(json);
                 return false;
             }
-            const char *sprite_str = sprite_item->valuestring;
+            size_t sprite_len = strlen(group) + 1 + strlen(sprite_item->valuestring) + 1;
+            char *sprite_str = (char *)memory_manager.malloc(sprite_len, MMTAG_ASSET);
+            snprintf(sprite_str, sprite_len, "%s:%s", group, sprite_item->valuestring);
 
             cJSON *weight_item = cJSON_GetObjectItem(ese_map_item, "weight");
             int weight = 1;
@@ -719,10 +739,12 @@ bool asset_manager_load_map(
             if (!ese_tileset_add_sprite(tileset, tile_id, sprite_str, (uint16_t)weight)) {
                 log_error("ASSET_MANAGER", "Failed to add sprite '%s' for tile %d in %s",
                           sprite_str, tile_id, filename);
+                memory_manager.free(sprite_str);
                 ese_tileset_destroy(tileset);
                 cJSON_Delete(json);
                 return false;
             }
+            memory_manager.free(sprite_str);
         }
     }
 

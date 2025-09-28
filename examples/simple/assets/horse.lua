@@ -17,7 +17,9 @@ function ENTITY:entity_update(delta_time)
         return
     end
 
-    if self.data.direction == self.data.last_direction then
+    if self.data.direction == self.data.last_direction and
+       self.data.moving == self.data.last_moving and
+       self.data.running == self.data.last_running then
         return
     end
 

@@ -302,7 +302,6 @@ static int _entity_component_ese_map_newindex(lua_State *L)
 {
     EseEntityComponentMap *component = _entity_component_ese_map_get(L, 1);
     const char *key = lua_tostring(L, 2);
-    log_debug("ENTITY_COMP_MAP", "__newindex key=%s", key ? key : "(null)");
 
     // SAFETY: Silently ignore writes to freed components
     if (!component)

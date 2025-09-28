@@ -1034,9 +1034,6 @@ static int _entity_lua_gc(lua_State *L) {
     if (!entity) return 0;
     if (entity->lua_ref == LUA_NOREF) {
         entity_destroy(entity);
-        log_debug("LUA_GC", "Entity userdata GC: freed C entity (no registry ref).");
-    } else {
-        log_debug("LUA_GC", "Entity userdata GC: registry-ref'd entity not freed.");
     }
     return 0;
 }

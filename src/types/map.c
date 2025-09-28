@@ -71,7 +71,7 @@ static EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type) {
 void ese_map_lua_push(EseMap *map) {
     log_assert("MAP", map, "ese_map_lua_push called with NULL map");
 
-    log_debug("MAP", "ese_map_lua_push called with map %s", map->title);
+    log_verbose("MAP", "ese_map_lua_push called with map %s", map->title);
     if (map->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
         EseMap **ud = (EseMap **)lua_newuserdata(map->state, sizeof(EseMap *));

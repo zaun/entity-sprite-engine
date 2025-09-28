@@ -25,7 +25,7 @@ EseArray *array_create(size_t initial_capacity, ArrayFreeFn free_fn) {
     array->capacity = initial_capacity;
     array->free_fn = free_fn;
     
-    log_debug("ARRAY", "create %p capacity=%zu", (void*)array, initial_capacity);
+    log_verbose("ARRAY", "array_create %p capacity=%zu", (void*)array, initial_capacity);
     return array;
 }
 
@@ -41,7 +41,7 @@ void array_destroy(EseArray *array) {
     }
     
     memory_manager.free(array->elements);
-    log_debug("ARRAY", "destroy %p", (void*)array);
+    log_verbose("ARRAY", "array_destroy %p", (void*)array);
     memory_manager.free(array);
 }
 

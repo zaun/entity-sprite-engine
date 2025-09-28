@@ -11,14 +11,17 @@ function ENTITY:entity_init()
     self.data.deceleration = 800.0
     self.data.max_speed = nil
     self.data.diagonal_normalize = true
+    self.data.camera_track = true
 
     -- current state
-    self.data.direction = 1 -- numeric direction (1 is north)
-    self.data.last_direction = 1
+    self.data.direction = nil -- numeric direction (1 is north)
+    self.data.last_direction = nil
     self.data.angle = nil -- raw angle degrees
     self.data.last_angle = nil
     self.data.moving = false
+    self.data.last_moving = false
     self.data.running = false
+    self.data.last_running = false
     self.data.velocity = { x = 0, y = 0 }
 
     -- key bindings support multiple keys per action
@@ -144,13 +147,20 @@ function ENTITY:entity_update(delta_time)
     if self.position.x < 0 then self.position.x = 0 end
     if self.position.y < 0 then self.position.y = 0 end
 
+    if cfg.camera_track then
+        Camera.position.x = self.position.x
+        Camera.position.y = self.position.y
+    end
+
     local angle, dir = vector_to_angle_and_direction(cfg, vx, vy)
     cfg.last_angle = cfg.angle
     cfg.angle = angle
     cfg.last_direction = cfg.direction
     cfg.direction = dir
+    cfg.last_moving = cfg.moving
     cfg.moving = (vx * vx + vy * vy) > 1e-6
     cfg.running = running
+    cfg.last_running = cfg.running
 end
 
 function ENTITY:entity_collision_enter(entity)

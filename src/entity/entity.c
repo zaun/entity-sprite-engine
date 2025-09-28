@@ -145,7 +145,8 @@ static void _entity_cleanup(EseEntity *entity) {
     if (entity->default_props) {
         dlist_free(entity->default_props);
     }
-    log_debug("ENTITY", "free %p", (void*)entity);
+
+    log_verbose("ENTITY", "_entity_cleanup %p", (void*)entity);
     memory_manager.free(entity);
     profile_count_add("entity_destroy_count");
 }
