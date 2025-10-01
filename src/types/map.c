@@ -3,11 +3,39 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "core/memory_manager.h"
-#include "types/map.h"
+#include "types/map_private.h"
 #include "types/map_cell.h"
 #include "types/tileset.h"
 
-/* ----------------- Internal Helpers ----------------- */
+/* --- Forward declarations --------------------------------------------------------------------- */
+
+// Core allocation/setup
+static char *_strdup_safe(const char *src);
+static EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type);
+static bool _allocate_cells_array(EseMap *map);
+static void _free_cells_array(EseMap *map);
+
+// Watcher helpers
+static void _ese_map_notify_watchers(EseMap *map);
+static void _ese_map_on_cell_changed(EseMapCell *cell, void *userdata);
+
+// Lua bindings
+static int _ese_map_lua_get_cell(lua_State *L);
+static int _ese_map_lua_resize(lua_State *L);
+static int _ese_map_lua_set_tileset(lua_State *L);
+static int _ese_map_lua_index(lua_State *L);
+static int _ese_map_lua_newindex(lua_State *L);
+static int _ese_map_lua_gc(lua_State *L);
+static int _ese_map_lua_tostring(lua_State *L);
+static int _ese_map_lua_new(lua_State *L);
+
+/* --- Internal Helpers ------------------------------------------------------------------------- */
+
+static void _ese_map_on_cell_changed(EseMapCell *cell, void *userdata) {
+    EseMap *map = (EseMap *)userdata;
+    if (!map) return;
+    _ese_map_notify_watchers(map);
+}
 
 static char *_strdup_safe(const char *src) {
     if (!src) return NULL;
@@ -27,8 +55,9 @@ static bool _allocate_cells_array(EseMap *map) {
     for (uint32_t y = 0; y < map->height; y++) {
         map->cells[y] = (EseMapCell **)memory_manager.malloc(sizeof(EseMapCell *) * map->width, MMTAG_MAP);
         for (uint32_t x = 0; x < map->width; x++) {
-            EseMapCell *cell = ese_mapcell_create((EseLuaEngine *)map->engine);
+            EseMapCell *cell = ese_mapcell_create((EseLuaEngine *)map->engine, map);
             map->cells[y][x] = cell;
+            ese_mapcell_add_watcher(cell, _ese_map_on_cell_changed, map);
         }
     }
     return true;
@@ -64,8 +93,27 @@ static EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type) {
     map->lua_ref = LUA_NOREF;
     map->lua_ref_count = 0;
     map->destroyed = false;
+
+    map->layer_count = 0;
+    map->layer_count_dirty = true;
+    
+    // Watchers
+    map->watchers = NULL;
+    map->watcher_userdata = NULL;
+    map->watcher_count = 0;
+    map->watcher_capacity = 0;
     
     return map;
+}
+
+// Notify all map watchers helper
+static void _ese_map_notify_watchers(EseMap *map) {
+    if (!map || map->watcher_count == 0) return;
+    for (size_t i = 0; i < map->watcher_count; i++) {
+        if (map->watchers[i]) {
+            map->watchers[i](map, map->watcher_userdata[i]);
+        }
+    }
 }
 
 void ese_map_lua_push(EseMap *map) {
@@ -86,7 +134,7 @@ void ese_map_lua_push(EseMap *map) {
     }
 }
 
-/* ----------------- Lua Methods ----------------- */
+/* --- Lua Methods ----------------------------------------------------------------------------- */
 
 static int _ese_map_lua_get_cell(lua_State *L) {
     EseMap *map = ese_map_lua_get(L, 1);
@@ -119,27 +167,6 @@ static int _ese_map_lua_get_cell(lua_State *L) {
     return 1;
 }
 
-static int _ese_map_lua_set_cell(lua_State *L) {
-    EseMap *map = ese_map_lua_get(L, 1);
-    if (!map) return luaL_error(L, "Invalid Map in set_cell");
-
-    if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
-        return luaL_error(L, "set_cell(x, y, cell) requires coordinates");
-
-    uint32_t x = (uint32_t)lua_tonumber(L, 2);
-    uint32_t y = (uint32_t)lua_tonumber(L, 3);
-
-    EseMapCell *new_cell = ese_mapcell_lua_get(L, 4);
-    if (!new_cell) return luaL_error(L, "set_cell requires a valid MapCell");
-
-    if (!ese_map_set_cell(map, x, y, new_cell)) {
-        lua_pushboolean(L, false);
-        return 1;
-    }
-    lua_pushboolean(L, true);
-    return 1;
-}
-
 static int _ese_map_lua_resize(lua_State *L) {
     EseMap *map = ese_map_lua_get(L, 1);
     if (!map) return luaL_error(L, "Invalid Map in resize");
@@ -153,6 +180,58 @@ static int _ese_map_lua_resize(lua_State *L) {
     lua_pushboolean(L, ese_map_resize(map, new_width, new_height));
     return 1;
 }
+
+int ese_map_get_width(EseMap *map) {
+    log_assert("MAP", map, "ese_map_get_width called with NULL map");
+    return map->width;
+}
+
+int ese_map_get_height(EseMap *map) {
+    log_assert("MAP", map, "ese_map_get_height called with NULL map");
+    return map->height;
+}
+
+EseMapType ese_map_get_type(EseMap *map) {
+    log_assert("MAP", map, "ese_map_get_type called with NULL map");
+
+    return map->type;
+}
+
+EseTileSet *ese_map_get_tileset(EseMap *map) {
+    log_assert("MAP", map, "ese_map_get_tileset called with NULL map");
+
+    return map->tileset;
+}
+
+size_t ese_map_get_layer_count(EseMap *map) {
+    log_assert("MAP", map, "ese_map_get_layer_count called with NULL map");
+
+    if (!map->layer_count_dirty) {
+        return map->layer_count;
+    }
+
+    map->layer_count = 0;
+    for (uint32_t y = 0; y < map->height; y++) {
+        for (uint32_t x = 0; x < map->width; x++) {
+            EseMapCell *cell = map->cells[y][x];
+            size_t count = ese_mapcell_get_layer_count(cell);
+            if (cell && count > map->layer_count) {
+                map->layer_count = count;
+            }
+        }
+    }
+    map->layer_count_dirty = false;
+
+    return map->layer_count;
+}
+
+void _ese_map_set_layer_count_dirty(EseMap *map) {
+    log_assert("MAP", map, "ese_map_set_layer_count_dirty called with NULL map");
+    
+    map->layer_count_dirty = true;
+    _ese_map_notify_watchers(map);
+}
+
 
 static int _ese_map_lua_set_tileset(lua_State *L) {
     EseMap *map = ese_map_lua_get(L, 1);
@@ -200,9 +279,6 @@ static int _ese_map_lua_index(lua_State *L) {
     } else if (strcmp(key, "get_cell") == 0) {
         lua_pushcfunction(L, _ese_map_lua_get_cell);
         return 1;
-    } else if (strcmp(key, "set_cell") == 0) {
-        lua_pushcfunction(L, _ese_map_lua_set_cell);
-        return 1;
     } else if (strcmp(key, "resize") == 0) {
         lua_pushcfunction(L, _ese_map_lua_resize);
         return 1;
@@ -231,6 +307,7 @@ static int _ese_map_lua_newindex(lua_State *L) {
     } else if (strcmp(key, "type") == 0) {
         const char *type_str = lua_tostring(L, 3);
         if (type_str) map->type = ese_map_type_from_string(type_str);
+        _ese_map_notify_watchers(map);
         return 0;
     }
 
@@ -274,7 +351,7 @@ static int _ese_map_lua_tostring(lua_State *L) {
     return 1;
 }
 
-/* ----------------- Lua Init ----------------- */
+/* --- Lua Init --------------------------------------------------------------------------------- */
 
 static int _ese_map_lua_new(lua_State *L) {
     profile_start(PROFILE_LUA_MAP_NEW);
@@ -349,7 +426,7 @@ void ese_map_lua_init(EseLuaEngine *engine) {
     }
 }
 
-/* ----------------- C API ----------------- */
+/* --- C API ------------------------------------------------------------------------------------ */
 
 EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMapType type, bool c_only) {
     log_assert("MAP", engine, "ese_map_create called with NULL engine");
@@ -376,6 +453,8 @@ void ese_map_destroy(EseMap *map) {
     if (map->tileset) ese_tileset_destroy(map->tileset);
     if (map->title) memory_manager.free(map->title);
     if (map->author) memory_manager.free(map->author);
+    if (map->watchers) memory_manager.free(map->watchers);
+    if (map->watcher_userdata) memory_manager.free(map->watcher_userdata);
 
     memory_manager.free(map);
 }
@@ -441,23 +520,11 @@ EseMapCell *ese_map_get_cell(const EseMap *map, uint32_t x, uint32_t y) {
     return map->cells[y][x];
 }
 
-bool ese_map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell) {
-    if (!map || !map->cells || !cell || x >= map->width || y >= map->height) return false;
-
-    // Destroy old cell
-    if (map->cells[y][x]) {
-        ese_mapcell_destroy(map->cells[y][x]);
-    }
-
-    // Replace with new cell (C-owned)
-    map->cells[y][x] = ese_mapcell_copy(cell);
-    return map->cells[y][x] != NULL;
-}
-
 bool ese_map_set_title(EseMap *map, const char *title) {
     if (!map) return false;
     if (map->title) memory_manager.free(map->title);
     map->title = _strdup_safe(title);
+    _ese_map_notify_watchers(map);
     return map->title != NULL;
 }
 
@@ -465,15 +532,16 @@ bool ese_map_set_author(EseMap *map, const char *author) {
     if (!map) return false;
     if (map->author) memory_manager.free(map->author);
     map->author = _strdup_safe(author);
+    _ese_map_notify_watchers(map);
     return map->author != NULL;
 }
 
 void ese_map_set_version(EseMap *map, int version) {
-    if (map) map->version = version;
+    if (map) { map->version = version; _ese_map_notify_watchers(map); }
 }
 
 void ese_map_set_tileset(EseMap *map, EseTileSet *tileset) {
-    if (map) map->tileset = tileset;
+    if (map) { map->tileset = tileset; _ese_map_notify_watchers(map); }
 }
 
 bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
@@ -505,6 +573,7 @@ bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
             if (old_cells[y][x]) {
                 ese_mapcell_destroy(map->cells[y][x]);
                 map->cells[y][x] = ese_mapcell_copy(old_cells[y][x]);
+                ese_mapcell_add_watcher(map->cells[y][x], _ese_map_on_cell_changed, map);
             }
         }
     }
@@ -522,6 +591,7 @@ bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
     }
     memory_manager.free(old_cells);
 
+    _ese_map_notify_watchers(map);
     return true;
 }
 
@@ -533,6 +603,60 @@ const char *ese_map_type_to_string(EseMapType type) {
         case MAP_TYPE_ISO: return "iso";
         default: return "grid";
     }
+}
+
+/* --- Watcher API ------------------------------------------------------------------------------ */
+
+bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata) {
+    log_assert("MAP", map, "ese_map_add_watcher called with NULL map");
+    log_assert("MAP", callback, "ese_map_add_watcher called with NULL callback");
+
+    if (map->watcher_count == 0) {
+        map->watcher_capacity = 4;
+        map->watchers = memory_manager.malloc(sizeof(EseMapWatcherCallback) * map->watcher_capacity, MMTAG_MAP);
+        map->watcher_userdata = memory_manager.malloc(sizeof(void*) * map->watcher_capacity, MMTAG_MAP);
+        map->watcher_count = 0;
+    }
+
+    if (map->watcher_count >= map->watcher_capacity) {
+        size_t new_capacity = map->watcher_capacity * 2;
+        EseMapWatcherCallback *new_watchers = memory_manager.realloc(
+            map->watchers,
+            sizeof(EseMapWatcherCallback) * new_capacity,
+            MMTAG_MAP
+        );
+        void **new_userdata = memory_manager.realloc(
+            map->watcher_userdata,
+            sizeof(void*) * new_capacity,
+            MMTAG_MAP
+        );
+        if (!new_watchers || !new_userdata) return false;
+        map->watchers = new_watchers;
+        map->watcher_userdata = new_userdata;
+        map->watcher_capacity = new_capacity;
+    }
+
+    map->watchers[map->watcher_count] = callback;
+    map->watcher_userdata[map->watcher_count] = userdata;
+    map->watcher_count++;
+    return true;
+}
+
+bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata) {
+    log_assert("MAP", map, "ese_map_remove_watcher called with NULL map");
+    log_assert("MAP", callback, "ese_map_remove_watcher called with NULL callback");
+
+    for (size_t i = 0; i < map->watcher_count; i++) {
+        if (map->watchers[i] == callback && map->watcher_userdata[i] == userdata) {
+            for (size_t j = i; j < map->watcher_count - 1; j++) {
+                map->watchers[j] = map->watchers[j + 1];
+                map->watcher_userdata[j] = map->watcher_userdata[j + 1];
+            }
+            map->watcher_count--;
+            return true;
+        }
+    }
+    return false;
 }
 
 EseMapType ese_map_type_from_string(const char *type_str) {

@@ -25,20 +25,20 @@ static const char hook_key_sentinel = 0;
  *          and table contents. Each value can have an optional name for debugging.
  */
 struct EseLuaValue {
-    enum { LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING, LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA } type; /**< Type of the Lua value */
+    enum { LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING, LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA } type; /** Type of the Lua value */
     union {
-        bool boolean;                /**< Boolean value for LUA_VAL_BOOL type */
-        double number;               /**< Numeric value for LUA_VAL_NUMBER type */
-        char *string;                /**< String value for LUA_VAL_STRING type */
-        int lua_ref;                 /**< Lua registry reference for LUA_VAL_REF type */
-        void *userdata;              /**< User data pointer for LUA_VAL_USERDATA type */
+        bool boolean;                /** Boolean value for LUA_VAL_BOOL type */
+        double number;               /** Numeric value for LUA_VAL_NUMBER type */
+        char *string;                /** String value for LUA_VAL_STRING type */
+        int lua_ref;                 /** Lua registry reference for LUA_VAL_REF type */
+        void *userdata;              /** User data pointer for LUA_VAL_USERDATA type */
         struct {
-            struct EseLuaValue **items; /**< Array of table items */
-            size_t count;               /**< Number of items in the table */
-            size_t capacity;            /**< Allocated capacity for items array */
-        } table;                    /**< Table data for LUA_VAL_TABLE type */
-    } value;                        /**< Union containing the actual value data */
-    char *name;                     /**< Optional name for debugging and identification */
+            struct EseLuaValue **items; /** Array of table items */
+            size_t count;               /** Number of items in the table */
+            size_t capacity;            /** Allocated capacity for items array */
+        } table;                    /** Table data for LUA_VAL_TABLE type */
+    } value;                        /** Union containing the actual value data */
+    char *name;                     /** Optional name for debugging and identification */
 };
 
 /**
@@ -49,11 +49,11 @@ struct EseLuaValue {
  *          and enforcing execution limits.
  */
 typedef struct LuaFunctionHook {
-    clock_t start_time;             /**< Start time of function execution */
-    clock_t max_execution_time;     /**< Maximum allowed execution time */
-    size_t max_instruction_count;   /**< Maximum allowed instruction count */
-    size_t instruction_count;       /**< Current instruction count */
-    size_t call_count;              /**< Number of times function was called */
+    clock_t start_time;             /** Start time of function execution */
+    clock_t max_execution_time;     /** Maximum allowed execution time */
+    size_t max_instruction_count;   /** Maximum allowed instruction count */
+    size_t instruction_count;       /** Current instruction count */
+    size_t call_count;              /** Number of times function was called */
 } LuaFunctionHook;
 
 /**
@@ -64,12 +64,12 @@ typedef struct LuaFunctionHook {
  *          constraints for security and performance.
  */
 typedef struct EseLuaEngineInternal {
-    EseHashMap *functions;          /**< Registry of available Lua functions */
-    int sandbox_master_ref;         /**< Reference to master sandbox environment */
-    size_t memory_limit;            /**< Maximum memory usage limit */
-    size_t memory_used;             /**< Current memory usage */
-    clock_t max_execution_time;     /**< Maximum execution time limit */
-    size_t max_instruction_count;   /**< Maximum instruction count limit */
+    EseHashMap *functions;          /** Registry of available Lua functions */
+    int sandbox_master_ref;         /** Reference to master sandbox environment */
+    size_t memory_limit;            /** Maximum memory usage limit */
+    size_t memory_used;             /** Current memory usage */
+    clock_t max_execution_time;     /** Maximum execution time limit */
+    size_t max_instruction_count;   /** Maximum instruction count limit */
 } EseLuaEngineInternal;
 
 char* _replace_colon_calls(const char* prefix, const char* script);

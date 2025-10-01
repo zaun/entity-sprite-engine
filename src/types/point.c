@@ -10,18 +10,18 @@
 
 // The actual EsePoint struct definition (private to this file)
 typedef struct EsePoint {
-    float x;            /**< The x-coordinate of the point */
-    float y;            /**< The y-coordinate of the point */
+    float x;            /** The x-coordinate of the point */
+    float y;            /** The y-coordinate of the point */
 
-    lua_State *state;   /**< Lua State this EsePoint belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this point has been referenced in C */
+    lua_State *state;   /** Lua State this EsePoint belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this point has been referenced in C */
     
     // Watcher system
-    EsePointWatcherCallback *watchers;     /**< Array of watcher callbacks */
-    void **watcher_userdata;               /**< Array of userdata for each watcher */
-    size_t watcher_count;                  /**< Number of registered watchers */
-    size_t watcher_capacity;               /**< Capacity of the watcher arrays */
+    EsePointWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;               /** Array of userdata for each watcher */
+    size_t watcher_count;                  /** Number of registered watchers */
+    size_t watcher_capacity;               /** Capacity of the watcher arrays */
 } EsePoint;
 
 // ========================================

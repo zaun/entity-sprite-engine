@@ -19,11 +19,11 @@
  *          External code must use the provided getter/setter functions.
  */
 struct EseUUID {
-    char value[37];     /**< The string EseUUID */
+    char value[37];     /** The string EseUUID */
 
-    lua_State *state;   /**< Lua State this EseUUID belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this uuid has been referenced in C */
+    lua_State *state;   /** Lua State this EseUUID belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this uuid has been referenced in C */
 };
 
 // ========================================

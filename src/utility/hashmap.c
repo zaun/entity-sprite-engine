@@ -13,9 +13,9 @@
  *          node in the same bucket for collision resolution using chaining.
  */
 typedef struct EseHashNode {
-    char* key;                      /**< String key for the hash map entry */
-    void* value;                    /**< Value associated with the key */
-    struct EseHashNode* next;       /**< Pointer to next node in collision chain */
+    char* key;                      /** String key for the hash map entry */
+    void* value;                    /** Value associated with the key */
+    struct EseHashNode* next;       /** Pointer to next node in collision chain */
 } EseHashNode;
 
 /**
@@ -26,10 +26,10 @@ typedef struct EseHashNode {
  *          of buckets, each containing a linked list of hash nodes.
  */
 typedef struct EseHashMap {
-    EseHashNode** buckets;          /**< Array of bucket pointers */
-    size_t capacity;                /**< Number of buckets in the hash map */
-    size_t size;                    /**< Number of key-value pairs stored */
-    EseHashMapFreeFn free_fn;       /**< Function to free stored values */
+    EseHashNode** buckets;          /** Array of bucket pointers */
+    size_t capacity;                /** Number of buckets in the hash map */
+    size_t size;                    /** Number of key-value pairs stored */
+    EseHashMapFreeFn free_fn;       /** Function to free stored values */
 } EseHashMap;
 
 /**
@@ -40,9 +40,9 @@ typedef struct EseHashMap {
  *          that bucket.
  */
 struct EseHashMapIter {
-    EseHashMap* map;                /**< Reference to the hash map being iterated */
-    size_t bucket;                  /**< Current bucket index */
-    struct EseHashNode* node;       /**< Current node within the bucket */
+    EseHashMap* map;                /** Reference to the hash map being iterated */
+    size_t bucket;                  /** Current bucket index */
+    struct EseHashNode* node;       /** Current node within the bucket */
 };
 
 static unsigned int hash(const char* key) {

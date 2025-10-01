@@ -11,6 +11,13 @@
 #include "entity/entity_private.h"
 #include "types/types.h"
 
+// Forward declarations
+static void _entity_component_ese_map_changed(EseMap *map, void *userdata);
+static int _entity_component_ese_map_show_layer_index(lua_State *L);
+static int _entity_component_ese_map_show_layer_newindex(lua_State *L);
+static int _entity_component_ese_map_show_layer_len(lua_State *L);
+static int _entity_component_ese_map_show_all_layers(lua_State *L);
+
 // VTable wrapper functions
 static EseEntityComponent* _map_vtable_copy(EseEntityComponent* component) {
     return _entity_component_ese_map_copy((EseEntityComponentMap*)component->data);
@@ -72,6 +79,8 @@ static const ComponentVTable map_vtable = {
     .unref = _map_vtable_unref
 };
 
+// callback
+
 
 static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
 {
@@ -88,11 +97,15 @@ static EseEntityComponent *_entity_component_ese_map_make(EseLuaEngine *engine)
     component->base.vtable = &map_vtable;
     
     component->map = NULL;
-    component->position = ese_point_create(engine);
-    ese_point_ref(component->position);
     component->size = 128;
     component->seed = 1000;
+
+    component->position = ese_point_create(engine);
+    ese_point_ref(component->position);
+
     component->sprite_frames = NULL;
+    component->show_layer = NULL;
+    component->show_layer_count = 0;
 
     return &component->base;
 }
@@ -109,7 +122,13 @@ EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *
     copy->base.lua_ref = LUA_NOREF;
     copy->base.type = ENTITY_COMPONENT_MAP;
 
-    copy->map = src->map;
+    copy->map = src->map; // we dont own the map, the engine does
+    copy->show_layer = NULL;
+    copy->show_layer_count = ese_map_get_layer_count(src->map);
+    if (src->show_layer) {
+        copy->show_layer = memory_manager.malloc(sizeof(bool) * copy->show_layer_count, MMTAG_ENTITY);
+        memcpy(copy->show_layer, src->show_layer, sizeof(bool) * copy->show_layer_count);
+    }
     copy->position = ese_point_create(src->base.lua);
     ese_point_ref(copy->position);
     ese_point_set_x(copy->position, ese_point_get_x(src->position));
@@ -119,7 +138,7 @@ EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *
 
     if (copy->map) {
         ese_map_ref(copy->map);
-        size_t cells = copy->map->width * copy->map->height;
+        size_t cells = ese_map_get_width(copy->map) * ese_map_get_height(copy->map);
         copy->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
         memset(copy->sprite_frames, 0, sizeof(int) * cells);
     } else {
@@ -134,10 +153,14 @@ void _entity_component_ese_map_cleanup(EseEntityComponentMap *component)
     // Unref map if present (we don't own it)
     if (component->map) {
         ese_map_unref(component->map);
+        ese_map_remove_watcher(component->map, _entity_component_ese_map_changed, component);
         component->map = NULL;
     }
     if (component->sprite_frames) {
         memory_manager.free(component->sprite_frames);
+    }
+    if (component->show_layer) {
+        memory_manager.free(component->show_layer);
     }
     ese_uuid_destroy(component->base.id);
     ese_point_unref(component->position);
@@ -286,6 +309,45 @@ static int _entity_component_ese_map_index(lua_State *L)
         lua_pushnumber(L, component->seed);
         return 1;
     }
+    else if (strcmp(key, "show_layer") == 0)
+    {
+        // Create a proxy table for component->show_layer
+        lua_newtable(L);
+
+        // metatable for proxy
+        lua_newtable(L);
+
+        // __index closure upvalue: component pointer
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_ese_map_show_layer_index, 1);
+        lua_setfield(L, -2, "__index");
+
+        // __newindex closure upvalue: component pointer
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_ese_map_show_layer_newindex, 1);
+        lua_setfield(L, -2, "__newindex");
+
+        // __len closure upvalue: component pointer
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_ese_map_show_layer_len, 1);
+        lua_setfield(L, -2, "__len");
+
+        // lock metatable
+        lua_pushstring(L, "locked");
+        lua_setfield(L, -2, "__metatable");
+
+        // set metatable on proxy table
+        lua_setmetatable(L, -2);
+
+        return 1;
+    }
+    else if (strcmp(key, "show_all_layers") == 0)
+    {
+        // Return bound function: map_component.show_all_layers()
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_ese_map_show_all_layers, 1);
+        return 1;
+    }
 
     return 0;
 }
@@ -330,19 +392,28 @@ static int _entity_component_ese_map_newindex(lua_State *L)
     {
         if (component->map) {
             ese_map_unref(component->map);
+            ese_map_remove_watcher(component->map, _entity_component_ese_map_changed, component);
         }
+
         component->map = ese_map_lua_get(L, 3);
         if (!component->map) {
             return luaL_error(L, "map must be a Map object");
         }
 
         ese_map_ref(component->map);
+        if (component->show_layer_count) {
+            memory_manager.free(component->show_layer);
+        }
+        component->show_layer_count = ese_map_get_layer_count(component->map);
+        component->show_layer = memory_manager.malloc(sizeof(bool) * component->show_layer_count, MMTAG_ENTITY);
+        memset(component->show_layer, true, sizeof(bool) * component->show_layer_count);
+        ese_map_add_watcher(component->map, _entity_component_ese_map_changed, component);
 
         if (component->sprite_frames) {
             memory_manager.free(component->sprite_frames);
         }
 
-        size_t cells = component->map->width * component->map->height;
+        size_t cells = ese_map_get_width(component->map) * ese_map_get_height(component->map);
         component->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_ENTITY);
         memset(component->sprite_frames, 0, sizeof(int) * cells);
 
@@ -394,12 +465,75 @@ static int _entity_component_ese_map_newindex(lua_State *L)
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
+// show_layer proxy: __index
+static int _entity_component_ese_map_show_layer_index(lua_State *L)
+{
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!component) { lua_pushnil(L); return 1; }
+    if (!lua_isnumber(L, 2)) { lua_pushnil(L); return 1; }
+
+    int index = (int)lua_tointeger(L, 2);
+    if (index <= 0) { lua_pushnil(L); return 1; }
+    size_t i = (size_t)(index - 1);
+
+    if (!component->show_layer || i >= component->show_layer_count) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushboolean(L, component->show_layer[i]);
+    return 1;
+}
+
+// show_layer proxy: __newindex
+static int _entity_component_ese_map_show_layer_newindex(lua_State *L)
+{
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!component) { return 0; }
+
+    if (!lua_isnumber(L, 2)) {
+        return luaL_error(L, "show_layer index must be a number");
+    }
+    if (!lua_isboolean(L, 3)) {
+        return luaL_error(L, "show_layer[index] must be a boolean");
+    }
+
+    int index = (int)lua_tointeger(L, 2);
+    if (index <= 0) {
+        return luaL_error(L, "show_layer index must be >= 1");
+    }
+    size_t i = (size_t)(index - 1);
+
+    if (!component->show_layer || i >= component->show_layer_count) {
+        return luaL_error(L, "show_layer index out of range (1 to %d)", (int)component->show_layer_count);
+    }
+
+    component->show_layer[i] = lua_toboolean(L, 3);
+    return 0;
+}
+
+// show_layer proxy: __len
+static int _entity_component_ese_map_show_layer_len(lua_State *L)
+{
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    int len = (component && component->show_layer) ? (int)component->show_layer_count : 0;
+    lua_pushinteger(L, len);
+    return 1;
+}
+
+// map_component.show_all_layers()
+static int _entity_component_ese_map_show_all_layers(lua_State *L)
+{
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!component || !component->show_layer) return 0;
+    for (size_t i = 0; i < component->show_layer_count; i++) {
+        component->show_layer[i] = true;
+    }
+    return 0;
+}
+
 /**
  * @brief Lua __gc metamethod for EseEntityComponentMap objects.
- *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseEntityComponentMap's memory was allocated by Lua and should be freed.
- * If false, the EseEntityComponentMap's memory is managed externally (by C) and is not freed here.
  *
  * @param L Lua state pointer
  * @return Always 0 (no return values)
@@ -492,9 +626,12 @@ void _entity_component_ese_map_draw_grid(
     EntityDrawTextureCallback texCallback,
     void *callback_user_data)
 {
+    log_assert("ENTITY_COMP_MAP",
+        (component->base.entity->draw_order & (DRAW_ORDER_SCALE - 1ULL)) == 0,
+        "draw_order must be a multiple of %llu", (unsigned long long)DRAW_ORDER_SCALE); 
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    ese_tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(ese_map_get_tileset(component->map), component->seed);
 
     // tile display size
     const int tw = component->size, th = component->size;
@@ -503,9 +640,13 @@ void _entity_component_ese_map_draw_grid(
     float cx = ese_point_get_x(component->position);
     float cy = ese_point_get_y(component->position);
 
-    for (uint32_t y = 0; y < component->map->height; y++)
+    // map size
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+
+    for (uint32_t y = 0; y < mh; y++)
     {
-        for (uint32_t x = 0; x < component->map->width; x++)
+        for (uint32_t x = 0; x < mw; x++)
         {
             EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             float dx = screen_x + (x - cx) * tw;
@@ -513,8 +654,12 @@ void _entity_component_ese_map_draw_grid(
 
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
+                int tid = ese_mapcell_get_layer(cell, i);
+                if (tid == -1 || !component->show_layer[i]) {
+                    continue;
+                }
+
+                const char *sprite_id = ese_tileset_get_sprite(ese_map_get_tileset(component->map), tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -526,14 +671,14 @@ void _entity_component_ese_map_draw_grid(
                 }
 
                 uint64_t z_index = component->base.entity->draw_order;
-                z_index += ((uint64_t)i << DRAW_ORDER_SHIFT);
-                z_index += y * component->map->width + x;
+                z_index += ((uint64_t)(i * 2) << DRAW_ORDER_SHIFT);
+                z_index += y * mw + x;
 
                 const char *texture_id;
                 float x1, y1, x2, y2;
                 int w, h;
                 sprite_get_frame(
-                    sprite, component->sprite_frames[y * component->map->width + x],
+                    sprite, component->sprite_frames[y * mw + x],
                     &texture_id, &x1, &y1, &x2, &y2, &w, &h
                 );
 
@@ -554,7 +699,7 @@ void _entity_component_ese_map_draw_hex_point_up(
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    ese_tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(ese_map_get_tileset(component->map), component->seed);
 
     // For hex point up: width = height * sqrt(3) / 2
     const int th = component->size;
@@ -564,9 +709,13 @@ void _entity_component_ese_map_draw_hex_point_up(
     float cx = ese_point_get_x(component->position);
     float cy = ese_point_get_y(component->position);
 
-    for (uint32_t y = 0; y < component->map->height; y++)
+    // map size
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+
+    for (uint32_t y = 0; y < mh; y++)
     {
-        for (uint32_t x = 0; x < component->map->width; x++)
+        for (uint32_t x = 0; x < mw; x++)
         {
             EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
@@ -581,8 +730,12 @@ void _entity_component_ese_map_draw_hex_point_up(
 
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
+                int tid = ese_mapcell_get_layer(cell, i);
+                if (tid == -1 || !component->show_layer[i]) {
+                    continue;
+                }
+
+                const char *sprite_id = ese_tileset_get_sprite(ese_map_get_tileset(component->map), tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -594,14 +747,14 @@ void _entity_component_ese_map_draw_hex_point_up(
                 }
 
                 int z_index = component->base.entity->draw_order;
-                z_index += y * component->map->width;
+                z_index += y * mw;
                 z_index += x;
 
                 const char *texture_id;
                 float x1, y1, x2, y2;
                 int w, h;
                 sprite_get_frame(
-                    sprite, component->sprite_frames[y * component->map->width + x],
+                    sprite, component->sprite_frames[y * mw + x],
                     &texture_id, &x1, &y1, &x2, &y2, &w, &h
                 );
 
@@ -622,7 +775,7 @@ void _entity_component_ese_map_draw_hex_flat_up(
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    ese_tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(ese_map_get_tileset(component->map), component->seed);
 
     // For hex flat up: width = height * 2 / sqrt(3)
     const int th = component->size;
@@ -632,9 +785,13 @@ void _entity_component_ese_map_draw_hex_flat_up(
     float cx = ese_point_get_x(component->position);
     float cy = ese_point_get_y(component->position);
 
-    for (uint32_t y = 0; y < component->map->height; y++)
+    // map size
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+
+    for (uint32_t y = 0; y < mh; y++)
     {
-        for (uint32_t x = 0; x < component->map->width; x++)
+        for (uint32_t x = 0; x < mw; x++)
         {
             EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
@@ -649,8 +806,12 @@ void _entity_component_ese_map_draw_hex_flat_up(
 
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
+                int tid = ese_mapcell_get_layer(cell, i);
+                if (tid == -1 || !component->show_layer[i]) {
+                    continue;
+                }
+
+                const char *sprite_id = ese_tileset_get_sprite(ese_map_get_tileset(component->map), tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -662,14 +823,14 @@ void _entity_component_ese_map_draw_hex_flat_up(
                 }
 
                 int z_index = component->base.entity->draw_order;
-                z_index += y * component->map->width;
+                z_index += y * mw;
                 z_index += x;
 
                 const char *texture_id;
                 float x1, y1, x2, y2;
                 int w, h;
                 sprite_get_frame(
-                    sprite, component->sprite_frames[y * component->map->width + x],
+                    sprite, component->sprite_frames[y * mw + x],
                     &texture_id, &x1, &y1, &x2, &y2, &w, &h
                 );
 
@@ -690,7 +851,7 @@ void _entity_component_ese_map_draw_iso(
     void *callback_user_data)
 {
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    ese_tileset_set_seed(component->map->tileset, component->seed);
+    ese_tileset_set_seed(ese_map_get_tileset(component->map), component->seed);
 
     // For isometric: width = height * 2 (standard 2:1 isometric ratio)
     const int th = component->size;
@@ -700,9 +861,13 @@ void _entity_component_ese_map_draw_iso(
     float cx = ese_point_get_x(component->position);
     float cy = ese_point_get_y(component->position);
 
-    for (uint32_t y = 0; y < component->map->height; y++)
+    // map size
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+
+    for (uint32_t y = 0; y < mh; y++)
     {
-        for (uint32_t x = 0; x < component->map->width; x++)
+        for (uint32_t x = 0; x < mw; x++)
         {
             EseMapCell *cell = ese_map_get_cell(component->map, x, y);
             
@@ -712,8 +877,12 @@ void _entity_component_ese_map_draw_iso(
 
             for (size_t i = 0; i < ese_mapcell_get_layer_count(cell); i++)
             {
-                uint8_t tid = ese_mapcell_get_layer(cell, i);
-                const char *sprite_id = ese_tileset_get_sprite(component->map->tileset, tid);
+                int tid = ese_mapcell_get_layer(cell, i);
+                if (tid == -1 || !component->show_layer[i]) {
+                    continue;
+                }
+
+                const char *sprite_id = ese_tileset_get_sprite(ese_map_get_tileset(component->map), tid);
                 if (!sprite_id)
                 {
                     continue;
@@ -725,14 +894,14 @@ void _entity_component_ese_map_draw_iso(
                 }
 
                 int z_index = component->base.entity->draw_order;
-                z_index += y * component->map->width;
+                z_index += y * mw;
                 z_index += x;
 
                 const char *texture_id;
                 float x1, y1, x2, y2;
                 int w, h;
                 sprite_get_frame(
-                    sprite, component->sprite_frames[y * component->map->width + x],
+                    sprite, component->sprite_frames[y * mw + x],
                     &texture_id, &x1, &y1, &x2, &y2, &w, &h
                 );
 
@@ -757,7 +926,7 @@ void _entity_component_ese_map_draw(
         return;
     }
 
-    switch(component->map->type)
+    switch(ese_map_get_type(component->map))
     {
         case MAP_TYPE_GRID:
             _entity_component_ese_map_draw_grid(component, screen_x, screen_y, texCallback, callback_user_data);
@@ -787,4 +956,22 @@ EseEntityComponent *entity_component_ese_map_create(EseLuaEngine *engine)
     component->vtable->ref(component);
 
     return component;
+}
+
+static void _entity_component_ese_map_changed(EseMap *map, void *userdata)
+{
+	EseEntityComponentMap *component = (EseEntityComponentMap *)userdata;
+	log_assert("ENTITY_COMP", component, "_entity_component_ese_map_changed called with NULL component");
+
+    size_t new_count = ese_map_get_layer_count(map);
+    if (component->show_layer_count != new_count) {
+        size_t old_count = component->show_layer_count;
+        component->show_layer = memory_manager.realloc(component->show_layer, sizeof(bool) * new_count, MMTAG_ENTITY);
+        if (new_count > old_count) {
+            for (size_t i = old_count; i < new_count; i++) {
+                component->show_layer[i] = true;
+            }
+        }
+        component->show_layer_count = new_count;
+    }
 }

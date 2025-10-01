@@ -10,9 +10,9 @@
  *          and next nodes in the list, enabling bidirectional traversal.
  */
 typedef struct EseDListNode {
-    void* value;                    /**< Pointer to the stored value */
-    struct EseDListNode* prev;      /**< Pointer to the previous node */
-    struct EseDListNode* next;      /**< Pointer to the next node */
+    void* value;                    /** Pointer to the stored value */
+    struct EseDListNode* prev;      /** Pointer to the previous node */
+    struct EseDListNode* next;      /** Pointer to the next node */
 } EseDListNode;
 
 /**
@@ -24,10 +24,10 @@ typedef struct EseDListNode {
  *          stored values.
  */
 struct EseDoubleLinkedList {
-    EseDListNode* head;             /**< Pointer to the first node in the list */
-    EseDListNode* tail;             /**< Pointer to the last node in the list */
-    size_t size;                    /**< Number of nodes in the list */
-    DListFreeFn free_fn;            /**< Optional function to free stored values */
+    EseDListNode* head;             /** Pointer to the first node in the list */
+    EseDListNode* tail;             /** Pointer to the last node in the list */
+    size_t size;                    /** Number of nodes in the list */
+    DListFreeFn free_fn;            /** Optional function to free stored values */
 };
 
 /**
@@ -37,7 +37,7 @@ struct EseDoubleLinkedList {
  *          for iteration, allowing sequential access to list elements.
  */
 struct EseDListIter {
-    EseDListNode* current;          /**< Pointer to the current node being iterated */
+    EseDListNode* current;          /** Pointer to the current node being iterated */
 };
 
 void _dlist_remove(EseDoubleLinkedList* list, EseDListNode* node) {

@@ -111,6 +111,8 @@ static void _entity_cleanup(EseEntity *entity) {
     }
 
     for (size_t i = 0; i < entity->component_count; ++i) {
+        // Ensure component Lua refs are decremented before destroy so cleanup runs
+        entity->components[i]->vtable->unref(entity->components[i]);
         entity_component_destroy(entity->components[i]);
     }
     memory_manager.free(entity->components);
@@ -420,6 +422,7 @@ const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
 
     entity->components[entity->component_count++] = comp;
     comp->entity = entity;
+    comp->vtable->ref(comp);
 
     // If this is a collider, initialize bounds now that the entity pointer is set
     if (comp->type == ENTITY_COMPONENT_COLLIDER) {
@@ -441,7 +444,9 @@ bool entity_component_remove(EseEntity *entity, const char *id) {
         return false;
     }
 
+    entity->components[idx]->vtable->unref(entity->components[idx]);
     entity_component_destroy(entity->components[idx]);
+
     entity->components[idx] = entity->components[entity->component_count - 1];
     entity->components[entity->component_count - 1] = NULL;
     entity->component_count--;

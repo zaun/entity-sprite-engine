@@ -39,12 +39,12 @@ typedef enum {
  *          The text is rendered using the console font system.
  */
 typedef struct EseEntityComponentText {
-    EseEntityComponent base;        /**< Base component structure */
+    EseEntityComponent base;        /** Base component structure */
 
-    char *text;                     /**< The text string to display */
-    EseTextJustify justify;         /**< Horizontal text justification */
-    EseTextAlign align;             /**< Vertical text alignment */
-    EsePoint *offset;               /**< Offset from entity position */
+    char *text;                     /** The text string to display */
+    EseTextJustify justify;         /** Horizontal text justification */
+    EseTextAlign align;             /** Vertical text alignment */
+    EsePoint *offset;               /** Offset from entity position */
 } EseEntityComponentText;
 
 EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *src);

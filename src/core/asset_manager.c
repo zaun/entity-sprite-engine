@@ -37,9 +37,9 @@ typedef enum {
  *          and must be freed when the asset is destroyed.
  */
 typedef struct EseAsset {
-    char *instance_id;              /**< Unique identifier for this asset instance */
-    EseAssetType type;              /**< Type classification of the asset */
-    void *data;                     /**< Pointer to the actual asset data */
+    char *instance_id;              /** Unique identifier for this asset instance */
+    EseAssetType type;              /** Type classification of the asset */
+    void *data;                     /** Pointer to the actual asset data */
 } EseAsset;
 
 /**
@@ -50,8 +50,8 @@ typedef struct EseAsset {
  *          management and rendering.
  */
 typedef struct EseAssetTexture {
-    int width;                      /**< Width of the texture in pixels */
-    int height;                     /**< Height of the texture in pixels */
+    int width;                      /** Width of the texture in pixels */
+    int height;                     /** Height of the texture in pixels */
 } EseAssetTexture;
 
 /**
@@ -63,16 +63,16 @@ typedef struct EseAssetTexture {
  *          for texture loading operations.
  */
 struct EseAssetManager {
-    EseRenderer *renderer;          /**< Reference to renderer for texture operations */
-    EseGroupedHashMap *sprites;     /**< Hash map of sprite assets by group and ID */
-    EseGroupedHashMap *textures;    /**< Hash map of texture assets by group and ID */
-    EseGroupedHashMap *atlases;     /**< Hash map of atlas assets by group and ID */
-    EseGroupedHashMap *maps;        /**< Hash map of map assets by group and ID */
+    EseRenderer *renderer;          /** Reference to renderer for texture operations */
+    EseGroupedHashMap *sprites;     /** Hash map of sprite assets by group and ID */
+    EseGroupedHashMap *textures;    /** Hash map of texture assets by group and ID */
+    EseGroupedHashMap *atlases;     /** Hash map of atlas assets by group and ID */
+    EseGroupedHashMap *maps;        /** Hash map of map assets by group and ID */
 
     // Group tracking
-    char **groups;                  /**< Array of group names for asset organization */
-    size_t group_count;             /**< Number of groups currently in use */
-    size_t group_capacity;          /**< Allocated capacity for groups array */
+    char **groups;                  /** Array of group names for asset organization */
+    size_t group_count;             /** Number of groups currently in use */
+    size_t group_capacity;          /** Allocated capacity for groups array */
 };
 
 /**
@@ -825,6 +825,21 @@ bool asset_manager_load_map(
                 return false;
             }
             long lid = lid_item->valueint;
+            if (lid == -1) {
+                if (!ese_mapcell_add_layer(dst, -1)) {
+                    log_error(
+                        "ASSET_MANAGER",
+                        "Failed to add layer for blank tile at cell %d in %s",
+                        ci, filename
+                    );
+                    ese_map_destroy(map);
+                    ese_tileset_destroy(tileset);
+                    cJSON_Delete(json);
+                    return false;
+                }
+                continue;
+            }
+
             if (lid < 0 || lid > 255) {
                 log_error("ASSET_MANAGER", "Out of range tile id %ld at cell %d in %s",
                           lid, ci, filename);
@@ -833,7 +848,7 @@ bool asset_manager_load_map(
                 cJSON_Delete(json);
                 return false;
             }
-            uint8_t tile_id = (uint8_t)lid;
+            int tile_id = (int)lid;
 
             if (ese_tileset_get_sprite_count(tileset, tile_id) == 0) {
                 log_error("ASSET_MANAGER",

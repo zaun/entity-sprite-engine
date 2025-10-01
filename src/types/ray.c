@@ -19,14 +19,14 @@
  *          External code must use the provided getter/setter functions.
  */
 struct EseRay {
-    float x;    /**< X coordinate of the ray origin */
-    float y;    /**< Y coordinate of the ray origin */
-    float dx;   /**< X component of the ray direction */
-    float dy;   /**< Y component of the ray direction */
+    float x;    /** X coordinate of the ray origin */
+    float y;    /** Y coordinate of the ray origin */
+    float dx;   /** X component of the ray direction */
+    float dy;   /** Y component of the ray direction */
 
-    lua_State *state;   /**< Lua State this EseRay belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this ray has been referenced in C */
+    lua_State *state;   /** Lua State this EseRay belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this ray has been referenced in C */
 };
 
 // ========================================

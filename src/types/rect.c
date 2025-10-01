@@ -14,21 +14,21 @@
 
 // The actual EseRect struct definition (private to this file)
 typedef struct EseRect {
-    float x;            /**< The x-coordinate of the rectangle's top-left corner */
-    float y;            /**< The y-coordinate of the rectangle's top-left corner */
-    float width;        /**< The width of the rectangle */
-    float height;       /**< The height of the rectangle */
-    float rotation;     /**< The rotation of the rect around the center point in radians */
+    float x;            /** The x-coordinate of the rectangle's top-left corner */
+    float y;            /** The y-coordinate of the rectangle's top-left corner */
+    float width;        /** The width of the rectangle */
+    float height;       /** The height of the rectangle */
+    float rotation;     /** The rotation of the rect around the center point in radians */
 
-    lua_State *state;   /**< Lua State this EseRect belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this rect has been referenced in C */
+    lua_State *state;   /** Lua State this EseRect belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this rect has been referenced in C */
     
     // Watcher system
-    EseRectWatcherCallback *watchers;     /**< Array of watcher callbacks */
-    void **watcher_userdata;              /**< Array of userdata for each watcher */
-    size_t watcher_count;                 /**< Number of registered watchers */
-    size_t watcher_capacity;              /**< Capacity of the watcher arrays */
+    EseRectWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;              /** Array of userdata for each watcher */
+    size_t watcher_count;                 /** Number of registered watchers */
+    size_t watcher_capacity;              /** Capacity of the watcher arrays */
 } EseRect;
 
 /**
@@ -47,9 +47,9 @@ typedef struct { float x, y; } Vec2;
  *          collision detection using the Separating Axis Theorem (SAT).
  */
 typedef struct {
-    Vec2 c;                         /**< Center point of the bounding box */
-    Vec2 axis[2];                   /**< Normalized local axes in world space */
-    float ext[2];                   /**< Half-widths along each axis */
+    Vec2 c;                         /** Center point of the bounding box */
+    Vec2 axis[2];                   /** Normalized local axes in world space */
+    float ext[2];                   /** Half-widths along each axis */
 } OBB;
 
 

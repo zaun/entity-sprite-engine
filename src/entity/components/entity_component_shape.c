@@ -312,10 +312,6 @@ static int _entity_component_shape_newindex(lua_State *L) {
 /**
  * @brief Lua __gc metamethod for EseEntityComponentShape objects.
  *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseEntityComponentShape's memory was allocated by Lua and should be freed.
- * If false, the EseEntityComponentShape's memory is managed externally (by C) and is not freed here.
- *
  * @param L Lua state pointer
  * @return Always 0 (no return values)
  */

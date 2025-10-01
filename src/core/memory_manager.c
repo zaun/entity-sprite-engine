@@ -34,21 +34,21 @@ typedef struct AllocEntry {
 } AllocEntry;
 
 typedef struct {
-    size_t current_usage;           /**< Current memory usage in bytes */
-    size_t max_usage;               /**< Peak memory usage in bytes */
-    size_t total_allocs;            /**< Total number of allocations */
-    size_t total_frees;             /**< Total number of deallocations */
-    size_t total_bytes_alloced;     /**< Total bytes allocated over time */
-    size_t largest_alloc;           /**< Largest single allocation size */
+    size_t current_usage;           /** Current memory usage in bytes */
+    size_t max_usage;               /** Peak memory usage in bytes */
+    size_t total_allocs;            /** Total number of allocations */
+    size_t total_frees;             /** Total number of deallocations */
+    size_t total_bytes_alloced;     /** Total bytes allocated over time */
+    size_t largest_alloc;           /** Largest single allocation size */
 } MemStats;
 
 struct MemoryManager {
-    AllocEntry *alloc_table[ALLOC_TABLE_SIZE];  /**< Hash table for tracking allocations */
+    AllocEntry *alloc_table[ALLOC_TABLE_SIZE];  /** Hash table for tracking allocations */
 #if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
-    AllocEntry *freed_table[ALLOC_TABLE_SIZE];  /**< Hash table for tracking freed allocations */
+    AllocEntry *freed_table[ALLOC_TABLE_SIZE];  /** Hash table for tracking freed allocations */
 #endif
-    MemStats global;                            /**< Global memory usage statistics */
-    MemStats tags[MMTAG_COUNT];                 /**< Per-tag memory usage statistics */
+    MemStats global;                            /** Global memory usage statistics */
+    MemStats tags[MMTAG_COUNT];                 /** Per-tag memory usage statistics */
 };
 
 typedef struct MemoryManager MemoryManager;

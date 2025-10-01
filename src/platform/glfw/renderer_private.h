@@ -16,12 +16,12 @@
  *          It provides the OpenGL implementation of the platform-agnostic renderer.
  */
 typedef struct EseGLRenderer {
-    GLFWwindow *window;            /**< GLFW window handle for OpenGL context */
-    GLuint shaderProgram;          /**< OpenGL shader program ID */
-    GLuint vao;                    /**< Vertex array object ID */
-    GLuint vbo;                    /**< Vertex buffer object ID */
-    size_t vbo_capacity;           /**< Allocated capacity of vertex buffer */
-    GLuint ubo;                    /**< Uniform buffer object ID */
+    GLFWwindow *window;            /** GLFW window handle for OpenGL context */
+    GLuint shaderProgram;          /** OpenGL shader program ID */
+    GLuint vao;                    /** Vertex array object ID */
+    GLuint vbo;                    /** Vertex buffer object ID */
+    size_t vbo_capacity;           /** Allocated capacity of vertex buffer */
+    GLuint ubo;                    /** Uniform buffer object ID */
 } EseGLRenderer;
 
 /**
@@ -32,9 +32,9 @@ typedef struct EseGLRenderer {
  *          rendering operations.
  */
 typedef struct {
-    GLuint id;                     /**< OpenGL texture ID */
-    int width;                     /**< Texture width in pixels */
-    int height;                    /**< Texture height in pixels */
+    GLuint id;                     /** OpenGL texture ID */
+    int width;                     /** Texture width in pixels */
+    int height;                    /** Texture height in pixels */
 } GLTexture;
 
 bool _renderer_shader_compile_source(EseRenderer *renderer,

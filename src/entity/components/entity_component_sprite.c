@@ -308,10 +308,6 @@ static int _entity_component_sprite_newindex(lua_State *L) {
 /**
  * @brief Lua __gc metamethod for EseEntityComponentSprite objects.
  *
- * @details Checks the '__is_lua_owned' flag in the proxy table. If true,
- * it means this EseEntityComponentSprite's memory was allocated by Lua and should be freed.
- * If false, the EseEntityComponentSprite's memory is managed externally (by C) and is not freed here.
- *
  * @param L Lua state pointer
  * @return Always 0 (no return values)
  */

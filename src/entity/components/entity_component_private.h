@@ -44,16 +44,16 @@ typedef struct ComponentVTable {
  *          via proxy tables for scripting access.
  */
 typedef struct EseEntityComponent {
-    EseUUID *id;                    /**< Unique component identifier */
-    bool active;                    /**< Whether component is active and should be processed */
-    EntityComponentType type;       /**< Type classification for component processing */
-    void *data;                     /**< Component-specific data (cast to specific type) */
-    const ComponentVTable *vtable;  /**< Virtual function table for polymorphic operations */
+    EseUUID *id;                    /** Unique component identifier */
+    bool active;                    /** Whether component is active and should be processed */
+    EntityComponentType type;       /** Type classification for component processing */
+    void *data;                     /** Component-specific data (cast to specific type) */
+    const ComponentVTable *vtable;  /** Virtual function table for polymorphic operations */
 
-    EseEntity *entity;              /**< EseEntity this component belongs to */
-    EseLuaEngine *lua;              /**< EseLuaEngine this component belongs to */
-    int lua_ref;                    /**< Lua registry reference to its own userdata */
-    int lua_ref_count;              /**< Reference count for Lua userdata */
+    EseEntity *entity;              /** EseEntity this component belongs to */
+    EseLuaEngine *lua;              /** EseLuaEngine this component belongs to */
+    int lua_ref;                    /** Lua registry reference to its own userdata */
+    int lua_ref_count;              /** Reference count for Lua userdata */
 } EseEntityComponent;
 
 

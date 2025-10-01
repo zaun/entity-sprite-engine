@@ -12,13 +12,13 @@
  *          heap-allocated and must be freed when the frame is destroyed.
  */
 typedef struct EseSpriteFrame {
-    char *texture_id;               /**< ID of the texture containing this frame */
-    float x1;                       /**< Left texture coordinate (normalized) */
-    float y1;                       /**< Top texture coordinate (normalized) */
-    float x2;                       /**< Right texture coordinate (normalized) */
-    float y2;                       /**< Bottom texture coordinate (normalized) */
-    int w;                          /**< Width of the frame in pixels */
-    int h;                          /**< Height of the frame in pixels */
+    char *texture_id;               /** ID of the texture containing this frame */
+    float x1;                       /** Left texture coordinate (normalized) */
+    float y1;                       /** Top texture coordinate (normalized) */
+    float x2;                       /** Right texture coordinate (normalized) */
+    float y2;                       /** Bottom texture coordinate (normalized) */
+    int w;                          /** Width of the frame in pixels */
+    int h;                          /** Height of the frame in pixels */
 } EseSpriteFrame;
 
 /**
@@ -30,9 +30,9 @@ typedef struct EseSpriteFrame {
  *          frames per second.
  */
 struct EseSprite {
-    EseSpriteFrame** frames;        /**< Array of animation frame pointers */
-    int frame_count;                /**< Number of frames in the animation */
-    float speed;                    /**< Animation speed in frames per second */
+    EseSpriteFrame** frames;        /** Array of animation frame pointers */
+    int frame_count;                /** Number of frames in the animation */
+    float speed;                    /** Animation speed in frames per second */
 };
 
 EseSprite *sprite_create() {

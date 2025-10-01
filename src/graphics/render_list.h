@@ -16,8 +16,8 @@ typedef struct EseRenderBatchIterator EseRenderBatchIterator;
  *          Used for building vertex buffers for GPU rendering.
  */
 typedef struct {
-    float x, y, z;                  /**< 3D position coordinates */
-    float u, v;                     /**< Texture coordinates (normalized) */
+    float x, y, z;                  /** 3D position coordinates */
+    float u, v;                     /** Texture coordinates (normalized) */
 } EseVertex;
 
 typedef enum EseRenderListBatchType {
@@ -33,9 +33,9 @@ typedef enum EseRenderListBatchType {
  *          and manages memory allocation for efficient GPU rendering.
  */
 typedef struct EseRenderBatch {
-    EseRenderListBatchType type;     /**< Type of objects in this batch */
+    EseRenderListBatchType type;     /** Type of objects in this batch */
     union {
-        const char *texture_id;     /**< Texture ID for texture batches */
+        const char *texture_id;     /** Texture ID for texture batches */
         /**
          * @brief Color and fill information for rectangle batches.
          * 
@@ -43,14 +43,14 @@ typedef struct EseRenderBatch {
          *          style for batches of rectangular objects.
          */
         struct {
-            unsigned char r, g, b, a; /**< RGBA color for rectangle batches */
-            bool filled;             /**< Whether rectangles are filled or outlined */
-        } color;                    /**< Color data for rectangle batches */
-    } shared_state;                 /**< State shared by all objects in the batch */
+            unsigned char r, g, b, a; /** RGBA color for rectangle batches */
+            bool filled;             /** Whether rectangles are filled or outlined */
+        } color;                    /** Color data for rectangle batches */
+    } shared_state;                 /** State shared by all objects in the batch */
 
-    EseVertex *vertex_buffer;       /**< Buffer containing vertex data */
-    size_t vertex_count;            /**< Number of vertices currently stored */
-    size_t vertex_capacity;         /**< Allocated capacity for vertex buffer */
+    EseVertex *vertex_buffer;       /** Buffer containing vertex data */
+    size_t vertex_count;            /** Number of vertices currently stored */
+    size_t vertex_capacity;         /** Allocated capacity for vertex buffer */
 } EseRenderBatch;
 
 

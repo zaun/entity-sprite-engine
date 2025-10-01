@@ -20,8 +20,8 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @brief A structure to define a viewport rectangle.
  */
 typedef struct {
-    int width;          /**< The width of the viewport in pixels. */
-    int height;         /**< The height of the viewport in pixels. */
+    int width;          /** The width of the viewport in pixels. */
+    int height;         /** The height of the viewport in pixels. */
 } EseViewport;
 
 /**

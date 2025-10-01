@@ -13,13 +13,13 @@ typedef struct EsePoint EsePoint;
  *          The position is represented as a EsePoint object.
  */
 typedef struct {
-    EsePoint *position; /**< The position of the camera as a EsePoint object */
-    float rotation; /**< The rotation of the camera in radians */
-    float scale; /**< The scale/zoom level of the camera */
+    EsePoint *position; /** The position of the camera as a EsePoint object */
+    float rotation; /** The rotation of the camera in radians */
+    float scale; /** The scale/zoom level of the camera */
 
-    lua_State *state;  /**< Lua State this EseCamera belongs to */
-    int lua_ref;       /**< Lua registry reference to its own proxy table */
-    int lua_ref_count; /**< Number of times this camera has been referenced in C */
+    lua_State *state;  /** Lua State this EseCamera belongs to */
+    int lua_ref;       /** Lua registry reference to its own proxy table */
+    int lua_ref_count; /** Number of times this camera has been referenced in C */
 } EseCamera;
 
 // ========================================

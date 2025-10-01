@@ -19,13 +19,13 @@
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 
-#define MOUSE_BUTTON_COUNT 8 /**< The total number of mouse buttons supported. */
+#define MOUSE_BUTTON_COUNT 8 /** The total number of mouse buttons supported. */
 
 /**
  * @brief An enumeration of all supported keyboard and mouse input keys.
  */
 typedef enum {
-    InputKey_UNKNOWN = 0, /**< An unknown or unmapped key. */
+    InputKey_UNKNOWN = 0, /** An unknown or unmapped key. */
 
     // Letters
     InputKey_A, InputKey_B, InputKey_C, InputKey_D, InputKey_E,
@@ -77,7 +77,7 @@ typedef enum {
     InputKey_MOUSE_X1,
     InputKey_MOUSE_X2,
 
-    InputKey_MAX /**< The total number of keys supported. */
+    InputKey_MAX /** The total number of keys supported. */
 } EseInputKey;
 
 /**

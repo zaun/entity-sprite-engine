@@ -12,50 +12,25 @@ typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseMapCell EseMapCell;
 typedef struct EseTileSet EseTileSet;
+typedef struct EseMap EseMap;
+
+/**
+ * @brief Callback function type for map change notifications.
+ *
+ * @param map Pointer to the EseMap that changed
+ * @param userdata User-provided data passed when registering the watcher
+ */
+typedef void (*EseMapWatcherCallback)(EseMap *map, void *userdata);
 
 /**
  * @brief Map type enumeration for different coordinate systems.
  */
 typedef enum {
-    MAP_TYPE_GRID = 0,          /**< Standard grid/square tiles */
-    MAP_TYPE_HEX_POINT_UP,      /**< Hexagonal tiles with point facing up */
-    MAP_TYPE_HEX_FLAT_UP,       /**< Hexagonal tiles with flat side facing up */
-    MAP_TYPE_ISO                /**< Isometric tiles */
+    MAP_TYPE_GRID = 0,          /** Standard grid/square tiles */
+    MAP_TYPE_HEX_POINT_UP,      /** Hexagonal tiles with point facing up */
+    MAP_TYPE_HEX_FLAT_UP,       /** Hexagonal tiles with flat side facing up */
+    MAP_TYPE_ISO                /** Isometric tiles */
 } EseMapType;
-
-/**
- * @brief Represents a complete map with metadata, tileset, and cell grid.
- *
- * @details
- * This structure contains all map data including metadata,
- * associated tileset, dimensions, and a 2D array of map cells.
- * Each cell is a pointer to a `EseMapCell` object that is
- * created with `mapcell_create` and destroyed with `mapcell_destroy`.
- */
-typedef struct EseMap {
-    // Metadata
-    char *title;                     /**< Map title */
-    char *author;                    /**< Map author */
-    uint32_t version;                /**< Map version number */
-    EseMapType type;                 /**< Map coordinate type */
-
-    // Tileset reference
-    EseTileSet *tileset;             /**< Associated tileset for this map */
-
-    // Dimensions
-    uint32_t width;                  /**< Map width in cells */
-    uint32_t height;                 /**< Map height in cells */
-
-    // Cell data
-    EseMapCell ***cells;             /**< 2D array of pointers to map cells [y][x] */
-
-    // Lua integration
-    lua_State *state;                /**< Lua State this EseMap belongs to */
-    EseLuaEngine *engine;            /**< Engine reference for creating cells */
-    int lua_ref;                     /**< Lua registry reference to its own userdata */
-    int lua_ref_count;               /**< Number of times this map has been referenced in C */
-    bool destroyed;                  /**< Flag to track if map has been destroyed */
-} EseMap;
 
 /* ----------------- Lua API ----------------- */
 
@@ -169,22 +144,6 @@ void ese_map_destroy(EseMap *map);
 EseMapCell *ese_map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
 
 /**
- * @brief Sets a map cell at the specified coordinates.
- *
- * @details
- * The provided cell is copied into the map using `mapcell_copy`.
- * The map takes ownership of the new copy, and the old cell at
- * that position is destroyed.
- *
- * @param map Pointer to the EseMap object
- * @param x X coordinate
- * @param y Y coordinate
- * @param cell Pointer to the EseMapCell to copy into the map
- * @return true if successful, false if coordinates are out of bounds
- */
-bool ese_map_set_cell(EseMap *map, uint32_t x, uint32_t y, EseMapCell *cell);
-
-/**
  * @brief Sets the map title.
  *
  * @param map Pointer to the EseMap object
@@ -234,6 +193,66 @@ void ese_map_set_tileset(EseMap *map, EseTileSet *tileset);
  * @warning This will destroy existing cells that are outside the new bounds.
  */
 bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
+
+/**
+ * @brief Gets the width of the map.
+ *
+ * @param map Pointer to the EseMap object
+ * @return Width of the map
+ */
+int ese_map_get_width(EseMap *map);
+
+/**
+ * @brief Gets the height of the map.
+ *
+ * @param map Pointer to the EseMap object
+ * @return Height of the map
+ */
+int ese_map_get_height(EseMap *map);
+
+/**
+ * @brief Gets the type of the map.
+ *
+ * @param map Pointer to the EseMap object
+ * @return Type of the map
+ */
+EseMapType ese_map_get_type(EseMap *map);
+
+/**
+ * @brief Gets the tileset of the map.
+ *
+ * @param map Pointer to the EseMap object
+ * @return Tileset of the map
+ */
+EseTileSet *ese_map_get_tileset(EseMap *map);
+
+/**
+ * @brief Gets the number of layers in the map.
+ *
+ * @param map Pointer to the EseMap object
+ * @return Number of layers in the map
+ */
+size_t ese_map_get_layer_count(EseMap *map);
+
+/**
+ * @brief Adds a watcher callback to be notified when map properties change.
+ *
+ * @param map Pointer to the EseMap object to watch
+ * @param callback Function to call when properties change
+ * @param userdata User-provided data to pass to the callback
+ * @return true if watcher was added successfully, false otherwise
+ */
+bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Removes a previously registered watcher callback.
+ *
+ * @param map Pointer to the EseMap object
+ * @param callback Function to remove
+ * @param userdata User data that was used when registering
+ * @return true if watcher was removed, false if not found
+ */
+bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
 
 /* ----------------- Map Type Conversion ----------------- */
 

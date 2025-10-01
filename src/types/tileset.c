@@ -14,30 +14,30 @@
  * @brief Represents a weighted sprite entry for tile mapping.
  */
  typedef struct EseSpriteWeight {
-    char *sprite_id;   /**< The sprite string (heap-allocated) */
-    uint16_t weight;   /**< Weight for random selection (must be > 0) */
+    char *sprite_id;   /** The sprite string (heap-allocated) */
+    uint16_t weight;   /** Weight for random selection (must be > 0) */
 } EseSpriteWeight;
 
 /**
  * @brief Represents a mapping for a single tile ID to weighted sprites.
  */
  typedef struct EseTileMapping {
-    EseSpriteWeight *sprites;  /**< Array of weighted sprites */
-    size_t sprite_count;       /**< Number of sprites in this mapping */
-    size_t sprite_capacity;    /**< Allocated capacity for sprites array */
-    uint32_t total_weight;     /**< Sum of all weights for fast selection */
+    EseSpriteWeight *sprites;  /** Array of weighted sprites */
+    size_t sprite_count;       /** Number of sprites in this mapping */
+    size_t sprite_capacity;    /** Allocated capacity for sprites array */
+    uint32_t total_weight;     /** Sum of all weights for fast selection */
 } EseTileMapping;
 
 // The actual EseTileSet struct definition (private to this file)
 typedef struct EseTileSet {
-    EseTileMapping mappings[256]; /**< Mappings indexed by tile_id */
+    EseTileMapping mappings[256]; /** Mappings indexed by tile_id */
     uint32_t rng_seed;
 
     // Lua integration
-    lua_State *state;        /**< Lua State this EseTileSet belongs to */
-    int lua_ref;             /**< Lua registry reference to its own userdata */
-    int lua_ref_count;       /**< Number of times this tileset has been referenced in C */
-    bool destroyed;          /**< Flag to track if tileset has been destroyed */
+    lua_State *state;        /** Lua State this EseTileSet belongs to */
+    int lua_ref;             /** Lua registry reference to its own userdata */
+    int lua_ref_count;       /** Number of times this tileset has been referenced in C */
+    bool destroyed;          /** Flag to track if tileset has been destroyed */
 } EseTileSet;
 
 /* ----------------- RNG ----------------- */

@@ -12,24 +12,24 @@
 
 // The actual EsePolyLine struct definition (private to this file)
 typedef struct EsePolyLine {
-    EsePolyLineType type;           /**< The type of polyline (OPEN, CLOSED, FILLED) */
-    float stroke_width;              /**< The stroke width */
-    EseColor *stroke_color;          /**< The stroke color */
-    EseColor *fill_color;            /**< The fill color */
+    EsePolyLineType type;           /** The type of polyline (OPEN, CLOSED, FILLED) */
+    float stroke_width;              /** The stroke width */
+    EseColor *stroke_color;          /** The stroke color */
+    EseColor *fill_color;            /** The fill color */
     
-    float *points;                   /**< Array of point coordinates (x1, y1, x2, y2, ...) */
-    size_t point_count;              /**< Number of points */
-    size_t point_capacity;           /**< Capacity of the points array (in number of points, not floats) */
+    float *points;                   /** Array of point coordinates (x1, y1, x2, y2, ...) */
+    size_t point_count;              /** Number of points */
+    size_t point_capacity;           /** Capacity of the points array (in number of points, not floats) */
 
-    lua_State *state;                /**< Lua State this EsePolyLine belongs to */
-    int lua_ref;                     /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;               /**< Number of times this polyline has been referenced in C */
+    lua_State *state;                /** Lua State this EsePolyLine belongs to */
+    int lua_ref;                     /** Lua registry reference to its own proxy table */
+    int lua_ref_count;               /** Number of times this polyline has been referenced in C */
     
     // Watcher system
-    EsePolyLineWatcherCallback *watchers;     /**< Array of watcher callbacks */
-    void **watcher_userdata;                  /**< Array of userdata for each watcher */
-    size_t watcher_count;                     /**< Number of registered watchers */
-    size_t watcher_capacity;                  /**< Capacity of the watcher arrays */
+    EsePolyLineWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;                  /** Array of userdata for each watcher */
+    size_t watcher_count;                     /** Number of registered watchers */
+    size_t watcher_capacity;                  /** Capacity of the watcher arrays */
 } EsePolyLine;
 
 // ========================================

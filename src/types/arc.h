@@ -14,15 +14,15 @@ typedef struct EseRect EseRect;
  * @details This structure stores an arc defined by center point, radius, and start/end angles.
  */
 typedef struct EseArc {
-    float x;           /**< The x-coordinate of the arc's center */
-    float y;           /**< The y-coordinate of the arc's center */
-    float radius;      /**< The radius of the arc */
-    float start_angle; /**< The start angle of the arc in radians */
-    float end_angle;   /**< The end angle of the arc in radians */
+    float x;           /** The x-coordinate of the arc's center */
+    float y;           /** The y-coordinate of the arc's center */
+    float radius;      /** The radius of the arc */
+    float start_angle; /** The start angle of the arc in radians */
+    float end_angle;   /** The end angle of the arc in radians */
 
-    lua_State *state;  /**< Lua State this EseArc belongs to */
-    int lua_ref;       /**< Lua registry reference to its own proxy table */
-    int lua_ref_count; /**< Number of times this arc has been referenced in C */
+    lua_State *state;  /** Lua State this EseArc belongs to */
+    int lua_ref;       /** Lua registry reference to its own proxy table */
+    int lua_ref_count; /** Number of times this arc has been referenced in C */
 } EseArc;
 
 // ========================================

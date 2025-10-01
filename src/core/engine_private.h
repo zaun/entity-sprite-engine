@@ -28,28 +28,28 @@ typedef struct EseCollisionIndex EseCollisionIndex;
 typedef struct EseArray EseArray;
 
 struct EseEngine {
-    EseRenderer *renderer;              /**< Pointer to the engine's renderer */
-    EseDrawList *draw_list;             /**< Flat render lists used in processes */
-    EseRenderList *render_list_a;       /**< First render list for double buffering */
-    EseRenderList *render_list_b;       /**< Second render list for double buffering */
-    bool active_render_list;            /**< Flag to indicate which render list is currently active */
+    EseRenderer *renderer;              /** Pointer to the engine's renderer */
+    EseDrawList *draw_list;             /** Flat render lists used in processes */
+    EseRenderList *render_list_a;       /** First render list for double buffering */
+    EseRenderList *render_list_b;       /** Second render list for double buffering */
+    bool active_render_list;            /** Flag to indicate which render list is currently active */
 
-    EseDoubleLinkedList *entities;      /**< A doubly-linked list containing all active entities */
-    EseDoubleLinkedList *del_entities;  /**< A doubly-linked list containing to be deleted entities */
+    EseDoubleLinkedList *entities;      /** A doubly-linked list containing all active entities */
+    EseDoubleLinkedList *del_entities;  /** A doubly-linked list containing to be deleted entities */
 
-    EseCollisionIndex *collision_bin;   /**< Collision index for collision detection */
+    EseCollisionIndex *collision_bin;   /** Collision index for collision detection */
 
-    EseInputState *input_state;         /**< The current input state of the application */
-    EseDisplay *display_state;          /**< The current display state of the application */
+    EseInputState *input_state;         /** The current input state of the application */
+    EseDisplay *display_state;          /** The current display state of the application */
     EseCamera *camera_state;            /**M The current camera state of the application */
-    EseAssetManager *asset_manager;     /**< Pointer to the engine's asset manager */
-    EseLuaEngine *lua_engine;           /**< Pointer to the Lua scripting engine */
+    EseAssetManager *asset_manager;     /** Pointer to the engine's asset manager */
+    EseLuaEngine *lua_engine;           /** Pointer to the Lua scripting engine */
 
-    EseConsole *console;                /**< Pointer to the engine's console */
-    EsePubSub *pub_sub;                 /**< Pointer to the engine's pub/sub system */
+    EseConsole *console;                /** Pointer to the engine's console */
+    EsePubSub *pub_sub;                 /** Pointer to the engine's pub/sub system */
 
-    int startup_ref;                    /**< Reference to the startup script in the Lua registry */
-    bool draw_console;                  /**< Whether to draw the console */
+    int startup_ref;                    /** Reference to the startup script in the Lua registry */
+    bool draw_console;                  /** Whether to draw the console */
 
     bool isRunning;
 };

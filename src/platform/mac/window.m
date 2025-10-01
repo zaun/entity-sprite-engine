@@ -18,9 +18,9 @@
  *          the bridge between macOS window events and the engine's input system.
  */
 typedef struct EseMetalWindow {
-    NSWindow *window;              /**< macOS NSWindow handle */
-    NSView *view;                  /**< macOS NSView handle for the window */
-    EseInputState *inputState;     /**< Reference to the engine's input state */
+    NSWindow *window;              /** macOS NSWindow handle */
+    NSView *view;                  /** macOS NSView handle for the window */
+    EseInputState *inputState;     /** Reference to the engine's input state */
 } EseMetalWindow;
 
 // Map macOS keycodes to your engine's keys

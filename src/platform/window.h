@@ -16,12 +16,12 @@ typedef struct EseInputState EseInputState;
  *          state for consistent window behavior.
  */
 typedef struct EseWindow {
-    void* platform_window;          /**< Platform-specific window handle (GLFWwindow* or NSWindow*) */
-    int width;                      /**< Window width in pixels */
-    int height;                     /**< Window height in pixels */
-    EseRenderer* renderer;          /**< Reference to the renderer for this window */
-    EseInputState* input_state;     /**< Reference to the input state for this window */
-    bool should_close;              /**< Flag indicating if the window should close */
+    void* platform_window;          /** Platform-specific window handle (GLFWwindow* or NSWindow*) */
+    int width;                      /** Window width in pixels */
+    int height;                     /** Window height in pixels */
+    EseRenderer* renderer;          /** Reference to the renderer for this window */
+    EseInputState* input_state;     /** Reference to the input state for this window */
+    bool should_close;              /** Flag indicating if the window should close */
 } EseWindow;
 
 // Window management functions - platform agnostic interface

@@ -21,14 +21,16 @@ typedef struct lua_State lua_State;
  */
 typedef struct EseEntityComponentMap
 {
-    EseEntityComponent base;        /**< Base component structure */
+    EseEntityComponent base;        /** Base component structure */
 
-    EseMap *map;                    /**< Reference to the map to render (not owned) */
-    EsePoint *position;             /**< Map cell position to center on */
-    int size;                       /**< Tile size in pixels */
-    uint32_t seed;                  /**< Random seed for procedural generation */
+    EseMap *map;                    /** Reference to the map to render (not owned) */
+    EsePoint *position;             /** Map cell position to center on */
+    int size;                       /** Tile size in pixels */
+    uint32_t seed;                  /** Random seed for procedural generation */
     
-    int *sprite_frames;             /**< Array of sprite frame indices for tiles */
+    bool *show_layer;               /** Array of boolean values to show/hide layers */
+    size_t show_layer_count;        /** Number of layers to show */
+    int *sprite_frames;             /** Array of sprite frame indices for tiles */
 } EseEntityComponentMap;
 
 EseEntityComponent *_entity_component_ese_map_copy(const EseEntityComponentMap *src);

@@ -17,12 +17,12 @@
  * @details This structure stores the x and y components of a vector in 2D space.
  */
 struct EseVector {
-    float x;            /**< The x-component of the vector */
-    float y;            /**< The y-component of the vector */
+    float x;            /** The x-component of the vector */
+    float y;            /** The y-component of the vector */
 
-    lua_State *state;   /**< Lua State this EseVector belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this vector has been referenced in C */
+    lua_State *state;   /** Lua State this EseVector belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this vector has been referenced in C */
 };
 
 // ========================================

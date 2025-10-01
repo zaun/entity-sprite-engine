@@ -11,20 +11,20 @@
 
 // The actual EseColor struct definition (private to this file)
 typedef struct EseColor {
-    float r;            /**< The red component of the color (0.0-1.0) */
-    float g;            /**< The green component of the color (0.0-1.0) */
-    float b;            /**< The blue component of the color (0.0-1.0) */
-    float a;            /**< The alpha component of the color (0.0-1.0) */
+    float r;            /** The red component of the color (0.0-1.0) */
+    float g;            /** The green component of the color (0.0-1.0) */
+    float b;            /** The blue component of the color (0.0-1.0) */
+    float a;            /** The alpha component of the color (0.0-1.0) */
 
-    lua_State *state;   /**< Lua State this EseColor belongs to */
-    int lua_ref;        /**< Lua registry reference to its own proxy table */
-    int lua_ref_count;  /**< Number of times this color has been referenced in C */
+    lua_State *state;   /** Lua State this EseColor belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this color has been referenced in C */
     
     // Watcher system
-    EseColorWatcherCallback *watchers;     /**< Array of watcher callbacks */
-    void **watcher_userdata;               /**< Array of userdata for each watcher */
-    size_t watcher_count;                  /**< Number of registered watchers */
-    size_t watcher_capacity;               /**< Capacity of the watcher arrays */
+    EseColorWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;               /** Array of userdata for each watcher */
+    size_t watcher_count;                  /** Number of registered watchers */
+    size_t watcher_capacity;               /** Capacity of the watcher arrays */
 } EseColor;
 
 // ========================================

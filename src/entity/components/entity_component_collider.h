@@ -23,13 +23,13 @@ typedef struct EsePoint EsePoint;
  *          a collision boundary for the entity.
  */
 typedef struct EseEntityComponentCollider {
-    EseEntityComponent base;        /**< Base component structure */
+    EseEntityComponent base;        /** Base component structure */
 
-    EsePoint *offset;               /**< Offset of the collider */
-    EseRect **rects;                /**< Array of collision rectangles */
-    size_t rects_count;             /**< Number of collision rectangles */
-    size_t rects_capacity;          /**< Allocated capacity for rectangles array */
-    bool draw_debug;                /**< Whether to draw debug visualization of colliders */
+    EsePoint *offset;               /** Offset of the collider */
+    EseRect **rects;                /** Array of collision rectangles */
+    size_t rects_count;             /** Number of collision rectangles */
+    size_t rects_capacity;          /** Allocated capacity for rectangles array */
+    bool draw_debug;                /** Whether to draw debug visualization of colliders */
 } EseEntityComponentCollider;
 
 EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentCollider *src);

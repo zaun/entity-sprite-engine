@@ -229,6 +229,10 @@ const ESE_Map = {
 
                 for (let i = 0; i < cell.layers.length; i++) {
                     const tileId = cell.layers[i];
+                    if (tileId === -1) {
+                        continue;
+                    }
+
                     const spriteId = data.tileset[tileId.toString()][0].sprite;
 
                     let tile = null;
@@ -302,9 +306,7 @@ const ESE_Map = {
                             };
                         }
 
-                        if (tileId != -1) {
-                            out.cells[cellIndex].layers.push(parseInt(tileId));
-                        }
+                        out.cells[cellIndex].layers.push(parseInt(tileId));
                     }
                 }
             }

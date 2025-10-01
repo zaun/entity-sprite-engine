@@ -19,8 +19,8 @@ void log_error(const char *tag, const char *fmt, ...);
  *          heap-allocated strings that must be freed when the key is destroyed.
  */
 typedef struct EseGroupedKey {
-    char* group;                    /**< Group identifier string */
-    char* id;                       /**< Specific ID within the group */
+    char* group;                    /** Group identifier string */
+    char* id;                       /** Specific ID within the group */
 } EseGroupedKey;
 
 /**
@@ -30,9 +30,9 @@ typedef struct EseGroupedKey {
  *          to the next node in the same bucket for collision resolution.
  */
 typedef struct EseHashNode {
-    EseGroupedKey key;              /**< Composite key for the hash map entry */
-    void* value;                    /**< Value associated with the key */
-    struct EseHashNode* next;       /**< Pointer to next node in collision chain */
+    EseGroupedKey key;              /** Composite key for the hash map entry */
+    void* value;                    /** Value associated with the key */
+    struct EseHashNode* next;       /** Pointer to next node in collision chain */
 } EseHashNode;
 
 /**
@@ -43,10 +43,10 @@ typedef struct EseHashNode {
  *          dynamic resizing and collision resolution using chaining.
  */
 struct EseGroupedHashMap {
-    EseHashNode** buckets;          /**< Array of bucket pointers */
-    size_t capacity;                /**< Number of buckets in the hash map */
-    size_t size;                    /**< Number of key-value pairs stored */
-    EseGroupedHashMapFreeFn free_fn; /**< Function to free stored values */
+    EseHashNode** buckets;          /** Array of bucket pointers */
+    size_t capacity;                /** Number of buckets in the hash map */
+    size_t size;                    /** Number of key-value pairs stored */
+    EseGroupedHashMapFreeFn free_fn; /** Function to free stored values */
 };
 
 /**
@@ -56,9 +56,9 @@ struct EseGroupedHashMap {
  *          for iteration, tracking the current bucket and node within that bucket.
  */
 struct EseGroupedHashMapIter {
-    EseGroupedHashMap* map;         /**< Reference to the grouped hash map being iterated */
-    size_t bucket;                  /**< Current bucket index */
-    EseHashNode* node;              /**< Current node within the bucket */
+    EseGroupedHashMap* map;         /** Reference to the grouped hash map being iterated */
+    size_t bucket;                  /** Current bucket index */
+    EseHashNode* node;              /** Current node within the bucket */
 };
 
 static unsigned int _hash_grouped(const char* group, const char* id) {

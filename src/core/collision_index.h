@@ -27,23 +27,23 @@ typedef uint64_t EseCollisionIndexKey;
  * @brief Structure representing a collision pair between two entities.
  */
 typedef struct CollisionPair {
-    EseEntity *entity_a;  /**< First entity in the collision pair */
-    EseEntity *entity_b;  /**< Second entity in the collision pair */
-    int state;            /**< Collision state: 0=none, 1=enter, 2=stay, 3=exit */
+    EseEntity *entity_a;  /** First entity in the collision pair */
+    EseEntity *entity_b;  /** Second entity in the collision pair */
+    int state;            /** Collision state: 0=none, 1=enter, 2=stay, 3=exit */
 } CollisionPair;
 
 /**
  * @brief DBVH node structure for dynamic bounding volume hierarchy.
  */
 typedef struct DBVHNode {
-    float bounds_x;           /**< Bounding box x coordinate */
-    float bounds_y;           /**< Bounding box y coordinate */
-    float bounds_width;       /**< Bounding box width */
-    float bounds_height;      /**< Bounding box height */
-    EseEntity *entity;        /**< Entity (NULL for internal nodes) */
-    struct DBVHNode *left;    /**< Left child node */
-    struct DBVHNode *right;   /**< Right child node */
-    int height;               /**< Height of this subtree */
+    float bounds_x;           /** Bounding box x coordinate */
+    float bounds_y;           /** Bounding box y coordinate */
+    float bounds_width;       /** Bounding box width */
+    float bounds_height;      /** Bounding box height */
+    EseEntity *entity;        /** Entity (NULL for internal nodes) */
+    struct DBVHNode *left;    /** Left child node */
+    struct DBVHNode *right;   /** Right child node */
+    int height;               /** Height of this subtree */
     int region_center_x;
     int region_center_y;
 } DBVHNode;

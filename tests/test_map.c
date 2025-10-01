@@ -15,7 +15,7 @@
 
 #include "testing.h"
 
-#include "../src/types/map.h"
+#include "../src/types/map_private.h"
 #include "../src/types/map_cell.h"
 #include "../src/types/tileset.h"
 #include "../src/core/memory_manager.h"
@@ -37,7 +37,6 @@ static void test_ese_map_tileset(void);
 static void test_ese_map_ref(void);
 static void test_ese_map_copy_requires_engine(void);
 static void test_ese_map_get_cell(void);
-static void test_ese_map_set_cell(void);
 static void test_ese_map_resize(void);
 static void test_ese_map_type_conversion(void);
 static void test_ese_map_lua_integration(void);
@@ -57,9 +56,9 @@ static void test_ese_map_lua_author(void);
 static void test_ese_map_lua_version(void);
 static void test_ese_map_lua_resize(void);
 static void test_ese_map_lua_get_cell(void);
-static void test_ese_map_lua_set_cell(void);
 static void test_ese_map_lua_tostring(void);
 static void test_ese_map_lua_gc(void);
+static void test_ese_map_watchers(void);
 
 /**
 * Test suite setup and teardown
@@ -128,7 +127,6 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_ese_map_ref);
     RUN_TEST(test_ese_map_copy_requires_engine);
     RUN_TEST(test_ese_map_get_cell);
-    RUN_TEST(test_ese_map_set_cell);
     RUN_TEST(test_ese_map_resize);
     RUN_TEST(test_ese_map_type_conversion);
     RUN_TEST(test_ese_map_lua_integration);
@@ -145,13 +143,47 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_ese_map_lua_version);
     RUN_TEST(test_ese_map_lua_resize);
     RUN_TEST(test_ese_map_lua_get_cell);
-    RUN_TEST(test_ese_map_lua_set_cell);
     RUN_TEST(test_ese_map_lua_tostring);
     RUN_TEST(test_ese_map_lua_gc);
+    RUN_TEST(test_ese_map_watchers);
 
     memory_manager.destroy();
 
     return UNITY_END();
+}
+
+// --- Watcher test helpers
+typedef struct { int calls; EseMap *last; } WatcherState;
+static void test_map_watcher_cb(EseMap *map, void *userdata) {
+    WatcherState *st = (WatcherState *)userdata;
+    st->calls++;
+    st->last = map;
+}
+
+static void test_ese_map_watchers(void) {
+    EseMap *map = ese_map_create(g_engine, 10, 10, MAP_TYPE_GRID, false);
+    WatcherState ws = {0};
+
+    bool ok = ese_map_add_watcher(map, test_map_watcher_cb, &ws);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "add_watcher should return true");
+
+    // C setters should notify
+    ese_map_set_title(map, "A");
+    ese_map_set_author(map, "B");
+    ese_map_set_version(map, 1);
+    ese_map_set_tileset(map, NULL);
+    ese_map_resize(map, 12, 12);
+    TEST_ASSERT_TRUE(ws.calls >= 5);
+    TEST_ASSERT_EQUAL_PTR(map, ws.last);
+
+    // Removing should stop notifications for this callback
+    bool removed = ese_map_remove_watcher(map, test_map_watcher_cb, &ws);
+    TEST_ASSERT_TRUE_MESSAGE(removed, "remove_watcher should succeed");
+    int before = ws.calls;
+    ese_map_set_version(map, 2);
+    TEST_ASSERT_EQUAL_INT(before, ws.calls);
+
+    ese_map_destroy(map);
 }
 
 /**
@@ -316,24 +348,6 @@ static void test_ese_map_get_cell(void) {
     TEST_ASSERT_NULL_MESSAGE(cell_negative, "ese_map_get_cell should return NULL for negative coordinates");
 
     ese_map_destroy(map);
-}
-
-static void test_ese_map_set_cell(void) {
-    EseMap *map = ese_map_create(g_engine, 10, 10, MAP_TYPE_GRID, false);
-    EseMapCell *source_cell = ese_mapcell_create(g_engine);
-
-    bool result = ese_map_set_cell(map, 5, 5, source_cell);
-    TEST_ASSERT_TRUE_MESSAGE(result, "ese_map_set_cell should succeed");
-
-    EseMapCell *retrieved_cell = ese_map_get_cell(map, 5, 5);
-    TEST_ASSERT_NOT_NULL_MESSAGE(retrieved_cell, "ese_map_get_cell should return the set cell");
-    TEST_ASSERT_NOT_EQUAL_MESSAGE(source_cell, retrieved_cell, "Retrieved cell should be a copy");
-
-    bool result_out_of_bounds = ese_map_set_cell(map, 15, 15, source_cell);
-    TEST_ASSERT_FALSE_MESSAGE(result_out_of_bounds, "ese_map_set_cell should fail for out of bounds");
-
-    ese_map_destroy(map);
-    ese_mapcell_destroy(source_cell);
 }
 
 static void test_ese_map_resize(void) {
@@ -621,27 +635,6 @@ static void test_ese_map_lua_get_cell(void) {
 
     const char *test_code3 = "local m = Map.new(10, 10); return m:get_cell()";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code3), "get_cell test 3 should execute with error");
-}
-
-static void test_ese_map_lua_set_cell(void) {
-    ese_map_lua_init(g_engine);
-    ese_mapcell_lua_init(g_engine);
-    lua_State *L = g_engine->runtime;
-    
-    const char *test_code = "local m = Map.new(10, 10); local cell = MapCell.new(); return m:set_cell(5, 5, cell)";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "set_cell test should execute without error");
-    bool result = lua_toboolean(L, -1);
-    TEST_ASSERT_TRUE_MESSAGE(result, "set_cell should return true");
-    lua_pop(L, 1);
-
-    const char *test_code2 = "local m = Map.new(10, 10); local cell = MapCell.new(); return m:set_cell(15, 15, cell)";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code2), "set_cell out of bounds test should execute without error");
-    bool result2 = lua_toboolean(L, -1);
-    TEST_ASSERT_FALSE_MESSAGE(result2, "set_cell out of bounds should return false");
-    lua_pop(L, 1);
-
-    const char *test_code3 = "local m = Map.new(10, 10); return m:set_cell()";
-    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code3), "set_cell test 3 should execute with error");
 }
 
 static void test_ese_map_lua_tostring(void) {

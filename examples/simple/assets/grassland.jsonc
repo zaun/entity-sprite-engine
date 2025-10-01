@@ -1235,38 +1235,38 @@
       ]
     },
     {
-      "name": "176",
+      "name": "tree-l-11",
       "speed": 0,
       "frames": [
-        "176"
+        "tree-l-11"
       ]
     },
     {
-      "name": "177",
+      "name": "tree-l-12",
       "speed": 0,
       "frames": [
-        "177"
+        "tree-l-12"
       ]
     },
     {
-      "name": "178",
+      "name": "tree-l-13",
       "speed": 0,
       "frames": [
-        "178"
+        "tree-l-13"
       ]
     },
     {
-      "name": "179",
+      "name": "tree-l-14",
       "speed": 0,
       "frames": [
-        "179"
+        "tree-l-14"
       ]
     },
     {
-      "name": "180",
+      "name": "tree-l-15",
       "speed": 0,
       "frames": [
-        "180"
+        "tree-l-15"
       ]
     },
     {
@@ -1347,38 +1347,38 @@
       ]
     },
     {
-      "name": "192",
+      "name": "tree-l-6",
       "speed": 0,
       "frames": [
-        "192"
+        "tree-l-6"
       ]
     },
     {
-      "name": "193",
+      "name": "tree-l-7",
       "speed": 0,
       "frames": [
-        "193"
+        "tree-l-7"
       ]
     },
     {
-      "name": "194",
+      "name": "tree-l-8",
       "speed": 0,
       "frames": [
-        "194"
+        "tree-l-8"
       ]
     },
     {
-      "name": "195",
+      "name": "tree-l-9",
       "speed": 0,
       "frames": [
-        "195"
+        "tree-l-9"
       ]
     },
     {
-      "name": "196",
+      "name": "tree-l-10",
       "speed": 0,
       "frames": [
-        "196"
+        "tree-l-10"
       ]
     },
     {
@@ -1459,38 +1459,38 @@
       ]
     },
     {
-      "name": "208",
+      "name": "tree-l-1",
       "speed": 0,
       "frames": [
-        "208"
+        "tree-l-1"
       ]
     },
     {
-      "name": "209",
+      "name": "tree-l-2",
       "speed": 0,
       "frames": [
-        "209"
+        "tree-l-2"
       ]
     },
     {
-      "name": "210",
+      "name": "tree-l-3",
       "speed": 0,
       "frames": [
-        "210"
+        "tree-l-3"
       ]
     },
     {
-      "name": "211",
+      "name": "tree-l-4",
       "speed": 0,
       "frames": [
-        "211"
+        "tree-l-4"
       ]
     },
     {
-      "name": "212",
+      "name": "tree-l-5",
       "speed": 0,
       "frames": [
-        "212"
+        "tree-l-5"
       ]
     },
     {
@@ -1578,24 +1578,24 @@
       ]
     },
     {
-      "name": "225",
+      "name": "tree-t-1",
       "speed": 0,
       "frames": [
-        "225"
+        "tree-t-1"
       ]
     },
     {
-      "name": "226",
+      "name": "tree-t-2",
       "speed": 0,
       "frames": [
-        "226"
+        "tree-t-2"
       ]
     },
     {
-      "name": "227",
+      "name": "tree-t-3",
       "speed": 0,
       "frames": [
-        "227"
+        "tree-t-3"
       ]
     },
     {
@@ -1606,24 +1606,24 @@
       ]
     },
     {
-      "name": "229",
+      "name": "stump-4",
       "speed": 0,
       "frames": [
-        "229"
+        "stump-4"
       ]
     },
     {
-      "name": "230",
+      "name": "stump-5",
       "speed": 0,
       "frames": [
-        "230"
+        "stump-5"
       ]
     },
     {
-      "name": "231",
+      "name": "stump-6",
       "speed": 0,
       "frames": [
-        "231"
+        "stump-6"
       ]
     },
     {
@@ -1690,24 +1690,24 @@
       ]
     },
     {
-      "name": "241",
+      "name": "tree-b-1",
       "speed": 0,
       "frames": [
-        "241"
+        "tree-b-1"
       ]
     },
     {
-      "name": "242",
+      "name": "tree-b-2",
       "speed": 0,
       "frames": [
-        "242"
+        "tree-b-2"
       ]
     },
     {
-      "name": "243",
+      "name": "tree-b-3",
       "speed": 0,
       "frames": [
-        "243"
+        "tree-b-3"
       ]
     },
     {
@@ -1718,24 +1718,24 @@
       ]
     },
     {
-      "name": "245",
+      "name": "stump-1",
       "speed": 0,
       "frames": [
-        "245"
+        "stump-1"
       ]
     },
     {
-      "name": "246",
+      "name": "stump-2",
       "speed": 0,
       "frames": [
-        "246"
+        "stump-2"
       ]
     },
     {
-      "name": "247",
+      "name": "stump-3",
       "speed": 0,
       "frames": [
-        "247"
+        "stump-3"
       ]
     },
     {
@@ -3029,35 +3029,35 @@
       "height": 128
     },
     {
-      "name": "176",
+      "name": "tree-l-11",
       "x": 0,
       "y": 1408,
       "width": 128,
       "height": 128
     },
     {
-      "name": "177",
+      "name": "tree-l-12",
       "x": 128,
       "y": 1408,
       "width": 128,
       "height": 128
     },
     {
-      "name": "178",
+      "name": "tree-l-13",
       "x": 256,
       "y": 1408,
       "width": 128,
       "height": 128
     },
     {
-      "name": "179",
+      "name": "tree-l-14",
       "x": 384,
       "y": 1408,
       "width": 128,
       "height": 128
     },
     {
-      "name": "180",
+      "name": "tree-l-15",
       "x": 512,
       "y": 1408,
       "width": 128,
@@ -3141,35 +3141,35 @@
       "height": 128
     },
     {
-      "name": "192",
+      "name": "tree-l-6",
       "x": 0,
       "y": 1536,
       "width": 128,
       "height": 128
     },
     {
-      "name": "193",
+      "name": "tree-l-7",
       "x": 128,
       "y": 1536,
       "width": 128,
       "height": 128
     },
     {
-      "name": "194",
+      "name": "tree-l-8",
       "x": 256,
       "y": 1536,
       "width": 128,
       "height": 128
     },
     {
-      "name": "195",
+      "name": "tree-l-9",
       "x": 384,
       "y": 1536,
       "width": 128,
       "height": 128
     },
     {
-      "name": "196",
+      "name": "tree-l-10",
       "x": 512,
       "y": 1536,
       "width": 128,
@@ -3253,35 +3253,35 @@
       "height": 128
     },
     {
-      "name": "208",
+      "name": "tree-l-1",
       "x": 0,
       "y": 1664,
       "width": 128,
       "height": 128
     },
     {
-      "name": "209",
+      "name": "tree-l-2",
       "x": 128,
       "y": 1664,
       "width": 128,
       "height": 128
     },
     {
-      "name": "210",
+      "name": "tree-l-3",
       "x": 256,
       "y": 1664,
       "width": 128,
       "height": 128
     },
     {
-      "name": "211",
+      "name": "tree-l-4",
       "x": 384,
       "y": 1664,
       "width": 128,
       "height": 128
     },
     {
-      "name": "212",
+      "name": "tree-l-5",
       "x": 512,
       "y": 1664,
       "width": 128,
@@ -3372,21 +3372,21 @@
       "height": 128
     },
     {
-      "name": "225",
+      "name": "tree-t-1",
       "x": 128,
       "y": 1792,
       "width": 128,
       "height": 128
     },
     {
-      "name": "226",
+      "name": "tree-t-2",
       "x": 256,
       "y": 1792,
       "width": 128,
       "height": 128
     },
     {
-      "name": "227",
+      "name": "tree-t-3",
       "x": 384,
       "y": 1792,
       "width": 128,
@@ -3400,21 +3400,21 @@
       "height": 128
     },
     {
-      "name": "229",
+      "name": "stump-4",
       "x": 640,
       "y": 1792,
       "width": 128,
       "height": 128
     },
     {
-      "name": "230",
+      "name": "stump-5",
       "x": 768,
       "y": 1792,
       "width": 128,
       "height": 128
     },
     {
-      "name": "231",
+      "name": "stump-6",
       "x": 896,
       "y": 1792,
       "width": 128,
@@ -3484,21 +3484,21 @@
       "height": 128
     },
     {
-      "name": "241",
+      "name": "tree-b-1",
       "x": 128,
       "y": 1920,
       "width": 128,
       "height": 128
     },
     {
-      "name": "242",
+      "name": "tree-b-2",
       "x": 256,
       "y": 1920,
       "width": 128,
       "height": 128
     },
     {
-      "name": "243",
+      "name": "tree-b-3",
       "x": 384,
       "y": 1920,
       "width": 128,
@@ -3512,21 +3512,21 @@
       "height": 128
     },
     {
-      "name": "245",
+      "name": "stump-1",
       "x": 640,
       "y": 1920,
       "width": 128,
       "height": 128
     },
     {
-      "name": "246",
+      "name": "stump-2",
       "x": 768,
       "y": 1920,
       "width": 128,
       "height": 128
     },
     {
-      "name": "247",
+      "name": "stump-3",
       "x": 896,
       "y": 1920,
       "width": 128,

@@ -11,6 +11,15 @@
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
+typedef struct EseMap EseMap;
+
+/**
+ * @brief Callback function type for map cell change notifications.
+ *
+ * @param cell Pointer to the EseMapCell that changed
+ * @param userdata User-provided data passed when registering the watcher
+ */
+typedef void (*EseMapCellWatcherCallback)(EseMapCell *cell, void *userdata);
 
 /**
  * @brief Represents a map cell with multiple tile layers and properties.
@@ -36,11 +45,12 @@ typedef struct EseMapCell EseMapCell;
  *          referenced with ese_mapcell_ref() if Lua access is desired.
  * 
  * @param engine Pointer to a EseLuaEngine
+ * @param map Pointer to a EseMap this cell belongs to
  * @return Pointer to newly created EseMapCell object
  * 
  * @warning The returned EseMapCell must be freed with ese_mapcell_destroy() to prevent memory leaks
  */
-EseMapCell *ese_mapcell_create(EseLuaEngine *engine);
+EseMapCell *ese_mapcell_create(EseLuaEngine *engine, EseMap *map);
 
 /**
  * @brief Copies a source EseMapCell into a new EseMapCell object.
@@ -173,7 +183,7 @@ void ese_mapcell_unref(EseMapCell *cell);
  * @param tile_id The tile ID to add as a new layer
  * @return true if successful, false if memory allocation fails
  */
-bool ese_mapcell_add_layer(EseMapCell *cell, uint8_t tile_id);
+bool ese_mapcell_add_layer(EseMapCell *cell, int tile_id);
 
 /**
  * @brief Removes a tile layer from the map cell by index.
@@ -191,7 +201,7 @@ bool ese_mapcell_remove_layer(EseMapCell *cell, size_t layer_index);
  * @param layer_index Index of the layer to get (0-based)
  * @return The tile ID, or 0 if index is out of bounds
  */
-uint8_t ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index);
+int ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index);
 
 /**
  * @brief Sets a tile ID for a specific layer.
@@ -284,6 +294,27 @@ void ese_mapcell_set_flag(EseMapCell *cell, uint32_t flag);
  * @param flag The flag bit to clear
  */
 void ese_mapcell_clear_flag(EseMapCell *cell, uint32_t flag);
+
+// Watcher API
+/**
+ * @brief Adds a watcher callback to be notified when any map cell property changes.
+ *
+ * @param cell Pointer to the EseMapCell object to watch
+ * @param callback Function to call when properties change
+ * @param userdata User-provided data to pass to the callback
+ * @return true if watcher was added successfully, false otherwise
+ */
+bool ese_mapcell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Removes a previously registered watcher callback.
+ *
+ * @param cell Pointer to the EseMapCell object
+ * @param callback Function to remove
+ * @param userdata User data that was used when registering
+ * @return true if watcher was removed, false if not found
+ */
+bool ese_mapcell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata);
 
 
 #endif // ESE_MAP_CELL_H

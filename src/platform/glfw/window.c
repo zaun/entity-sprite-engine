@@ -20,8 +20,8 @@
  *          window events and the engine's input system.
  */
 typedef struct EseGLFWWindow {
-    GLFWwindow *glfw_window;       /**< GLFW window handle */
-    EseInputState *inputState;     /**< Reference to the engine's input state */
+    GLFWwindow *glfw_window;       /** GLFW window handle */
+    EseInputState *inputState;     /** Reference to the engine's input state */
 } EseGLFWWindow;
 
 // Map GLFW keycodes to your engine's keys

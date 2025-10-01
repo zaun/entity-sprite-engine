@@ -19,9 +19,9 @@ typedef struct EseLuaEngine EseLuaEngine;
  *          left blank as requested.
  */
 typedef struct EseEntityComponentShape {
-    EseEntityComponent base;        /**< Base component structure */
-    EsePolyLine *polyline;          /**< Polyline for the shape */
-    float rotation;                 /**< Rotation of the shape */
+    EseEntityComponent base;        /** Base component structure */
+    EsePolyLine *polyline;          /** Polyline for the shape */
+    float rotation;                 /** Rotation of the shape */
 } EseEntityComponentShape;
 
 EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *src);

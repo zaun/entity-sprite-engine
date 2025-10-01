@@ -20,7 +20,7 @@
  *          It's used for memory accounting and debugging purposes.
  */
 typedef struct LuaAllocHdr {
-    size_t size;                    /**< User-visible size in bytes (requested by Lua) */
+    size_t size;                    /** User-visible size in bytes (requested by Lua) */
 } LuaAllocHdr;
 
 char* _replace_colon_calls(const char* prefix, const char* script) {

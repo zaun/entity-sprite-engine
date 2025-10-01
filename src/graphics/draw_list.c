@@ -18,10 +18,10 @@
  * @details This structure stores RGBA color values for rendering objects.
  */
 typedef struct EseDrawListColor {
-    unsigned char r;                      /**< Red component (0-255) */
-    unsigned char g;                      /**< Green component (0-255) */
-    unsigned char b;                      /**< Blue component (0-255) */
-    unsigned char a;                      /**< Alpha component (0-255) */
+    unsigned char r;                      /** Red component (0-255) */
+    unsigned char g;                      /** Green component (0-255) */
+    unsigned char b;                      /** Blue component (0-255) */
+    unsigned char a;                      /** Alpha component (0-255) */
 } EseDrawListColor;
 
 /**
@@ -30,8 +30,8 @@ typedef struct EseDrawListColor {
  * @details This structure stores x,y coordinates for polyline points.
  */
 typedef struct EseDrawListPoint {
-    float x;                              /**< X coordinate */
-    float y;                              /**< Y coordinate */
+    float x;                              /** X coordinate */
+    float y;                              /** Y coordinate */
 } EseDrawListPoint;
 
 /**
@@ -41,11 +41,11 @@ typedef struct EseDrawListPoint {
  *          polyline objects.
  */
 typedef struct EseDrawListPolyLine {
-    EseDrawListPoint points[POLYLINE_MAX_POINTS]; /**< Array of points defining the polyline */
-    size_t point_count;                   /**< Number of points in the polyline */
-    EseDrawListColor fill_color;          /**< Fill color for the polyline */
-    EseDrawListColor stroke_color;        /**< Stroke color for the polyline */
-    float stroke_width;                   /**< Width of the stroke in pixels */
+    EseDrawListPoint points[POLYLINE_MAX_POINTS]; /** Array of points defining the polyline */
+    size_t point_count;                   /** Number of points in the polyline */
+    EseDrawListColor fill_color;          /** Fill color for the polyline */
+    EseDrawListColor stroke_color;        /** Stroke color for the polyline */
+    float stroke_width;                   /** Width of the stroke in pixels */
 } EseDrawListPolyLine;
 
 /**
@@ -57,13 +57,13 @@ typedef struct EseDrawListPolyLine {
  */
 typedef struct EseDrawListTexture {
     // Texture to draw
-    char texture_id[TEXTURE_ID_MAX_LEN]; /**< ID of the texture to render */
-    float texture_x1;                    /**< Left texture coordinate (normalized) */
-    float texture_y1;                    /**< Top texture coordinate (normalized) */
-    float texture_x2;                    /**< Right texture coordinate (normalized) */
-    float texture_y2;                    /**< Bottom texture coordinate (normalized) */
-    int w;                               /**< Width of the texture in pixels */
-    int h;                               /**< Height of the texture in pixels */
+    char texture_id[TEXTURE_ID_MAX_LEN]; /** ID of the texture to render */
+    float texture_x1;                    /** Left texture coordinate (normalized) */
+    float texture_y1;                    /** Top texture coordinate (normalized) */
+    float texture_x2;                    /** Right texture coordinate (normalized) */
+    float texture_y2;                    /** Bottom texture coordinate (normalized) */
+    int w;                               /** Width of the texture in pixels */
+    int h;                               /** Height of the texture in pixels */
 } EseDrawListTexture;
 
 /**
@@ -73,10 +73,10 @@ typedef struct EseDrawListTexture {
  *          rectangular objects. Colors are stored as 8-bit RGBA values.
  */
 typedef struct EseDrawListRect {
-    EseDrawListColor color;               /**< Color of the rectangle */
-    bool filled;                          /**< Whether the rectangle is filled or outlined */
-    int w;                                /**< Width of the rectangle in pixels */
-    int h;                                /**< Height of the rectangle in pixels */
+    EseDrawListColor color;               /** Color of the rectangle */
+    bool filled;                          /** Whether the rectangle is filled or outlined */
+    int w;                                /** Width of the rectangle in pixels */
+    int h;                                /** Height of the rectangle in pixels */
 } EseDrawListRect;
 
 
@@ -89,22 +89,22 @@ typedef struct EseDrawListRect {
  *          textured sprites and colored rectangles.
  */
 struct EseDrawListObject {
-    EseDrawListObjectType type;           /**< Type of object (texture, rectangle, or polyline) */
+    EseDrawListObjectType type;           /** Type of object (texture, rectangle, or polyline) */
     union {
-        EseDrawListTexture texture;       /**< Texture data for DL_TEXTURE type */
-        EseDrawListRect rect;             /**< Rectangle data for DL_RECT type */
-        EseDrawListPolyLine polyline;     /**< Polyline data for DL_POLYLINE type */
-    } data;                               /**< Union containing type-specific data */
+        EseDrawListTexture texture;       /** Texture data for DL_TEXTURE type */
+        EseDrawListRect rect;             /** Rectangle data for DL_RECT type */
+        EseDrawListPolyLine polyline;     /** Polyline data for DL_POLYLINE type */
+    } data;                               /** Union containing type-specific data */
 
     // Where to draw
-    float x;                              /**< The x-coordinate of the object's top-left corner */
-    float y;                              /**< The y-coordinate of the object's top-left corner */
+    float x;                              /** The x-coordinate of the object's top-left corner */
+    float y;                              /** The y-coordinate of the object's top-left corner */
 
-    float rotation;                       /**< The rotation of the object around the pivot point in radians */
-    float rot_x;                          /**< The x coordinate for the rotation pivot point (normalized) */
-    float rot_y;                          /**< The y coordinate for the rotation pivot point (normalized) */
+    float rotation;                       /** The rotation of the object around the pivot point in radians */
+    float rot_x;                          /** The x coordinate for the rotation pivot point (normalized) */
+    float rot_y;                          /** The y coordinate for the rotation pivot point (normalized) */
 
-    uint64_t z_index;                     /**< The z-index / draw order of the object */
+    uint64_t z_index;                     /** The z-index / draw order of the object */
 };
 
 /**
@@ -115,9 +115,9 @@ struct EseDrawListObject {
  *          memory allocation overhead during rendering.
  */
 struct EseDrawList {
-    EseDrawListObject **objects;          /**< Pool of pre-allocated object pointers */
-    size_t objects_count;                 /**< Number of objects in use this frame */
-    size_t objects_capacity;              /**< Total allocated capacity for objects */
+    EseDrawListObject **objects;          /** Pool of pre-allocated object pointers */
+    size_t objects_count;                 /** Number of objects in use this frame */
+    size_t objects_capacity;              /** Total allocated capacity for objects */
 };
 
 static int _compare_draw_list_object_z(const void *a, const void *b) {

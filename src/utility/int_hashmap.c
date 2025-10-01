@@ -12,9 +12,9 @@
  *          node in the same bucket for collision resolution using chaining.
  */
 typedef struct EseIntHashNode {
-    uint64_t key;                    /**< Integer key for the hash map entry */
-    void* value;                     /**< Value associated with the key */
-    struct EseIntHashNode* next;     /**< Pointer to next node in collision chain */
+    uint64_t key;                    /** Integer key for the hash map entry */
+    void* value;                     /** Value associated with the key */
+    struct EseIntHashNode* next;     /** Pointer to next node in collision chain */
 } EseIntHashNode;
 
 /**
@@ -25,10 +25,10 @@ typedef struct EseIntHashNode {
  *          of buckets, each containing a linked list of hash nodes.
  */
 typedef struct EseIntHashMap {
-    EseIntHashNode** buckets;        /**< Array of bucket pointers */
-    size_t capacity;                 /**< Number of buckets in the hash map */
-    size_t size;                     /**< Number of key-value pairs stored */
-    EseIntHashMapFreeFn free_fn;     /**< Function to free stored values */
+    EseIntHashNode** buckets;        /** Array of bucket pointers */
+    size_t capacity;                 /** Number of buckets in the hash map */
+    size_t size;                     /** Number of key-value pairs stored */
+    EseIntHashMapFreeFn free_fn;     /** Function to free stored values */
 } EseIntHashMap;
 
 /**
@@ -39,9 +39,9 @@ typedef struct EseIntHashMap {
  *          that bucket.
  */
 struct EseIntHashMapIter {
-    EseIntHashMap* map;              /**< Reference to the hash map being iterated */
-    size_t bucket;                   /**< Current bucket index */
-    struct EseIntHashNode* node;     /**< Current node within the bucket */
+    EseIntHashMap* map;              /** Reference to the hash map being iterated */
+    size_t bucket;                   /** Current bucket index */
+    struct EseIntHashNode* node;     /** Current node within the bucket */
 };
 
 static unsigned int int_hash(uint64_t key) {

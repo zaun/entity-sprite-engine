@@ -16,9 +16,9 @@ typedef struct EseColor EseColor;
  * @brief Enumeration for poly line types
  */
 typedef enum {
-    POLY_LINE_OPEN,     /**< Open polyline (not closed) */
-    POLY_LINE_CLOSED,   /**< Closed polyline (connects last point to first) */
-    POLY_LINE_FILLED    /**< Filled polygon */
+    POLY_LINE_OPEN,     /** Open polyline (not closed) */
+    POLY_LINE_CLOSED,   /** Closed polyline (connects last point to first) */
+    POLY_LINE_FILLED    /** Filled polygon */
 } EsePolyLineType;
 
 /**

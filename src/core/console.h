@@ -15,10 +15,10 @@ typedef struct EseDrawList EseDrawList;
  *          each with different visual styling and importance levels.
  */
 typedef enum {
-    ESE_CONSOLE_NORMAL,    /**< Standard console output line */
-    ESE_CONSOLE_INFO,      /**< Informational message */
-    ESE_CONSOLE_WARN,      /**< Warning message */
-    ESE_CONSOLE_ERROR      /**< Error message */
+    ESE_CONSOLE_NORMAL,    /** Standard console output line */
+    ESE_CONSOLE_INFO,      /** Informational message */
+    ESE_CONSOLE_WARN,      /** Warning message */
+    ESE_CONSOLE_ERROR      /** Error message */
 } EseConsoleLineType;
 
 /**

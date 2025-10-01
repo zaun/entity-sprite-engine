@@ -5,28 +5,37 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "vendor/lua/src/lauxlib.h"
+#include "types/map_private.h"
 #include "types/map_cell.h"
 
 #define INITIAL_LAYER_CAPACITY 4
 
 // The actual EseMapCell struct definition (private to this file)
 typedef struct EseMapCell {
+    EseMap *map;             /** Pointer to the EseMap this cell belongs to */
+
     // Multiple tile layers for this cell position
-    uint8_t *tile_ids;       /**< Array of tile IDs for layering */
-    size_t layer_count;      /**< Number of layers in this specific cell */
-    size_t layer_capacity;   /**< Allocated capacity for tile_ids array */
+    int *tile_ids;       /** Array of tile IDs for layering */
+    size_t layer_count;      /** Number of layers in this specific cell */
+    size_t layer_capacity;   /** Allocated capacity for tile_ids array */
 
     // Cell-wide properties
-    bool isDynamic;          /**< If false (default), Map component renders all layers; if true, ignored */
-    uint32_t flags;          /**< Bitfield for properties (applies to whole cell) */
+    bool isDynamic;          /** If false (default), Map component renders all layers; if true, ignored */
+    uint32_t flags;          /** Bitfield for properties (applies to whole cell) */
 
     // Optional data payload
-    void *data;              /**< Game-specific data (JSON, custom struct, etc.) */
+    void *data;              /** Game-specific data (JSON, custom struct, etc.) */
 
     // Lua integration
-    lua_State *state;        /**< Lua State this EseMapCell belongs to */
-    int lua_ref;             /**< Lua registry reference to its own userdata */
-    int lua_ref_count;       /**< Number of times this map cell has been referenced in C */
+    lua_State *state;        /** Lua State this EseMapCell belongs to */
+    int lua_ref;             /** Lua registry reference to its own userdata */
+    int lua_ref_count;       /** Number of times this map cell has been referenced in C */
+    
+    // Watcher system
+    EseMapCellWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;                 /** Array of userdata for each watcher */
+    size_t watcher_count;                    /** Number of registered watchers */
+    size_t watcher_capacity;                 /** Capacity of the watcher arrays */
 } EseMapCell;
 
 // ========================================
@@ -34,16 +43,16 @@ typedef struct EseMapCell {
 // ========================================
 
 // Core helpers
-static EseMapCell *_ese_mapcell_make(void);
+static EseMapCell *_ese_mapcell_make(EseMap *map);
+
+// Watcher system
+static void _ese_mapcell_notify_watchers(EseMapCell *cell);
 
 // Lua metamethods
 static int _ese_mapcell_lua_gc(lua_State *L);
 static int _ese_mapcell_lua_index(lua_State *L);
 static int _ese_mapcell_lua_newindex(lua_State *L);
 static int _ese_mapcell_lua_tostring(lua_State *L);
-
-// Lua constructors
-static int _ese_mapcell_lua_new(lua_State *L);
 
 // Lua method implementations
 static int _ese_mapcell_lua_add_layer(lua_State *L);
@@ -68,10 +77,11 @@ static int _ese_mapcell_lua_clear_flag(lua_State *L);
  * 
  * @return Pointer to the newly created EseMapCell, or NULL on allocation failure
  */
-static EseMapCell *_ese_mapcell_make() {
+static EseMapCell *_ese_mapcell_make(EseMap *map) {
     EseMapCell *cell = (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);    
-    cell->tile_ids = (uint8_t *)memory_manager.malloc(sizeof(uint8_t) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
+    cell->tile_ids = (int *)memory_manager.malloc(sizeof(int) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
     
+    cell->map = map;
     cell->layer_count = 0;
     cell->layer_capacity = INITIAL_LAYER_CAPACITY;
     cell->isDynamic = false;
@@ -80,6 +90,10 @@ static EseMapCell *_ese_mapcell_make() {
     cell->state = NULL;
     cell->lua_ref = LUA_NOREF;
     cell->lua_ref_count = 0;
+    cell->watchers = NULL;
+    cell->watcher_userdata = NULL;
+    cell->watcher_count = 0;
+    cell->watcher_capacity = 0;
     return cell;
 }
 
@@ -244,44 +258,6 @@ static int _ese_mapcell_lua_tostring(lua_State *L) {
     return 1;
 }
 
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EseMapCell instances
- * 
- * Creates a new EseMapCell from Lua. This function is called when Lua code 
- * executes `MapCell.new()`. It creates the underlying EseMapCell and returns 
- * a userdata that provides access to the map cell's properties and methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the userdata)
- */
-static int _ese_mapcell_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_MAPCELL_NEW);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 0) {
-        profile_cancel(PROFILE_LUA_MAPCELL_NEW);
-        return luaL_error(L, "MapCell.new() takes 0 arguments");
-    }
-
-    // Create the map cell
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    EseMapCell *cell = ese_mapcell_create(engine);
-    cell->state = L;
-
-    // Create userdata directly
-    EseMapCell **ud = (EseMapCell **)lua_newuserdata(L, sizeof(EseMapCell *));
-    *ud = cell;
-
-    // Attach metatable
-    luaL_getmetatable(L, MAP_CELL_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_MAPCELL_NEW, "mapcell_lua_new");
-    return 1;
-}
-
 // Lua method implementations
 static int _ese_mapcell_lua_add_layer(lua_State *L) {
     EseMapCell *cell = ese_mapcell_lua_get(L, 1);
@@ -290,7 +266,11 @@ static int _ese_mapcell_lua_add_layer(lua_State *L) {
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "add_layer(tile_id) requires a number");
 
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
+    int tile_id = (int)lua_tonumber(L, 2);
+    if (tile_id < -1 || tile_id > 255) {
+        return luaL_error(L, "add_layer(tile_id) requires a number >= -1 and <= 255");
+    }
+
     lua_pushboolean(L, ese_mapcell_add_layer(cell, tile_id));
     return 1;
 }
@@ -381,9 +361,10 @@ static int _ese_mapcell_lua_clear_flag(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseMapCell *ese_mapcell_create(EseLuaEngine *engine) {
+EseMapCell *ese_mapcell_create(EseLuaEngine *engine, EseMap *map) {
     log_assert("MAPCELL", engine, "ese_mapcell_create called with NULL engine");
-    EseMapCell *cell = _ese_mapcell_make();
+    log_assert("MAPCELL", map, "ese_mapcell_create called with NULL map");
+    EseMapCell *cell = _ese_mapcell_make(map);
     cell->state = engine->runtime;
     return cell;
 }
@@ -394,14 +375,13 @@ EseMapCell *ese_mapcell_copy(const EseMapCell *source) {
     EseMapCell *copy = (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);
     if (!copy) return NULL;
     
-    copy->tile_ids = (uint8_t *)memory_manager.malloc(
-        sizeof(uint8_t) * source->layer_capacity, MMTAG_MAP_CELL);
+    copy->tile_ids = (int *)memory_manager.malloc(sizeof(int) * source->layer_capacity, MMTAG_MAP_CELL);
     if (!copy->tile_ids) {
         memory_manager.free(copy);
         return NULL;
     }
     
-    memcpy(copy->tile_ids, source->tile_ids, sizeof(uint8_t) * source->layer_count);
+    memcpy(copy->tile_ids, source->tile_ids, sizeof(int) * source->layer_count);
     copy->layer_count = source->layer_count;
     copy->layer_capacity = source->layer_capacity;
     copy->isDynamic = source->isDynamic;
@@ -410,6 +390,10 @@ EseMapCell *ese_mapcell_copy(const EseMapCell *source) {
     copy->state = source->state;
     copy->lua_ref = LUA_NOREF;
     copy->lua_ref_count = 0;
+    copy->watchers = NULL;
+    copy->watcher_userdata = NULL;
+    copy->watcher_count = 0;
+    copy->watcher_capacity = 0;
     return copy;
 }
 
@@ -420,6 +404,14 @@ void ese_mapcell_destroy(EseMapCell *cell) {
         // No Lua references, safe to free immediately
         if (cell->tile_ids) {
             memory_manager.free(cell->tile_ids);
+        }
+        if (cell->watchers) {
+            memory_manager.free(cell->watchers);
+            cell->watchers = NULL;
+        }
+        if (cell->watcher_userdata) {
+            memory_manager.free(cell->watcher_userdata);
+            cell->watcher_userdata = NULL;
         }
         memory_manager.free(cell);
     } else {
@@ -448,19 +440,6 @@ void ese_mapcell_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "__metatable");
     }
     lua_pop(engine->runtime, 1);
-    
-    // Create global MapCell table with constructor
-    lua_getglobal(engine->runtime, "MapCell");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1); // Pop the nil value
-        log_debug("LUA", "Creating global MapCell table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_mapcell_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_setglobal(engine->runtime, "MapCell");
-    } else {
-        lua_pop(engine->runtime, 1); // Pop the existing MapCell table
-    }
 }
 
 void ese_mapcell_lua_push(EseMapCell *cell) {
@@ -558,19 +537,21 @@ size_t ese_mapcell_sizeof(void) {
 }
 
 // Tile/Flag API
-bool ese_mapcell_add_layer(EseMapCell *cell, uint8_t tile_id) {
+bool ese_mapcell_add_layer(EseMapCell *cell, int tile_id) {
     if (!cell) return false;
 
     if (cell->layer_count >= cell->layer_capacity) {
         size_t new_capacity = cell->layer_capacity * 2;
-        uint8_t *new_array = (uint8_t *)memory_manager.realloc(
-            cell->tile_ids, sizeof(uint8_t) * new_capacity, MMTAG_MAP_CELL);
+        int *new_array = (int *)memory_manager.realloc(
+            cell->tile_ids, sizeof(int) * new_capacity, MMTAG_MAP_CELL);
         if (!new_array) return false;
         cell->tile_ids = new_array;
         cell->layer_capacity = new_capacity;
     }
 
     cell->tile_ids[cell->layer_count++] = tile_id;
+    _ese_map_set_layer_count_dirty(cell->map);
+    _ese_mapcell_notify_watchers(cell);
     return true;
 }
 
@@ -581,10 +562,12 @@ bool ese_mapcell_remove_layer(EseMapCell *cell, size_t layer_index) {
         cell->tile_ids[i] = cell->tile_ids[i + 1];
     }
     cell->layer_count--;
+    _ese_map_set_layer_count_dirty(cell->map);
+    _ese_mapcell_notify_watchers(cell);
     return true;
 }
 
-uint8_t ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index) {
+int ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index) {
     if (!cell || layer_index >= cell->layer_count) return 0;
     return cell->tile_ids[layer_index];
 }
@@ -592,11 +575,16 @@ uint8_t ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index) {
 bool ese_mapcell_set_layer(EseMapCell *cell, size_t layer_index, uint8_t tile_id) {
     if (!cell || layer_index >= cell->layer_count) return false;
     cell->tile_ids[layer_index] = tile_id;
+    _ese_mapcell_notify_watchers(cell);
     return true;
 }
 
 void ese_mapcell_clear_layers(EseMapCell *cell) {
-    if (cell) cell->layer_count = 0;
+    if (cell) {
+        cell->layer_count = 0;
+        _ese_map_set_layer_count_dirty(cell->map);
+        _ese_mapcell_notify_watchers(cell);
+    }
 }
 
 bool ese_mapcell_has_layers(const EseMapCell *cell) {
@@ -609,22 +597,93 @@ size_t ese_mapcell_get_layer_count(const EseMapCell *cell) {
     return cell->layer_count;
 }
 
+// Watcher system
+bool ese_mapcell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
+    log_assert("MAPCELL", cell, "ese_mapcell_add_watcher called with NULL cell");
+    log_assert("MAPCELL", callback, "ese_mapcell_add_watcher called with NULL callback");
+
+    if (cell->watcher_count == 0) {
+        cell->watcher_capacity = 4;
+        cell->watchers = memory_manager.malloc(sizeof(EseMapCellWatcherCallback) * cell->watcher_capacity, MMTAG_MAP_CELL);
+        cell->watcher_userdata = memory_manager.malloc(sizeof(void*) * cell->watcher_capacity, MMTAG_MAP_CELL);
+        cell->watcher_count = 0;
+    }
+
+    if (cell->watcher_count >= cell->watcher_capacity) {
+        size_t new_capacity = cell->watcher_capacity * 2;
+        EseMapCellWatcherCallback *new_watchers = memory_manager.realloc(
+            cell->watchers,
+            sizeof(EseMapCellWatcherCallback) * new_capacity,
+            MMTAG_MAP_CELL
+        );
+        void **new_userdata = memory_manager.realloc(
+            cell->watcher_userdata,
+            sizeof(void*) * new_capacity,
+            MMTAG_MAP_CELL
+        );
+        if (!new_watchers || !new_userdata) return false;
+        cell->watchers = new_watchers;
+        cell->watcher_userdata = new_userdata;
+        cell->watcher_capacity = new_capacity;
+    }
+
+    cell->watchers[cell->watcher_count] = callback;
+    cell->watcher_userdata[cell->watcher_count] = userdata;
+    cell->watcher_count++;
+    return true;
+}
+
+bool ese_mapcell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
+    log_assert("MAPCELL", cell, "ese_mapcell_remove_watcher called with NULL cell");
+    log_assert("MAPCELL", callback, "ese_mapcell_remove_watcher called with NULL callback");
+
+    for (size_t i = 0; i < cell->watcher_count; i++) {
+        if (cell->watchers[i] == callback && cell->watcher_userdata[i] == userdata) {
+            for (size_t j = i; j < cell->watcher_count - 1; j++) {
+                cell->watchers[j] = cell->watchers[j + 1];
+                cell->watcher_userdata[j] = cell->watcher_userdata[j + 1];
+            }
+            cell->watcher_count--;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void _ese_mapcell_notify_watchers(EseMapCell *cell) {
+    if (!cell || cell->watcher_count == 0) return;
+    for (size_t i = 0; i < cell->watcher_count; i++) {
+        if (cell->watchers[i]) {
+            cell->watchers[i](cell, cell->watcher_userdata[i]);
+        }
+    }
+}
+
 bool ese_mapcell_has_flag(const EseMapCell *cell, uint32_t flag) {
     if (!cell) return false;
     return (cell->flags & flag) != 0;
 }
 
 void ese_mapcell_set_flag(EseMapCell *cell, uint32_t flag) {
-    if (cell) cell->flags |= flag;
+    if (cell) {
+        cell->flags |= flag;
+        _ese_mapcell_notify_watchers(cell);
+    }
 }
 
 void ese_mapcell_clear_flag(EseMapCell *cell, uint32_t flag) {
-    if (cell) cell->flags &= ~flag;
+    if (cell) {
+        cell->flags &= ~flag;
+        _ese_mapcell_notify_watchers(cell);
+    }
 }
 
 // Property access
 void ese_mapcell_set_is_dynamic(EseMapCell *cell, bool isDynamic) {
-    if (cell) cell->isDynamic = isDynamic;
+    if (cell) {
+        cell->isDynamic = isDynamic;
+        _ese_mapcell_notify_watchers(cell);
+    }
 }
 
 bool ese_mapcell_get_is_dynamic(const EseMapCell *cell) {
@@ -633,7 +692,10 @@ bool ese_mapcell_get_is_dynamic(const EseMapCell *cell) {
 }
 
 void ese_mapcell_set_flags(EseMapCell *cell, uint32_t flags) {
-    if (cell) cell->flags = flags;
+    if (cell) {
+        cell->flags = flags;
+        _ese_mapcell_notify_watchers(cell);
+    }
 }
 
 uint32_t ese_mapcell_get_flags(const EseMapCell *cell) {

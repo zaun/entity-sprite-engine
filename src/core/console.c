@@ -19,9 +19,9 @@
  *          The prefix is limited to ESE_CONSOLE_ESE_CONSOLE_PREFIX_SIZE characters plus null terminator.
  */
 typedef struct {
-    EseConsoleLineType type;        /**< The type of console line */
-    char prefix[ESE_CONSOLE_ESE_CONSOLE_PREFIX_SIZE + 1];   /**< ESE_CONSOLE_ESE_CONSOLE_PREFIX_SIZE chars + null terminator */
-    char* message;                  /**< The message text (dynamically allocated) */
+    EseConsoleLineType type;        /** The type of console line */
+    char prefix[ESE_CONSOLE_ESE_CONSOLE_PREFIX_SIZE + 1];   /** ESE_CONSOLE_ESE_CONSOLE_PREFIX_SIZE chars + null terminator */
+    char* message;                  /** The message text (dynamically allocated) */
 } EseConsoleLine;
 
 /**
@@ -31,15 +31,15 @@ typedef struct {
  *          history management and display parameters.
  */
 struct EseConsole {
-    EseConsoleLine* history;    /**< Array of console lines */
-    size_t history_size;        /**< Current number of lines in history */
-    size_t history_capacity;    /**< Maximum number of lines (1000) */
-    size_t draw_line_count;     /**< Number of lines to display */
-    size_t start_at_index;      /**< Starting index for display */
+    EseConsoleLine* history;    /** Array of console lines */
+    size_t history_size;        /** Current number of lines in history */
+    size_t history_capacity;    /** Maximum number of lines (1000) */
+    size_t draw_line_count;     /** Number of lines to display */
+    size_t start_at_index;      /** Starting index for display */
 
-    int font_char_width;         /**< Width of a single character in pixels */
-    int font_char_height;        /**< Height of a single character in pixels */
-    int font_spacing;            /**< Spacing between characters and between lines in pixels */
+    int font_char_width;         /** Width of a single character in pixels */
+    int font_char_height;        /** Height of a single character in pixels */
+    int font_spacing;            /** Spacing between characters and between lines in pixels */
 };
 
 EseConsole* console_create(void) {

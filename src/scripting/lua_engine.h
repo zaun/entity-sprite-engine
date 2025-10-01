@@ -24,8 +24,8 @@ typedef struct EseLuaEngineInternal EseLuaEngineInternal;
  *          provides a sandboxed environment for safe script execution.
  */
 typedef struct EseLuaEngine {
-    lua_State *runtime;             /**< Lua state for script execution */
-    EseLuaEngineInternal *internal; /**< Internal state and configuration */
+    lua_State *runtime;             /** Lua state for script execution */
+    EseLuaEngineInternal *internal; /** Internal state and configuration */
 } EseLuaEngine;
 
 extern const char _ENGINE_SENTINEL;

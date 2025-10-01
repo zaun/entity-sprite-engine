@@ -18,10 +18,10 @@
  *          that batch for efficient batch processing.
  */
 typedef struct EseRenderBatchIterator {
-    EseRenderList *render_list;     /**< Reference to the render list being iterated */
-    size_t batch_index;             /**< Current batch index */
-    size_t vertex_index;            /**< Current vertex index within the batch */
-    size_t total_vertices;          /**< Total vertices processed so far */
+    EseRenderList *render_list;     /** Reference to the render list being iterated */
+    size_t batch_index;             /** Current batch index */
+    size_t vertex_index;            /** Current vertex index within the batch */
+    size_t total_vertices;          /** Total vertices processed so far */
 } EseRenderBatchIterator;
 
 /**
@@ -32,11 +32,11 @@ typedef struct EseRenderBatchIterator {
  *          allocation for batches and provides iteration capabilities.
  */
 typedef struct EseRenderList {
-    EseRenderBatch **batches;       /**< Array of render batch pointers */
-    size_t batch_count;             /**< Number of batches in the list */
-    size_t batch_capacity;          /**< Allocated capacity for batches array */
-    int width;                      /**< Viewport width for coordinate conversion */
-    int height;                     /**< Viewport height for coordinate conversion */
+    EseRenderBatch **batches;       /** Array of render batch pointers */
+    size_t batch_count;             /** Number of batches in the list */
+    size_t batch_capacity;          /** Allocated capacity for batches array */
+    int width;                      /** Viewport width for coordinate conversion */
+    int height;                     /** Viewport height for coordinate conversion */
 } EseRenderList;
 
 // Helper to create a new batch

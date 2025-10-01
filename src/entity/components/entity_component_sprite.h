@@ -23,12 +23,12 @@ typedef struct EseSprite EseSprite;
  *          The sprite object is not owned by this component and should not be freed.
  */
 typedef struct EseEntityComponentSprite {
-    EseEntityComponent base;        /**< Base component structure */
+    EseEntityComponent base;        /** Base component structure */
 
-    char *sprite_name;              /**< Name/ID of the sprite to display */
-    EseSprite *sprite;              /**< Reference to the sprite object (not owned) */
-    size_t current_frame;           /**< Current animation frame index */
-    float sprite_ellapse_time;      /**< Elapsed time for frame timing control */
+    char *sprite_name;              /** Name/ID of the sprite to display */
+    EseSprite *sprite;              /** Reference to the sprite object (not owned) */
+    size_t current_frame;           /** Current animation frame index */
+    float sprite_ellapse_time;      /** Elapsed time for frame timing control */
 } EseEntityComponentSprite;
 
 EseEntityComponent *_entity_component_sprite_copy(const EseEntityComponentSprite *src);
