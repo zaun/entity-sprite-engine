@@ -3,6 +3,7 @@
 #include "utility/log.h"
 #include "types/types.h"
 #include "entity/components/entity_component_private.h"
+#include "entity/components/entity_component_map.h"
 #include "core/engine.h"
 #include "core/engine_private.h"
 #include "scripting/lua_engine_private.h"
@@ -129,6 +130,14 @@ static int _entity_lua_components_add(lua_State *L) {
     }
 
     entity_component_add(entity, comp);
+
+    // If this is a map component, register with engine map_components
+    if (comp->type == ENTITY_COMPONENT_MAP) {
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+        if (engine) {
+            engine_add_map_component(engine, (EseEntityComponentMap*)comp->data);
+        }
+    }
     
     if (is_updated) {
         comp->vtable->ref(comp);
@@ -186,6 +195,14 @@ static int _entity_lua_components_remove(lua_State *L) {
         return 1;
     }
     
+    // If this is a map component, unregister from engine map_components before removal.
+    if (comp_to_remove->type == ENTITY_COMPONENT_MAP) {
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+        if (engine) {
+            engine_remove_map_component(engine, (EseEntityComponentMap*)comp_to_remove->data);
+        }
+    }
+
     // Shift elements to remove the component.
     // This is C memory management and does not affect the Lua stack.
     for (size_t i = idx; i < entity->component_count - 1; ++i) {
@@ -263,6 +280,14 @@ static int _entity_lua_components_insert(lua_State *L) {
     
     entity->components[index] = comp;
     entity->component_count++;
+
+    // If this is a map component, register with engine map_components
+    if (comp->type == ENTITY_COMPONENT_MAP) {
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+        if (engine) {
+            engine_add_map_component(engine, (EseEntityComponentMap*)comp->data);
+        }
+    }
     
     if (is_updated) {
         comp->vtable->ref(comp);
@@ -295,6 +320,14 @@ static int _entity_lua_components_pop(lua_State *L) {
     }
     
     EseEntityComponent *comp = entity->components[entity->component_count - 1];
+
+    // If this is a map component, unregister from engine map_components
+    if (comp->type == ENTITY_COMPONENT_MAP) {
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+        if (engine) {
+            engine_remove_map_component(engine, (EseEntityComponentMap*)comp->data);
+        }
+    }
     comp->vtable->unref(comp);
     entity->components[entity->component_count - 1] = NULL;
     entity->component_count--; 
@@ -325,6 +358,14 @@ static int _entity_lua_components_shift(lua_State *L) {
     }
     
     EseEntityComponent *comp = entity->components[0];
+
+    // If this is a map component, unregister from engine map_components
+    if (comp->type == ENTITY_COMPONENT_MAP) {
+        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+        if (engine) {
+            engine_remove_map_component(engine, (EseEntityComponentMap*)comp->data);
+        }
+    }
     comp->vtable->unref(comp);
     
     // Shift all elements
@@ -623,30 +664,23 @@ static int _entity_lua_find_by_id(lua_State *L) {
 // Function to convert a Lua value on the stack to an EseLuaValue struct in place
 static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index, EseLuaValue *result) {
     int arg_type = lua_type(L, index);
-    printf("DEBUG: Converting argument type %d at index %d\n", arg_type, index);
     switch (arg_type) {
         case LUA_TNUMBER:
-            printf("DEBUG: Processing LUA_TNUMBER\n");
             lua_value_set_number(result, lua_tonumber(L, index));
             break;
         case LUA_TBOOLEAN:
-            printf("DEBUG: Processing LUA_TBOOLEAN\n");
             lua_value_set_bool(result, lua_toboolean(L, index));
             break;
         case LUA_TSTRING:
-            printf("DEBUG: Processing LUA_TSTRING\n");
             const char *str = lua_tostring(L, index);
-            printf("DEBUG: lua_tostring returned: '%s'\n", str ? str : "NULL");
             lua_value_set_string(result, str);
             break;
         case LUA_TUSERDATA: {
-            printf("DEBUG: Processing LUA_TUSERDATA\n");
             void *udata = lua_touserdata(L, index);
             lua_value_set_userdata(result, udata);
             break;
         }
         case LUA_TTABLE: {
-            printf("DEBUG: Processing LUA_TTABLE\n");
             // Initialize result as a table and fill it directly to avoid shallow-copy bugs
             lua_value_set_table(result);
             lua_pushnil(L);
@@ -673,7 +707,6 @@ static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index
             break;
         }
         default:
-            printf("DEBUG: Processing default case (type %d)\n", arg_type);
             lua_value_set_nil(result);
             break;
     }

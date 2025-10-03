@@ -1297,3 +1297,130 @@ static void _entity_component_map_changed(EseMap *map, void *userdata)
         component->show_layer_count = new_count;
     }
 }
+
+// ========================================
+// Public helpers
+// ========================================
+
+EseRect *entity_component_map_get_cell_rect(EseEntityComponentMap *component, int x, int y)
+{
+    log_assert("ENTITY_COMP_MAP", component, "entity_component_map_get_cell_rect called with NULL component");
+    log_assert("ENTITY_COMP_MAP", component->map, "entity_component_map_get_cell_rect called with NULL map");
+
+    EseLuaEngine *engine = component->base.lua;
+    EseRect *rect = ese_rect_create(engine);
+
+    switch (ese_map_get_type(component->map))
+    {
+        case MAP_TYPE_GRID:
+        {
+            const int tw = component->size;
+            const int th = component->size;
+            float cx = ese_point_get_x(component->position);
+            float cy = ese_point_get_y(component->position);
+            float rx = (x - cx) * tw;
+            float ry = (y - cy) * th;
+            ese_rect_set_x(rect, rx);
+            ese_rect_set_y(rect, ry);
+            ese_rect_set_width(rect, (float)tw);
+            ese_rect_set_height(rect, (float)th);
+            ese_rect_set_rotation(rect, 0.0f);
+            break;
+        }
+        case MAP_TYPE_HEX_POINT_UP:
+        {
+            const int th = component->size;
+            const int tw = (int)(th * 0.866025f);
+            float cx = ese_point_get_x(component->position);
+            float cy = ese_point_get_y(component->position);
+            float rx = (x - cx) * tw;
+            float ry = (y - cy) * (th * 0.75f);
+            if ((y % 2) == 1) {
+                rx += tw / 2.0f;
+            }
+            ese_rect_set_x(rect, rx);
+            ese_rect_set_y(rect, ry);
+            ese_rect_set_width(rect, (float)tw);
+            ese_rect_set_height(rect, (float)th);
+            ese_rect_set_rotation(rect, 0.0f);
+            break;
+        }
+        case MAP_TYPE_HEX_FLAT_UP:
+        {
+            const int th = component->size;
+            const int tw = (int)(th * 1.154701f);
+            float cx = ese_point_get_x(component->position);
+            float cy = ese_point_get_y(component->position);
+            float rx = (x - cx) * (tw * 0.75f);
+            float ry = (y - cy) * th;
+            if ((x % 2) == 1) {
+                ry += th / 2.0f;
+            }
+            ese_rect_set_x(rect, rx);
+            ese_rect_set_y(rect, ry);
+            ese_rect_set_width(rect, (float)tw);
+            ese_rect_set_height(rect, (float)th);
+            ese_rect_set_rotation(rect, 0.0f);
+            break;
+        }
+        case MAP_TYPE_ISO:
+        {
+            const int th = component->size;
+            const int tw = th * 2;
+            float cx = ese_point_get_x(component->position);
+            float cy = ese_point_get_y(component->position);
+            float rx = (x - cx) * (tw / 2.0f) - (y - cy) * (tw / 2.0f);
+            float ry = (x - cx) * (th / 2.0f) + (y - cy) * (th / 2.0f);
+            ese_rect_set_x(rect, rx);
+            ese_rect_set_y(rect, ry);
+            ese_rect_set_width(rect, (float)tw);
+            ese_rect_set_height(rect, (float)th);
+            ese_rect_set_rotation(rect, 0.0f);
+            break;
+        }
+        default:
+        {
+            // Unknown type; return zero rect
+            ese_rect_set_x(rect, 0);
+            ese_rect_set_y(rect, 0);
+            ese_rect_set_width(rect, 0);
+            ese_rect_set_height(rect, 0);
+            ese_rect_set_rotation(rect, 0.0f);
+            break;
+        }
+    }
+
+    return rect;
+}
+
+int entity_component_map_cell_intersect(EseEntityComponentMap *component, EseRect *rect, int out_count, EseMapCell **out_cells)
+{
+    log_assert("ENTITY_COMP_MAP", component, "entity_component_map_cell_intersect called with NULL component");
+    log_assert("ENTITY_COMP_MAP", component->map, "entity_component_map_cell_intersect called with NULL map");
+    log_assert("ENTITY_COMP_MAP", rect, "entity_component_map_cell_intersect called with NULL rect");
+
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+
+    int count = 0;
+
+    // Conservatively iterate all cells; can be optimized later with spatial index
+    for (int y = 0; y < mh; y++)
+    {
+        for (int x = 0; x < mw; x++)
+        {
+            EseRect *cell_rect = entity_component_map_get_cell_rect(component, x, y);
+            bool hit = ese_rect_intersects(rect, cell_rect);
+            ese_rect_destroy(cell_rect);
+            if (!hit) continue;
+
+            if (out_cells && count < out_count)
+            {
+                out_cells[count] = ese_map_get_cell(component->map, (uint32_t)x, (uint32_t)y);
+            }
+            count++;
+        }
+    }
+
+    return count;
+}

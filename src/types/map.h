@@ -7,7 +7,8 @@
 
 #define MAP_PROXY_META "MapProxyMeta"
 
-// Forward declarations
+/* --- Forward declarations --------------------------------------------------------------------- */
+
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseMapCell EseMapCell;
@@ -32,42 +33,45 @@ typedef enum {
     MAP_TYPE_ISO                /** Isometric tiles */
 } EseMapType;
 
-/* ----------------- Lua API ----------------- */
+/* --- Lua API ---------------------------------------------------------------------------------- */
 
 /**
  * @brief Initializes the EseMap userdata type in the Lua state.
  *
  * @details
- * Creates and registers the "MapProxyMeta" metatable with
- * __index, __newindex, __gc, and __tostring metamethods.
- * This allows EseMap objects to be used naturally from Lua
- * with dot notation and automatic garbage collection.
+ * Creates and registers the "MapProxyMeta" metatable with __index, __newindex,
+ * __gc, and __tostring metamethods. Also ensures a global `Map` table exists
+ * and assigns `Map.new` to the constructor. This enables natural usage from
+ * Lua with dot notation and automatic garbage collection.
  *
  * @param engine EseLuaEngine pointer where the EseMap type will be registered
  */
 void ese_map_lua_init(EseLuaEngine *engine);
 
 /**
- * @brief Pushes a registered EseMap proxy table back onto the Lua stack.
+ * @brief Pushes this map's userdata onto its Lua state's stack.
+ *
+ * @details
+ * If the map has not yet been referenced from Lua, a userdata is created and
+ * assigned the `MapProxyMeta` metatable; otherwise the existing registry ref
+ * is pushed.
  *
  * @param map Pointer to the EseMap object
  */
 void ese_map_lua_push(EseMap *map);
 
 /**
- * @brief Extracts a EseMap pointer from a Lua proxy table with type safety.
+ * @brief Extracts an EseMap pointer from a Lua userdata with type safety.
  *
  * @details
- * Retrieves the C EseMap pointer from the "__ptr" field of a Lua
- * table that was created by ese_map_lua_push(). Performs type checking
- * to ensure the object is a valid EseMap proxy table with the correct
- * metatable and userdata pointer.
+ * Validates that the value at `idx` is a userdata with the `MapProxyMeta`
+ * metatable and returns the embedded EseMap pointer.
  *
  * @param L Lua state pointer
- * @param idx Stack index of the Lua EseMap object
- * @return Pointer to the EseMap object, or NULL if extraction fails
+ * @param idx Stack index of the Lua object
+ * @return Pointer to the EseMap object, or NULL if validation fails
  *
- * @warning Returns NULL for invalid objects — always check return value before use.
+ * @warning Returns NULL for invalid objects — always check before use.
  */
 EseMap *ese_map_lua_get(lua_State *L, int idx);
 
@@ -94,44 +98,45 @@ void ese_map_ref(EseMap *map);
  */
 void ese_map_unref(EseMap *map);
 
-/* ----------------- C API ----------------- */
+/* --- C API ------------------------------------------------------------------------------------ */
 
 /**
  * @brief Creates a new EseMap object with specified dimensions.
  *
  * @details
- * Allocates memory for a new EseMap and initializes its cells.
- * Each cell is created with `mapcell_create(engine, false)` and
- * registered with Lua as C-owned.
+ * Allocates and initializes an EseMap, sets its engine/state, and allocates a
+ * 2D array of cells. Newly created cells are initialized and hooked so that the
+ * map is notified when a cell changes. This function does not register the map
+ * with the Lua registry.
  *
- * If `c_only` is false, the map itself is also registered with Lua
- * and wrapped in a proxy table. If true, the map exists only in C.
+ * Note: The `c_only` flag is currently ignored.
  *
  * @param engine Pointer to a EseLuaEngine
  * @param width Map width in cells
  * @param height Map height in cells
  * @param type Map coordinate type
- * @param c_only True if this object won't be accessible in Lua
+ * @param c_only Present for compatibility; currently unused
  * @return Pointer to newly created EseMap object
  *
- * @warning The returned EseMap must be freed with ese_map_destroy()
- *          to prevent memory leaks.
+ * @warning The returned EseMap must be freed with ese_map_destroy().
  */
 EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
                    EseMapType type, bool c_only);
 
 /**
- * @brief Destroys a EseMap object and frees its memory.
+ * @brief Destroys an EseMap object and frees its memory.
  *
  * @details
- * Frees the memory allocated by ese_map_create(), including all cells,
- * metadata strings, and Lua registry references.
+ * If the map is still referenced from Lua, this decrements the reference count
+ * and defers destruction. When no Lua references remain, all cells are
+ * destroyed, internal arrays and metadata strings are freed, any attached
+ * tileset is destroyed, and the map itself is freed.
  *
  * @param map Pointer to the EseMap object to destroy
  */
 void ese_map_destroy(EseMap *map);
 
-/* ----------------- Map Operations ----------------- */
+/* --- Map Operations --------------------------------------------------------------------------- */
 
 /**
  * @brief Gets a map cell at the specified coordinates.
@@ -181,16 +186,16 @@ void ese_map_set_tileset(EseMap *map, EseTileSet *tileset);
  * @brief Resizes the map to new dimensions.
  *
  * @details
- * Allocates a new cell array and copies existing cells that fit
- * within the new dimensions. Cells outside the new bounds are destroyed.
- * New cells are created with `mapcell_create(engine, false)`.
+ * Allocates a new cell grid sized to the requested dimensions. Cells that fall
+ * within both the old and new bounds are deep-copied into the new grid; other
+ * old cells are destroyed. Newly uncovered positions are populated with newly
+ * created cells. Watchers are reattached for copied/new cells. On allocation
+ * failure, the map is restored to its previous state and false is returned.
  *
  * @param map Pointer to the EseMap object
  * @param new_width New width in cells
  * @param new_height New height in cells
- * @return true if successful, false if memory allocation fails
- *
- * @warning This will destroy existing cells that are outside the new bounds.
+ * @return true if successful, false if allocation fails or inputs are invalid
  */
 bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
 
@@ -229,16 +234,20 @@ EseTileSet *ese_map_get_tileset(EseMap *map);
 /**
  * @brief Gets the number of layers in the map.
  *
+ * @details
+ * Returns the maximum layer count across all cells. The value is cached and
+ * recomputed when the map is marked dirty by internal changes.
+ *
  * @param map Pointer to the EseMap object
- * @return Number of layers in the map
+ * @return Maximum number of layers across all cells
  */
 size_t ese_map_get_layer_count(EseMap *map);
 
 /**
- * @brief Adds a watcher callback to be notified when map properties change.
+ * @brief Adds a watcher callback notified when the map or its cells change.
  *
  * @param map Pointer to the EseMap object to watch
- * @param callback Function to call when properties change
+ * @param callback Function to call on change
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
@@ -254,7 +263,7 @@ bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *user
  */
 bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
 
-/* ----------------- Map Type Conversion ----------------- */
+/* --- Map Type Conversion ---------------------------------------------------------------------- */
 
 /**
  * @brief Converts map type enum to string representation.

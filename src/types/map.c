@@ -10,23 +10,35 @@
 /* --- Forward declarations --------------------------------------------------------------------- */
 
 // Core allocation/setup
-static char *_strdup_safe(const char *src);
+/// Create and initialize a new map with given width, height, and type.
 static EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type);
+/// Allocate the 2D cells array and populate it with new cells.
 static bool _allocate_cells_array(EseMap *map);
+/// Free the 2D cells array and all contained cells.
 static void _free_cells_array(EseMap *map);
 
 // Watcher helpers
+/// Notify all registered watchers of changes to this map.
 static void _ese_map_notify_watchers(EseMap *map);
+/// Cell change callback that forwards notifications to the parent map.
 static void _ese_map_on_cell_changed(EseMapCell *cell, void *userdata);
 
 // Lua bindings
+/// Lua: Map:get_cell(x, y) -> MapCell|nil.
 static int _ese_map_lua_get_cell(lua_State *L);
+/// Lua: Map:resize(width, height) -> boolean.
 static int _ese_map_lua_resize(lua_State *L);
+/// Lua: Map:set_tileset(tileset).
 static int _ese_map_lua_set_tileset(lua_State *L);
+/// Lua: __index metamethod for Map proxy.
 static int _ese_map_lua_index(lua_State *L);
+/// Lua: __newindex metamethod for Map proxy.
 static int _ese_map_lua_newindex(lua_State *L);
+/// Lua: __gc metamethod for Map userdata.
 static int _ese_map_lua_gc(lua_State *L);
+/// Lua: __tostring metamethod for Map.
 static int _ese_map_lua_tostring(lua_State *L);
+/// Lua: Map.new(width, height, [type]) constructor.
 static int _ese_map_lua_new(lua_State *L);
 
 /* --- Internal Helpers ------------------------------------------------------------------------- */
@@ -35,14 +47,6 @@ static void _ese_map_on_cell_changed(EseMapCell *cell, void *userdata) {
     EseMap *map = (EseMap *)userdata;
     if (!map) return;
     _ese_map_notify_watchers(map);
-}
-
-static char *_strdup_safe(const char *src) {
-    if (!src) return NULL;
-    size_t len = strlen(src) + 1;
-    char *dst = (char *)memory_manager.malloc(len, MMTAG_MAP);
-    if (dst) memcpy(dst, src, len);
-    return dst;
 }
 
 static bool _allocate_cells_array(EseMap *map) {
@@ -82,8 +86,8 @@ static void _free_cells_array(EseMap *map) {
 
 static EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type) {
     EseMap *map = (EseMap *)memory_manager.malloc(sizeof(EseMap), MMTAG_MAP);
-    map->title = _strdup_safe("Untitled Map");
-    map->author = _strdup_safe("Unknown");
+    map->title = memory_manager.strdup("Untitled Map", MMTAG_MAP);
+    map->author = memory_manager.strdup("Unknown", MMTAG_MAP);
     map->version = 0;
     map->type = type;
     map->tileset = NULL;
@@ -134,7 +138,7 @@ void ese_map_lua_push(EseMap *map) {
     }
 }
 
-/* --- Lua Methods ----------------------------------------------------------------------------- */
+/* --- Lua Methods ------------------------------------------------------------------------------ */
 
 static int _ese_map_lua_get_cell(lua_State *L) {
     EseMap *map = ese_map_lua_get(L, 1);
@@ -523,7 +527,7 @@ EseMapCell *ese_map_get_cell(const EseMap *map, uint32_t x, uint32_t y) {
 bool ese_map_set_title(EseMap *map, const char *title) {
     if (!map) return false;
     if (map->title) memory_manager.free(map->title);
-    map->title = _strdup_safe(title);
+    map->title = memory_manager.strdup(title, MMTAG_MAP);
     _ese_map_notify_watchers(map);
     return map->title != NULL;
 }
@@ -531,7 +535,7 @@ bool ese_map_set_title(EseMap *map, const char *title) {
 bool ese_map_set_author(EseMap *map, const char *author) {
     if (!map) return false;
     if (map->author) memory_manager.free(map->author);
-    map->author = _strdup_safe(author);
+    map->author = memory_manager.strdup(author, MMTAG_MAP);
     _ese_map_notify_watchers(map);
     return map->author != NULL;
 }

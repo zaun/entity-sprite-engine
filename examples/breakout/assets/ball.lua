@@ -5,6 +5,8 @@ function ENTITY:entity_init()
     self.data.launched = false
     self.data.size = 16
     self.data.collided_entities = {}  -- Track entities we've already collided with this frame
+    self:subscribe("launch_ball", "launch_ball")
+    self:subscribe("reset_ball", "reset_ball")
 end
 
 function ENTITY:entity_update(delta_time)
@@ -43,10 +45,7 @@ function ENTITY:entity_update(delta_time)
     -- Check if ball fell below screen (lose life)
     if new_y >= viewport_height then
         -- Notify game state that ball was lost
-        local game_state = Entity.find_first_by_tag("gamestate")
-        if game_state then
-            game_state:dispatch("ball_lost")
-        end
+        Entity.publish("ball_lost", nil)
         return
     end
 
@@ -149,9 +148,6 @@ function ENTITY:entity_collision_enter(entity)
         entity:destroy()
         
         -- Notify game state for scoring
-        local game_state = Entity.find_first_by_tag("gamestate")
-        if game_state then
-            game_state:dispatch("brick_destroyed")
-        end
+        Entity.publish("brick_destroyed", nil)
     end
 end

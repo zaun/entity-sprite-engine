@@ -143,6 +143,7 @@ static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine)
     component->rects_capacity = COLLIDER_RECT_CAPACITY;
     component->rects_count = 0;
     component->draw_debug = false;
+    component->map_interaction = false;
 
     return &component->base;
 }
@@ -169,6 +170,7 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
     copy->rects_capacity = src->rects_capacity;
     copy->rects_count = src->rects_count;
     copy->draw_debug = src->draw_debug;
+    copy->map_interaction = src->map_interaction;
 
     for (size_t i = 0; i < copy->rects_count; ++i) {
         EseRect *src_comp = src->rects[i];
@@ -521,6 +523,9 @@ static int _entity_component_collider_index(lua_State *L) {
     } else if (strcmp(key, "draw_debug") == 0) {
         lua_pushboolean(L, component->draw_debug);
         return 1;
+    } else if (strcmp(key, "map_interaction") == 0) {
+        lua_pushboolean(L, component->map_interaction);
+        return 1;
     } else if (strcmp(key, "offset") == 0) {
         ese_point_lua_push(component->offset);
         return 1;
@@ -583,6 +588,13 @@ static int _entity_component_collider_newindex(lua_State *L) {
         }
         component->draw_debug = lua_toboolean(L, 3);
         lua_pushboolean(L, component->draw_debug);
+        return 1;
+    } else if (strcmp(key, "map_interaction") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            return luaL_error(L, "map_interaction must be a boolean");
+        }
+        component->map_interaction = lua_toboolean(L, 3);
+        lua_pushboolean(L, component->map_interaction);
         return 1;
     } else if (strcmp(key, "rects") == 0) {
         return luaL_error(L, "rects is not assignable");

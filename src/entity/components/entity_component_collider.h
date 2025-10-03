@@ -30,6 +30,7 @@ typedef struct EseEntityComponentCollider {
     size_t rects_count;             /** Number of collision rectangles */
     size_t rects_capacity;          /** Allocated capacity for rectangles array */
     bool draw_debug;                /** Whether to draw debug visualization of colliders */
+    bool map_interaction;           /** Whether to interact with the map */
 } EseEntityComponentCollider;
 
 EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentCollider *src);

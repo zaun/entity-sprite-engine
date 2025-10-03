@@ -9,6 +9,8 @@
 
 typedef struct EseMap EseMap;
 typedef struct EsePoint EsePoint;
+typedef struct EseRect EseRect;
+typedef struct EseMapCell EseMapCell;
 typedef struct lua_State lua_State;
 
 /**
@@ -55,5 +57,9 @@ void _entity_component_map_init(EseLuaEngine *engine);
 void _entity_component_map_draw(EseEntityComponentMap *component, float screen_x, float screen_y, EntityDrawTextureCallback texCallback, void *callback_user_data);
 
 EseEntityComponent *entity_component_map_create(EseLuaEngine *engine);
+
+EseRect *entity_component_map_get_cell_rect(EseEntityComponentMap *comp, int x, int y);
+
+int entity_component_map_cell_intersect(EseEntityComponentMap *comp, EseRect *rect, int out_count, EseMapCell **out_cells);
 
 #endif // ESE_ENTITY_COMPONENT_MAP_H

@@ -52,6 +52,9 @@ struct EseEngine {
     bool draw_console;                  /** Whether to draw the console */
 
     bool isRunning;
+
+    // Map components registry (engine does not own elements)
+    EseArray *map_components;           /** Array<EseEntityComponentMap*> for active map components */
 };
 
 /**

@@ -21,6 +21,7 @@ typedef struct EseEngine EseEngine;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseRect EseRect;
 typedef struct EseSprite EseSprite;
+typedef struct EseEntityComponentMap EseEntityComponentMap;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -155,7 +156,7 @@ EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
  * @param engine Pointer to the EseEngine
  * @param tag Tag string to search for
  * @param max_count Maximum number of entities to return
- * @return Array of entity pointers, NULL-terminated (caller must free)
+ * @return Array of entity pointers, NULL-terminated (caller must free), or NULL if none found
  */
 EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count);
 
@@ -223,5 +224,20 @@ void engine_pubsub_sub(EseEngine *engine, const char *name, EseEntity *entity, c
  * @param function_name The name of the function that was subscribed.
  */
 void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name);
+
+/**
+ * @brief Adds a map component to the engine's map_components registry.
+ *
+ * The engine does not own the component; it only holds a reference for global access.
+ * This function will ref the component to ensure its Lua proxy remains valid.
+ */
+void engine_add_map_component(EseEngine *engine, EseEntityComponentMap *map);
+
+/**
+ * @brief Removes a map component from the engine's map_components registry.
+ *
+ * This will unref the component previously added.
+ */
+void engine_remove_map_component(EseEngine *engine, EseEntityComponentMap *map);
 
 #endif // ESE_ENGINE_H

@@ -36,18 +36,27 @@ function ENTITY:set_state_play()
 
     self.data.state = "play"
     self.data.bricks_remaining = 0
+
+	-- Capture existing paddle position (so we don't snap to center on transition)
+	local prev_paddle_x = nil
+	local prev_paddle_y = nil
+	local existing_paddle = Entity.find_first_by_tag("paddle")
+	if existing_paddle then
+		prev_paddle_x = existing_paddle.position.x
+		prev_paddle_y = existing_paddle.position.y
+	end
     
     -- Reset everything
     scene_clear()
 
     -- Create the UI
-    self.data.lives_text = EntityComponentText.new("Lives: 3")
+	self.data.lives_text = EntityComponentText.new("Lives: " .. tostring(self.data.lives or 3))
     self.data.lives_text.justify = EntityComponentText.JUSTIFY.LEFT
-    self.data.score_text = EntityComponentText.new("Score: 0")
+	self.data.score_text = EntityComponentText.new("Score: " .. tostring(self.data.score or 0))
     self.data.score_text.justify = EntityComponentText.JUSTIFY.CENTER
     self.data.bricks_remaining_text = EntityComponentText.new("(0)")
     self.data.bricks_remaining_text.justify = EntityComponentText.JUSTIFY.CENTER
-    self.data.level_text = EntityComponentText.new("Level: 1")
+	self.data.level_text = EntityComponentText.new("Level: " .. tostring(self.data.level or 1))
     self.data.level_text.justify = EntityComponentText.JUSTIFY.RIGHT
 
     local instructions_text = EntityComponentText.new("Press SPACE to launch ball")
@@ -98,12 +107,23 @@ function ENTITY:set_state_play()
     paddle.components.add(EntityComponentSprite.new("breakout:paddle bar blue medium"))
     paddle.components.add(EntityComponentCollider.new(Rect.new(0, 0, paddle.data.width, paddle.data.height)))
     paddle:add_tag("paddle")
-    paddle:dispatch("reset_paddle")
+
+	-- Restore previous paddle position if available
+	if prev_paddle_x and prev_paddle_y then
+		paddle.position.x = prev_paddle_x
+		paddle.position.y = prev_paddle_y
+	end
 
     print("Paddle created")
 
-    -- Create the level
-    ENTITY:setup_board()
+	-- Create the level
+	ENTITY:setup_board()
+
+	-- Sync UI with current game state after board setup
+	self.data.level_text.text = "Level: " .. tostring(self.data.level)
+	self.data.bricks_remaining_text.text = "(" .. tostring(self.data.bricks_remaining) .. ")"
+	self.data.lives_text.text = "Lives: " .. tostring(self.data.lives)
+	self.data.score_text.text = "Score: " .. tostring(self.data.score)
 end
 
 function ENTITY:set_state_level_complete()
@@ -115,9 +135,37 @@ function ENTITY:set_state_level_complete()
     self.data.score = self.data.score + self.data.lives * 100
     self.data.score_text.text = "Score: " .. tostring(self.data.score)
     self.data.lives_text.text = "Lives: " .. tostring(self.data.lives)
+	self.data.level_text.text = "Level: " .. tostring(self.data.level)
 
-    self.data.paddle:dispatch("new_ball")
-    ENTITY:setup_board()
+	-- Hide paddle (and ball) during level complete screen
+	local paddle = Entity.find_first_by_tag("paddle")
+	if paddle then
+		paddle.active = false
+	end
+	local ball = Entity.find_first_by_tag("ball")
+	if ball then
+		ball.active = false
+	end
+
+	-- Hide old play instructions
+	if self.data.instructions_display then
+		self.data.instructions_display.active = false
+	end
+
+	-- Show level complete messages
+	local level_complete_title = EntityComponentText.new("Level Complete")
+	level_complete_title.justify = EntityComponentText.JUSTIFY.CENTER
+	self.data.level_complete_title = Entity.new()
+	self.data.level_complete_title.components.add(level_complete_title)
+	self.data.level_complete_title.position.x = Display.viewport.width / 2
+	self.data.level_complete_title.position.y = Display.viewport.height / 2
+
+	local continue_text = EntityComponentText.new("Press SPACE to continue")
+	continue_text.justify = EntityComponentText.JUSTIFY.CENTER
+	self.data.level_complete_prompt = Entity.new()
+	self.data.level_complete_prompt.components.add(continue_text)
+	self.data.level_complete_prompt.position.x = Display.viewport.width / 2
+	self.data.level_complete_prompt.position.y = Display.viewport.height / 2 + 40
 end
 
 function ENTITY:set_state_game_over()
@@ -199,9 +247,9 @@ function ENTITY:setup_board()
         end
     end
     
-    -- Reset ball and paddle
-    self.data.ball:dispatch("reset_ball")
-    self.data.paddle:dispatch("new_ball")
+	-- Reset ball and paddle
+	Entity.publish("reset_ball", nil)
+	Entity.publish("new_ball", nil)
 end
 
 function ENTITY:brick_destroyed()
@@ -222,7 +270,7 @@ function ENTITY:ball_lost()
         local balls = Entity.find_by_tag("ball")
         if balls and #balls > 0 then
             local ball = balls[1]  -- Get first ball
-            ball:dispatch("reset_ball")
+            Entity.publish("reset_ball", nil)
             local paddles = Entity.find_by_tag("paddle")
             if paddles and #paddles > 0 and ball.data and ball.data.size then
                 local paddle = paddles[1]  -- Get first paddle
@@ -231,7 +279,7 @@ function ENTITY:ball_lost()
             end
         end
         self.data.instructions_display.active = true
-        self.data.paddle:dispatch("new_ball")
+        Entity.publish("new_ball", nil)
     end
 end
 
@@ -241,6 +289,8 @@ end
 
 function ENTITY:entity_init()
     print("Entity init")
+    self:subscribe("brick_destroyed", "brick_destroyed")
+    self:subscribe("ball_lost", "ball_lost")
     ENTITY:set_state_title()
 end
 
@@ -254,7 +304,7 @@ function ENTITY:entity_update(delta_time)
 
         -- Remove the instructions on ball launch
         if InputState.keys_pressed[InputState.KEY.SPACE] then
-            self.data.paddle:dispatch("set_state_play")
+            Entity.publish("set_state_play", nil)
             self.data.instructions_display.active = false
         end
         -- Check if all bricks are destroyed
@@ -266,7 +316,8 @@ function ENTITY:entity_update(delta_time)
             if self.data.level > 5 then
                 ENTITY:set_state_game_over()
             else
-                ENTITY:set_state_play()
+				-- Transition to play; player must press SPACE again to launch
+				ENTITY:set_state_play()
             end
         end
     elseif self.data.state == "game_over" then
@@ -274,4 +325,9 @@ function ENTITY:entity_update(delta_time)
             ENTITY:set_state_title()
         end
     end
+end
+
+function ENTITY:entity_destroy()
+    self:unsubscribe("brick_destroyed", "brick_destroyed")
+    self:unsubscribe("ball_lost", "ball_lost")
 end

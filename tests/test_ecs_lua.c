@@ -163,46 +163,17 @@ void test_entity_component_lua_run_null_entity(void) {
     entity_component_destroy(component);
 }
 
-void test_entity_component_lua_run_basic(void) {
-    printf("DEBUG: Starting test_entity_component_lua_run_basic\n");
-    fflush(stdout);
-    printf("DEBUG: test_engine = %p\n", test_engine);
-    fflush(stdout);
-    printf("DEBUG: test_entity = %p\n", test_entity);
-    fflush(stdout);
-    
+void test_entity_component_lua_run_basic(void) {    
     EseEntityComponent *component = entity_component_lua_create(test_engine, "test_script");
-    printf("DEBUG: component = %p\n", component);
-    fflush(stdout);
     
     EseEntityComponentLua *lua_comp = (EseEntityComponentLua *)component->data;
-    printf("DEBUG: lua_comp = %p\n", lua_comp);
-    fflush(stdout);
     
     // Add component to entity
-    printf("DEBUG: About to call entity_component_add\n");
-    fflush(stdout);
     entity_component_add(test_entity, component);
-    printf("DEBUG: entity_component_add completed\n");
-    fflush(stdout);
     
     // Run the function
-    printf("DEBUG: About to call entity_component_lua_run\n");
-    fflush(stdout);
     bool result = entity_component_lua_run(lua_comp, test_entity, "test_func", 0, NULL);
-    printf("DEBUG: entity_component_lua_run completed\n");
-    fflush(stdout);
-    printf("Function execution result: %s\n", result ? "true" : "false");
-    fflush(stdout);
-    printf("Instance ref: %d\n", lua_comp->instance_ref);
-    fflush(stdout);
-    printf("Script: %s\n", lua_comp->script ? lua_comp->script : "NULL");
-    fflush(stdout);
     TEST_ASSERT_TRUE(result);
-    
-    // Don't manually destroy component - entity_destroy will handle it
-    printf("DEBUG: Skipping manual component destroy - entity will handle it\n");
-    fflush(stdout);
 }
 
 // Lua API Tests

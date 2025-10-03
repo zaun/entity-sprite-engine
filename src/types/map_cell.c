@@ -8,14 +8,17 @@
 #include "types/map_private.h"
 #include "types/map_cell.h"
 
+/* --- Defines ---------------------------------------------------------------------------------- */
+
 #define INITIAL_LAYER_CAPACITY 4
 
-// The actual EseMapCell struct definition (private to this file)
+/* --- Structs ---------------------------------------------------------------------------------- */
+// Private EseMapCell definition (internal to this translation unit)
 typedef struct EseMapCell {
     EseMap *map;             /** Pointer to the EseMap this cell belongs to */
 
     // Multiple tile layers for this cell position
-    int *tile_ids;       /** Array of tile IDs for layering */
+    int *tile_ids;           /** Array of tile IDs for layering */
     size_t layer_count;      /** Number of layers in this specific cell */
     size_t layer_capacity;   /** Allocated capacity for tile_ids array */
 
@@ -38,45 +41,47 @@ typedef struct EseMapCell {
     size_t watcher_capacity;                 /** Capacity of the watcher arrays */
 } EseMapCell;
 
-// ========================================
-// PRIVATE FORWARD DECLARATIONS
-// ========================================
+/* --- Forward declarations --------------------------------------------------------------------- */
 
 // Core helpers
+/// Create and initialize a new MapCell with default values.
 static EseMapCell *_ese_map_cell_make(EseMap *map);
 
-// Watcher system
+// Watcher helpers
+/// Notify all registered MapCell watchers of a change.
 static void _ese_map_cell_notify_watchers(EseMapCell *cell);
 
 // Lua metamethods
+/// Lua: __gc metamethod for MapCell.
 static int _ese_map_cell_lua_gc(lua_State *L);
+/// Lua: __index metamethod for MapCell.
 static int _ese_map_cell_lua_index(lua_State *L);
+/// Lua: __newindex metamethod for MapCell.
 static int _ese_map_cell_lua_newindex(lua_State *L);
+/// Lua: __tostring metamethod for MapCell.
 static int _ese_map_cell_lua_tostring(lua_State *L);
 
-// Lua method implementations
+// Lua methods
+/// Lua: MapCell:add_layer(tile_id) -> boolean.
 static int _ese_map_cell_lua_add_layer(lua_State *L);
+/// Lua: MapCell:remove_layer(index) -> boolean.
 static int _ese_map_cell_lua_remove_layer(lua_State *L);
+/// Lua: MapCell:get_layer(index) -> number.
 static int _ese_map_cell_lua_get_layer(lua_State *L);
+/// Lua: MapCell:set_layer(index, tile_id) -> boolean.
 static int _ese_map_cell_lua_set_layer(lua_State *L);
+/// Lua: MapCell:clear_layers().
 static int _ese_map_cell_lua_clear_layers(lua_State *L);
+/// Lua: MapCell:has_flag(flag) -> boolean.
 static int _ese_map_cell_lua_has_flag(lua_State *L);
+/// Lua: MapCell:set_flag(flag).
 static int _ese_map_cell_lua_set_flag(lua_State *L);
+/// Lua: MapCell:clear_flag(flag).
 static int _ese_map_cell_lua_clear_flag(lua_State *L);
 
-// ========================================
-// PRIVATE FUNCTIONS
-// ========================================
+/* --- Internal Helpers ------------------------------------------------------------------------- */
 
 // Core helpers
-/**
- * @brief Creates a new EseMapCell instance with default values
- * 
- * Allocates memory for a new EseMapCell and initializes all fields to safe defaults.
- * The map cell starts with empty layers, no flags, and no Lua state.
- * 
- * @return Pointer to the newly created EseMapCell, or NULL on allocation failure
- */
 static EseMapCell *_ese_map_cell_make(EseMap *map) {
     EseMapCell *cell = (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);    
     cell->tile_ids = (int *)memory_manager.malloc(sizeof(int) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
@@ -97,16 +102,9 @@ static EseMapCell *_ese_map_cell_make(EseMap *map) {
     return cell;
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseMapCell
- * 
- * Handles cleanup when a Lua userdata for an EseMapCell is garbage collected.
- * Only frees the underlying EseMapCell if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
+/* --- Lua Methods ------------------------------------------------------------------------------ */
+
+/// Lua: __gc metamethod for MapCell.
 static int _ese_map_cell_lua_gc(lua_State *L) {
     // Get from userdata
     EseMapCell **ud = (EseMapCell **)luaL_testudata(L, 1, MAP_CELL_PROXY_META);
@@ -127,15 +125,7 @@ static int _ese_map_cell_lua_gc(lua_State *L) {
     return 0;
 }
 
-/**
- * @brief Lua __index metamethod for EseMapCell property access
- * 
- * Provides read access to map cell properties from Lua. When a Lua script
- * accesses cell.property, this function is called to retrieve the values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
+/// Lua: __index metamethod for MapCell.
 static int _ese_map_cell_lua_index(lua_State *L) {
     profile_start(PROFILE_LUA_map_cell_INDEX);
     EseMapCell *cell = ese_map_cell_lua_get(L, 1);
@@ -194,15 +184,7 @@ static int _ese_map_cell_lua_index(lua_State *L) {
     return 0;
 }
 
-/**
- * @brief Lua __newindex metamethod for EseMapCell property assignment
- * 
- * Provides write access to map cell properties from Lua. When a Lua script
- * assigns to cell.property, this function is called to update the values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
+/// Lua: __newindex metamethod for MapCell.
 static int _ese_map_cell_lua_newindex(lua_State *L) {
     profile_start(PROFILE_LUA_map_cell_NEWINDEX);
     EseMapCell *cell = ese_map_cell_lua_get(L, 1);
@@ -233,15 +215,7 @@ static int _ese_map_cell_lua_newindex(lua_State *L) {
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
-/**
- * @brief Lua __tostring metamethod for EseMapCell string representation
- * 
- * Converts an EseMapCell to a human-readable string for debugging and display.
- * The format includes the memory address and current properties.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
+/// Lua: __tostring metamethod for MapCell.
 static int _ese_map_cell_lua_tostring(lua_State *L) {
     EseMapCell *cell = ese_map_cell_lua_get(L, 1);
 
@@ -356,9 +330,7 @@ static int _ese_map_cell_lua_clear_flag(lua_State *L) {
     return 0;
 }
 
-// ========================================
-// PUBLIC FUNCTIONS
-// ========================================
+/* --- C API ------------------------------------------------------------------------------------ */
 
 // Core lifecycle
 EseMapCell *ese_map_cell_create(EseLuaEngine *engine, EseMap *map) {
@@ -421,7 +393,7 @@ void ese_map_cell_destroy(EseMapCell *cell) {
     }
 }
 
-// Lua integration
+/* --- Lua Init --------------------------------------------------------------------------------- */
 void ese_map_cell_lua_init(EseLuaEngine *engine) {
     log_assert("MAPCELL", engine, "ese_map_cell_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, MAP_CELL_PROXY_META)) {
@@ -442,6 +414,7 @@ void ese_map_cell_lua_init(EseLuaEngine *engine) {
     lua_pop(engine->runtime, 1);
 }
 
+/* --- C API ------------------------------------------------------------------------------------ */
 void ese_map_cell_lua_push(EseMapCell *cell) {
     log_assert("MAPCELL", cell, "ese_map_cell_lua_push called with NULL cell");
 
@@ -454,7 +427,6 @@ void ese_map_cell_lua_push(EseMapCell *cell) {
         luaL_getmetatable(cell->state, MAP_CELL_PROXY_META);
         lua_setmetatable(cell->state, -2);
     } else {
-        printf("C-owned: getting from registry\n");
         // C-owned: get from registry
         lua_rawgeti(cell->state, LUA_REGISTRYINDEX, cell->lua_ref);
     }
@@ -536,7 +508,7 @@ size_t ese_map_cell_sizeof(void) {
     return sizeof(EseMapCell);
 }
 
-// Tile/Flag API
+/* --- Tile/Flag API --------------------------------------------------------------------------- */
 bool ese_map_cell_add_layer(EseMapCell *cell, int tile_id) {
     if (!cell) return false;
 
@@ -597,7 +569,7 @@ size_t ese_map_cell_get_layer_count(const EseMapCell *cell) {
     return cell->layer_count;
 }
 
-// Watcher system
+/* --- Watcher API ------------------------------------------------------------------------------ */
 bool ese_map_cell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
     log_assert("MAPCELL", cell, "ese_map_cell_add_watcher called with NULL cell");
     log_assert("MAPCELL", callback, "ese_map_cell_add_watcher called with NULL callback");

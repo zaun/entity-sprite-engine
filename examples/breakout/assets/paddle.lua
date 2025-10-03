@@ -15,6 +15,8 @@ function ENTITY:entity_init()
     self.data.is_playing = false
     self.position.x = Display.viewport.width / 2 - self.data.width / 2
     self.position.y = Display.viewport.height - self.data.height - 10
+    self:subscribe("new_ball", "new_ball")
+    self:subscribe("set_state_play", "set_state_play")
 end
 
 function ENTITY:entity_update(delta_time)
@@ -55,7 +57,7 @@ function ENTITY:entity_update(delta_time)
         if ball then
             if ball and not ball.data.launched then
                 self.data.ball_locked = false
-                ball:dispatch("launch_ball")
+                Entity.publish("launch_ball", nil)
             end
         end
     end

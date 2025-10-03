@@ -337,8 +337,6 @@ static int _ese_color_lua_new(lua_State *L) {
     color->b = b;
     color->a = a;
 
-    printf("DEBUG: Creating color: r=%.3f, g=%.3f, b=%.3f, a=%.3f\n", r, g, b, a);
-
     // Create userdata directly
     EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
     *ud = color;
