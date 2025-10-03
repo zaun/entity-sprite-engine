@@ -66,7 +66,7 @@ EseEngine *engine_create(const char *startup_script) {
     ese_display_lua_init(engine->lua_engine);
     ese_input_state_lua_init(engine->lua_engine);
     ese_map_lua_init(engine->lua_engine);
-    ese_mapcell_lua_init(engine->lua_engine);
+    ese_map_cell_lua_init(engine->lua_engine);
     ese_point_lua_init(engine->lua_engine);
     ese_poly_line_lua_init(engine->lua_engine);
     ese_ray_lua_init(engine->lua_engine);

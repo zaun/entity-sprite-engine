@@ -20,7 +20,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     
     _entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
-    _entity_component_ese_map_init(engine);
+    _entity_component_map_init(engine);
     _entity_component_shape_init(engine);
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);

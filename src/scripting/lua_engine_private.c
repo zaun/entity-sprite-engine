@@ -11,6 +11,7 @@
 #include "platform/time.h"
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_engine.h"
+#include "types/types.h"
 
 /**
  * @brief Header structure for Lua memory allocations.
@@ -442,6 +443,27 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
             break;
         case LUA_VAL_STRING:
             lua_pushstring(L, arg->value.string ? arg->value.string : "");
+            break;
+        case LUA_VAL_MAP:
+            if (arg->value.map) {
+                ese_map_lua_push(arg->value.map);
+            } else {
+                lua_pushnil(L);
+            }
+            break;
+        case LUA_VAL_MAP_CELL:
+            if (arg->value.map_cell) {
+                ese_map_cell_lua_push(arg->value.map_cell);
+            } else {
+                lua_pushnil(L);
+            }
+            break;
+        case LUA_VAL_POINT:
+            if (arg->value.point) {
+                ese_point_lua_push(arg->value.point);
+            } else {
+                lua_pushnil(L);
+            }
             break;
         case LUA_VAL_USERDATA:
             lua_pushlightuserdata(L, arg->value.userdata);

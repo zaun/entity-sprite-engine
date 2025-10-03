@@ -727,7 +727,7 @@ static int _entity_lua_dispatch(lua_State *L) {
 
     if (argv) {
         for (int i = 0; i < argc; ++i) {
-            lua_value_free(argv[i]);
+            lua_value_destroy(argv[i]);
         }
         memory_manager.free(argv);
     }
@@ -1190,7 +1190,7 @@ static int _entity_lua_publish(lua_State *L) {
     // Publish
     engine_pubsub_pub(engine, event_name, data);
     
-    lua_value_free(data);
+    lua_value_destroy(data);
     lua_pushboolean(L, true);
     return 1;
 }

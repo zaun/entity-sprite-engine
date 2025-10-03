@@ -54,6 +54,11 @@ function STARTUP:startup()
     map_comp.position.x = 6
     map_comp.position.y = 4
 
+    if asset_load_script("map.lua") then
+        map_comp.script = "map.lua"
+        print("Map script loaded: " .. map_comp.script)
+    end
+
     local map_manager = Entity.new()
     map_manager.draw_order = 0
     map_manager.components.add(map_comp)

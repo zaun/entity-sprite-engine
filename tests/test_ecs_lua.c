@@ -331,7 +331,7 @@ void test_entity_component_lua_lua_update_function(void) {
     EseLuaValue *delta_time = lua_value_create_number("delta_time", 1.5);
     EseLuaValue *args[] = {delta_time};
     entity_run_function_with_args(test_entity, "entity_update", 1, args);
-    lua_value_free(delta_time);
+    lua_value_destroy(delta_time);
     
     // Verify that Lua updated entity.__data.update = 1
     lua_State *L = test_engine->runtime;

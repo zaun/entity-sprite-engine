@@ -8,6 +8,17 @@ typedef struct EseEntity EseEntity;
 typedef struct EseEntityComponent EseEntityComponent;
 typedef struct EseLuaEngine EseLuaEngine;
 
+/**
+ * @brief Cached Lua function reference for performance optimization.
+ * 
+ * @details Stores a cached reference to a Lua function to avoid repeated lookups.
+ *          The function_ref is a Lua registry reference that can be used directly.
+ */
+ typedef struct {
+    int function_ref;        /** Lua registry reference to the function */
+    bool exists;            /** true if function exists, false if LUA_NOREF */
+} CachedLuaFunction;
+
 void entity_component_lua_init(EseLuaEngine *engine);
 
 EseEntityComponent *entity_component_copy(EseEntityComponent* component);

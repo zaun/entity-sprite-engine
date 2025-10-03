@@ -141,7 +141,7 @@ static void _entity_cleanup(EseEntity *entity) {
     }
 
     if (entity->lua_val_ref) {
-        lua_value_free(entity->lua_val_ref);
+        lua_value_destroy(entity->lua_val_ref);
     }
 
     if (entity->default_props) {
@@ -473,7 +473,7 @@ bool entity_add_prop(EseEntity *entity, EseLuaValue *value) {
 
     if (_entity_lua_to_data(entity, value)) {
         if (!entity->default_props) {
-            entity->default_props = dlist_create((DListFreeFn)lua_value_free);
+            entity->default_props = dlist_create((DListFreeFn)lua_value_destroy);
         }
         dlist_append(entity->default_props, value);
         return true;

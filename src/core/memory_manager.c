@@ -61,6 +61,7 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "ASSET          ",
     "ENTITY         ",
     "COMP_LUA       ",
+    "COMP_MAP       ",
     "LUA            ",
     "LUA_VALUE      ",
     "LUA_SCRIPT     ",

@@ -14,17 +14,6 @@ typedef struct EseHashMap EseHashMap;
 typedef struct lua_State lua_State;
 
 /**
- * @brief Cached Lua function reference for performance optimization.
- * 
- * @details Stores a cached reference to a Lua function to avoid repeated lookups.
- *          The function_ref is a Lua registry reference that can be used directly.
- */
-typedef struct {
-    int function_ref;        /** Lua registry reference to the function */
-    bool exists;            /** true if function exists, false if LUA_NOREF */
-} CachedLuaFunction;
-
-/**
  * @brief Component that provides Lua scripting capabilities to an entity.
  * 
  * @details This component manages Lua script execution, instance data, and

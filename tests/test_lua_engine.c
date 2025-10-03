@@ -278,7 +278,7 @@ static void test_jit_script_loading(void) {
             lua_pop(L, 1);
             
             // Clean up dummy self, lua value, and instance
-            lua_value_free(fibonacci_arg);
+            lua_value_destroy(fibonacci_arg);
             luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
             lua_engine_instance_remove(engine, instance_ref);
         }
@@ -427,8 +427,8 @@ static void test_function_references(void) {
             TEST_ASSERT_TRUE_MESSAGE(exec_result, "multiply function should execute successfully");
             
             // Clean up AFTER all function calls complete
-            lua_value_free(arg1);
-            lua_value_free(arg2);
+            lua_value_destroy(arg1);
+            lua_value_destroy(arg2);
             luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
             lua_engine_instance_remove(engine, instance_ref);
         }
@@ -559,11 +559,11 @@ static void test_lua_value_arguments(void) {
             TEST_ASSERT_TRUE_MESSAGE(exec_result, "Function with table argument should execute successfully");
             
             // Clean up
-            lua_value_free(nil_arg);
-            lua_value_free(bool_arg);
-            lua_value_free(num_arg);
-            lua_value_free(str_arg);
-            lua_value_free(table_arg);
+            lua_value_destroy(nil_arg);
+            lua_value_destroy(bool_arg);
+            lua_value_destroy(num_arg);
+            lua_value_destroy(str_arg);
+            lua_value_destroy(table_arg);
             
             luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
             lua_engine_instance_remove(engine, instance_ref);
@@ -627,7 +627,7 @@ static void test_timeout_and_limits(void) {
             TEST_ASSERT_TRUE_MESSAGE(exec_result, "Recursive function should execute successfully");
             
             // Clean up
-            lua_value_free(arg);
+            lua_value_destroy(arg);
             luaL_unref(L, LUA_REGISTRYINDEX, dummy_self_ref);
             lua_engine_instance_remove(engine, instance_ref);
         }

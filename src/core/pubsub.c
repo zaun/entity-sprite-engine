@@ -177,5 +177,5 @@ static void _entity_pubsub_callback(const char *name, const EseLuaValue *data, E
     // Call entity function with the correct function name
     entity_run_function_with_args(entity, function_name, 2, args);
     
-    lua_value_free(event_name);
+    lua_value_destroy(event_name);
 }

@@ -17,16 +17,16 @@ typedef struct {
 extern "C" {
 #endif
 
-// Timer ID constants for engine_update profiling
+// Timer ID constants for engine_update
 #define PROFILE_ENG_UPDATE_OVERALL              0
 #define PROFILE_ENG_UPDATE_SECTION              1
 
-// Timer ID constants for lua_value profiling
+// Timer ID constants for lua_value
 #define PROFILE_LUA_VALUE_RESET_OVERALL         2
 #define PROFILE_LUA_VALUE_RESET_SECTION         3
 #define PROFILE_LUA_VALUE_SET                   4
 
-// Timer ID constants for lua_engine profiling (compile-out stubs)
+// Timer ID constants for lua_engine
 #define PROFILE_LUA_ENGINE_LOAD_SCRIPT          5
 #define PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING   6
 #define PROFILE_LUA_ENGINE_INSTANCE_SCRIPT      7
@@ -40,12 +40,17 @@ extern "C" {
 #define PROFILE_LUA_ENGINE_RESULT_CONVERSION    15
 #define PROFILE_LUA_ENGINE_ALLOC                16
 
-// Timer ID constants for entity_component_lua profiling (compile-out stubs)
+// Timer ID constants for entity_component_lua
 #define PROFILE_ENTITY_COMP_LUA_INSTANCE_CREATE 17
 #define PROFILE_ENTITY_COMP_LUA_FUNCTION_CACHE  18
 #define PROFILE_ENTITY_COMP_LUA_FUNCTION_RUN    19
 
-// Timer ID constants for entity system profiling
+// Timer ID constants for entity_component_map
+#define PROFILE_ENTITY_COMP_MAP_INSTANCE_CREATE 20
+#define PROFILE_ENTITY_COMP_MAP_FUNCTION_CACHE  21
+#define PROFILE_ENTITY_COMP_MAP_FUNCTION_RUN    22
+
+// Timer ID constants for entity system
 #define PROFILE_ENTITY_UPDATE_OVERALL           20
 #define PROFILE_ENTITY_UPDATE_SECTION           21
 #define PROFILE_ENTITY_COMPONENT_UPDATE         22
@@ -161,12 +166,12 @@ extern "C" {
 #define PROFILE_LUA_POLY_LINE_GET_POINT_COUNT   100
 #define PROFILE_LUA_POLY_LINE_CLEAR_POINTS      101
 
-// MapCell profiling
-#define PROFILE_LUA_MAPCELL_INDEX               102
-#define PROFILE_LUA_MAPCELL_NEWINDEX            103
-#define PROFILE_LUA_MAPCELL_NEW                 104
+// MapCell
+#define PROFILE_LUA_map_cell_INDEX               102
+#define PROFILE_LUA_map_cell_NEWINDEX            103
+#define PROFILE_LUA_map_cell_NEW                 104
 
-// Tileset profiling
+// Tileset
 #define PROFILE_LUA_TILESET_INDEX               105
 #define PROFILE_LUA_TILESET_NEWINDEX            106
 #define PROFILE_LUA_TILESET_NEW                 107

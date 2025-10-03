@@ -156,8 +156,13 @@ void _entity_component_lua_cleanup(EseEntityComponentLua *component) {
         component->function_cache = NULL;
     }
 
+    if (component->instance_ref != LUA_NOREF) {
+        lua_engine_instance_remove(component->engine, component->instance_ref);
+        component->instance_ref = LUA_NOREF;
+    }
+
     memory_manager.free(component->script);
-    lua_value_free(component->arg);
+    lua_value_destroy(component->arg);
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
     profile_count_add("entity_comp_lua_destroy_count");
@@ -191,7 +196,6 @@ void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *e
     // If not script, just return
     if (component->script == NULL) {
         profile_cancel(PROFILE_ENTITY_COMP_LUA_UPDATE);
-        profile_count_add("entity_comp_lua_update_no_script");
         return;
     }
 

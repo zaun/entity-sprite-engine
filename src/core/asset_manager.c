@@ -826,7 +826,7 @@ bool asset_manager_load_map(
             }
             long lid = lid_item->valueint;
             if (lid == -1) {
-                if (!ese_mapcell_add_layer(dst, -1)) {
+                if (!ese_map_cell_add_layer(dst, -1)) {
                     log_error(
                         "ASSET_MANAGER",
                         "Failed to add layer for blank tile at cell %d in %s",
@@ -860,7 +860,7 @@ bool asset_manager_load_map(
                 return false;
             }
 
-            if (!ese_mapcell_add_layer(dst, tile_id)) {
+            if (!ese_map_cell_add_layer(dst, tile_id)) {
                 log_error("ASSET_MANAGER", "Failed to add layer for tile %d at cell %d in %s",
                           tile_id, ci, filename);
                 ese_map_destroy(map);
@@ -873,15 +873,15 @@ bool asset_manager_load_map(
         // Optional flags
         cJSON *flags_item = cJSON_GetObjectItem(cell_obj, "flags");
         if (flags_item && cJSON_IsNumber(flags_item)) {
-            ese_mapcell_set_flags(dst, (uint32_t)flags_item->valueint);
+            ese_map_cell_set_flags(dst, (uint32_t)flags_item->valueint);
         }
 
         // Optional isDynamic
         cJSON *dyn_item = cJSON_GetObjectItem(cell_obj, "isDynamic");
         if (dyn_item) {
-            if (dyn_item->type == cJSON_True) ese_mapcell_set_is_dynamic(dst, true);
-            else if (dyn_item->type == cJSON_False) ese_mapcell_set_is_dynamic(dst, false);
-            else if (cJSON_IsNumber(dyn_item)) ese_mapcell_set_is_dynamic(dst, (dyn_item->valueint != 0));
+            if (dyn_item->type == cJSON_True) ese_map_cell_set_is_dynamic(dst, true);
+            else if (dyn_item->type == cJSON_False) ese_map_cell_set_is_dynamic(dst, false);
+            else if (cJSON_IsNumber(dyn_item)) ese_map_cell_set_is_dynamic(dst, (dyn_item->valueint != 0));
         }
     }
 

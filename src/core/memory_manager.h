@@ -11,6 +11,7 @@ typedef enum {
     MMTAG_ASSET,
     MMTAG_ENTITY,
     MMTAG_COMP_LUA,
+    MMTAG_COMP_MAP,
     MMTAG_LUA,
     MMTAG_LUA_VALUE,
     MMTAG_LUA_SCRIPT,

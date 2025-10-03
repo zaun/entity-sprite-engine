@@ -233,7 +233,7 @@ static void test_entity_run_function() {
         EseLuaValue *arg = lua_value_create_string("arg", "my_tag");        
         EseLuaValue *args[] = {arg};
         entity_run_function_with_args(entity, "custom_function", 1, args);
-        lua_value_free(arg);
+        lua_value_destroy(arg);
         
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity, "my_tag"), "Entity should have the tag");
     }

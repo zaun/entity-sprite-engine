@@ -339,7 +339,7 @@ static void test_ese_map_get_cell(void) {
 
     EseMapCell *cell = ese_map_get_cell(map, 5, 5);
     TEST_ASSERT_NOT_NULL_MESSAGE(cell, "ese_map_get_cell should return valid cell");
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, ese_mapcell_get_layer_count(cell), "New cell should have 0 layers");
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, ese_map_cell_get_layer_count(cell), "New cell should have 0 layers");
 
     EseMapCell *cell_out_of_bounds = ese_map_get_cell(map, 15, 15);
     TEST_ASSERT_NULL_MESSAGE(cell_out_of_bounds, "ese_map_get_cell should return NULL for out of bounds");
@@ -618,7 +618,7 @@ static void test_ese_map_lua_resize(void) {
 
 static void test_ese_map_lua_get_cell(void) {
     ese_map_lua_init(g_engine);
-    ese_mapcell_lua_init(g_engine);
+    ese_map_cell_lua_init(g_engine);
     lua_State *L = g_engine->runtime;
 
     const char *test_code = "local m = Map.new(10, 10); local cell = m:get_cell(5, 5); return cell ~= nil";

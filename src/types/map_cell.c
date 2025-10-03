@@ -43,26 +43,26 @@ typedef struct EseMapCell {
 // ========================================
 
 // Core helpers
-static EseMapCell *_ese_mapcell_make(EseMap *map);
+static EseMapCell *_ese_map_cell_make(EseMap *map);
 
 // Watcher system
-static void _ese_mapcell_notify_watchers(EseMapCell *cell);
+static void _ese_map_cell_notify_watchers(EseMapCell *cell);
 
 // Lua metamethods
-static int _ese_mapcell_lua_gc(lua_State *L);
-static int _ese_mapcell_lua_index(lua_State *L);
-static int _ese_mapcell_lua_newindex(lua_State *L);
-static int _ese_mapcell_lua_tostring(lua_State *L);
+static int _ese_map_cell_lua_gc(lua_State *L);
+static int _ese_map_cell_lua_index(lua_State *L);
+static int _ese_map_cell_lua_newindex(lua_State *L);
+static int _ese_map_cell_lua_tostring(lua_State *L);
 
 // Lua method implementations
-static int _ese_mapcell_lua_add_layer(lua_State *L);
-static int _ese_mapcell_lua_remove_layer(lua_State *L);
-static int _ese_mapcell_lua_get_layer(lua_State *L);
-static int _ese_mapcell_lua_set_layer(lua_State *L);
-static int _ese_mapcell_lua_clear_layers(lua_State *L);
-static int _ese_mapcell_lua_has_flag(lua_State *L);
-static int _ese_mapcell_lua_set_flag(lua_State *L);
-static int _ese_mapcell_lua_clear_flag(lua_State *L);
+static int _ese_map_cell_lua_add_layer(lua_State *L);
+static int _ese_map_cell_lua_remove_layer(lua_State *L);
+static int _ese_map_cell_lua_get_layer(lua_State *L);
+static int _ese_map_cell_lua_set_layer(lua_State *L);
+static int _ese_map_cell_lua_clear_layers(lua_State *L);
+static int _ese_map_cell_lua_has_flag(lua_State *L);
+static int _ese_map_cell_lua_set_flag(lua_State *L);
+static int _ese_map_cell_lua_clear_flag(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -77,7 +77,7 @@ static int _ese_mapcell_lua_clear_flag(lua_State *L);
  * 
  * @return Pointer to the newly created EseMapCell, or NULL on allocation failure
  */
-static EseMapCell *_ese_mapcell_make(EseMap *map) {
+static EseMapCell *_ese_map_cell_make(EseMap *map) {
     EseMapCell *cell = (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);    
     cell->tile_ids = (int *)memory_manager.malloc(sizeof(int) * INITIAL_LAYER_CAPACITY, MMTAG_MAP_CELL);
     
@@ -107,7 +107,7 @@ static EseMapCell *_ese_mapcell_make(EseMap *map) {
  * @param L Lua state
  * @return Always returns 0 (no values pushed)
  */
-static int _ese_mapcell_lua_gc(lua_State *L) {
+static int _ese_map_cell_lua_gc(lua_State *L) {
     // Get from userdata
     EseMapCell **ud = (EseMapCell **)luaL_testudata(L, 1, MAP_CELL_PROXY_META);
     if (!ud) {
@@ -120,7 +120,7 @@ static int _ese_mapcell_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this cell was referenced from C and should not be freed.
         if (cell->lua_ref == LUA_NOREF) {
-            ese_mapcell_destroy(cell);
+            ese_map_cell_destroy(cell);
         }
     }
 
@@ -136,61 +136,61 @@ static int _ese_mapcell_lua_gc(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
  */
-static int _ese_mapcell_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_MAPCELL_INDEX);
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_index(lua_State *L) {
+    profile_start(PROFILE_LUA_map_cell_INDEX);
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!cell || !key) {
-        profile_cancel(PROFILE_LUA_MAPCELL_INDEX);
+        profile_cancel(PROFILE_LUA_map_cell_INDEX);
         return 0;
     }
 
     if (strcmp(key, "isDynamic") == 0) {
         lua_pushboolean(L, cell->isDynamic);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "flags") == 0) {
         lua_pushnumber(L, cell->flags);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "layer_count") == 0) {
         lua_pushnumber(L, cell->layer_count);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (getter)");
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "add_layer") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_add_layer);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_add_layer);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "remove_layer") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_remove_layer);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_remove_layer);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "get_layer") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_get_layer);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_get_layer);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "set_layer") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_set_layer);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_set_layer);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "clear_layers") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_clear_layers);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_clear_layers);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "has_flag") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_has_flag);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_has_flag);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "set_flag") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_set_flag);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_set_flag);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     } else if (strcmp(key, "clear_flag") == 0) {
-        lua_pushcfunction(L, _ese_mapcell_lua_clear_flag);
-        profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (method)");
+        lua_pushcfunction(L, _ese_map_cell_lua_clear_flag);
+        profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (method)");
         return 1;
     }
-    profile_stop(PROFILE_LUA_MAPCELL_INDEX, "mapcell_lua_index (invalid)");
+    profile_stop(PROFILE_LUA_map_cell_INDEX, "mapcell_lua_index (invalid)");
     return 0;
 }
 
@@ -203,33 +203,33 @@ static int _ese_mapcell_lua_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 0)
  */
-static int _ese_mapcell_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_MAPCELL_NEWINDEX);
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_newindex(lua_State *L) {
+    profile_start(PROFILE_LUA_map_cell_NEWINDEX);
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     const char *key = lua_tostring(L, 2);
     if (!cell || !key) {
-        profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
+        profile_cancel(PROFILE_LUA_map_cell_NEWINDEX);
         return 0;
     }
 
     if (strcmp(key, "isDynamic") == 0) {
         if (lua_type(L, 3) != LUA_TBOOLEAN) {
-            profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
+            profile_cancel(PROFILE_LUA_map_cell_NEWINDEX);
             return luaL_error(L, "mapcell.isDynamic must be a boolean");
         }
         cell->isDynamic = lua_toboolean(L, 3);
-        profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (setter)");
+        profile_stop(PROFILE_LUA_map_cell_NEWINDEX, "mapcell_lua_newindex (setter)");
         return 0;
     } else if (strcmp(key, "flags") == 0) {
         if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_MAPCELL_NEWINDEX);
+            profile_cancel(PROFILE_LUA_map_cell_NEWINDEX);
             return luaL_error(L, "mapcell.flags must be a number");
         }
         cell->flags = (uint32_t)lua_tonumber(L, 3);
-        profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (setter)");
+        profile_stop(PROFILE_LUA_map_cell_NEWINDEX, "mapcell_lua_newindex (setter)");
         return 0;
     }
-    profile_stop(PROFILE_LUA_MAPCELL_NEWINDEX, "mapcell_lua_newindex (invalid)");
+    profile_stop(PROFILE_LUA_map_cell_NEWINDEX, "mapcell_lua_newindex (invalid)");
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
@@ -242,8 +242,8 @@ static int _ese_mapcell_lua_newindex(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1)
  */
-static int _ese_mapcell_lua_tostring(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_tostring(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
 
     if (!cell) {
         lua_pushstring(L, "MapCell: (invalid)");
@@ -259,8 +259,8 @@ static int _ese_mapcell_lua_tostring(lua_State *L) {
 }
 
 // Lua method implementations
-static int _ese_mapcell_lua_add_layer(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_add_layer(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in add_layer");
 
     if (!lua_isnumber(L, 2))
@@ -271,36 +271,36 @@ static int _ese_mapcell_lua_add_layer(lua_State *L) {
         return luaL_error(L, "add_layer(tile_id) requires a number >= -1 and <= 255");
     }
 
-    lua_pushboolean(L, ese_mapcell_add_layer(cell, tile_id));
+    lua_pushboolean(L, ese_map_cell_add_layer(cell, tile_id));
     return 1;
 }
 
-static int _ese_mapcell_lua_remove_layer(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_remove_layer(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in remove_layer");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "remove_layer(index) requires a number");
 
     size_t idx = (size_t)lua_tonumber(L, 2);
-    lua_pushboolean(L, ese_mapcell_remove_layer(cell, idx));
+    lua_pushboolean(L, ese_map_cell_remove_layer(cell, idx));
     return 1;
 }
 
-static int _ese_mapcell_lua_get_layer(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_get_layer(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in get_layer");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "get_layer(index) requires a number");
 
     size_t idx = (size_t)lua_tonumber(L, 2);
-    lua_pushnumber(L, ese_mapcell_get_layer(cell, idx));
+    lua_pushnumber(L, ese_map_cell_get_layer(cell, idx));
     return 1;
 }
 
-static int _ese_mapcell_lua_set_layer(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_set_layer(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in set_layer");
 
     if (!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
@@ -308,51 +308,51 @@ static int _ese_mapcell_lua_set_layer(lua_State *L) {
 
     size_t idx = (size_t)lua_tonumber(L, 2);
     uint8_t tile_id = (uint8_t)lua_tonumber(L, 3);
-    lua_pushboolean(L, ese_mapcell_set_layer(cell, idx, tile_id));
+    lua_pushboolean(L, ese_map_cell_set_layer(cell, idx, tile_id));
     return 1;
 }
 
-static int _ese_mapcell_lua_clear_layers(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_clear_layers(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in clear_layers");
 
-    ese_mapcell_clear_layers(cell);
+    ese_map_cell_clear_layers(cell);
     return 0;
 }
 
-static int _ese_mapcell_lua_has_flag(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_has_flag(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in has_flag");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "has_flag(flag) requires a number");
 
     uint32_t flag = (uint32_t)lua_tonumber(L, 2);
-    lua_pushboolean(L, ese_mapcell_has_flag(cell, flag));
+    lua_pushboolean(L, ese_map_cell_has_flag(cell, flag));
     return 1;
 }
 
-static int _ese_mapcell_lua_set_flag(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_set_flag(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in set_flag");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "set_flag(flag) requires a number");
 
     uint32_t flag = (uint32_t)lua_tonumber(L, 2);
-    ese_mapcell_set_flag(cell, flag);
+    ese_map_cell_set_flag(cell, flag);
     return 0;
 }
 
-static int _ese_mapcell_lua_clear_flag(lua_State *L) {
-    EseMapCell *cell = ese_mapcell_lua_get(L, 1);
+static int _ese_map_cell_lua_clear_flag(lua_State *L) {
+    EseMapCell *cell = ese_map_cell_lua_get(L, 1);
     if (!cell) return luaL_error(L, "Invalid MapCell in clear_flag");
 
     if (!lua_isnumber(L, 2))
         return luaL_error(L, "clear_flag(flag) requires a number");
 
     uint32_t flag = (uint32_t)lua_tonumber(L, 2);
-    ese_mapcell_clear_flag(cell, flag);
+    ese_map_cell_clear_flag(cell, flag);
     return 0;
 }
 
@@ -361,16 +361,16 @@ static int _ese_mapcell_lua_clear_flag(lua_State *L) {
 // ========================================
 
 // Core lifecycle
-EseMapCell *ese_mapcell_create(EseLuaEngine *engine, EseMap *map) {
-    log_assert("MAPCELL", engine, "ese_mapcell_create called with NULL engine");
-    log_assert("MAPCELL", map, "ese_mapcell_create called with NULL map");
-    EseMapCell *cell = _ese_mapcell_make(map);
+EseMapCell *ese_map_cell_create(EseLuaEngine *engine, EseMap *map) {
+    log_assert("MAPCELL", engine, "ese_map_cell_create called with NULL engine");
+    log_assert("MAPCELL", map, "ese_map_cell_create called with NULL map");
+    EseMapCell *cell = _ese_map_cell_make(map);
     cell->state = engine->runtime;
     return cell;
 }
 
-EseMapCell *ese_mapcell_copy(const EseMapCell *source) {
-    log_assert("MAPCELL", source, "ese_mapcell_copy called with NULL source");
+EseMapCell *ese_map_cell_copy(const EseMapCell *source) {
+    log_assert("MAPCELL", source, "ese_map_cell_copy called with NULL source");
     
     EseMapCell *copy = (EseMapCell *)memory_manager.malloc(sizeof(EseMapCell), MMTAG_MAP_CELL);
     if (!copy) return NULL;
@@ -397,7 +397,7 @@ EseMapCell *ese_mapcell_copy(const EseMapCell *source) {
     return copy;
 }
 
-void ese_mapcell_destroy(EseMapCell *cell) {
+void ese_map_cell_destroy(EseMapCell *cell) {
     if (!cell) return;
     
     if (cell->lua_ref == LUA_NOREF) {
@@ -417,24 +417,24 @@ void ese_mapcell_destroy(EseMapCell *cell) {
     } else {
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
-        ese_mapcell_unref(cell);
+        ese_map_cell_unref(cell);
     }
 }
 
 // Lua integration
-void ese_mapcell_lua_init(EseLuaEngine *engine) {
-    log_assert("MAPCELL", engine, "ese_mapcell_lua_init called with NULL engine");
+void ese_map_cell_lua_init(EseLuaEngine *engine) {
+    log_assert("MAPCELL", engine, "ese_map_cell_lua_init called with NULL engine");
     if (luaL_newmetatable(engine->runtime, MAP_CELL_PROXY_META)) {
         log_debug("LUA", "Adding MapCellProxyMeta to engine");
         lua_pushstring(engine->runtime, MAP_CELL_PROXY_META);
         lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_mapcell_lua_index);
+        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_index);
         lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_mapcell_lua_newindex);
+        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_newindex);
         lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_mapcell_lua_gc);
+        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_gc);
         lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_mapcell_lua_tostring);
+        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_tostring);
         lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
         lua_pushstring(engine->runtime, "locked");
         lua_setfield(engine->runtime, -2, "__metatable");
@@ -442,8 +442,8 @@ void ese_mapcell_lua_init(EseLuaEngine *engine) {
     lua_pop(engine->runtime, 1);
 }
 
-void ese_mapcell_lua_push(EseMapCell *cell) {
-    log_assert("MAPCELL", cell, "ese_mapcell_lua_push called with NULL cell");
+void ese_map_cell_lua_push(EseMapCell *cell) {
+    log_assert("MAPCELL", cell, "ese_map_cell_lua_push called with NULL cell");
 
     if (cell->lua_ref == LUA_NOREF) {
         // Lua-owned: create a new userdata
@@ -460,8 +460,8 @@ void ese_mapcell_lua_push(EseMapCell *cell) {
     }
 }
 
-EseMapCell *ese_mapcell_lua_get(lua_State *L, int idx) {
-    log_assert("MAPCELL", L, "ese_mapcell_lua_get called with NULL Lua state");
+EseMapCell *ese_map_cell_lua_get(lua_State *L, int idx) {
+    log_assert("MAPCELL", L, "ese_map_cell_lua_get called with NULL Lua state");
     
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
@@ -477,8 +477,8 @@ EseMapCell *ese_mapcell_lua_get(lua_State *L, int idx) {
     return *ud;
 }
 
-void ese_mapcell_ref(EseMapCell *cell) {
-    log_assert("MAPCELL", cell, "ese_mapcell_ref called with NULL cell");
+void ese_map_cell_ref(EseMapCell *cell) {
+    log_assert("MAPCELL", cell, "ese_map_cell_ref called with NULL cell");
     
     if (cell->lua_ref == LUA_NOREF) {
         // First time referencing - create userdata and store reference
@@ -497,10 +497,10 @@ void ese_mapcell_ref(EseMapCell *cell) {
         cell->lua_ref_count++;
     }
 
-    profile_count_add("ese_mapcell_ref_count");
+    profile_count_add("ese_map_cell_ref_count");
 }
 
-void ese_mapcell_unref(EseMapCell *cell) {
+void ese_map_cell_unref(EseMapCell *cell) {
     if (!cell) return;
     
     if (cell->lua_ref != LUA_NOREF && cell->lua_ref_count > 0) {
@@ -513,31 +513,31 @@ void ese_mapcell_unref(EseMapCell *cell) {
         }
     }
 
-    profile_count_add("ese_mapcell_unref_count");
+    profile_count_add("ese_map_cell_unref_count");
 }
 
 // Lua-related access
-lua_State *ese_mapcell_get_state(const EseMapCell *cell) {
-    log_assert("MAPCELL", cell, "ese_mapcell_get_state called with NULL cell");
+lua_State *ese_map_cell_get_state(const EseMapCell *cell) {
+    log_assert("MAPCELL", cell, "ese_map_cell_get_state called with NULL cell");
     return cell->state;
 }
 
-int ese_mapcell_get_lua_ref(const EseMapCell *cell) {
-    log_assert("MAPCELL", cell, "ese_mapcell_get_lua_ref called with NULL cell");
+int ese_map_cell_get_lua_ref(const EseMapCell *cell) {
+    log_assert("MAPCELL", cell, "ese_map_cell_get_lua_ref called with NULL cell");
     return cell->lua_ref;
 }
 
-int ese_mapcell_get_lua_ref_count(const EseMapCell *cell) {
-    log_assert("MAPCELL", cell, "ese_mapcell_get_lua_ref_count called with NULL cell");
+int ese_map_cell_get_lua_ref_count(const EseMapCell *cell) {
+    log_assert("MAPCELL", cell, "ese_map_cell_get_lua_ref_count called with NULL cell");
     return cell->lua_ref_count;
 }
 
-size_t ese_mapcell_sizeof(void) {
+size_t ese_map_cell_sizeof(void) {
     return sizeof(EseMapCell);
 }
 
 // Tile/Flag API
-bool ese_mapcell_add_layer(EseMapCell *cell, int tile_id) {
+bool ese_map_cell_add_layer(EseMapCell *cell, int tile_id) {
     if (!cell) return false;
 
     if (cell->layer_count >= cell->layer_capacity) {
@@ -551,11 +551,11 @@ bool ese_mapcell_add_layer(EseMapCell *cell, int tile_id) {
 
     cell->tile_ids[cell->layer_count++] = tile_id;
     _ese_map_set_layer_count_dirty(cell->map);
-    _ese_mapcell_notify_watchers(cell);
+    _ese_map_cell_notify_watchers(cell);
     return true;
 }
 
-bool ese_mapcell_remove_layer(EseMapCell *cell, size_t layer_index) {
+bool ese_map_cell_remove_layer(EseMapCell *cell, size_t layer_index) {
     if (!cell || layer_index >= cell->layer_count) return false;
 
     for (size_t i = layer_index; i < cell->layer_count - 1; i++) {
@@ -563,44 +563,44 @@ bool ese_mapcell_remove_layer(EseMapCell *cell, size_t layer_index) {
     }
     cell->layer_count--;
     _ese_map_set_layer_count_dirty(cell->map);
-    _ese_mapcell_notify_watchers(cell);
+    _ese_map_cell_notify_watchers(cell);
     return true;
 }
 
-int ese_mapcell_get_layer(const EseMapCell *cell, size_t layer_index) {
+int ese_map_cell_get_layer(const EseMapCell *cell, size_t layer_index) {
     if (!cell || layer_index >= cell->layer_count) return 0;
     return cell->tile_ids[layer_index];
 }
 
-bool ese_mapcell_set_layer(EseMapCell *cell, size_t layer_index, uint8_t tile_id) {
+bool ese_map_cell_set_layer(EseMapCell *cell, size_t layer_index, uint8_t tile_id) {
     if (!cell || layer_index >= cell->layer_count) return false;
     cell->tile_ids[layer_index] = tile_id;
-    _ese_mapcell_notify_watchers(cell);
+    _ese_map_cell_notify_watchers(cell);
     return true;
 }
 
-void ese_mapcell_clear_layers(EseMapCell *cell) {
+void ese_map_cell_clear_layers(EseMapCell *cell) {
     if (cell) {
         cell->layer_count = 0;
         _ese_map_set_layer_count_dirty(cell->map);
-        _ese_mapcell_notify_watchers(cell);
+        _ese_map_cell_notify_watchers(cell);
     }
 }
 
-bool ese_mapcell_has_layers(const EseMapCell *cell) {
+bool ese_map_cell_has_layers(const EseMapCell *cell) {
     if (!cell) return false;
     return cell->layer_count > 0;
 }
 
-size_t ese_mapcell_get_layer_count(const EseMapCell *cell) {
+size_t ese_map_cell_get_layer_count(const EseMapCell *cell) {
     if (!cell) return 0;
     return cell->layer_count;
 }
 
 // Watcher system
-bool ese_mapcell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
-    log_assert("MAPCELL", cell, "ese_mapcell_add_watcher called with NULL cell");
-    log_assert("MAPCELL", callback, "ese_mapcell_add_watcher called with NULL callback");
+bool ese_map_cell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
+    log_assert("MAPCELL", cell, "ese_map_cell_add_watcher called with NULL cell");
+    log_assert("MAPCELL", callback, "ese_map_cell_add_watcher called with NULL callback");
 
     if (cell->watcher_count == 0) {
         cell->watcher_capacity = 4;
@@ -633,9 +633,9 @@ bool ese_mapcell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callbac
     return true;
 }
 
-bool ese_mapcell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
-    log_assert("MAPCELL", cell, "ese_mapcell_remove_watcher called with NULL cell");
-    log_assert("MAPCELL", callback, "ese_mapcell_remove_watcher called with NULL callback");
+bool ese_map_cell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata) {
+    log_assert("MAPCELL", cell, "ese_map_cell_remove_watcher called with NULL cell");
+    log_assert("MAPCELL", callback, "ese_map_cell_remove_watcher called with NULL callback");
 
     for (size_t i = 0; i < cell->watcher_count; i++) {
         if (cell->watchers[i] == callback && cell->watcher_userdata[i] == userdata) {
@@ -650,7 +650,7 @@ bool ese_mapcell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback call
     return false;
 }
 
-static void _ese_mapcell_notify_watchers(EseMapCell *cell) {
+static void _ese_map_cell_notify_watchers(EseMapCell *cell) {
     if (!cell || cell->watcher_count == 0) return;
     for (size_t i = 0; i < cell->watcher_count; i++) {
         if (cell->watchers[i]) {
@@ -659,46 +659,46 @@ static void _ese_mapcell_notify_watchers(EseMapCell *cell) {
     }
 }
 
-bool ese_mapcell_has_flag(const EseMapCell *cell, uint32_t flag) {
+bool ese_map_cell_has_flag(const EseMapCell *cell, uint32_t flag) {
     if (!cell) return false;
     return (cell->flags & flag) != 0;
 }
 
-void ese_mapcell_set_flag(EseMapCell *cell, uint32_t flag) {
+void ese_map_cell_set_flag(EseMapCell *cell, uint32_t flag) {
     if (cell) {
         cell->flags |= flag;
-        _ese_mapcell_notify_watchers(cell);
+        _ese_map_cell_notify_watchers(cell);
     }
 }
 
-void ese_mapcell_clear_flag(EseMapCell *cell, uint32_t flag) {
+void ese_map_cell_clear_flag(EseMapCell *cell, uint32_t flag) {
     if (cell) {
         cell->flags &= ~flag;
-        _ese_mapcell_notify_watchers(cell);
+        _ese_map_cell_notify_watchers(cell);
     }
 }
 
 // Property access
-void ese_mapcell_set_is_dynamic(EseMapCell *cell, bool isDynamic) {
+void ese_map_cell_set_is_dynamic(EseMapCell *cell, bool isDynamic) {
     if (cell) {
         cell->isDynamic = isDynamic;
-        _ese_mapcell_notify_watchers(cell);
+        _ese_map_cell_notify_watchers(cell);
     }
 }
 
-bool ese_mapcell_get_is_dynamic(const EseMapCell *cell) {
+bool ese_map_cell_get_is_dynamic(const EseMapCell *cell) {
     if (!cell) return false;
     return cell->isDynamic;
 }
 
-void ese_mapcell_set_flags(EseMapCell *cell, uint32_t flags) {
+void ese_map_cell_set_flags(EseMapCell *cell, uint32_t flags) {
     if (cell) {
         cell->flags = flags;
-        _ese_mapcell_notify_watchers(cell);
+        _ese_map_cell_notify_watchers(cell);
     }
 }
 
-uint32_t ese_mapcell_get_flags(const EseMapCell *cell) {
+uint32_t ese_map_cell_get_flags(const EseMapCell *cell) {
     if (!cell) return 0;
     return cell->flags;
 }

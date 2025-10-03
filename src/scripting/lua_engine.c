@@ -438,6 +438,7 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
                 memory_manager.free(wrapped);
                 profile_stop(PROFILE_LUA_ENGINE_LOAD_SCRIPT_STRING, "lua_eng_load_script_string");
                 profile_count_add("lua_eng_load_script_string_success");
+                lua_pop(engine->runtime, 1); // pop env
                 return true;
             } else {
                 log_error("LUA_ENGINE", "Script '%s' did not return a table", name);

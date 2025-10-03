@@ -10,6 +10,20 @@
 #include "core/memory_manager.h"
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_engine.h"
+#include "types/rect.h"
+#include "types/point.h"
+#include "types/map.h"
+#include "types/arc.h"
+#include "types/camera.h"
+#include "types/color.h"
+#include "types/display.h"
+#include "types/input_state.h"
+#include "types/map_cell.h"
+#include "types/poly_line.h"
+#include "types/ray.h"
+#include "types/tileset.h"
+#include "types/uuid.h"
+#include "types/vector.h"
 
 
 /**
@@ -36,6 +50,63 @@ static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
         val->value.userdata = NULL;
     }
 
+    if (val->type == LUA_VAL_RECT) {
+        val->value.rect = NULL;
+    }
+
+    if (val->type == LUA_VAL_MAP) {
+        val->value.map = NULL;
+    }
+
+    if (val->type == LUA_VAL_ARC) {
+        val->value.arc = NULL;
+    }
+
+    if (val->type == LUA_VAL_COLOR) {
+        val->value.color = NULL;
+    }
+
+    if (val->type == LUA_VAL_DISPLAY) {
+        val->value.display = NULL;
+    }
+
+    if (val->type == LUA_VAL_INPUT_STATE) {
+        val->value.input_state = NULL;
+    }
+
+    if (val->type == LUA_VAL_MAP_CELL) {
+        val->value.map_cell = NULL;
+    }
+
+    if (val->type == LUA_VAL_POLY_LINE) {
+        val->value.poly_line = NULL;
+    }
+
+    if (val->type == LUA_VAL_RAY) {
+        val->value.ray = NULL;
+    }
+
+    if (val->type == LUA_VAL_TILESET) {
+        val->value.tileset = NULL;
+    }
+
+    if (val->type == LUA_VAL_UUID) {
+        val->value.uuid = NULL;
+    }
+
+    if (val->type == LUA_VAL_VECTOR) {
+        val->value.vector = NULL;
+    }
+
+    if (val->type == LUA_VAL_CFUNC) {
+        val->value.cfunc_data.cfunc = NULL;
+        val->value.cfunc_data.upvalue = NULL;
+    }
+
+    if (val->type == LUA_VAL_ERROR) {
+        val->value.string = NULL;
+    }
+
     if (val->type == LUA_VAL_STRING && val->value.string) {
         profile_start(PROFILE_LUA_VALUE_RESET_SECTION);
         memory_manager.free(val->value.string);
@@ -46,7 +117,7 @@ static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
     if (val->type == LUA_VAL_TABLE && val->value.table.items) {
         profile_start(PROFILE_LUA_VALUE_RESET_SECTION);
         for (size_t i = 0; i < val->value.table.count; ++i) {
-            lua_value_free(val->value.table.items[i]);
+            lua_value_destroy(val->value.table.items[i]);
         }
         memory_manager.free(val->value.table.items);
         profile_stop(PROFILE_LUA_VALUE_RESET_SECTION, "lua_value_reset_table_free");
@@ -75,6 +146,7 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
     copy->name = src->name ? memory_manager.strdup(src->name, MMTAG_LUA_VALUE) : NULL;
     
     switch (src->type) {
+        case LUA_VAL_ERROR:
         case LUA_VAL_STRING:
             copy->value.string = src->value.string ? memory_manager.strdup(src->value.string, MMTAG_LUA_VALUE) : NULL;
             break;
@@ -91,7 +163,7 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
                             // If copying an item fails, we need to clean up
                             for (size_t j = 0; j < i; j++) {
                                 if (copy->value.table.items[j]) {
-                                    lua_value_free(copy->value.table.items[j]);
+                                    lua_value_destroy(copy->value.table.items[j]);
                                 }
                             }
                             memory_manager.free(copy->value.table.items);
@@ -109,6 +181,49 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
                 copy->value.table.count = 0;
                 copy->value.table.capacity = 0;
             }
+            break;
+        case LUA_VAL_RECT:
+            copy->value.rect = ese_rect_copy(src->value.rect);
+            break;
+        case LUA_VAL_POINT:
+            copy->value.point = ese_point_copy(src->value.point);
+            break;
+        case LUA_VAL_MAP:
+            copy->value.map = src->value.map;  // FIXME - no deep copy function available
+            break;
+        case LUA_VAL_ARC:
+            copy->value.arc = ese_arc_copy(src->value.arc);
+            break;
+        case LUA_VAL_COLOR:
+            copy->value.color = ese_color_copy(src->value.color);
+            break;
+        case LUA_VAL_DISPLAY:
+            copy->value.display = ese_display_copy(src->value.display);
+            break;
+        case LUA_VAL_INPUT_STATE:
+            copy->value.input_state = ese_input_state_copy(src->value.input_state);
+            break;
+        case LUA_VAL_MAP_CELL:
+            copy->value.map_cell = ese_map_cell_copy(src->value.map_cell);
+            break;
+        case LUA_VAL_POLY_LINE:
+            copy->value.poly_line = ese_poly_line_copy(src->value.poly_line);
+            break;
+        case LUA_VAL_RAY:
+            copy->value.ray = ese_ray_copy(src->value.ray);
+            break;
+        case LUA_VAL_TILESET:
+            copy->value.tileset = ese_tileset_copy(src->value.tileset);
+            break;
+        case LUA_VAL_UUID:
+            copy->value.uuid = ese_uuid_copy(src->value.uuid);
+            break;
+        case LUA_VAL_VECTOR:
+            copy->value.vector = ese_vector_copy(src->value.vector);
+            break;
+        case LUA_VAL_CFUNC:
+            copy->value.cfunc_data.cfunc = src->value.cfunc_data.cfunc;  // Function pointers are just copied
+            copy->value.cfunc_data.upvalue = src->value.cfunc_data.upvalue;  // Upvalue is just copied (shallow)
             break;
         default:
             copy->value = src->value;
@@ -157,6 +272,16 @@ EseLuaValue *lua_value_create_string(const char *name, const char *value) {
     return v;
 }
 
+EseLuaValue *lua_value_create_error(const char *name, const char *error_message) {
+    log_assert("LUA_VALUE", name, "lua_value_create_error called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_ERROR;
+    v->value.string = memory_manager.strdup(error_message, MMTAG_LUA_VALUE);
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
 EseLuaValue *lua_value_create_table(const char *name) {
     log_assert("LUA_VALUE", name, "lua_value_create_table called with NULL name");
 
@@ -185,6 +310,148 @@ EseLuaValue *lua_value_create_userdata(const char *name, void* value) {
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_USERDATA;
     v->value.userdata = value;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_rect(const char *name, struct EseRect* rect) {
+    log_assert("LUA_VALUE", name, "lua_value_create_rect called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_RECT;
+    v->value.rect = rect;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_point(const char *name, struct EsePoint* point) {
+    log_assert("LUA_VALUE", name, "lua_value_create_point called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_POINT;
+    v->value.point = point;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_map(const char *name, struct EseMap* map) {
+    log_assert("LUA_VALUE", name, "lua_value_create_map called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_MAP;
+    v->value.map = map;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_arc(const char *name, struct EseArc* arc) {
+    log_assert("LUA_VALUE", name, "lua_value_create_arc called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_ARC;
+    v->value.arc = arc;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_color(const char *name, struct EseColor* color) {
+    log_assert("LUA_VALUE", name, "lua_value_create_color called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_COLOR;
+    v->value.color = color;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_display(const char *name, struct EseDisplay* display) {
+    log_assert("LUA_VALUE", name, "lua_value_create_display called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_DISPLAY;
+    v->value.display = display;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_input_state(const char *name, struct EseInputState* input_state) {
+    log_assert("LUA_VALUE", name, "lua_value_create_input_state called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_INPUT_STATE;
+    v->value.input_state = input_state;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_map_cell(const char *name, struct EseMapCell* map_cell) {
+    log_assert("LUA_VALUE", name, "lua_value_create_map_cell called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_MAP_CELL;
+    v->value.map_cell = map_cell;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_poly_line(const char *name, struct EsePolyLine* poly_line) {
+    log_assert("LUA_VALUE", name, "lua_value_create_poly_line called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_POLY_LINE;
+    v->value.poly_line = poly_line;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_ray(const char *name, struct EseRay* ray) {
+    log_assert("LUA_VALUE", name, "lua_value_create_ray called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_RAY;
+    v->value.ray = ray;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_tileset(const char *name, struct EseTileSet* tileset) {
+    log_assert("LUA_VALUE", name, "lua_value_create_tileset called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_TILESET;
+    v->value.tileset = tileset;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_uuid(const char *name, struct EseUUID* uuid) {
+    log_assert("LUA_VALUE", name, "lua_value_create_uuid called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_UUID;
+    v->value.uuid = uuid;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_vector(const char *name, struct EseVector* vector) {
+    log_assert("LUA_VALUE", name, "lua_value_create_vector called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_VECTOR;
+    v->value.vector = vector;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
+EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc, EseLuaValue *upvalue) {
+    log_assert("LUA_VALUE", name, "lua_value_create_cfunc called with NULL name");
+    log_assert("LUA_VALUE", cfunc, "lua_value_create_cfunc called with NULL cfunc");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_CFUNC;
+    v->value.cfunc_data.cfunc = cfunc;
+    v->value.cfunc_data.upvalue = upvalue;
     if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
     return v;
 }
@@ -308,6 +575,60 @@ void lua_value_set_userdata(EseLuaValue *val, void* value) {
     profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_userdata");
 }
 
+void lua_value_set_rect(EseLuaValue *val, struct EseRect* rect) {
+    log_assert("LUA_VALUE", val, "lua_value_set_rect called with NULL val");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
+
+    _lua_value_reset(val, true);
+
+    val->type = LUA_VAL_RECT;
+    val->value.rect = rect;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_rect");
+}
+
+void lua_value_set_map(EseLuaValue *val, struct EseMap* map) {
+    log_assert("LUA_VALUE", val, "lua_value_set_map called with NULL val");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
+
+    _lua_value_reset(val, true);
+
+    val->type = LUA_VAL_MAP;
+    val->value.map = map;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_map");
+}
+
+void lua_value_set_arc(EseLuaValue *val, struct EseArc* arc) {
+    log_assert("LUA_VALUE", val, "lua_value_set_arc called with NULL val");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
+
+    _lua_value_reset(val, true);
+
+    val->type = LUA_VAL_ARC;
+    val->value.arc = arc;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_arc");
+}
+
+void lua_value_set_cfunc(EseLuaValue *val, EseLuaCFunction cfunc, EseLuaValue *upvalue) {
+    log_assert("LUA_VALUE", val, "lua_value_set_cfunc called with NULL val");
+    log_assert("LUA_VALUE", cfunc, "lua_value_set_cfunc called with NULL cfunc");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
+
+    _lua_value_reset(val, true);
+
+    val->type = LUA_VAL_CFUNC;
+    val->value.cfunc_data.cfunc = cfunc;
+    val->value.cfunc_data.upvalue = upvalue;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_cfunc");
+}
+
 EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
     log_assert("LUA_VALUE", val, "lua_value_get_table_prop called with NULL val");
 
@@ -325,6 +646,28 @@ EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
     profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_get_table_prop");
 
     return NULL;
+}
+
+void lua_value_set_table_prop(EseLuaValue *val, EseLuaValue *prop_value) {
+    log_assert("LUA_VALUE", val, "lua_value_set_table_prop called with NULL val");
+    log_assert("LUA_VALUE", prop_value, "lua_value_set_table_prop called with NULL prop_value");
+    log_assert("LUA_VALUE", val->type == LUA_VAL_TABLE, "lua_value_set_table_prop called on non-table value");
+    log_assert("LUA_VALUE", prop_value->name, "lua_value_set_table_prop called with prop_value that has no name");
+
+    // First check if property already exists
+    for (size_t i = 0; i < val->value.table.count; ++i) {
+        EseLuaValue *item = val->value.table.items[i];
+        if (item->name && strcmp(item->name, prop_value->name) == 0) {
+            // Property exists, replace it
+            lua_value_destroy(item);
+            val->value.table.items[i] = lua_value_copy(prop_value);
+            return;
+        }
+    }
+    
+    // Property doesn't exist, add it
+    EseLuaValue *new_item = lua_value_copy(prop_value);
+    lua_value_push(val, new_item, false); // Don't copy since we already copied it
 }
 
 const char *lua_value_get_name(EseLuaValue *val) {
@@ -357,7 +700,186 @@ void *lua_value_get_userdata(EseLuaValue *val) {
     return val->value.userdata;
 }
 
-void lua_value_free(EseLuaValue *val) {
+struct EseRect* lua_value_get_rect(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_rect called with NULL val");
+
+    return val->value.rect;
+}
+
+struct EsePoint* lua_value_get_point(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_point called with NULL val");
+
+    return val->value.point;
+}
+
+struct EseMap* lua_value_get_map(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_map called with NULL val");
+
+    return val->value.map;
+}
+
+struct EseArc* lua_value_get_arc(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_arc called with NULL val");
+
+    return val->value.arc;
+}
+
+EseColor* lua_value_get_color(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_color called with NULL val");
+
+    return val->value.color;
+}
+
+EseDisplay* lua_value_get_display(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_display called with NULL val");
+
+    return val->value.display;
+}
+
+EseInputState* lua_value_get_input_state(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_input_state called with NULL val");
+
+    return val->value.input_state;
+}
+
+EseMapCell* lua_value_get_map_cell(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_map_cell called with NULL val");
+
+    return val->value.map_cell;
+}
+
+EsePolyLine* lua_value_get_poly_line(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_poly_line called with NULL val");
+
+    return val->value.poly_line;
+}
+
+EseRay* lua_value_get_ray(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_ray called with NULL val");
+
+    return val->value.ray;
+}
+
+EseTileSet* lua_value_get_tileset(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_tileset called with NULL val");
+
+    return val->value.tileset;
+}
+
+EseUUID* lua_value_get_uuid(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_uuid called with NULL val");
+
+    return val->value.uuid;
+}
+
+EseVector* lua_value_get_vector(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_vector called with NULL val");
+
+    return val->value.vector;
+}
+
+EseLuaCFunction lua_value_get_cfunc(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_cfunc called with NULL val");
+
+    return val->value.cfunc_data.cfunc;
+}
+
+EseLuaValue* lua_value_get_cfunc_upvalue(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_cfunc_upvalue called with NULL val");
+
+    return val->value.cfunc_data.upvalue;
+}
+
+// Type checking functions
+bool lua_value_is_nil(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_NIL;
+}
+
+bool lua_value_is_bool(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_BOOL;
+}
+
+bool lua_value_is_number(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_NUMBER;
+}
+
+bool lua_value_is_string(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_STRING;
+}
+
+bool lua_value_is_table(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_TABLE;
+}
+
+bool lua_value_is_ref(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_REF;
+}
+
+bool lua_value_is_userdata(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_USERDATA;
+}
+
+bool lua_value_is_rect(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_RECT;
+}
+
+bool lua_value_is_point(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_POINT;
+}
+
+bool lua_value_is_map(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_MAP;
+}
+
+bool lua_value_is_arc(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_ARC;
+}
+
+bool lua_value_is_color(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_COLOR;
+}
+
+bool lua_value_is_display(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_DISPLAY;
+}
+
+bool lua_value_is_input_state(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_INPUT_STATE;
+}
+
+bool lua_value_is_map_cell(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_MAP_CELL;
+}
+
+bool lua_value_is_poly_line(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_POLY_LINE;
+}
+
+bool lua_value_is_ray(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_RAY;
+}
+
+bool lua_value_is_tileset(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_TILESET;
+}
+
+bool lua_value_is_uuid(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_UUID;
+}
+
+bool lua_value_is_vector(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_VECTOR;
+}
+
+bool lua_value_is_cfunc(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_CFUNC;
+}
+
+bool lua_value_is_error(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_ERROR;
+}
+
+void lua_value_destroy(EseLuaValue *val) {
     if (!val) return;
 
     _lua_value_reset(val, false);
@@ -406,6 +928,51 @@ static void _log_luavalue_rec(
             break;
         case LUA_VAL_STRING:
             *offset += snprintf(buf + *offset, buflen - *offset, "String: %s\n", val->value.string ? val->value.string : "");
+            break;
+        case LUA_VAL_RECT:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Rect: %p\n", val->value.rect);
+            break;
+        case LUA_VAL_POINT:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Point: %p\n", val->value.point);
+            break;
+        case LUA_VAL_MAP:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Map: %p\n", val->value.map);
+            break;
+        case LUA_VAL_ARC:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Arc: %p\n", val->value.arc);
+            break;
+        case LUA_VAL_COLOR:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Color: %p\n", val->value.color);
+            break;
+        case LUA_VAL_DISPLAY:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Display: %p\n", val->value.display);
+            break;
+        case LUA_VAL_INPUT_STATE:
+            *offset += snprintf(buf + *offset, buflen - *offset, "InputState: %p\n", val->value.input_state);
+            break;
+        case LUA_VAL_MAP_CELL:
+            *offset += snprintf(buf + *offset, buflen - *offset, "MapCell: %p\n", val->value.map_cell);
+            break;
+        case LUA_VAL_POLY_LINE:
+            *offset += snprintf(buf + *offset, buflen - *offset, "PolyLine: %p\n", val->value.poly_line);
+            break;
+        case LUA_VAL_RAY:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Ray: %p\n", val->value.ray);
+            break;
+        case LUA_VAL_TILESET:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Tileset: %p\n", val->value.tileset);
+            break;
+        case LUA_VAL_UUID:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Uuid: %p\n", val->value.uuid);
+            break;
+        case LUA_VAL_VECTOR:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Vector: %p\n", val->value.vector);
+            break;
+        case LUA_VAL_CFUNC:
+            *offset += snprintf(buf + *offset, buflen - *offset, "CFunc: %p (upvalue: %p)\n", val->value.cfunc_data.cfunc, val->value.cfunc_data.upvalue);
+            break;
+        case LUA_VAL_ERROR:
+            *offset += snprintf(buf + *offset, buflen - *offset, "Error: %s\n", val->value.string);
             break;
         case LUA_VAL_TABLE: {
             *offset += snprintf(buf + *offset, buflen - *offset, "Table:\n");

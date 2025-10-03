@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <setjmp.h>
+#include "scripting/lua_value.h"
 
 // Forward declarations
 typedef struct EseHashMap EseHashMap;
@@ -24,22 +25,46 @@ static const char hook_key_sentinel = 0;
  *          It supports nested tables and provides memory management for strings
  *          and table contents. Each value can have an optional name for debugging.
  */
-struct EseLuaValue {
-    enum { LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING, LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA } type; /** Type of the Lua value */
+ struct EseLuaValue {
+    enum {
+        LUA_VAL_NIL, LUA_VAL_BOOL, LUA_VAL_NUMBER, LUA_VAL_STRING,
+        LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA, LUA_VAL_RECT,
+        LUA_VAL_POINT, LUA_VAL_MAP, LUA_VAL_ARC, LUA_VAL_CAMERA, LUA_VAL_COLOR, LUA_VAL_DISPLAY, 
+        LUA_VAL_INPUT_STATE, LUA_VAL_MAP_CELL, LUA_VAL_POLY_LINE, LUA_VAL_RAY, LUA_VAL_TILESET, 
+        LUA_VAL_UUID, LUA_VAL_VECTOR, LUA_VAL_CFUNC, LUA_VAL_ERROR
+    } type; /**< Type of the Lua value */
     union {
-        bool boolean;                /** Boolean value for LUA_VAL_BOOL type */
-        double number;               /** Numeric value for LUA_VAL_NUMBER type */
-        char *string;                /** String value for LUA_VAL_STRING type */
-        int lua_ref;                 /** Lua registry reference for LUA_VAL_REF type */
-        void *userdata;              /** User data pointer for LUA_VAL_USERDATA type */
+        bool boolean;                /**< Boolean value for LUA_VAL_BOOL type */
+        double number;               /**< Numeric value for LUA_VAL_NUMBER type */
+        char *string;                /**< String value for LUA_VAL_STRING and LUA_VAL_ERROR types */
+        int lua_ref;                 /**< Lua registry reference for LUA_VAL_REF type */
+        void *userdata;              /**< User data pointer for LUA_VAL_USERDATA type */
+        struct EseRect *rect;       /**< Rect pointer for LUA_VAL_RECT type */
+        struct EsePoint *point;     /**< Point pointer for LUA_VAL_POINT type */
+        struct EseMap *map;         /**< Map pointer for LUA_VAL_MAP type */
+        struct EseArc *arc;         /**< Arc pointer for LUA_VAL_ARC type */
+        struct EseColor *color;     /**< Color pointer for LUA_VAL_COLOR type */
+        struct EseDisplay *display; /**< Display pointer for LUA_VAL_DISPLAY type */
+        struct EseInputState *input_state; /**< InputState pointer for LUA_VAL_INPUT_STATE type */
+        struct EseMapCell *map_cell; /**< MapCell pointer for LUA_VAL_MAP_CELL type */
+        struct EsePolyLine *poly_line; /**< PolyLine pointer for LUA_VAL_POLY_LINE type */
+        struct EseRay *ray;         /**< Ray pointer for LUA_VAL_RAY type */
+        struct EseTileSet *tileset; /**< Tileset pointer for LUA_VAL_TILESET type */
+        struct EseUUID *uuid;       /**< Uuid pointer for LUA_VAL_UUID type */
+        struct EseVector *vector;   /**< Vector pointer for LUA_VAL_VECTOR type */
         struct {
-            struct EseLuaValue **items; /** Array of table items */
-            size_t count;               /** Number of items in the table */
-            size_t capacity;            /** Allocated capacity for items array */
-        } table;                    /** Table data for LUA_VAL_TABLE type */
-    } value;                        /** Union containing the actual value data */
-    char *name;                     /** Optional name for debugging and identification */
+            EseLuaCFunction cfunc;  /**< C function pointer for LUA_VAL_CFUNC type */
+            EseLuaValue *upvalue;   /**< Upvalue for the C function */
+        } cfunc_data;               /**< C function data for LUA_VAL_CFUNC type */
+        struct {
+            struct EseLuaValue **items; /**< Array of table items */
+            size_t count;               /**< Number of items in the table */
+            size_t capacity;            /**< Allocated capacity for items array */
+        } table;                    /**< Table data for LUA_VAL_TABLE type */
+    } value;                        /**< Union containing the actual value data */
+    char *name;                     /**< Optional name for debugging and identification */
 };
+
 
 /**
  * @brief Hook structure for monitoring Lua function execution.

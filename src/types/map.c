@@ -55,9 +55,9 @@ static bool _allocate_cells_array(EseMap *map) {
     for (uint32_t y = 0; y < map->height; y++) {
         map->cells[y] = (EseMapCell **)memory_manager.malloc(sizeof(EseMapCell *) * map->width, MMTAG_MAP);
         for (uint32_t x = 0; x < map->width; x++) {
-            EseMapCell *cell = ese_mapcell_create((EseLuaEngine *)map->engine, map);
+            EseMapCell *cell = ese_map_cell_create((EseLuaEngine *)map->engine, map);
             map->cells[y][x] = cell;
-            ese_mapcell_add_watcher(cell, _ese_map_on_cell_changed, map);
+            ese_map_cell_add_watcher(cell, _ese_map_on_cell_changed, map);
         }
     }
     return true;
@@ -70,7 +70,7 @@ static void _free_cells_array(EseMap *map) {
         if (map->cells[y]) {
             for (uint32_t x = 0; x < map->width; x++) {
                 if (map->cells[y][x]) {
-                    ese_mapcell_destroy(map->cells[y][x]);
+                    ese_map_cell_destroy(map->cells[y][x]);
                 }
             }
             memory_manager.free(map->cells[y]);
@@ -158,12 +158,12 @@ static int _ese_map_lua_get_cell(lua_State *L) {
     }
     
     // Check if the cell has a valid state pointer for Lua operations
-    if (!ese_mapcell_get_state(cell)) {
+    if (!ese_map_cell_get_state(cell)) {
         lua_pushnil(L);
         return 1;
     }
     
-    ese_mapcell_lua_push(cell);
+    ese_map_cell_lua_push(cell);
     return 1;
 }
 
@@ -214,7 +214,7 @@ size_t ese_map_get_layer_count(EseMap *map) {
     for (uint32_t y = 0; y < map->height; y++) {
         for (uint32_t x = 0; x < map->width; x++) {
             EseMapCell *cell = map->cells[y][x];
-            size_t count = ese_mapcell_get_layer_count(cell);
+            size_t count = ese_map_cell_get_layer_count(cell);
             if (cell && count > map->layer_count) {
                 map->layer_count = count;
             }
@@ -571,9 +571,9 @@ bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
     for (uint32_t y = 0; y < copy_height; y++) {
         for (uint32_t x = 0; x < copy_width; x++) {
             if (old_cells[y][x]) {
-                ese_mapcell_destroy(map->cells[y][x]);
-                map->cells[y][x] = ese_mapcell_copy(old_cells[y][x]);
-                ese_mapcell_add_watcher(map->cells[y][x], _ese_map_on_cell_changed, map);
+                ese_map_cell_destroy(map->cells[y][x]);
+                map->cells[y][x] = ese_map_cell_copy(old_cells[y][x]);
+                ese_map_cell_add_watcher(map->cells[y][x], _ese_map_on_cell_changed, map);
             }
         }
     }
@@ -583,7 +583,7 @@ bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height) {
         if (old_cells[y]) {
             for (uint32_t x = 0; x < old_width; x++) {
                 if (old_cells[y][x]) {
-                    ese_mapcell_destroy(old_cells[y][x]);
+                    ese_map_cell_destroy(old_cells[y][x]);
                 }
             }
             memory_manager.free(old_cells[y]);
