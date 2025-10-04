@@ -20,7 +20,9 @@ typedef struct EseLuaEngine EseLuaEngine;
  */
 typedef struct EseEntityComponentShape {
     EseEntityComponent base;        /** Base component structure */
-    EsePolyLine *polyline;          /** Polyline for the shape */
+    EsePolyLine **polylines;        /** Array of polylines for the shape */
+    size_t polylines_count;         /** Number of polylines */
+    size_t polylines_capacity;      /** Allocated capacity for polylines array */
     float rotation;                 /** Rotation of the shape */
 } EseEntityComponentShape;
 

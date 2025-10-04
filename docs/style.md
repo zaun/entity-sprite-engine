@@ -10,7 +10,8 @@ This guide defines the comment style, file layout, and naming conventions used b
 
 ### Naming
 - Public API functions: `ese_<topic>_<action>` (e.g., `ese_map_get_cell`, `ese_map_cell_add_layer`).
-- Private/internal functions: prefix with a single leading underscore (e.g., `_ese_map_make`, `_ese_map_cell_notify_watchers`). These are `static` and live only in the `.c` file.
+- Internal functions: prefix with a single leading underscore (e.g., `_ese_map_make`, `_ese_map_cell_notify_watchers`). These are `static` and live only in the `.c` file.
+- Private functions: prefix with a single leading underscore (e.g., `_ese_map_make`, `_ese_map_cell_notify_watchers`). These are not static and definition lies in the `_private.h` file
 - Lua-bound C functions (private): also `static`, prefixed with underscore, and named by role (e.g., `_ese_map_lua_index`, `_ese_map_cell_lua_tostring`).
 - Metatable names are string macros: `MAP_PROXY_META`, `MAP_CELL_PROXY_META` in headers.
 
@@ -32,31 +33,30 @@ Example in `.c`:
 ```
 
 ### Section banners in `.c`
-Use banner comments to structure files into predictable sections. Exact format:
+Use banner comments to structure files into predictable sections. Exact format (100 characters long):
 ```c
 /* --- Section Name ----------------------------------------------------------------------------- */
 ```
 Common sections, in order:
 1. Defines
 2. Structs
-3. Forward declarations
+3. Forward Declarations
 4. Internal Helpers
 5. Lua Methods
 6. Lua Init
 7. C API
-8. Feature-specific API blocks (e.g., Tile/Flag API)
-9. Watcher API
+8. Feature-specific API blocks (e.g., Tile/Flag/Watcher API)
 
 Notes:
 - Keep headers for these sections concise and consistent with the examples in `map.c` and `map_cell.c`.
 - Sub-grouping comments (single line `// ...`) may be used inside a section to cluster related functions.
 
 ### Comment style
-- Private/internal functions (leading underscore): use brief, single-line comments with `///` above the declaration or definition. Do not use multi-line Doxygen blocks for private functions.
+- Internal functions (leading underscore): use brief, single-line comments with `///` above the declaration or definition. Do not use multi-line Doxygen blocks for private functions.
   - Example: `/// Notify all registered MapCell watchers of a change.`
 - Lua metamethods and methods: prefix the `///` one-liner with `Lua:` to make intent clear (e.g., `/// Lua: __index metamethod for Map.`).
-- Public API documentation lives in `.h` and uses Doxygen blocks with `@brief`, `@param`, `@return`, and optional `@details`/`@warning` sections.
-- In `.c`, public functions generally do not repeat the full Doxygen documentation; rely on the header.
+- Public/Private API documentation lives in `.h` and uses Doxygen blocks with `@brief`, `@param`, `@return`, and optional `@details`/`@warning` sections.
+- In `.c`, public functions do not repeat the full Doxygen documentation; rely on the header.
 
 ### Header (`.h`) layout
 Order and structure:
@@ -75,13 +75,17 @@ Order and structure:
 Header Doxygen example:
 ```c
 /**
- * @brief Gets a map cell at the specified coordinates.
- * @param map Pointer to the EseMap object
- * @param x X coordinate
- * @param y Y coordinate
- * @return Pointer to the EseMapCell, or NULL if out of bounds
+ * @brief Short description of the function.
+ *
+ * @details Detailed logic of the function can be added and can be multi-line. Only needed
+ *          if the funciton logic is complex.
+ *
+ * @param argumentA Type description of argument
+ * @param argumentB Type description of argument
+ * @param argumentC Type description of argument
+ * @return Type description of data
  */
-EseMapCell *ese_map_get_cell(const EseMap *map, uint32_t x, uint32_t y);
+Type *funciton_name(const Type *argument, Type argument, Type argument);
 ```
 
 ### Implementation (`.c`) layout template
@@ -96,7 +100,6 @@ Use this as a starting skeleton for new modules.
 /* --- Defines ---------------------------------------------------------------------------------- */
 
 /* --- Structs ---------------------------------------------------------------------------------- */
-// Private struct definitions (if any)
 
 /* --- Forward declarations --------------------------------------------------------------------- */
 /// Brief one-liner description.

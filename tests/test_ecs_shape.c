@@ -47,7 +47,8 @@ void test_entity_component_shape_create(void) {
     TEST_ASSERT_EQUAL(1, component->lua_ref_count);
 
     EseEntityComponentShape *shape = (EseEntityComponentShape *)component->data;
-    TEST_ASSERT_NOT_NULL(shape->polyline);
+    TEST_ASSERT_NOT_NULL(shape->polylines);
+    TEST_ASSERT_EQUAL(0, (int)shape->polylines_count);
     TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, shape->rotation);
 
     entity_component_destroy(component);
@@ -61,13 +62,17 @@ void test_entity_component_shape_copy(void) {
     EseEntityComponent *component = entity_component_shape_create(test_engine);
     EseEntityComponentShape *shape = (EseEntityComponentShape *)component->data;
 
-    // Add a few points to the polyline so we can verify a deep copy
+    // Add a polyline with a few points so we can verify a deep copy
+    EsePolyLine *pl = ese_poly_line_create(test_engine);
+    ese_poly_line_ref(pl);
+    shape->polylines[0] = pl;
+    shape->polylines_count = 1;
     EsePoint *p1 = ese_point_create(test_engine);
     EsePoint *p2 = ese_point_create(test_engine);
     ese_point_set_x(p1, 10.0f); ese_point_set_y(p1, 20.0f);
     ese_point_set_x(p2, 30.0f); ese_point_set_y(p2, 40.0f);
-    ese_poly_line_add_point(shape->polyline, p1);
-    ese_poly_line_add_point(shape->polyline, p2);
+    ese_poly_line_add_point(pl, p1);
+    ese_poly_line_add_point(pl, p2);
     // PolyLine stores coordinates, not point objects; free temporaries to avoid leaks
     ese_point_destroy(p1);
     ese_point_destroy(p2);
@@ -83,9 +88,13 @@ void test_entity_component_shape_copy(void) {
     TEST_ASSERT_EQUAL(LUA_NOREF, copy->lua_ref); // Copy starts unregistered
     TEST_ASSERT_EQUAL(0, copy->lua_ref_count);
 
-    // Polyline should be distinct with equal point count
-    TEST_ASSERT_NOT_EQUAL(shape->polyline, shape_copy->polyline);
-    TEST_ASSERT_EQUAL(ese_poly_line_get_point_count(shape->polyline), ese_poly_line_get_point_count(shape_copy->polyline));
+    // Polylines should be distinct with equal point count
+    TEST_ASSERT_EQUAL(1, (int)shape_copy->polylines_count);
+    TEST_ASSERT_NOT_EQUAL(shape->polylines[0], shape_copy->polylines[0]);
+    TEST_ASSERT_EQUAL(
+        (int)ese_poly_line_get_point_count(shape->polylines[0]),
+        (int)ese_poly_line_get_point_count(shape_copy->polylines[0])
+    );
 
     entity_component_destroy(component);
     entity_component_destroy(copy);
@@ -136,7 +145,7 @@ void test_entity_component_shape_lua_new(void) {
     TEST_ASSERT_TRUE(lua_isuserdata(L, -1));
     EseEntityComponentShape *shape = _entity_component_shape_get(L, -1);
     TEST_ASSERT_NOT_NULL(shape);
-    TEST_ASSERT_NOT_NULL(shape->polyline);
+    TEST_ASSERT_NOT_NULL(shape->polylines);
     lua_pop(L, 1);
 }
 
@@ -147,7 +156,7 @@ void test_entity_component_shape_lua_properties(void) {
 
     const char *test_code =
         "local s = EntityComponentShape.new()\n"
-        "return s.active == true and type(s.id) == 'string' and s.rotation == 0 and type(s.polyline) == 'userdata'";
+        "return s.active == true and type(s.id) == 'string' and s.rotation == 0 and type(s.polylines) == 'userdata'";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Property access should execute without error");
     TEST_ASSERT_TRUE(lua_toboolean(L, -1));
     lua_pop(L, 1);
@@ -176,8 +185,8 @@ void test_entity_component_shape_lua_polyline_set(void) {
     const char *test_code =
         "local s = EntityComponentShape.new()\n"
         "local pl = PolyLine.new()\n"
-        "s.polyline = pl\n"
-        "return type(s.polyline) == 'userdata'";
+        "s.polylines:add(pl)\n"
+        "return type(s.polylines) == 'userdata' and s.polylines.count == 1 and type(s.polylines[1]) == 'userdata'";
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Polyline setter should execute without error");
     TEST_ASSERT_TRUE(lua_toboolean(L, -1));
     lua_pop(L, 1);

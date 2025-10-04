@@ -1,5 +1,6 @@
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include "utility/log.h"
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
@@ -9,11 +10,222 @@
 #include "entity/entity.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_shape.h"
+#include "entity/components/entity_component_shape_path.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 #include "types/poly_line.h"
 #include "utility/profile.h"
 
+#define SHAPE_POLYLINE_CAPACITY 4
+
+static EseEntityComponentShape *_entity_component_shape_polylines_get_component(lua_State *L, int idx) {
+    if (!lua_isuserdata(L, idx)) {
+        return NULL;
+    }
+    EseEntityComponentShape **ud = (EseEntityComponentShape **)luaL_testudata(L, idx, "ShapePolylinesProxyMeta");
+    if (!ud) {
+        return NULL;
+    }
+    return *ud;
+}
+
+// Lua collection methods for polylines
+static int _entity_component_shape_polylines_add(lua_State *L) {
+    EseEntityComponentShape *shape = (EseEntityComponentShape *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!shape) {
+        return luaL_error(L, "Invalid shape component in upvalue.");
+    }
+
+    int n_args = lua_gettop(L);
+    EsePolyLine *pl = NULL;
+    if (n_args == 2) {
+        pl = ese_poly_line_lua_get(L, 2);
+    } else if (n_args == 1) {
+        pl = ese_poly_line_lua_get(L, 1);
+    } else {
+        return luaL_argerror(L, 1, "Expected a PolyLine argument.");
+    }
+
+    if (pl == NULL) {
+        return luaL_argerror(L, (n_args == 2 ? 2 : 1), "Expected a PolyLine argument.");
+    }
+
+    if (shape->polylines_count == shape->polylines_capacity) {
+        size_t new_capacity = shape->polylines_capacity * 2;
+        EsePolyLine **new_arr = memory_manager.realloc(
+            shape->polylines,
+            sizeof(EsePolyLine*) * new_capacity,
+            MMTAG_ENTITY
+        );
+        shape->polylines = new_arr;
+        shape->polylines_capacity = new_capacity;
+    }
+
+    shape->polylines[shape->polylines_count++] = pl;
+    ese_poly_line_ref(pl);
+    return 0;
+}
+
+static int _entity_component_shape_polylines_remove(lua_State *L) {
+    EseEntityComponentShape *shape = _entity_component_shape_polylines_get_component(L, 1);
+    if (!shape) {
+        return luaL_error(L, "Invalid shape object.");
+    }
+
+    EsePolyLine *pl = ese_poly_line_lua_get(L, 2);
+    if (pl == NULL) {
+        return luaL_argerror(L, 2, "Expected a PolyLine object.");
+    }
+
+    int idx = -1;
+    for (size_t i = 0; i < shape->polylines_count; ++i) {
+        if (shape->polylines[i] == pl) {
+            idx = (int)i;
+            break;
+        }
+    }
+
+    if (idx < 0) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    ese_poly_line_unref(pl);
+    for (size_t i = idx; i < shape->polylines_count - 1; ++i) {
+        shape->polylines[i] = shape->polylines[i + 1];
+    }
+    shape->polylines_count--;
+    shape->polylines[shape->polylines_count] = NULL;
+
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+static int _entity_component_shape_polylines_insert(lua_State *L) {
+    EseEntityComponentShape *shape = _entity_component_shape_polylines_get_component(L, 1);
+    if (!shape) {
+        return luaL_error(L, "Invalid shape object.");
+    }
+
+    EsePolyLine *pl = ese_poly_line_lua_get(L, 2);
+    if (pl == NULL) {
+        return luaL_argerror(L, 2, "Expected a PolyLine object.");
+    }
+
+    int index = (int)luaL_checkinteger(L, 3) - 1;
+    if (index < 0 || index > (int)shape->polylines_count) {
+        return luaL_error(L, "Index out of bounds.");
+    }
+
+    if (shape->polylines_count == shape->polylines_capacity) {
+        size_t new_capacity = shape->polylines_capacity * 2;
+        EsePolyLine **new_arr = memory_manager.realloc(
+            shape->polylines,
+            sizeof(EsePolyLine*) * new_capacity,
+            MMTAG_ENTITY
+        );
+        shape->polylines = new_arr;
+        shape->polylines_capacity = new_capacity;
+    }
+
+    for (size_t i = shape->polylines_count; i > (size_t)index; --i) {
+        shape->polylines[i] = shape->polylines[i - 1];
+    }
+
+    shape->polylines[index] = pl;
+    shape->polylines_count++;
+    ese_poly_line_ref(pl);
+    return 0;
+}
+
+static int _entity_component_shape_polylines_pop(lua_State *L) {
+    EseEntityComponentShape *shape = _entity_component_shape_polylines_get_component(L, 1);
+    if (!shape) {
+        return luaL_error(L, "Invalid shape object.");
+    }
+
+    if (shape->polylines_count == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    EsePolyLine *pl = shape->polylines[shape->polylines_count - 1];
+    ese_poly_line_unref(pl);
+    shape->polylines[shape->polylines_count - 1] = NULL;
+    shape->polylines_count--;
+
+    ese_poly_line_lua_push(pl);
+    return 1;
+}
+
+static int _entity_component_shape_polylines_shift(lua_State *L) {
+    EseEntityComponentShape *shape = _entity_component_shape_polylines_get_component(L, 1);
+    if (!shape) {
+        return luaL_error(L, "Invalid shape object.");
+    }
+
+    if (shape->polylines_count == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    EsePolyLine *pl = shape->polylines[0];
+    ese_poly_line_unref(pl);
+    for (size_t i = 0; i < shape->polylines_count - 1; ++i) {
+        shape->polylines[i] = shape->polylines[i + 1];
+    }
+    shape->polylines_count--;
+    shape->polylines[shape->polylines_count] = NULL;
+
+    ese_poly_line_lua_push(pl);
+    return 1;
+}
+
+int _entity_component_shape_polylines_index(lua_State *L) {
+    EseEntityComponentShape *component = _entity_component_shape_polylines_get_component(L, 1);
+    if (!component) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (lua_isnumber(L, 2)) {
+        int index = (int)lua_tointeger(L, 2) - 1;
+        if (index >= 0 && index < (int)component->polylines_count) {
+            EsePolyLine *pl = component->polylines[index];
+            ese_poly_line_lua_push(pl);
+            return 1;
+        } else {
+            lua_pushnil(L);
+            return 1;
+        }
+    }
+
+    const char *key = lua_tostring(L, 2);
+    if (!key) return 0;
+
+    if (strcmp(key, "count") == 0) {
+        lua_pushinteger(L, component->polylines_count);
+        return 1;
+    } else if (strcmp(key, "add") == 0) {
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_shape_polylines_add, 1);
+        return 1;
+    } else if (strcmp(key, "remove") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_polylines_remove);
+        return 1;
+    } else if (strcmp(key, "insert") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_polylines_insert);
+        return 1;
+    } else if (strcmp(key, "pop") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_polylines_pop);
+        return 1;
+    } else if (strcmp(key, "shift") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_polylines_shift);
+        return 1;
+    }
+
+    return 0;
+}
 // VTable wrapper functions
 static EseEntityComponent* _shape_vtable_copy(EseEntityComponent* component) {
     return _entity_component_shape_copy((EseEntityComponentShape*)component->data);
@@ -112,8 +324,9 @@ static EseEntityComponent *_entity_component_shape_make(EseLuaEngine *engine) {
     component->base.vtable = &shape_vtable;
     
     component->rotation = 0.0f;
-    component->polyline = ese_poly_line_create(engine);
-    ese_poly_line_ref(component->polyline);
+    component->polylines = memory_manager.malloc(sizeof(EsePolyLine*) * SHAPE_POLYLINE_CAPACITY, MMTAG_ENTITY);
+    component->polylines_capacity = SHAPE_POLYLINE_CAPACITY;
+    component->polylines_count = 0;
 
     return &component->base;
 }
@@ -124,19 +337,35 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
     EseEntityComponent *copy = _entity_component_shape_make(src->base.lua);
     EseEntityComponentShape *shape_copy = (EseEntityComponentShape *)copy->data;
     
-    // Replace the initially created polyline: unref then destroy to free immediately
-    ese_poly_line_unref(shape_copy->polyline);
-    ese_poly_line_destroy(shape_copy->polyline);
-    shape_copy->polyline = ese_poly_line_copy(src->polyline);
-    ese_poly_line_ref(shape_copy->polyline);
+    // Copy rotation
+    shape_copy->rotation = ((EseEntityComponentShape*)src)->rotation;
+
+    // Copy polylines array
+    memory_manager.free(shape_copy->polylines);
+    shape_copy->polylines = memory_manager.malloc(sizeof(EsePolyLine*) * src->polylines_capacity, MMTAG_ENTITY);
+    shape_copy->polylines_capacity = src->polylines_capacity;
+    shape_copy->polylines_count = src->polylines_count;
+
+    for (size_t i = 0; i < shape_copy->polylines_count; ++i) {
+        EsePolyLine *src_pl = src->polylines[i];
+        EsePolyLine *dst_pl = ese_poly_line_copy(src_pl);
+        ese_poly_line_ref(dst_pl);
+        shape_copy->polylines[i] = dst_pl;
+    }
 
     return copy;
 }
 
 void _entity_component_ese_shape_cleanup(EseEntityComponentShape *component)
 {
-    ese_poly_line_unref(component->polyline);
-    ese_poly_line_destroy(component->polyline);
+    for (size_t i = 0; i < component->polylines_count; ++i) {
+        ese_poly_line_unref(component->polylines[i]);
+        ese_poly_line_destroy(component->polylines[i]);
+    }
+    if (component->polylines) {
+        memory_manager.free(component->polylines);
+        component->polylines = NULL;
+    }
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
     profile_count_add("entity_comp_shape_destroy_count");
@@ -154,7 +383,7 @@ void _entity_component_shape_destroy(EseEntityComponentShape *component) {
             component->base.lua_ref = LUA_NOREF;
             _entity_component_ese_shape_cleanup(component);
         } else {
-            // We dont "own" the polyline so dont free it
+            // We dont own the component so dont free it
             return;
         }
     } else if (component->base.lua_ref == LUA_NOREF) {
@@ -208,6 +437,72 @@ EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx) {
     return *ud;
 }
 
+// Lua method: set_path(path)
+// Parses an SVG path string and replaces the component's polylines with the result
+static int _entity_component_shape_set_path(lua_State *L) {
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2 && argc != 3) {
+        return luaL_error(L, "component:set_path(string[, number]) takes 1 or 2 arguments");
+    }
+    
+    EseEntityComponentShape *component = _entity_component_shape_get(L, 1);
+    if (!component) {
+        return luaL_error(L, "Invalid shape component.");
+    }
+
+    const char *path = luaL_checkstring(L, 2);
+    if (!path) {
+        return luaL_error(L, "Invalid path string.");
+    }
+
+    float scale = 1.0f;
+    if (argc == 3) {
+        scale = (float)luaL_checknumber(L, 3);
+    }
+
+    size_t new_count = 0;
+    EsePolyLine **lines = shape_path_to_polylines(component->base.lua, scale, path, &new_count);
+    if (!lines && new_count == 0) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    // Clear existing polylines: unref and reset count
+    for (size_t i = 0; i < component->polylines_count; ++i) {
+        if (component->polylines[i]) {
+            ese_poly_line_unref(component->polylines[i]);
+            component->polylines[i] = NULL;
+        }
+    }
+    component->polylines_count = 0;
+
+    // Adopt new polylines, growing capacity as needed
+    for (size_t i = 0; i < new_count; ++i) {
+        if (component->polylines_count == component->polylines_capacity) {
+            size_t new_capacity = component->polylines_capacity * 2;
+            EsePolyLine **new_arr = memory_manager.realloc(
+                component->polylines,
+                sizeof(EsePolyLine*) * new_capacity,
+                MMTAG_ENTITY
+            );
+            component->polylines = new_arr;
+            component->polylines_capacity = new_capacity;
+        }
+
+        EsePolyLine *pl = lines[i];
+        ese_poly_line_ref(pl);
+        component->polylines[component->polylines_count++] = pl;
+    }
+
+    if (lines) {
+        free(lines);
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /**
  * @brief Lua __index metamethod for EseEntityComponentShape objects (getter).
  * 
@@ -237,9 +532,15 @@ static int _entity_component_shape_index(lua_State *L) {
     } else if (strcmp(key, "rotation") == 0) {
         lua_pushnumber(L, component->rotation);
         return 1;
-    } else if (strcmp(key, "polyline") == 0) {
-        // Push the polyline via its Lua proxy
-        ese_poly_line_lua_push(component->polyline);
+    } else if (strcmp(key, "polylines") == 0) {
+        // Create polylines proxy userdata
+        EseEntityComponentShape **ud = (EseEntityComponentShape **)lua_newuserdata(L, sizeof(EseEntityComponentShape *));
+        *ud = component;
+        luaL_getmetatable(L, "ShapePolylinesProxyMeta");
+        lua_setmetatable(L, -2);
+        return 1;
+    } else if (strcmp(key, "set_path") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_set_path);
         return 1;
     }
     
@@ -289,21 +590,6 @@ static int _entity_component_shape_newindex(lua_State *L) {
 
         lua_pushnumber(L, component->rotation);
         return 1;
-    } else if (strcmp(key, "polyline") == 0) {
-        EsePolyLine *new_polyline = ese_poly_line_lua_get(L, 3);
-        if (!new_polyline) {
-            return luaL_error(L, "polyline must be a PolyLine object or nil");
-        }
-
-        if (component->polyline) {
-            EsePolyLine *old_pl = component->polyline;
-            ese_poly_line_unref(old_pl);
-            ese_poly_line_destroy(old_pl);
-        }
-        component->polyline = new_polyline;
-        ese_poly_line_ref(component->polyline);
-
-        return 0;
     }
     
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -342,11 +628,11 @@ static int _entity_component_shape_tostring(lua_State *L) {
     }
     
     char buf[128];
-    snprintf(buf, sizeof(buf), "EntityComponentShape: %p (id=%s active=%s polyline=%p)", 
+    snprintf(buf, sizeof(buf), "EntityComponentShape: %p (id=%s active=%s polylines=%zu)", 
              (void*)component,
              ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
-             component->polyline);
+             component->polylines_count);
     lua_pushstring(L, buf);
     
     return 1;
@@ -385,6 +671,17 @@ void _entity_component_shape_init(EseLuaEngine *engine) {
     } else {
         lua_pop(L, 1);
     }
+
+    // Register polylines proxy metatable
+    if (luaL_newmetatable(engine->runtime, "ShapePolylinesProxyMeta")) {
+        log_debug("LUA", "Adding ShapePolylinesProxyMeta to engine");
+        lua_pushstring(engine->runtime, "ShapePolylinesProxyMeta");
+        lua_setfield(engine->runtime, -2, "__name");
+        extern int _entity_component_shape_polylines_index(lua_State *L);
+        lua_pushcfunction(engine->runtime, _entity_component_shape_polylines_index);
+        lua_setfield(engine->runtime, -2, "__index");
+    }
+    lua_pop(engine->runtime, 1);
 }
 
 void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawCallbacks *callbacks, void *callback_user_data) {
@@ -394,166 +691,125 @@ void _entity_component_shape_draw(EseEntityComponentShape *component, float scre
 
     profile_start(PROFILE_ENTITY_COMP_SHAPE_DRAW);
 
-    // Get the polyline data
-    EsePolyLine *polyline = component->polyline;
-    if (!polyline) {
-        return; // No polyline to draw
-    }
-
-    // Get the number of points
-    size_t point_count = ese_poly_line_get_point_count(polyline);
-    
-    if (point_count < 2) {
-        return; // Need at least 2 points to draw a line
-    }
-
-    // Get the polyline type and other properties
-    EsePolyLineType polyline_type = ese_poly_line_get_type(polyline);
-    float stroke_width = ese_poly_line_get_stroke_width(polyline);
-    
     // Convert rotation from degrees to radians
     float rotation_radians = _degrees_to_radians(component->rotation);
-    
-    // Handle auto-closing for CLOSED and FILLED types and offset by screen position
-    float *points_to_use = NULL;
-    size_t point_count_to_use = point_count;
-    bool needs_cleanup = false;
-    
-    if ((polyline_type == POLY_LINE_CLOSED || polyline_type == POLY_LINE_FILLED) && point_count >= 3) {
-        // Need to close the polyline by adding the first point again
-        points_to_use = memory_manager.malloc(sizeof(float) * (point_count + 1) * 2, MMTAG_ENTITY);
-        if (points_to_use) {
-            // Copy existing points (don't offset by screen position - render system handles this)
-            const float *original_points = ese_poly_line_get_points(polyline);
-            for (size_t i = 0; i < point_count; i++) {
-                float x = original_points[i * 2];
-                float y = original_points[i * 2 + 1];
-                
-                // Apply rotation if not zero
+
+    for (size_t idx = 0; idx < component->polylines_count; ++idx) {
+        EsePolyLine *polyline = component->polylines[idx];
+        if (!polyline) continue;
+
+        size_t point_count = ese_poly_line_get_point_count(polyline);
+        if (point_count < 2) continue;
+
+        EsePolyLineType polyline_type = ese_poly_line_get_type(polyline);
+        float stroke_width = ese_poly_line_get_stroke_width(polyline);
+
+        float *points_to_use = NULL;
+        size_t point_count_to_use = point_count;
+        bool needs_cleanup = false;
+
+        if ((polyline_type == POLY_LINE_CLOSED || polyline_type == POLY_LINE_FILLED) && point_count >= 3) {
+            points_to_use = memory_manager.malloc(sizeof(float) * (point_count + 1) * 2, MMTAG_ENTITY);
+            if (points_to_use) {
+                const float *original_points = ese_poly_line_get_points(polyline);
+                for (size_t i = 0; i < point_count; i++) {
+                    float x = original_points[i * 2];
+                    float y = original_points[i * 2 + 1];
+                    if (rotation_radians != 0.0f) {
+                        _rotate_point(&x, &y, rotation_radians);
+                    }
+                    points_to_use[i * 2] = x;
+                    points_to_use[i * 2 + 1] = y;
+                }
+                float x = original_points[0];
+                float y = original_points[1];
                 if (rotation_radians != 0.0f) {
                     _rotate_point(&x, &y, rotation_radians);
                 }
-                
-                points_to_use[i * 2] = x;
-                points_to_use[i * 2 + 1] = y;
+                points_to_use[point_count * 2] = x;
+                points_to_use[point_count * 2 + 1] = y;
+                point_count_to_use = point_count + 1;
+                needs_cleanup = true;
+            } else {
+                points_to_use = memory_manager.malloc(sizeof(float) * point_count * 2, MMTAG_ENTITY);
+                if (points_to_use) {
+                    const float *original_points = ese_poly_line_get_points(polyline);
+                    for (size_t i = 0; i < point_count; i++) {
+                        float x = original_points[i * 2];
+                        float y = original_points[i * 2 + 1];
+                        if (rotation_radians != 0.0f) {
+                            _rotate_point(&x, &y, rotation_radians);
+                        }
+                        points_to_use[i * 2] = x;
+                        points_to_use[i * 2 + 1] = y;
+                    }
+                    needs_cleanup = true;
+                } else {
+                    points_to_use = (float*)ese_poly_line_get_points(polyline);
+                }
             }
-            
-            // Add the first point again to close the shape
-            float x = original_points[0];
-            float y = original_points[1];
-            if (rotation_radians != 0.0f) {
-                _rotate_point(&x, &y, rotation_radians);
-            }
-            points_to_use[point_count * 2] = x;
-            points_to_use[point_count * 2 + 1] = y;
-            
-            point_count_to_use = point_count + 1;
-            needs_cleanup = true;
         } else {
-            // Fallback: create points from original
             points_to_use = memory_manager.malloc(sizeof(float) * point_count * 2, MMTAG_ENTITY);
             if (points_to_use) {
                 const float *original_points = ese_poly_line_get_points(polyline);
                 for (size_t i = 0; i < point_count; i++) {
                     float x = original_points[i * 2];
                     float y = original_points[i * 2 + 1];
-                    
-                    // Apply rotation if not zero
                     if (rotation_radians != 0.0f) {
                         _rotate_point(&x, &y, rotation_radians);
                     }
-                    
                     points_to_use[i * 2] = x;
                     points_to_use[i * 2 + 1] = y;
                 }
                 needs_cleanup = true;
             } else {
-                // Final fallback to original points
                 points_to_use = (float*)ese_poly_line_get_points(polyline);
             }
         }
-    } else {
-        // Use original points for OPEN type or insufficient points
-        points_to_use = memory_manager.malloc(sizeof(float) * point_count * 2, MMTAG_ENTITY);
-        if (points_to_use) {
-            const float *original_points = ese_poly_line_get_points(polyline);
-            for (size_t i = 0; i < point_count; i++) {
-                float x = original_points[i * 2];
-                float y = original_points[i * 2 + 1];
-                
-                // Apply rotation if not zero
-                if (rotation_radians != 0.0f) {
-                    _rotate_point(&x, &y, rotation_radians);
-                }
-                
-                points_to_use[i * 2] = x;
-                points_to_use[i * 2 + 1] = y;
-            }
-            needs_cleanup = true;
-        } else {
-            // Final fallback to original points
-            points_to_use = (float*)ese_poly_line_get_points(polyline);
+
+        EseColor *fill_color = ese_poly_line_get_fill_color(polyline);
+        EseColor *stroke_color = ese_poly_line_get_stroke_color(polyline);
+
+        unsigned char fill_r = (unsigned char)(fill_color ? ese_color_get_r(fill_color) * 255 : 0);
+        unsigned char fill_g = (unsigned char)(fill_color ? ese_color_get_g(fill_color) * 255 : 0);
+        unsigned char fill_b = (unsigned char)(fill_color ? ese_color_get_b(fill_color) * 255 : 0);
+        unsigned char fill_a = (unsigned char)(fill_color ? ese_color_get_a(fill_color) * 255 : 255);
+
+        unsigned char stroke_r = (unsigned char)(stroke_color ? ese_color_get_r(stroke_color) * 255 : 0);
+        unsigned char stroke_g = (unsigned char)(stroke_color ? ese_color_get_g(stroke_color) * 255 : 0);
+        unsigned char stroke_b = (unsigned char)(stroke_color ? ese_color_get_b(stroke_color) * 255 : 0);
+        unsigned char stroke_a = (unsigned char)(stroke_color ? ese_color_get_a(stroke_color) * 255 : 255);
+
+        bool should_draw_fill = false;
+        bool should_draw_stroke = false;
+
+        switch (polyline_type) {
+            case POLY_LINE_OPEN:
+                should_draw_stroke = true;
+                break;
+            case POLY_LINE_CLOSED:
+                should_draw_stroke = true;
+                break;
+            case POLY_LINE_FILLED:
+                should_draw_fill = true;
+                should_draw_stroke = true;
+                break;
         }
-    }
-    
-    // Get color objects and use the existing getter functions
-    EseColor *fill_color = ese_poly_line_get_fill_color(polyline);
-    EseColor *stroke_color = ese_poly_line_get_stroke_color(polyline);
-    
-    unsigned char fill_r = (unsigned char)(fill_color ? ese_color_get_r(fill_color) * 255 : 0);
-    unsigned char fill_g = (unsigned char)(fill_color ? ese_color_get_g(fill_color) * 255 : 0);
-    unsigned char fill_b = (unsigned char)(fill_color ? ese_color_get_b(fill_color) * 255 : 0);
-    unsigned char fill_a = (unsigned char)(fill_color ? ese_color_get_a(fill_color) * 255 : 255);
-    
-    unsigned char stroke_r = (unsigned char)(stroke_color ? ese_color_get_r(stroke_color) * 255 : 0);
-    unsigned char stroke_g = (unsigned char)(stroke_color ? ese_color_get_g(stroke_color) * 255 : 0);
-    unsigned char stroke_b = (unsigned char)(stroke_color ? ese_color_get_b(stroke_color) * 255 : 0);
-    unsigned char stroke_a = (unsigned char)(stroke_color ? ese_color_get_a(stroke_color) * 255 : 255);
-    
 
-    // Determine what to draw based on polyline type
-    bool should_draw_fill = false;
-    bool should_draw_stroke = false;
-    
-    switch (polyline_type) {
-        case POLY_LINE_OPEN:
-            // Only draw stroke for open polylines
-            should_draw_stroke = true;
-            break;
-        case POLY_LINE_CLOSED:
-            // Only draw stroke for closed polylines
-            should_draw_stroke = true;
-            break;
-        case POLY_LINE_FILLED:
-            // Draw both fill and stroke for filled polylines
-            should_draw_fill = true;
-            should_draw_stroke = true;
-            break;
-    }
-    
-    // Set fill alpha to 0 if we shouldn't draw fill
-    if (!should_draw_fill) {
-        fill_a = 0;
-    }
-    
-    // Set stroke alpha to 0 if we shouldn't draw stroke
-    if (!should_draw_stroke) {
-        stroke_a = 0;
-    }
+        if (!should_draw_fill) fill_a = 0;
+        if (!should_draw_stroke) stroke_a = 0;
 
+        callbacks->draw_polyline(
+            screen_x, screen_y, 0,
+            points_to_use, point_count_to_use, stroke_width,
+            fill_r, fill_g, fill_b, fill_a,
+            stroke_r, stroke_g, stroke_b, stroke_a,
+            callback_user_data
+        );
 
-    // Draw the polyline using the callback
-    callbacks->draw_polyline(
-        screen_x, screen_y, 0, // z_index = 0 for now
-        points_to_use, point_count_to_use, stroke_width,
-        fill_r, fill_g, fill_b, fill_a,
-        stroke_r, stroke_g, stroke_b, stroke_a,
-        callback_user_data
-    );
-    
-    // Clean up temporary points array if we allocated one
-    if (needs_cleanup) {
-        memory_manager.free(points_to_use);
+        if (needs_cleanup) {
+            memory_manager.free(points_to_use);
+        }
     }
 
     profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
