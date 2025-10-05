@@ -135,74 +135,28 @@ static void _tessellate_polyline_fill(
     float center_x, center_y;
     _pixel_to_ndc(centroid_x + screen_x, centroid_y + screen_y, view_w, view_h, &center_x, &center_y);
     
-    // Detect disconnected regions by finding large jumps in position
-    // This works for ANY complex shape with disconnected regions
-    const float max_jump_distance = 100.0f; // Adjust based on expected shape size
-    size_t region_starts[32]; // Support up to 32 regions
-    size_t region_count = 0;
-    region_starts[0] = 0;
-    region_count = 1;
-    
-    for (size_t i = 1; i < point_count; i++) {
-        float dx = points[i * 2] - points[(i - 1) * 2];
-        float dy = points[i * 2 + 1] - points[(i - 1) * 2 + 1];
-        float distance = sqrtf(dx * dx + dy * dy);
-        
-        if (distance > max_jump_distance && region_count < 32) {
-            region_starts[region_count] = i;
-            region_count++;
-        }
+    // Triangulate the entire polygon with a simple fan around the centroid.
+    // If the last point equals the first, treat it as a duplicate and ignore it in the fan.
+    size_t limit = point_count;
+    if (is_closed) {
+        // Avoid degenerate triangle using duplicate last point
+        limit = point_count - 1;
     }
-    
-    // Triangulate each region separately
-    for (size_t region = 0; region < region_count; region++) {
-        size_t start_idx = region_starts[region];
-        size_t end_idx = (region == region_count - 1) ? point_count : region_starts[region + 1];
-        size_t region_size = end_idx - start_idx;
-        
-        if (region_size < 3) continue; // Need at least 3 points for a triangle
-        
-        // Calculate centroid for this region
-        float region_centroid_x = 0.0f, region_centroid_y = 0.0f;
-        for (size_t i = start_idx; i < end_idx; i++) {
-            region_centroid_x += points[i * 2];
-            region_centroid_y += points[i * 2 + 1];
-        }
-        region_centroid_x /= region_size;
-        region_centroid_y /= region_size;
-        
-        // Convert region centroid to NDC
-        float region_center_x, region_center_y;
-        _pixel_to_ndc(region_centroid_x + screen_x, region_centroid_y + screen_y, view_w, view_h, &region_center_x, &region_center_y);
-        
-        // Fan triangulation for this region only
-        for (size_t i = start_idx; i < end_idx - 1; i++) {
-            size_t idx1 = i;
-            size_t idx2 = i + 1;
-            
-            float x1, y1, x2, y2;
-            _pixel_to_ndc(points[idx1 * 2] + screen_x, points[idx1 * 2 + 1] + screen_y, view_w, view_h, &x1, &y1);
-            _pixel_to_ndc(points[idx2 * 2] + screen_x, points[idx2 * 2 + 1] + screen_y, view_w, view_h, &x2, &y2);
-            
-            // Add triangle: region centroid, current point, next point
-            vertices[(*vertex_count)++] = (EseVertex){region_center_x, region_center_y, 0.0f, 0.0f, 0.0f};
-            vertices[(*vertex_count)++] = (EseVertex){x1, y1, 0.0f, 0.0f, 0.0f};
-            vertices[(*vertex_count)++] = (EseVertex){x2, y2, 0.0f, 0.0f, 0.0f};
-        }
-        
-        // Close the region
-        if (region_size > 2) {
-            size_t idx1 = end_idx - 1;
-            size_t idx2 = start_idx;
-            
-            float x1, y1, x2, y2;
-            _pixel_to_ndc(points[idx1 * 2] + screen_x, points[idx1 * 2 + 1] + screen_y, view_w, view_h, &x1, &y1);
-            _pixel_to_ndc(points[idx2 * 2] + screen_x, points[idx2 * 2 + 1] + screen_y, view_w, view_h, &x2, &y2);
-            
-            vertices[(*vertex_count)++] = (EseVertex){region_center_x, region_center_y, 0.0f, 0.0f, 0.0f};
-            vertices[(*vertex_count)++] = (EseVertex){x1, y1, 0.0f, 0.0f, 0.0f};
-            vertices[(*vertex_count)++] = (EseVertex){x2, y2, 0.0f, 0.0f, 0.0f};
-        }
+
+    // Need at least a triangle
+    if (limit < 3) return;
+
+    for (size_t i = 0; i < limit; ++i) {
+        size_t idx1 = i;
+        size_t idx2 = (i + 1) % limit;
+
+        float x1, y1, x2, y2;
+        _pixel_to_ndc(points[idx1 * 2] + screen_x, points[idx1 * 2 + 1] + screen_y, view_w, view_h, &x1, &y1);
+        _pixel_to_ndc(points[idx2 * 2] + screen_x, points[idx2 * 2 + 1] + screen_y, view_w, view_h, &x2, &y2);
+
+        vertices[(*vertex_count)++] = (EseVertex){center_x, center_y, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x1, y1, 0.0f, 0.0f, 0.0f};
+        vertices[(*vertex_count)++] = (EseVertex){x2, y2, 0.0f, 0.0f, 0.0f};
     }
 }
 

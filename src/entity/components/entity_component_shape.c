@@ -14,6 +14,7 @@
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 #include "types/poly_line.h"
+#include "types/color.h"
 #include "utility/profile.h"
 
 #define SHAPE_POLYLINE_CAPACITY 4
@@ -437,13 +438,34 @@ EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx) {
     return *ud;
 }
 
+static int _entity_component_shape_clear_path(lua_State *L) {
+    EseEntityComponentShape *component = _entity_component_shape_get(L, 1);
+    if (!component) {
+        return luaL_error(L, "Invalid shape component.");
+    }
+
+
+
+    // Clear existing polylines: unref and reset count
+    for (size_t i = 0; i < component->polylines_count; ++i) {
+        if (component->polylines[i]) {
+            ese_poly_line_unref(component->polylines[i]);
+            component->polylines[i] = NULL;
+        }
+    }
+    component->polylines_count = 0;
+
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 // Lua method: set_path(path)
 // Parses an SVG path string and replaces the component's polylines with the result
 static int _entity_component_shape_set_path(lua_State *L) {
     // Get argument count
     int argc = lua_gettop(L);
     if (argc != 2 && argc != 3) {
-        return luaL_error(L, "component:set_path(string[, number]) takes 1 or 2 arguments");
+        return luaL_error(L, "component:set_path(string[, table]) takes 1 or 2 arguments");
     }
     
     EseEntityComponentShape *component = _entity_component_shape_get(L, 1);
@@ -456,9 +478,41 @@ static int _entity_component_shape_set_path(lua_State *L) {
         return luaL_error(L, "Invalid path string.");
     }
 
+    // Defaults
     float scale = 1.0f;
+    float stroke_width = 1.0f;
+    bool has_fill_option = false;
+
+    // Optional options table
     if (argc == 3) {
-        scale = (float)luaL_checknumber(L, 3);
+        if (lua_istable(L, 3)) {
+            // scale
+            lua_getfield(L, 3, "scale");
+            if (lua_isnumber(L, -1)) {
+                scale = (float)lua_tonumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            // stroke_width (support common misspelling 'stroek_width')
+            lua_getfield(L, 3, "stroke_width");
+            if (!lua_isnumber(L, -1)) {
+                lua_pop(L, 1);
+                lua_getfield(L, 3, "stroek_width");
+            }
+            if (lua_isnumber(L, -1)) {
+                stroke_width = (float)lua_tonumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            // Presence of fill_color flag (we will read actual value later per-polyline)
+            lua_getfield(L, 3, "fill_color");
+            if (!lua_isnil(L, -1) && !lua_isnone(L, -1)) {
+                has_fill_option = true;
+            }
+            lua_pop(L, 1);
+        } else {
+            return luaL_error(L, "component:set_path expects options table as 3rd arg");
+        }
     }
 
     size_t new_count = 0;
@@ -468,16 +522,45 @@ static int _entity_component_shape_set_path(lua_State *L) {
         return 1;
     }
 
-    // Clear existing polylines: unref and reset count
-    for (size_t i = 0; i < component->polylines_count; ++i) {
-        if (component->polylines[i]) {
-            ese_poly_line_unref(component->polylines[i]);
-            component->polylines[i] = NULL;
-        }
-    }
-    component->polylines_count = 0;
+    // Pre-fetch color templates from options (do not attach directly; we'll copy per polyline)
+    EseColor *opt_stroke_template = NULL;
+    EseColor *opt_fill_template = NULL;
+    bool destroy_stroke_template = false;
+    bool destroy_fill_template = false;
 
-    // Adopt new polylines, growing capacity as needed
+    if (argc == 3) {
+        // stroke_color or 'stoke_color' (typo support)
+        lua_getfield(L, 3, "stroke_color");
+        if (lua_isnil(L, -1)) {
+            lua_pop(L, 1);
+            lua_getfield(L, 3, "stoke_color");
+        }
+        if (lua_isstring(L, -1)) {
+            const char *hex = lua_tostring(L, -1);
+            opt_stroke_template = ese_color_create(component->base.lua);
+            ese_color_set_hex(opt_stroke_template, hex);
+            destroy_stroke_template = true;
+        } else if (lua_isuserdata(L, -1)) {
+            opt_stroke_template = ese_color_lua_get(L, -1);
+            // Do not ref or destroy here; we'll copy later
+        }
+        lua_pop(L, 1);
+
+        // fill_color
+        lua_getfield(L, 3, "fill_color");
+        if (lua_isstring(L, -1)) {
+            const char *hex = lua_tostring(L, -1);
+            opt_fill_template = ese_color_create(component->base.lua);
+            ese_color_set_hex(opt_fill_template, hex);
+            destroy_fill_template = true;
+        } else if (lua_isuserdata(L, -1)) {
+            opt_fill_template = ese_color_lua_get(L, -1);
+            // Do not ref or destroy here; we'll copy later
+        }
+        lua_pop(L, 1);
+    }
+
+    // Adopt new polylines, growing capacity as needed, and apply options
     for (size_t i = 0; i < new_count; ++i) {
         if (component->polylines_count == component->polylines_capacity) {
             size_t new_capacity = component->polylines_capacity * 2;
@@ -491,8 +574,44 @@ static int _entity_component_shape_set_path(lua_State *L) {
         }
 
         EsePolyLine *pl = lines[i];
+
+        // Stroke width
+        ese_poly_line_set_stroke_width(pl, stroke_width);
+
+        // Stroke color: copy template or create default white per polyline
+        EseColor *stroke_to_set = NULL;
+        if (opt_stroke_template) {
+            stroke_to_set = ese_color_copy(opt_stroke_template);
+        } else {
+            stroke_to_set = ese_color_create(component->base.lua);
+            ese_color_set_byte(stroke_to_set, 255, 255, 255, 255); // default white
+        }
+        ese_poly_line_set_stroke_color(pl, stroke_to_set);
+
+        // Fill color: copy template or create default transparent per polyline
+        EseColor *fill_to_set = NULL;
+        if (opt_fill_template) {
+            fill_to_set = ese_color_copy(opt_fill_template);
+        } else {
+            fill_to_set = ese_color_create(component->base.lua);
+            ese_color_set_byte(fill_to_set, 0, 0, 0, 0); // default transparent
+        }
+        ese_poly_line_set_fill_color(pl, fill_to_set);
+
+        // Adjust type: if path contained Z (CLOSED) and options included fill_color, mark as FILLED
+        if (has_fill_option && ese_poly_line_get_type(pl) == POLY_LINE_CLOSED) {
+            ese_poly_line_set_type(pl, POLY_LINE_FILLED);
+        }
+
         ese_poly_line_ref(pl);
         component->polylines[component->polylines_count++] = pl;
+    }
+
+    if (destroy_stroke_template && opt_stroke_template) {
+        ese_color_destroy(opt_stroke_template);
+    }
+    if (destroy_fill_template && opt_fill_template) {
+        ese_color_destroy(opt_fill_template);
     }
 
     if (lines) {
@@ -541,6 +660,9 @@ static int _entity_component_shape_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "set_path") == 0) {
         lua_pushcfunction(L, _entity_component_shape_set_path);
+        return 1;
+    } else if (strcmp(key, "clear_path") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_clear_path);
         return 1;
     }
     
@@ -787,9 +909,14 @@ void _entity_component_shape_draw(EseEntityComponentShape *component, float scre
             case POLY_LINE_OPEN:
                 should_draw_stroke = true;
                 break;
-            case POLY_LINE_CLOSED:
+            case POLY_LINE_CLOSED: {
                 should_draw_stroke = true;
+                // If a non-transparent fill color is set, fill closed paths, too
+                if (fill_color && ese_color_get_a(fill_color) > 0.0f) {
+                    should_draw_fill = true;
+                }
                 break;
+            }
             case POLY_LINE_FILLED:
                 should_draw_fill = true;
                 should_draw_stroke = true;

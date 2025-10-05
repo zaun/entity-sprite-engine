@@ -193,12 +193,62 @@ static bool _shape_path_handle_vlineto(const EseLuaEngine *engine, float scale, 
 // cubic bezier:
 static bool _shape_path_handle_cubic_bezier(const EseLuaEngine *engine, float scale, const char **pp,
                                EsePolyLine **pcurrent, float *cx, float *cy,
-                               bool relative, EsePolyLine ***lines_ptr, size_t *lines_count, size_t *lines_cap) {
-    (void)engine; (void)pcurrent; (void)cx; (void)cy; (void)relative; (void)lines_ptr; (void)lines_count; (void)lines_cap;
-    (void)scale;
-    _shape_path_skip_separators(pp);
-    while (**pp && !isalpha((unsigned char)**pp)) {
-        ++(*pp);
+                               bool relative, EsePolyLine ***lines_ptr, size_t *lines_count, size_t *lines_cap,
+                               float *prev_ctrl_x, float *prev_ctrl_y, bool *prev_ctrl_valid) {
+    // Parse sets of: x1,y1 x2,y2 x,y and approximate with line segments
+    const int segments = 16;
+    while (1) {
+        _shape_path_skip_separators(pp);
+        if (!**pp || !(isdigit((unsigned char)**pp) || **pp == '+' || **pp == '-' || **pp == '.')) break;
+
+        int ok;
+        double x1 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y1 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double x2 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y2 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double x = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y = _shape_path_parse_number(pp, &ok); if (!ok) break;
+
+        if (relative) {
+            x1 += (*cx / scale); y1 += (*cy / scale);
+            x2 += (*cx / scale); y2 += (*cy / scale);
+            x += (*cx / scale); y += (*cy / scale);
+        }
+
+        float x0 = *cx, y0 = *cy;
+        float cx1 = (float)(x1 * scale), cy1 = (float)(y1 * scale);
+        float cx2 = (float)(x2 * scale), cy2 = (float)(y2 * scale);
+        float x3 = (float)(x * scale), y3 = (float)(y * scale);
+
+        if (!*pcurrent) {
+            if (!_shape_path_ensure_lines_capacity(lines_ptr, lines_count, lines_cap)) return false;
+            EsePolyLine *pl = ese_poly_line_create((EseLuaEngine*)engine);
+            if (!pl) return false;
+            (*lines_ptr)[(*lines_count)++] = pl;
+            *pcurrent = pl;
+            // If there was no starting point, seed it with current position
+            EsePoint *pt0 = ese_point_create((EseLuaEngine*)engine);
+            if (!pt0) return false;
+            ese_point_set_x(pt0, x0);
+            ese_point_set_y(pt0, y0);
+            if (!ese_poly_line_add_point(*pcurrent, pt0)) return false;
+        }
+
+        for (int i = 1; i <= segments; ++i) {
+            float t = (float)i / (float)segments;
+            float mt = 1.0f - t;
+            float bx = mt*mt*mt*x0 + 3*mt*mt*t*cx1 + 3*mt*t*t*cx2 + t*t*t*x3;
+            float by = mt*mt*mt*y0 + 3*mt*mt*t*cy1 + 3*mt*t*t*cy2 + t*t*t*y3;
+            EsePoint *pt = ese_point_create((EseLuaEngine*)engine);
+            if (!pt) return false;
+            ese_point_set_x(pt, bx);
+            ese_point_set_y(pt, by);
+            if (!ese_poly_line_add_point(*pcurrent, pt)) return false;
+        }
+
+        // Update current position and previous control
+        *cx = x3; *cy = y3;
+        *prev_ctrl_x = cx2; *prev_ctrl_y = cy2; *prev_ctrl_valid = true;
     }
     return true;
 }
@@ -206,12 +256,65 @@ static bool _shape_path_handle_cubic_bezier(const EseLuaEngine *engine, float sc
 // smooth cubic bezier:
 static bool _shape_path_handle_smooth_cubic_bezier(const EseLuaEngine *engine, float scale, const char **pp,
                                EsePolyLine **pcurrent, float *cx, float *cy,
-                               bool relative, EsePolyLine ***lines_ptr, size_t *lines_count, size_t *lines_cap) {
-    (void)engine; (void)pcurrent; (void)cx; (void)cy; (void)relative; (void)lines_ptr; (void)lines_count; (void)lines_cap;
-    (void)scale;
-    _shape_path_skip_separators(pp);
-    while (**pp && !isalpha((unsigned char)**pp)) {
-        ++(*pp);
+                               bool relative, EsePolyLine ***lines_ptr, size_t *lines_count, size_t *lines_cap,
+                               float *prev_ctrl_x, float *prev_ctrl_y, bool *prev_ctrl_valid) {
+    // Parse sets of: x2,y2 x,y with first control reflected from previous
+    const int segments = 16;
+    while (1) {
+        _shape_path_skip_separators(pp);
+        if (!**pp || !(isdigit((unsigned char)**pp) || **pp == '+' || **pp == '-' || **pp == '.')) break;
+
+        int ok;
+        double x2 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y2 = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double x = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y = _shape_path_parse_number(pp, &ok); if (!ok) break;
+
+        float x0 = *cx, y0 = *cy;
+        float cx1, cy1;
+        if (*prev_ctrl_valid) {
+            cx1 = 2.0f * x0 - *prev_ctrl_x;
+            cy1 = 2.0f * y0 - *prev_ctrl_y;
+        } else {
+            cx1 = x0; cy1 = y0;
+        }
+
+        if (relative) {
+            x2 += (*cx / scale); y2 += (*cy / scale);
+            x += (*cx / scale); y += (*cy / scale);
+        }
+
+        float cx2 = (float)(x2 * scale), cy2 = (float)(y2 * scale);
+        float x3 = (float)(x * scale), y3 = (float)(y * scale);
+
+        if (!*pcurrent) {
+            if (!_shape_path_ensure_lines_capacity(lines_ptr, lines_count, lines_cap)) return false;
+            EsePolyLine *pl = ese_poly_line_create((EseLuaEngine*)engine);
+            if (!pl) return false;
+            (*lines_ptr)[(*lines_count)++] = pl;
+            *pcurrent = pl;
+            // Seed with current position
+            EsePoint *pt0 = ese_point_create((EseLuaEngine*)engine);
+            if (!pt0) return false;
+            ese_point_set_x(pt0, x0);
+            ese_point_set_y(pt0, y0);
+            if (!ese_poly_line_add_point(*pcurrent, pt0)) return false;
+        }
+
+        for (int i = 1; i <= segments; ++i) {
+            float t = (float)i / (float)segments;
+            float mt = 1.0f - t;
+            float bx = mt*mt*mt*x0 + 3*mt*mt*t*cx1 + 3*mt*t*t*cx2 + t*t*t*x3;
+            float by = mt*mt*mt*y0 + 3*mt*mt*t*cy1 + 3*mt*t*t*cy2 + t*t*t*y3;
+            EsePoint *pt = ese_point_create((EseLuaEngine*)engine);
+            if (!pt) return false;
+            ese_point_set_x(pt, bx);
+            ese_point_set_y(pt, by);
+            if (!ese_poly_line_add_point(*pcurrent, pt)) return false;
+        }
+
+        *cx = x3; *cy = y3;
+        *prev_ctrl_x = cx2; *prev_ctrl_y = cy2; *prev_ctrl_valid = true;
     }
     return true;
 }
@@ -256,7 +359,7 @@ static bool _shape_path_handle_arc(const EseLuaEngine *engine, float scale, cons
 }
 
 // closepath: add subpath start if needed and mark CLOSED
-static bool _shape_path_handle_closepath(const EseLuaEngine *engine, EsePolyLine **pcurrent, float cx, float cy, float spx, float spy) {
+static bool _shape_path_handle_closepath(const EseLuaEngine *engine, EsePolyLine **pcurrent, float *cx, float *cy, float spx, float spy) {
     if (!*pcurrent) return true;
     size_t pc = ese_poly_line_get_point_count(*pcurrent);
     if (pc > 0) {
@@ -272,6 +375,10 @@ static bool _shape_path_handle_closepath(const EseLuaEngine *engine, EsePolyLine
         }
     }
     ese_poly_line_set_type(*pcurrent, POLY_LINE_CLOSED);
+    // SVG spec: after 'Z' the current point becomes the subpath’s initial point
+    // so subsequent relative commands use (spx, spy) as origin.
+    if (cx) *cx = spx;
+    if (cy) *cy = spy;
     return true;
 }
 
@@ -293,6 +400,10 @@ EsePolyLine **shape_path_to_polylines(EseLuaEngine *engine, float scale, const c
     float spy = 0.0f;
     char cmd = 0;
 
+    // Track previous cubic control point for smooth curves
+    float prev_ctrl_x = 0.0f, prev_ctrl_y = 0.0f;
+    bool prev_ctrl_valid = false;
+
     while (*p) {
         _shape_path_skip_separators(&p);
         if (!*p) break;
@@ -310,6 +421,7 @@ EsePolyLine **shape_path_to_polylines(EseLuaEngine *engine, float scale, const c
         switch (cmd) {
             case 'M': // Move To
                 ok = _shape_path_handle_moveto(engine, scale, &p, &lines, &lines_count, &lines_cap, &current, &cx, &cy, &spx, &spy);
+                prev_ctrl_valid = false;
                 break;
             case 'm': { // Relative Move To
                 /* relative moveto: parse then offset current pos */
@@ -351,59 +463,73 @@ EsePolyLine **shape_path_to_polylines(EseLuaEngine *engine, float scale, const c
                     ese_point_set_y(pt2, cy);
                     if (!ese_poly_line_add_point(current, pt2)) { ok = false; break; }
                 }
+                prev_ctrl_valid = false;
                 break;
             }
             case 'L': // Line To
                 ok = _shape_path_handle_lineto(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'l': // Relative Line To
                 ok = _shape_path_handle_lineto(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'H': // Horizontal Line
                 ok = _shape_path_handle_hlineto(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'h':
                 ok = _shape_path_handle_hlineto(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'V': // Vertical Line
                 ok = _shape_path_handle_vlineto(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'v': // Relative Vertical Line
                 ok = _shape_path_handle_vlineto(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'C': // Cubic Bezier Curve
-                ok = _shape_path_handle_cubic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                ok = _shape_path_handle_cubic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap, &prev_ctrl_x, &prev_ctrl_y, &prev_ctrl_valid);
                 break;
             case 'c': // Relative Cubic Bezier Curve
-                ok = _shape_path_handle_cubic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                ok = _shape_path_handle_cubic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap, &prev_ctrl_x, &prev_ctrl_y, &prev_ctrl_valid);
                 break;
             case 'S': // Smooth Cubic Bezier Curve
-                ok = _shape_path_handle_smooth_cubic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                ok = _shape_path_handle_smooth_cubic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap, &prev_ctrl_x, &prev_ctrl_y, &prev_ctrl_valid);
                 break;
             case 's': // Relative Smooth Cubic Bezier Curve
-                ok = _shape_path_handle_smooth_cubic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                ok = _shape_path_handle_smooth_cubic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap, &prev_ctrl_x, &prev_ctrl_y, &prev_ctrl_valid);
                 break;
             case 'Q': // Quadratic Bezier Curve
                 ok = _shape_path_handle_quadratic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'q': // Relative Quadratic Bezier Curve
                 ok = _shape_path_handle_quadratic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'T': // Smooth Quadratic Bezier Curve
                 ok = _shape_path_handle_smooth_quadratic_bezier(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 't': // Relative Smooth Quadratic Bezier Curve
                 ok = _shape_path_handle_smooth_quadratic_bezier(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'A': // Arc Curve
                 ok = _shape_path_handle_arc(engine, scale, &p, &current, &cx, &cy, false, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'a': // Relative Arc Curve
                 ok = _shape_path_handle_arc(engine, scale, &p, &current, &cx, &cy, true, &lines, &lines_count, &lines_cap);
+                prev_ctrl_valid = false;
                 break;
             case 'Z': // Close Path
             case 'z':
-                ok = _shape_path_handle_closepath(engine, &current, cx, cy, spx, spy);
+                ok = _shape_path_handle_closepath(engine, &current, &cx, &cy, spx, spy);
+                prev_ctrl_valid = false;
                 _shape_path_skip_separators(&p);
                 break;
             default:
