@@ -538,5 +538,3 @@ EseArray *collision_resolver_solve(CollisionResolver *resolver, EseArray *pairs,
     profile_stop(PROFILE_COLLISION_RESOLVER_SECTION, "collision_resolver_solve");
     return resolver->hits;
 }
-
-

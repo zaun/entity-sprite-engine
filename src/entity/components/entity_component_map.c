@@ -223,6 +223,7 @@ void _entity_component_map_cleanup(EseEntityComponentMap *component)
 
     lua_value_destroy(component->map_arg);
     lua_value_destroy(component->cell_arg);
+    lua_value_destroy(component->delta_time_arg);
 
     memory_manager.free(component);
     profile_count_add("entity_comp_map_destroy_count");
@@ -1034,6 +1035,7 @@ bool _entity_component_map_collides_component(EseEntityComponentMap *component, 
                     break;
                 }
             }
+            ese_rect_destroy(cell_rect);
 
             // Only count cells that are marked solid
             if (intersect ) {
