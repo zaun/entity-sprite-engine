@@ -31,7 +31,7 @@ static const char hook_key_sentinel = 0;
         LUA_VAL_TABLE, LUA_VAL_REF, LUA_VAL_USERDATA, LUA_VAL_RECT,
         LUA_VAL_POINT, LUA_VAL_MAP, LUA_VAL_ARC, LUA_VAL_CAMERA, LUA_VAL_COLOR, LUA_VAL_DISPLAY, 
         LUA_VAL_INPUT_STATE, LUA_VAL_MAP_CELL, LUA_VAL_POLY_LINE, LUA_VAL_RAY, LUA_VAL_TILESET, 
-        LUA_VAL_UUID, LUA_VAL_VECTOR, LUA_VAL_CFUNC, LUA_VAL_ERROR
+        LUA_VAL_UUID, LUA_VAL_VECTOR, LUA_VAL_COLLISION_HIT, LUA_VAL_CFUNC, LUA_VAL_ERROR
     } type; /**< Type of the Lua value */
     union {
         bool boolean;                /**< Boolean value for LUA_VAL_BOOL type */
@@ -52,6 +52,7 @@ static const char hook_key_sentinel = 0;
         struct EseTileSet *tileset; /**< Tileset pointer for LUA_VAL_TILESET type */
         struct EseUUID *uuid;       /**< Uuid pointer for LUA_VAL_UUID type */
         struct EseVector *vector;   /**< Vector pointer for LUA_VAL_VECTOR type */
+        struct EseCollisionHit *collision_hit; /**< CollisionHit pointer for LUA_VAL_COLLISION_HIT type */
         struct {
             EseLuaCFunction cfunc;  /**< C function pointer for LUA_VAL_CFUNC type */
             EseLuaValue *upvalue;   /**< Upvalue for the C function */

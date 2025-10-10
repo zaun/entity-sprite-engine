@@ -156,7 +156,6 @@ static void _ese_rect_to_obb(const EseRect *r, OBB *out) {
 static bool _ese_obb_overlap(const OBB *A, const OBB *B) {
     const float EPS = 1e-6f;
     Vec2 d = { B->c.x - A->c.x, B->c.y - A->c.y };
-
     /* test A's axes */
     for (int i = 0; i < 2; ++i) {
         Vec2 axis = A->axis[i];
@@ -359,8 +358,8 @@ static int _ese_rect_lua_tostring(lua_State *L) {
     char buf[160];
     snprintf(
         buf, sizeof(buf),
-        "Rect: %p (x=%.2f, y=%.2f, w=%.2f, h=%.2f, rot=%.2fdeg)",
-        (void*)rect, rect->x, rect->y, rect->width, rect->height,
+        "(x=%.3f, y=%.3f, w=%.3f, h=%.3f, rot=%.3fdeg)",
+        rect->x, rect->y, rect->width, rect->height,
         (double)rad_to_deg(rect->rotation)
     );
     lua_pushstring(L, buf);
@@ -765,6 +764,7 @@ bool ese_rect_intersects(const EseRect *rect1, const EseRect *rect2) {
     OBB a, b;
     _ese_rect_to_obb(rect1, &a);
     _ese_rect_to_obb(rect2, &b);
+
     return _ese_obb_overlap(&a, &b);
 }
 

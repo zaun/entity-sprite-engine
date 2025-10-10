@@ -108,3 +108,16 @@ end
 
 function ENTITY:entity_collision_exit(entity) 
 end
+
+
+function ENTITY:map_collision_enter(cell)
+    print("horse map_collision_enter", tostring(cell))
+end
+
+function ENTITY:map_collision_stay(cell)
+    print("horse map_collision_stay", tostring(cell))
+end
+
+function ENTITY:map_collision_exit(cell)
+    print("horse map_collision_exit", tostring(cell))
+end

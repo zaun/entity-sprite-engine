@@ -9,6 +9,7 @@
 #include "entity/components/entity_component_private.h"
 #include "types/types.h"
 #include "utility/log.h"
+#include "utility/array.h"
 #include "core/memory_manager.h"
 #include "entity/entity_private.h"
 #include "entity/entity_lua.h"
@@ -18,6 +19,8 @@
 #include "core/engine.h"
 #include "core/engine_private.h"
 #include "core/pubsub.h"
+#include "core/collision_resolver.h"
+#include "types/collision_hit.h"
 #include "scripting/lua_engine.h"
 
 EseEntity *entity_create(EseLuaEngine *engine) {
@@ -101,8 +104,8 @@ static void _entity_cleanup(EseEntity *entity) {
     ese_point_unref(entity->position);
     ese_point_destroy(entity->position);
 
-    hashmap_free(entity->current_collisions);
-    hashmap_free(entity->previous_collisions);
+    hashmap_destroy(entity->current_collisions);
+    hashmap_destroy(entity->previous_collisions);
     if (entity->collision_bounds) {
         ese_rect_destroy(entity->collision_bounds);
     }
@@ -233,119 +236,117 @@ void entity_run_function_with_args(
     profile_stop(PROFILE_ENTITY_LUA_FUNCTION_CALL, "entity_run_function_with_args");
 }
 
-int entity_check_collision_state(EseEntity *entity, EseEntity *test) {
-    log_assert("ENTITY", entity, "entity_check_collision_state called with NULL entity");
-    log_assert("ENTITY", test, "entity_check_collision_state called with NULL test");
+bool entity_test_collision(EseEntity *a, EseEntity *b, EseArray *out_hits) {
+    log_assert("ENTITY", a, "entity_test_collision called with NULL a");
+    log_assert("ENTITY", b, "entity_test_collision called with NULL b");
+    log_assert("ENTITY", out_hits, "entity_test_collision called with NULL out_hits");
 
-    profile_start(PROFILE_ENTITY_COLLISION_DETECT);
+    profile_start(PROFILE_ENTITY_COLLISION_TEST);
 
-    // Get the key.
-    const char* canonical_key = _get_collision_key(entity->id, test->id);
-
-    // Read the state from the PREVIOUS frame - check if this pair was colliding
-    // We only need to check one entity's collision state since both should be in sync
-    // Consider both previous and current maps so tests that do not swap frames still see STAY/EXIT
-    bool was_colliding =
-        hashmap_get(entity->previous_collisions, canonical_key) != NULL ||
-        hashmap_get(entity->current_collisions, canonical_key) != NULL;
-    bool currently_colliding = _entity_test_collision(entity, test);
-
-    // Determine collision state: 0=none, 1=enter, 2=stay, 3=exit
-    int result;
-    if (currently_colliding && !was_colliding) {
-        result = 1; // ENTER
-    } else if (currently_colliding && was_colliding) {
-        result = 2; // STAY
-    } else if (!currently_colliding && was_colliding) {
-        result = 3; // EXIT
-    } else {
-        result = 0; // NONE
+    // Both entities must be active
+    if (!a->active || !b->active) {
+        return false;
     }
-    
-    profile_stop(PROFILE_ENTITY_COLLISION_DETECT, "entity_check_collision_state");
-    memory_manager.free((void*)canonical_key);
-    return result;
+
+    // Loop through all components of both entities
+    bool hit = false;
+    for (size_t i = 0; i < a->component_count; i++) {
+        EseEntityComponent *comp_a = a->components[i];
+        for (size_t j = 0; j < b->component_count; j++) {
+            EseEntityComponent *comp_b = b->components[j];
+            // Append directly into caller-provided array to preserve all hits
+            entity_component_detect_collision_with_component(comp_a, comp_b, out_hits);
+            if (array_size(out_hits) > 0) hit = true;
+        }
+    }
+
+    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
+    return hit;
 }
 
-void entity_clear_collision_states(EseEntity *entity) {
-    log_assert("ENTITY", entity, "entity_clear_collision_states called with NULL entity");
-    
-    // Swap current and previous collision states
-    EseHashMap *temp = entity->previous_collisions;
-    entity->previous_collisions = entity->current_collisions;
-    entity->current_collisions = temp;
-    
-    // Clear the new current_collisions (which was previous_collisions)
-    hashmap_clear(entity->current_collisions);
-}
-
-void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state) {
-    log_assert("ENTITY", entity_a, "entity_process_collision_callbacks called with NULL entity_a");
-    log_assert("ENTITY", entity_b, "entity_process_collision_callbacks called with NULL entity_b");
+void entity_process_collision_callbacks(EseCollisionHit *hit) {
+    log_assert("ENTITY", hit, "entity_process_collision_callbacks called with NULL hit");
 
     profile_start(PROFILE_ENTITY_COLLISION_CALLBACK);
 
-    // Get the key for updating collision state
-    const char* canonical_key = _get_collision_key(entity_a->id, entity_b->id);
-
-    switch (state) {
-        case 1: // ENTER
-            // Collision Enter
-            {
-                EseLuaValue *args[] = {entity_b->lua_val_ref};
-                entity_run_function_with_args(entity_a, "entity_collision_enter", 1, args);
-            }
-            {
-                EseLuaValue *args[] = {entity_a->lua_val_ref};
-                entity_run_function_with_args(entity_b, "entity_collision_enter", 1, args);
-            }
-            
-            // Update collision state
-            hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
-            hashmap_set(entity_b->current_collisions, canonical_key, (void*)1);
-            
-            break;
-            
-        case 2: // STAY
-            // Collision Stay
-            {
-                EseLuaValue *args[] = {entity_b->lua_val_ref};
-                entity_run_function_with_args(entity_a, "entity_collision_stay", 1, args);
-            }
-            {
-                EseLuaValue *args[] = {entity_a->lua_val_ref};
-                entity_run_function_with_args(entity_b, "entity_collision_stay", 1, args);
-            }
-
-            // Maintain collision in current_collisions to indicate ongoing contact
-            hashmap_set(entity_a->current_collisions, canonical_key, (void*)1);
-            hashmap_set(entity_b->current_collisions, canonical_key, (void*)1);
-            break;
-            
-        case 3: // EXIT
-            // Collision Exit
-            {
-                EseLuaValue *args[] = {entity_b->lua_val_ref};
-                entity_run_function_with_args(entity_a, "entity_collision_exit", 1, args);
-            }
-            {
-                EseLuaValue *args[] = {entity_a->lua_val_ref};
-                entity_run_function_with_args(entity_b, "entity_collision_exit", 1, args);
-            }
-            
-            // Update collision state
-            hashmap_remove(entity_a->current_collisions, canonical_key);
-            hashmap_remove(entity_b->current_collisions, canonical_key);
-            break;
-            
-        case 0: // NONE
-        default:
-            // No collision, nothing to do
-            break;
+    EseCollisionState state = ese_collision_hit_get_state(hit);
+    if (ese_collision_hit_get_kind(hit) == COLLISION_KIND_COLLIDER) {
+        switch (state) {
+            case COLLISION_STATE_ENTER:
+                // Collision Enter
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "entity_collision_enter", 1, args);
+                }
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_entity(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_target(hit), "entity_collision_enter", 1, args);
+                }
+                break;
+                
+            case COLLISION_STATE_STAY:
+                // Collision Stay
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "entity_collision_stay", 1, args);
+                }
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_entity(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_target(hit), "entity_collision_stay", 1, args);
+                }
+                break;
+                
+            case COLLISION_STATE_LEAVE:
+                // Collision Exit
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "entity_collision_exit", 1, args);
+                }
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_entity(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_target(hit), "entity_collision_exit", 1, args);
+                }
+                break;
+                
+            case COLLISION_STATE_NONE:
+            default:
+                // No collision, nothing to do
+                break;
+        }
+    } else if (ese_collision_hit_get_kind(hit) == COLLISION_KIND_MAP) {
+        switch (state) {
+            case COLLISION_STATE_ENTER:
+                // Map collision enter
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "map_collision_enter", 1, args);
+                }
+                break;
+            case COLLISION_STATE_STAY:
+                // Map collision stay
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "map_collision_stay", 1, args);
+                }
+                break;
+            case COLLISION_STATE_LEAVE:
+                // Map collision exit
+                {
+                    EseLuaValue *args[] = {ese_collision_hit_get_target(hit)->lua_val_ref};
+                    entity_run_function_with_args(ese_collision_hit_get_entity(hit), "map_collision_exit", 1, args);
+                }
+                break;
+            case COLLISION_STATE_NONE:
+            default:
+                // No collision, nothing to do
+                break;
+        }
+    } else {
+        // Unknown collision kind
+        log_error("ENTITY", "entity_process_collision_callbacks: unknown collision kind");
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_CALLBACK, "entity_process_collision_callbacks");
-    memory_manager.free((void*)canonical_key);
 }
 
 bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {

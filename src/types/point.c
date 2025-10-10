@@ -213,7 +213,7 @@ static int _ese_point_lua_tostring(lua_State *L) {
     }
 
     char buf[64];
-    snprintf(buf, sizeof(buf), "Point: %p (x=%.2f, y=%.2f)", (void*)point, point->x, point->y);
+    snprintf(buf, sizeof(buf), "(x=%.3f, y=%.3f)", point->x, point->y);
     lua_pushstring(L, buf);
 
     return 1;

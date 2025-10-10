@@ -1,8 +1,9 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
-#include "core/collision_index.h"
 #include "core/memory_manager.h"
+#include "core/spatial_index.h"
+#include "core/collision_resolver.h"
 #include "entity/entity.h"
 #include "types/types.h"
 #include "types/input_state_private.h"
@@ -48,7 +49,8 @@ EseEngine *engine_create(const char *startup_script) {
     engine->entities = dlist_create(NULL);
     engine->del_entities = dlist_create(NULL);
 
-    engine->collision_bin = collision_index_create();
+    engine->spatial_index = spatial_index_create();
+    engine->collision_resolver = collision_resolver_create();
 
     engine->lua_engine = lua_engine_create();
 
@@ -75,6 +77,7 @@ EseEngine *engine_create(const char *startup_script) {
     ese_poly_line_lua_init(engine->lua_engine);
     ese_ray_lua_init(engine->lua_engine);
     ese_rect_lua_init(engine->lua_engine);
+    ese_collision_hit_lua_init(engine->lua_engine);
     ese_tileset_lua_init(engine->lua_engine);
     ese_vector_lua_init(engine->lua_engine);
     ese_uuid_lua_init(engine->lua_engine);
@@ -149,7 +152,12 @@ void engine_destroy(EseEngine *engine) {
     ese_camera_destroy(engine->camera_state);
     console_destroy(engine->console);
 
-    collision_index_destroy(engine->collision_bin);
+    if (engine->collision_resolver) {
+        collision_resolver_destroy(engine->collision_resolver);
+    }
+    if (engine->spatial_index) {
+        spatial_index_destroy(engine->spatial_index);
+    }
 
     if (engine->map_components) {
         // Engine does not own elements; just destroy the container
@@ -220,7 +228,7 @@ void engine_remove_entity(EseEngine *engine, EseEntity *entity) {
 
 void engine_clear_entities(EseEngine *engine, bool include_persistent) {
     log_assert("ENGINE", engine, "engine_clear_entities called with NULL engine");
-
+    
     // We can't remove from engine->entities while iterating over it,
     // so just add it to the delete list, we'll remvoe from the entites
     // list later
@@ -356,35 +364,48 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     while (dlist_iter_next(clear_iter, &clear_value)) {
         EseEntity *entity = (EseEntity*)clear_value;
         if (!entity->active) continue;
-        entity_clear_collision_states(entity);
     }
     dlist_iter_free(clear_iter);
     
-    // Entity PASS TWO Step 1: Collect collision pairs using spatial bin
-    collision_index_clear(engine->collision_bin);
+    // Entity PASS TWO Step 1: Collect spatial pairs using spatial index
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    spatial_index_clear(engine->spatial_index);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_clear");
 
     // Insert active entities
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
     void* entity_value;
     EseDListIter* insert_iter = dlist_iter_create(engine->entities);
     while (dlist_iter_next(insert_iter, &entity_value)) {
         EseEntity *entity = (EseEntity*)entity_value;
         if (!entity->active) continue;
-        collision_index_insert(engine->collision_bin, entity);
+        spatial_index_insert(engine->spatial_index, entity);
     }
     dlist_iter_free(insert_iter);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_insert");
 
-    // Get collision pairs from the spatial index (array is cleared internally)
-    EseArray *collision_pairs = collision_index_get_pairs(engine->collision_bin);
+    // Get spatial pairs from the spatial index (array is cleared internally)
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    EseArray *spatial_pairs = spatial_index_get_pairs(engine->spatial_index);
+    size_t spatial_pair_count = array_size(spatial_pairs);
+    for (size_t spi = 0; spi < spatial_pair_count; spi++) { profile_count_add("eng_collision_spatial_pairs_count"); }
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_get_pairs");
+
+    // Resolve pairs into detailed collision hits
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    EseArray *collision_hits = collision_resolver_solve(engine->collision_resolver, spatial_pairs, engine->lua_engine);
+    size_t resolved_hit_count = array_size(collision_hits);
+    for (size_t rhi = 0; rhi < resolved_hit_count; rhi++) { profile_count_add("eng_collision_hits_count"); }
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_resolver_solve");
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_detect");
 
     // Entity PASS TWO Step 2: Process collision callbacks for all pairs
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    size_t pair_count = array_size(collision_pairs);
-    for (size_t i = 0; i < pair_count; i++) {
-        CollisionPair *pair = (CollisionPair *)array_get(collision_pairs, i);
-        if (pair) {
-            entity_process_collision_callbacks(pair->entity_a, pair->entity_b, pair->state);
-        }
+    size_t hit_count = array_size(collision_hits);
+    for (size_t i = 0; i < hit_count; i++) {
+        EseCollisionHit *hit = (EseCollisionHit *)array_get(collision_hits, i);
+        if (!hit) continue;
+        entity_process_collision_callbacks(hit);
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_callback");
 
@@ -538,6 +559,10 @@ static void _normalize_tag(char *dest, const char *src) {
 EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count) {
     log_assert("ENGINE", engine, "engine_find_by_tag called with NULL engine");
     log_assert("ENGINE", tag, "engine_find_by_tag called with NULL tag");
+
+    if (max_count == 0) {
+        return NULL;
+    }
 
     char normalized_tag[16]; // MAX_TAG_LENGTH
     _normalize_tag(normalized_tag, tag);

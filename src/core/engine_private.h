@@ -13,7 +13,8 @@
 
 #include <stdint.h>
 #include "core/asset_manager.h"
-#include "core/collision_index.h"
+#include "core/spatial_index.h"
+#include "core/collision_resolver.h"
 #include "core/console.h"
 #include "core/engine.h"
 #include "core/pubsub.h"
@@ -24,7 +25,8 @@ typedef struct EseDrawList EseDrawList;
 typedef struct EseRenderList EseRenderList;
 typedef struct EseRenderer EseRenderer;
 typedef struct EseDoubleLinkedList EseDoubleLinkedList;
-typedef struct EseCollisionIndex EseCollisionIndex;
+typedef struct SpatialIndex SpatialIndex;
+typedef struct CollisionResolver CollisionResolver;
 typedef struct EseArray EseArray;
 
 struct EseEngine {
@@ -37,7 +39,8 @@ struct EseEngine {
     EseDoubleLinkedList *entities;      /** A doubly-linked list containing all active entities */
     EseDoubleLinkedList *del_entities;  /** A doubly-linked list containing to be deleted entities */
 
-    EseCollisionIndex *collision_bin;   /** Collision index for collision detection */
+    SpatialIndex *spatial_index;        /** Broad-phase spatial index for collision pair generation */
+    CollisionResolver *collision_resolver; /** Narrow-phase resolver for detailed collision hits */
 
     EseInputState *input_state;         /** The current input state of the application */
     EseDisplay *display_state;          /** The current display state of the application */

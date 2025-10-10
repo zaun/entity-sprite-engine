@@ -133,7 +133,7 @@ EseGroupedHashMap* grouped_hashmap_create(EseGroupedHashMapFreeFn free_fn) {
     return map;
 }
 
-void grouped_hashmap_free(EseGroupedHashMap* map) {
+void grouped_hashmap_destroy(EseGroupedHashMap* map) {
     if (!map) return;
     for (size_t i = 0; i < map->capacity; i++) {
         EseHashNode* node = map->buckets[i];

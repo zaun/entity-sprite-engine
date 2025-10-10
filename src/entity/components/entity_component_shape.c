@@ -250,6 +250,10 @@ static bool _shape_vtable_run_function(EseEntityComponent* component, EseEntity*
     return false;
 }
 
+static void _shape_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    (void)a; (void)b; (void)out_hits;
+}
+
 static void _shape_vtable_ref(EseEntityComponent* component) {
     EseEntityComponentShape *shape = (EseEntityComponentShape*)component->data;
     log_assert("ENTITY_COMP", shape, "shape vtable ref called with NULL");
@@ -284,6 +288,7 @@ static const ComponentVTable shape_vtable = {
     .update = _shape_vtable_update,
     .draw = _shape_vtable_draw,
     .run_function = _shape_vtable_run_function,
+    .collides = _shape_vtable_collides_component,
     .ref = _shape_vtable_ref,
     .unref = _shape_vtable_unref
 };

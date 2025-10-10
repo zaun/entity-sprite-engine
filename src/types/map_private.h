@@ -26,8 +26,8 @@
     EseTileSet *tileset;             /** Associated tileset for this map */
 
     // Dimensions
-    uint32_t width;                  /** Map width in cells */
-    uint32_t height;                 /** Map height in cells */
+    size_t width;                    /** Map width in cells */
+    size_t height;                   /** Map height in cells */
 
     // Cell data
     EseMapCell ***cells;             /** 2D array of pointers to map cells [y][x] */

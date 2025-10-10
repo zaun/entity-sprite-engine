@@ -15,6 +15,7 @@
 #include "graphics/shader.h"
 #include "utility/hashmap.h"
 #include "utility/grouped_hashmap.h"
+#include "utility/helpers.h"
 #include "platform/filesystem.h"
 
 // Forward declarations
@@ -44,61 +45,6 @@ static void _gl_free_shader(void *value) {
 #ifndef max
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #endif
-
-void _split_library_func(const char *input, char **group, char **name) {
-    log_assert("GL_RENDERER", input, "_split_library_func called with NULL input");
-    log_assert("GL_RENDERER", group, "_split_library_func called with NULL group");
-    log_assert("GL_RENDERER", name, "_split_library_func called with NULL name");
-
-    // Initialize output pointers to NULL
-    *group = NULL;
-    *name = NULL;
-
-    // Handle NULL input immediately
-    if (input == NULL)
-    {
-        return;
-    }
-
-    const char *colon = strchr(input, ':');
-
-    if (colon == NULL)
-    {
-        // No colon: full string is the name, group is "default"
-        *group = memory_manager.strdup("default", MMTAG_RENDERER);
-        *name = memory_manager.strdup(input, MMTAG_RENDERER);
-    }
-    else
-    {
-        // Calculate lengths of potential group and name parts
-        size_t groupLength = colon - input;
-        size_t nameLength = strlen(colon + 1);
-
-        // Case: "test:" or ":" (group exists, name is empty)
-        if (nameLength == 0)
-        {
-            return;
-        }
-
-        // Case: ":test" (no group, name exists)
-        if (groupLength == 0)
-        {
-            *group = memory_manager.strdup("default", MMTAG_RENDERER);
-            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
-        }
-        // Case: "group:test" (both group and name exist)
-        else
-        {
-            *group = (char *)memory_manager.malloc(groupLength + 1, MMTAG_RENDERER);
-            if (*group)
-            {
-                strncpy(*group, input, groupLength);
-                (*group)[groupLength] = '\0';
-            }
-            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
-        }
-    }
-}
 
 EseRenderer* renderer_create(bool hiDPI) {
     log_debug("RENDERER", "Initializing OpenGL Renderer...");
@@ -141,9 +87,9 @@ void renderer_destroy(EseRenderer *renderer) {
     memory_manager.free(renderer->internal);
 
     // Hashmaps will automatically free their values using the free functions
-    hashmap_free(renderer->textures);
-    grouped_hashmap_free(renderer->shaders);
-    grouped_hashmap_free(renderer->shadersSources);
+    hashmap_destroy(renderer->textures);
+    grouped_hashmap_destroy(renderer->shaders);
+    grouped_hashmap_destroy(renderer->shadersSources);
 
     memory_manager.free(renderer);
 }
@@ -311,14 +257,14 @@ bool renderer_create_pipeline_state(EseRenderer *renderer, const char *vertexFun
     char *fFunc = NULL;
 
     // Parse vertex function string
-    _split_library_func(vertexFunc, &vLib, &vFunc);
+    ese_helper_split(vertexFunc, &vLib, &vFunc);
     if (!vLib)
     {
         log_debug("RENDERER", "_split_library_func failed for %s", vertexFunc);
         return false;
     }
 
-    _split_library_func(fragmentFunc, &fLib, &fFunc);
+    ese_helper_split(fragmentFunc, &fLib, &fFunc);
     if (!fLib)
     {
         log_debug("RENDERER", "_split_library_func failed for %s", fragmentFunc);

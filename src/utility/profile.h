@@ -178,6 +178,21 @@ extern "C" {
 
 #define PROFILE_LUA_MAP_NEW                     108
 
+// CollisionHit Lua operations
+#define PROFILE_LUA_COLLISION_HIT_INDEX         109
+
+
+// Entity component collision pair checks
+#define PROFILE_ENTITY_COMP_MAP_COLLIDES        110
+#define PROFILE_ENTITY_COMP_COLLIDER_COLLIDES   111
+
+// Spatial index and resolver profiling
+#define PROFILE_SPATIAL_INDEX_SECTION           112
+#define PROFILE_COLLISION_RESOLVER_SECTION      113
+
+// Entity component dispatch profiling
+#define PROFILE_ENTITY_COMPONENT_DISPATCH       114
+
 
 #ifdef ESE_PROFILE_ENABLED
 

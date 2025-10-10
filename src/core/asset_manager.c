@@ -7,6 +7,7 @@
 #include "scripting/lua_engine.h"
 #include "types/types.h"
 #include "utility/grouped_hashmap.h"
+#include "utility/helpers.h"
 #include "utility/log.h"
 #include "vendor/json/cJSON.h"
 #include <string.h>
@@ -74,63 +75,6 @@ struct EseAssetManager {
     size_t group_count;             /** Number of groups currently in use */
     size_t group_capacity;          /** Allocated capacity for groups array */
 };
-
-/**
- * @brief Splits a string by a colon into a group and a name.
- * * @param input The constant string to split.
- * @param group A pointer to a char* where the group string will be stored.
- * The caller is responsible for freeing this memory.
- * Will be set to NULL if no group is found or if the input is invalid.
- * @param name A pointer to a char* where the name string will be stored.
- * The caller is responsible for freeing this memory.
- * Will be set to NULL if no name is found or if the input is invalid.
- */
-void _split_string(
-    const char *input,
-    char **group,
-    char **name)
-{
-    // Initialize output pointers to NULL
-    *group = NULL;
-    *name = NULL;
-
-    // Handle NULL input immediately
-    if (input == NULL) {
-        return;
-    }
-
-    const char *colon = strchr(input, ':');
-
-    if (colon == NULL) {
-        // No colon: full string is the name, group is "default"
-        *group = memory_manager.strdup("default", MMTAG_GENERAL);
-        *name = memory_manager.strdup(input, MMTAG_GENERAL);
-    } else {
-        // Calculate lengths of potential group and name parts
-        size_t groupLength = colon - input;
-        size_t nameLength = strlen(colon + 1);
-
-        // Case: "test:" or ":" (group exists, name is empty)
-        if (nameLength == 0) {
-            return;
-        }
-
-        // Case: ":test" (no group, name exists)
-        if (groupLength == 0) {
-            *group = memory_manager.strdup("default", MMTAG_GENERAL);
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
-        }
-        // Case: "group:test" (both group and name exist)
-        else {
-            *group = (char *)memory_manager.malloc(groupLength + 1, MMTAG_GENERAL);
-            if (*group) {
-                strncpy(*group, input, groupLength);
-                (*group)[groupLength] = '\0';
-            }
-            *name = memory_manager.strdup(colon + 1, MMTAG_GENERAL);
-        }
-    }
-}
 
 EseAsset *_asset_create()
 {
@@ -308,10 +252,10 @@ void asset_manager_destroy(
         return;
     }
 
-    grouped_hashmap_free(manager->sprites);
-    grouped_hashmap_free(manager->textures);
-    grouped_hashmap_free(manager->atlases);
-    grouped_hashmap_free(manager->maps);
+    grouped_hashmap_destroy(manager->sprites);
+    grouped_hashmap_destroy(manager->textures);
+    grouped_hashmap_destroy(manager->atlases);
+    grouped_hashmap_destroy(manager->maps);
 
     for (size_t i = 0; i < manager->group_count; i++) {
         memory_manager.free(manager->groups[i]);
@@ -604,7 +548,7 @@ EseSprite *asset_manager_get_sprite(
 
     char *out_group = NULL;
     char *out_name = NULL;
-    _split_string(asset_id, &out_group, &out_name);
+    ese_helper_split(asset_id, &out_group, &out_name);
 
     EseAsset *asset = (EseAsset *)grouped_hashmap_get(manager->sprites, out_group, out_name);
     memory_manager.free(out_group);
@@ -909,7 +853,7 @@ EseMap *asset_manager_get_map(
 
     char *out_group = NULL;
     char *out_name = NULL;
-    _split_string(asset_id, &out_group, &out_name);
+    ese_helper_split(asset_id, &out_group, &out_name);
 
     EseAsset *asset = (EseAsset *)grouped_hashmap_get(manager->maps, out_group, out_name);
     memory_manager.free(out_group);

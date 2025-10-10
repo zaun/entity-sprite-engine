@@ -36,6 +36,10 @@ static bool _sprite_vtable_run_function(EseEntityComponent* component, EseEntity
     return false;
 }
 
+static void _sprite_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    (void)a; (void)b; (void)out_hits;
+}
+
 static void _sprite_vtable_ref(EseEntityComponent* component) {
     EseEntityComponentSprite *sprite = (EseEntityComponentSprite*)component->data;
     log_assert("ENTITY_COMP", sprite, "sprite vtable ref called with NULL");
@@ -70,6 +74,7 @@ static const ComponentVTable sprite_vtable = {
     .update = _sprite_vtable_update,
     .draw = _sprite_vtable_draw,
     .run_function = _sprite_vtable_run_function,
+    .collides = _sprite_vtable_collides_component,
     .ref = _sprite_vtable_ref,
     .unref = _sprite_vtable_unref
 };

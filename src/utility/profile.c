@@ -170,7 +170,7 @@ static int profile_count_entry_cmp(const void *a, const void *b) {
 }
 
 // --- Timer support (100 slots) ---
-#define PROFILE_MAX_TIMERS 100
+#define PROFILE_MAX_TIMERS 200
 static uint64_t timers[PROFILE_MAX_TIMERS];
 
 // --- Snapshot storage ---

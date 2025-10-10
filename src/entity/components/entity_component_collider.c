@@ -11,6 +11,7 @@
 #include "entity/entity.h"
 #include "types/rect.h"
 #include "entity/components/entity_component_collider.h"
+#include "core/collision_resolver.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
@@ -18,6 +19,8 @@
 #define COLLIDER_RECT_CAPACITY 5
 
 static void _entity_component_collider_rect_changed(EseRect *rect, void *userdata);
+
+bool _entity_component_collider_collides_component(EseEntityComponentCollider *colliderA, EseEntityComponentCollider *colliderB, EseArray *out_hits);
 
 /**
  * @brief Helper function to get the collider component from a rects proxy table.
@@ -67,6 +70,10 @@ static bool _collider_vtable_run_function(EseEntityComponent* component, EseEnti
     return false;
 }
 
+static void _collider_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    _entity_component_collider_collides_component((EseEntityComponentCollider*)a->data, (EseEntityComponentCollider*)b->data, out_hits);
+}
+
 static void _collider_vtable_ref(EseEntityComponent* component) {
     entity_component_collider_ref((EseEntityComponentCollider*)component->data);
 }
@@ -82,9 +89,69 @@ static const ComponentVTable collider_vtable = {
     .update = _collider_vtable_update,
     .draw = _collider_vtable_draw,
     .run_function = _collider_vtable_run_function,
+    .collides = _collider_vtable_collides_component,
     .ref = _collider_vtable_ref,
     .unref = _collider_vtable_unref
 };
+
+bool _entity_component_collider_collides_component(EseEntityComponentCollider *colliderA, EseEntityComponentCollider *colliderB, EseArray *out_hits) {
+    log_assert("ENTITY_COMP", colliderA, "_entity_component_collider_collides_component called with NULL collider");
+    log_assert("ENTITY_COMP", colliderB, "_entity_component_collider_collides_component called with NULL collider");
+
+    profile_start(PROFILE_ENTITY_COMP_COLLIDER_COLLIDES);
+
+    float pos_a_x = ese_point_get_x(colliderA->base.entity->position);
+    float pos_a_y = ese_point_get_y(colliderA->base.entity->position);
+    float pos_b_x = ese_point_get_x(colliderB->base.entity->position);
+    float pos_b_y = ese_point_get_y(colliderB->base.entity->position);
+
+    for (size_t i = 0; i < colliderA->rects_count; i++) {
+        EseRect *rect_a = colliderA->rects[i];
+        
+        // Create world-space rect for A
+        EseRect *world_rect_a = ese_rect_create(colliderA->base.lua);
+        ese_rect_set_x(world_rect_a, ese_rect_get_x(rect_a) + ese_point_get_x(colliderA->offset) + pos_a_x);
+        ese_rect_set_y(world_rect_a, ese_rect_get_y(rect_a) + ese_point_get_y(colliderA->offset) + pos_a_y);
+        ese_rect_set_width(world_rect_a, ese_rect_get_width(rect_a));
+        ese_rect_set_height(world_rect_a, ese_rect_get_height(rect_a));
+        ese_rect_set_rotation(world_rect_a, ese_rect_get_rotation(rect_a));
+
+        for (size_t j = 0; j < colliderB->rects_count; j++) {
+            EseRect *rect_b = colliderB->rects[j];
+            
+            // Create world-space rect for B
+            EseRect *world_rect_b = ese_rect_create(colliderB->base.lua);
+            ese_rect_set_x(world_rect_b, ese_rect_get_x(rect_b) + ese_point_get_x(colliderB->offset) + pos_b_x);
+            ese_rect_set_y(world_rect_b, ese_rect_get_y(rect_b) + ese_point_get_y(colliderB->offset) + pos_b_y);
+            ese_rect_set_width(world_rect_b, ese_rect_get_width(rect_b));
+            ese_rect_set_height(world_rect_b, ese_rect_get_height(rect_b));
+            ese_rect_set_rotation(world_rect_b, ese_rect_get_rotation(rect_b));
+
+                   // Use proper rotated rectangle intersection test
+                   if (ese_rect_intersects(world_rect_a, world_rect_b)) {
+                profile_count_add("collider_pair_rect_tests_hit");
+                EseCollisionHit *hit = ese_collision_hit_create(colliderA->base.entity->lua);
+                ese_collision_hit_set_kind(hit, COLLISION_KIND_COLLIDER);
+                ese_collision_hit_set_entity(hit, colliderA->base.entity);
+                ese_collision_hit_set_target(hit, colliderB->base.entity);
+                ese_collision_hit_set_state(hit, COLLISION_STATE_STAY);
+                ese_collision_hit_set_rect(hit, colliderB->rects[j]);
+                array_push(out_hits, hit);
+                ese_rect_destroy(world_rect_b);
+                ese_rect_destroy(world_rect_a);
+                profile_stop(PROFILE_ENTITY_COMP_COLLIDER_COLLIDES, "entity_comp_collider_collides_comp");
+                return true;
+            }
+            ese_rect_destroy(world_rect_b);
+            profile_count_add("collider_pair_rect_tests_miss");
+        }
+        
+        ese_rect_destroy(world_rect_a);
+    }
+
+    profile_stop(PROFILE_ENTITY_COMP_COLLIDER_COLLIDES, "entity_comp_collider_collides_comp");
+    return false;
+}
 
 
 void entity_component_collider_ref(EseEntityComponentCollider *component) {
@@ -107,7 +174,7 @@ void entity_component_collider_ref(EseEntityComponentCollider *component) {
         component->base.lua_ref_count++;
     }
 
-    profile_count_add("entity_component_collider_ref_count");
+    profile_count_add("entity_comp_collider_ref_count");
 }
 
 void entity_component_collider_unref(EseEntityComponentCollider *component) {
@@ -123,7 +190,7 @@ void entity_component_collider_unref(EseEntityComponentCollider *component) {
         }
     }
 
-    profile_count_add("entity_component_collider_unref_count");
+    profile_count_add("entity_comp_collider_unref_count");
 }
 
 static EseEntityComponent *_entity_component_collider_make(EseLuaEngine *engine) {
@@ -196,10 +263,12 @@ void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
     // Clean up collision bounds from entity if this component created them
     if (component->base.entity) {
         if (component->base.entity->collision_bounds) {
+            ese_rect_unref(component->base.entity->collision_bounds);
             ese_rect_destroy(component->base.entity->collision_bounds);
             component->base.entity->collision_bounds = NULL;
         }
         if (component->base.entity->collision_world_bounds) {
+            ese_rect_unref(component->base.entity->collision_world_bounds);
             ese_rect_destroy(component->base.entity->collision_world_bounds);
             component->base.entity->collision_world_bounds = NULL;
         }
@@ -763,8 +832,8 @@ void _entity_component_collider_draw(EseEntityComponentCollider *collider, float
     for (size_t i = 0; i < collider->rects_count; i++) {
         EseRect *rect = collider->rects[i];
         rectCallback(
-            screen_x + ese_point_get_x(collider->offset),
-            screen_y + ese_point_get_y(collider->offset),
+            screen_x + ese_point_get_x(collider->offset) + ese_rect_get_x(rect),
+            screen_y + ese_point_get_y(collider->offset) + ese_rect_get_y(rect),
             collider->base.entity->draw_order,
             ese_rect_get_width(rect), ese_rect_get_height(rect),
             ese_rect_get_rotation(rect), false,
@@ -845,22 +914,63 @@ void entity_component_collider_update_bounds(EseEntityComponentCollider *collide
         EseRect *r = collider->rects[i];
         if (!r) continue;
         
-        // Use rect coordinates directly (they're already relative to entity)
+        // Get rect properties
         float rx = ese_rect_get_x(r) + ese_point_get_x(collider->offset);
         float ry = ese_rect_get_y(r) + ese_point_get_y(collider->offset);
         float rw = ese_rect_get_width(r);
         float rh = ese_rect_get_height(r);
+        float rotation = ese_rect_get_rotation(r);
         
-        // Update min/max bounds
-        min_x = fminf(min_x, rx);
-        min_y = fminf(min_y, ry);
-        max_x = fmaxf(max_x, rx + rw);
-        max_y = fmaxf(max_y, ry + rh);
+        // Calculate the bounding box of the rotated rectangle
+        if (fabsf(rotation) < 1e-6f) {
+            // No rotation - simple AABB
+            min_x = fminf(min_x, rx);
+            min_y = fminf(min_y, ry);
+            max_x = fmaxf(max_x, rx + rw);
+            max_y = fmaxf(max_y, ry + rh);
+        } else {
+            // Rotated rectangle - calculate all 4 corners and find bounding box
+            float cx = rx + rw * 0.5f;  // Center X
+            float cy = ry + rh * 0.5f;  // Center Y
+            float half_w = rw * 0.5f;
+            float half_h = rh * 0.5f;
+            
+            float cos_r = cosf(rotation);
+            float sin_r = sinf(rotation);
+            
+            // Calculate the 4 corners of the rotated rectangle
+            float corners_x[4], corners_y[4];
+            
+            // Corner 1: (-half_w, -half_h)
+            corners_x[0] = cx + cos_r * (-half_w) - sin_r * (-half_h);
+            corners_y[0] = cy + sin_r * (-half_w) + cos_r * (-half_h);
+            
+            // Corner 2: (+half_w, -half_h)
+            corners_x[1] = cx + cos_r * (half_w) - sin_r * (-half_h);
+            corners_y[1] = cy + sin_r * (half_w) + cos_r * (-half_h);
+            
+            // Corner 3: (+half_w, +half_h)
+            corners_x[2] = cx + cos_r * (half_w) - sin_r * (half_h);
+            corners_y[2] = cy + sin_r * (half_w) + cos_r * (half_h);
+            
+            // Corner 4: (-half_w, +half_h)
+            corners_x[3] = cx + cos_r * (-half_w) - sin_r * (half_h);
+            corners_y[3] = cy + sin_r * (-half_w) + cos_r * (half_h);
+            
+            // Find the bounding box of all corners
+            for (int j = 0; j < 4; j++) {
+                min_x = fminf(min_x, corners_x[j]);
+                min_y = fminf(min_y, corners_y[j]);
+                max_x = fmaxf(max_x, corners_x[j]);
+                max_y = fmaxf(max_y, corners_y[j]);
+            }
+        }
     }
     
     // Create or update the collision bounds (relative to entity)
     if (!collider->base.entity->collision_bounds) {
         collider->base.entity->collision_bounds = ese_rect_create(collider->base.lua);
+        ese_rect_ref(collider->base.entity->collision_bounds);
     }
     
     EseRect *bounds = collider->base.entity->collision_bounds;
@@ -873,6 +983,7 @@ void entity_component_collider_update_bounds(EseEntityComponentCollider *collide
     // Create or update the collision world bounds
     if (!collider->base.entity->collision_world_bounds) {
         collider->base.entity->collision_world_bounds = ese_rect_create(collider->base.lua);
+        ese_rect_ref(collider->base.entity->collision_world_bounds);
     }
     
     EseRect *world_bounds = collider->base.entity->collision_world_bounds;
@@ -936,4 +1047,14 @@ void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collid
     log_assert("ENTITY_COMP", collider, "entity_component_collider_set_draw_debug called with NULL collider");
     
     collider->draw_debug = draw_debug;
+}
+
+bool entity_component_collider_get_map_interaction(EseEntityComponentCollider *collider) {
+    log_assert("ENTITY_COMP", collider, "entity_component_collider_get_map_interaction called with NULL collider");
+    return collider->map_interaction;
+}
+
+void entity_component_collider_set_map_interaction(EseEntityComponentCollider *collider, bool enabled) {
+    log_assert("ENTITY_COMP", collider, "entity_component_collider_set_map_interaction called with NULL collider");
+    collider->map_interaction = enabled;
 }

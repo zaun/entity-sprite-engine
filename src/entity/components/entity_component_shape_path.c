@@ -346,14 +346,77 @@ static bool _shape_path_handle_smooth_quadratic_bezier(const EseLuaEngine *engin
 }
 
 // arc curve:
-static bool _shape_path_handle_arc(const EseLuaEngine *engine, float scale, const char **pp,
+static bool _shape_path_handle_arc(EseLuaEngine *engine, float scale, const char **pp,
                                EsePolyLine **pcurrent, float *cx, float *cy,
                                bool relative, EsePolyLine ***lines_ptr, size_t *lines_count, size_t *lines_cap) {
-    (void)engine; (void)pcurrent; (void)cx; (void)cy; (void)relative; (void)lines_ptr; (void)lines_count; (void)lines_cap;
-    (void)scale;
-    _shape_path_skip_separators(pp);
-    while (**pp && !isalpha((unsigned char)**pp)) {
-        ++(*pp);
+    // Parse sets of: rx,ry rotation large-arc-flag sweep-flag x,y
+    const int segments = 16;
+    while (1) {
+        _shape_path_skip_separators(pp);
+        if (!**pp || !(isdigit((unsigned char)**pp) || **pp == '+' || **pp == '-' || **pp == '.')) break;
+
+        int ok;
+        double rx = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double ry = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double rotation = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double large_arc = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double sweep = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double x = _shape_path_parse_number(pp, &ok); if (!ok) break;
+        double y = _shape_path_parse_number(pp, &ok); if (!ok) break;
+
+        if (relative) {
+            x += (*cx / scale); y += (*cy / scale);
+        }
+
+        float x0 = *cx, y0 = *cy;
+        float x1 = (float)(x * scale), y1 = (float)(y * scale);
+        float rx_scaled = (float)(rx * scale), ry_scaled = (float)(ry * scale);
+
+        if (!*pcurrent) {
+            if (!_shape_path_ensure_lines_capacity(lines_ptr, lines_count, lines_cap)) return false;
+            EsePolyLine *pl = ese_poly_line_create(engine);
+            if (!pl) return false;
+            (*lines_ptr)[(*lines_count)++] = pl;
+            *pcurrent = pl;
+        }
+
+        // Create a proper circle using the arc parameters
+        // For a full circle, we need to create two semicircles
+        float center_x = (x0 + x1) / 2.0f;
+        float center_y = (y0 + y1) / 2.0f;
+        
+        // First semicircle (top half)
+        for (int i = 0; i <= segments; ++i) {
+            float angle = (float)(M_PI * i / segments);
+            float px = center_x + rx_scaled * cosf(angle);
+            float py = center_y + ry_scaled * sinf(angle);
+            
+            EsePoint *pt = ese_point_create(engine);
+            if (!pt) return false;
+            ese_point_set_x(pt, px);
+            ese_point_set_y(pt, py);
+            if (!ese_poly_line_add_point(*pcurrent, pt)) return false;
+        }
+        
+        // Second semicircle (bottom half)
+        for (int i = 0; i <= segments; ++i) {
+            float angle = (float)(M_PI + M_PI * i / segments);
+            float px = center_x + rx_scaled * cosf(angle);
+            float py = center_y + ry_scaled * sinf(angle);
+            
+            EsePoint *pt = ese_point_create(engine);
+            if (!pt) return false;
+            ese_point_set_x(pt, px);
+            ese_point_set_y(pt, py);
+            if (!ese_poly_line_add_point(*pcurrent, pt)) return false;
+        }
+
+        *cx = x1; *cy = y1;
+        _shape_path_skip_separators(pp);
+        while (*pp && (isdigit((unsigned char)**pp) || **pp == '+' ||
+                       **pp == '-' || **pp == '.' || **pp == ',' || isspace((unsigned char)**pp))) {
+            ++(*pp);
+        }
     }
     return true;
 }

@@ -13,51 +13,9 @@
 #import "graphics/render_list.h"
 #import "graphics/shader.h"
 #import "utility/grouped_hashmap.h"
+#import "utility/helpers.h"
 #import "platform/filesystem.h"
 #import "vendor/stb/stb_image.h"
-
-void _split_library_func(const char* input, char** group, char** name) {
-    // Initialize output pointers to NULL
-    *group = NULL;
-    *name = NULL;
-
-    // Handle NULL input immediately
-    if (input == NULL) {
-        return;
-    }
-
-    const char* colon = strchr(input, ':');
-
-    if (colon == NULL) {
-        // No colon: full string is the name, group is "default"
-        *group = memory_manager.strdup("default", MMTAG_RENDERER);
-        *name = memory_manager.strdup(input, MMTAG_RENDERER);
-    } else {
-        // Calculate lengths of potential group and name parts
-        size_t groupLength = colon - input;
-        size_t nameLength = strlen(colon + 1);
-
-        // Case: "test:" or ":" (group exists, name is empty)
-        if (nameLength == 0) {
-            return;
-        }
-
-        // Case: ":test" (no group, name exists)
-        if (groupLength == 0) {
-            *group = memory_manager.strdup("default", MMTAG_RENDERER);
-            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
-        }
-        // Case: "group:test" (both group and name exist)
-        else {
-            *group = (char*)memory_manager.malloc(groupLength + 1, MMTAG_RENDERER);
-            if (*group) {
-                strncpy(*group, input, groupLength);
-                (*group)[groupLength] = '\0';
-            }
-            *name = memory_manager.strdup(colon + 1, MMTAG_RENDERER);
-        }
-    }
-}
 
 void _free_hash_item(void *value) {
     #if !__has_feature(objc_arc)
@@ -289,9 +247,9 @@ EseRenderer* renderer_create(bool hiDPI) {
 void renderer_destroy(EseRenderer* renderer) {
     log_assert("METAL_RENDERER", renderer, "renderer_destroy called with NULL renderer");
 
-    hashmap_free(renderer->textures);
-    grouped_hashmap_free(renderer->shaders);
-    grouped_hashmap_free(renderer->shadersSources);
+    hashmap_destroy(renderer->textures);
+    grouped_hashmap_destroy(renderer->shaders);
+    grouped_hashmap_destroy(renderer->shadersSources);
 
     EseMetalRenderer *internal = (EseMetalRenderer *)renderer->internal;
     [internal->commandQueue release];
@@ -344,14 +302,14 @@ bool renderer_create_pipeline_state(EseRenderer* renderer, const char *vertexFun
     char *fFunc = NULL;
 
     // Parse vertex function string
-    _split_library_func(vertexFunc, &vLib, &vFunc);
+    ese_helper_split(vertexFunc, &vLib, &vFunc);
     if (!vLib || !vFunc) {
         if (vLib) memory_manager.free(vLib);
         if (vFunc) memory_manager.free(vFunc);
         return false;
     }
 
-    _split_library_func(fragmentFunc, &fLib, &fFunc);
+    ese_helper_split(fragmentFunc, &fLib, &fFunc);
     if (!fLib || !fFunc) {
         memory_manager.free(vLib);
         memory_manager.free(vFunc);
@@ -359,7 +317,6 @@ bool renderer_create_pipeline_state(EseRenderer* renderer, const char *vertexFun
         if (fFunc) memory_manager.free(fFunc);
         return false;
     }
-
 
     // Lookup vertex library
     id<MTLLibrary> vertexLibrary = grouped_hashmap_get(renderer->shaders, vLib,  vFunc);

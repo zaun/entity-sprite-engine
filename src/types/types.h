@@ -14,6 +14,7 @@
 #include "types/rect.h"
 #include "types/tileset.h"
 #include "types/uuid.h"
+#include "types/collision_hit.h"
 #include "types/vector.h"
 
 #endif // TYPES_H

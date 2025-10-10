@@ -11,6 +11,8 @@ typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseEntity EseEntity;
 typedef struct EseEntityComponent EseEntityComponent;
 typedef struct EseRect EseRect;
+typedef struct EseCollisionHit EseCollisionHit;
+typedef struct EseArray EseArray;
 
 /**
  * @brief Callback function type for entity drawing operations.
@@ -151,29 +153,11 @@ void entity_run_function_with_args(
 );
 
 /**
- * @brief Check for a collision between entity and test, returning collision state.
- * 
- * @param entity Pointer to the primary EseEntity to check
- * @param test Pointer to the secondary EseEntity to check
- * @return int indicating the collision state (0=none, 1=enter, 2=stay, 3=exit)
- */
-int entity_check_collision_state(EseEntity *entity, EseEntity *test);
-
-/**
- * @brief Clear collision states for an entity (called at the beginning of each frame).
- * 
- * @param entity Pointer to the EseEntity to clear collision states for
- */
-void entity_clear_collision_states(EseEntity *entity);
-
-/**
  * @brief Process collision callbacks for a collision pair with known state.
  * 
- * @param entity_a Pointer to the first EseEntity
- * @param entity_b Pointer to the second EseEntity  
- * @param state The collision state to process (0=none, 1=enter, 2=stay, 3=exit)
+ * @param hit Pointer to the collision hit
  */
-void entity_process_collision_callbacks(EseEntity *entity_a, EseEntity *entity_b, int state);
+void entity_process_collision_callbacks(EseCollisionHit *hit);
 
 /**
  * @brief Check for a collision between entitiy and a rect.
@@ -293,5 +277,7 @@ bool entity_get_visible(EseEntity *entity);
 void entity_set_persistent(EseEntity *entity, bool persistent);
 
 bool entity_get_persistent(EseEntity *entity);
+
+bool entity_test_collision(EseEntity *a, EseEntity *b, EseArray *out_hits);
 
 #endif // ESE_ENTITY_H

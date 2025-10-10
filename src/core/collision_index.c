@@ -364,8 +364,8 @@ EseCollisionIndex *collision_index_create(void) {
 
 void collision_index_destroy(EseCollisionIndex *index) {
     log_assert("COLLISION_INDEX", index, "destroy called with NULL index");
-    int_hashmap_free(index->bins);
-    int_hashmap_free(index->dbvh_regions);
+    int_hashmap_destroy(index->bins);
+    int_hashmap_destroy(index->dbvh_regions);
     array_destroy(index->collision_pairs);
     memory_manager.free(index);
 }
@@ -564,6 +564,6 @@ EseArray *collision_index_get_pairs(EseCollisionIndex *index) {
     int_hashmap_iter_free(bin_iter);
 
     // cleanup seen
-    hashmap_free(seen);
+    hashmap_destroy(seen);
     return index->collision_pairs;
 }

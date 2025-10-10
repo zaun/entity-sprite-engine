@@ -43,7 +43,7 @@ void ese_pubsub_destroy(EsePubSub *pub_sub) {
         return;
     }
     
-    hashmap_free(pub_sub->topics);
+    hashmap_destroy(pub_sub->topics);
     memory_manager.free(pub_sub);
 }
 

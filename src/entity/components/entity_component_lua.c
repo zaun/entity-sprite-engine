@@ -43,6 +43,10 @@ static bool _lua_vtable_run_function(EseEntityComponent* component, EseEntity* e
     return entity_component_lua_run((EseEntityComponentLua*)component->data, entity, func_name, argc, (EseLuaValue**)argv);
 }
 
+static void _lua_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    (void)a; (void)b; (void)out_hits;
+}
+
 static void _lua_vtable_ref(EseEntityComponent* component) {
     entity_component_lua_ref((EseEntityComponentLua*)component->data);
 }
@@ -58,6 +62,7 @@ static const ComponentVTable lua_vtable = {
     .update = _lua_vtable_update,
     .draw = _lua_vtable_draw,
     .run_function = _lua_vtable_run_function,
+    .collides = _lua_vtable_collides_component,
     .ref = _lua_vtable_ref,
     .unref = _lua_vtable_unref
 };
@@ -152,7 +157,7 @@ void _entity_component_lua_cleanup(EseEntityComponentLua *component) {
     // Clear and free the function cache (regardless of ref status)
     if (component->function_cache) {
         _entity_component_lua_clear_cache(component);
-        hashmap_free(component->function_cache);
+        hashmap_destroy(component->function_cache);
         component->function_cache = NULL;
     }
 

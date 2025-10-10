@@ -1,10 +1,14 @@
 #include <string.h>
+#include <math.h>
 #include "core/memory_manager.h"
+#include "utility/array.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "scripting/lua_engine.h"
-#include "entity/components/entity_component_private.h"
+#include "entity/components/entity_component_collider.h"
 #include "entity/components/entity_component_map.h"
+#include "core/collision_resolver.h"
+#include "entity/components/entity_component_private.h"
 #include "core/asset_manager.h"
 #include "core/engine_private.h"
 #include "graphics/sprite.h"
@@ -23,6 +27,7 @@ static const size_t STANDARD_FUNCTIONS_COUNT = sizeof(STANDARD_FUNCTIONS) / size
 
 
 // Forward declarations
+bool _entity_component_map_collides_component(EseEntityComponentMap *component, EseEntityComponentCollider *collider, EseArray *out_hits);
 void _entity_component_map_cache_functions(EseEntityComponentMap *component);
 void _entity_component_map_clear_cache(EseEntityComponentMap *component);
 bool _entity_component_map_run(EseEntityComponentMap *component, EseEntity *entity, const char *func_name, int argc, EseLuaValue *argv[]);
@@ -31,6 +36,7 @@ static int _entity_component_map_show_layer_index(lua_State *L);
 static int _entity_component_map_show_layer_newindex(lua_State *L);
 static int _entity_component_map_show_layer_len(lua_State *L);
 static int _entity_component_map_show_all_layers(lua_State *L);
+static void _entity_component_map_update_world_bounds(EseEntityComponentMap *component);
 
 // VTable wrapper functions
 static EseEntityComponent* _map_vtable_copy(EseEntityComponent* component) {
@@ -53,6 +59,10 @@ static void _map_vtable_draw(EseEntityComponent* component, int screen_x, int sc
 static bool _map_vtable_run_function(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]) {
     // Map components don't support function execution
     return false;
+}
+
+static void _map_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    _entity_component_map_collides_component((EseEntityComponentMap*)a->data, (EseEntityComponentCollider*)b->data, out_hits);
 }
 
 static void _map_vtable_ref(EseEntityComponent* component) {
@@ -89,6 +99,7 @@ static const ComponentVTable map_vtable = {
     .update = _map_vtable_update,
     .draw = _map_vtable_draw,
     .run_function = _map_vtable_run_function,
+    .collides = _map_vtable_collides_component,
     .ref = _map_vtable_ref,
     .unref = _map_vtable_unref
 };
@@ -201,7 +212,7 @@ void _entity_component_map_cleanup(EseEntityComponentMap *component)
     memory_manager.free(component->script);
     if (component->function_cache) {
         _entity_component_map_clear_cache(component);
-        hashmap_free(component->function_cache);
+        hashmap_destroy(component->function_cache);
         component->function_cache = NULL;
     }
 
@@ -241,6 +252,9 @@ void _entity_component_map_update(EseEntityComponentMap *component, EseEntity *e
 {
     log_assert("ENTITY_COMP", component, "_entity_component_map_update called with NULL component");
     log_assert("ENTITY_COMP", entity, "_entity_component_map_update called with NULL src");
+
+    // Keep world bounds in sync so spatial index can pair map entities correctly
+    _entity_component_map_update_world_bounds(component);
 
     // If not script, just return
     if (component->script == NULL) {
@@ -713,6 +727,8 @@ static int _entity_component_map_newindex(lua_State *L)
         component->sprite_frames = memory_manager.malloc(sizeof(int) * cells, MMTAG_COMP_MAP);
         memset(component->sprite_frames, 0, sizeof(int) * cells);
 
+        // Update world bounds to cover full map
+        _entity_component_map_update_world_bounds(component);
         return 0;
     }
     else if (strcmp(key, "position") == 0)
@@ -725,6 +741,8 @@ static int _entity_component_map_newindex(lua_State *L)
         // Copy values, don't copy reference (ownership safety)
         ese_point_set_x(component->position, ese_point_get_x(new_position_point));
         ese_point_set_y(component->position, ese_point_get_y(new_position_point));
+        // Changing center cell affects map extents relative to entity
+        _entity_component_map_update_world_bounds(component);
         return 0;
     }
     else if (strcmp(key, "size") == 0)
@@ -740,6 +758,8 @@ static int _entity_component_map_newindex(lua_State *L)
             new_size = 0;
         }
         component->size = new_size;
+        // Tile size changes the map's pixel extents
+        _entity_component_map_update_world_bounds(component);
         return 0;
     }
     else if (strcmp(key, "seed") == 0)
@@ -940,6 +960,107 @@ void _entity_component_map_init(EseLuaEngine *engine)
     {
         lua_pop(L, 1);
     }
+}
+
+bool _entity_component_map_collides_component(EseEntityComponentMap *component, EseEntityComponentCollider *collider, EseArray *out_hits) {
+    log_assert("ENTITY_COMP_MAP", component, "_entity_component_map_collides_component called with NULL map");
+    log_assert("ENTITY_COMP_MAP", collider, "_entity_component_map_collides_component called with NULL collider");
+    log_assert("ENTITY_COMP_MAP", out_hits, "_entity_component_map_collides_component called with NULL out_hits");
+
+    // If not set map, return false
+    if (!component->map) {
+        return false;
+    }
+
+    // If not set collision world bounds, return false
+    EseRect *map_bounds = component->base.entity->collision_world_bounds;
+    if (!map_bounds) {
+        profile_count_add("map_collides_early_no_map_bounds");
+        return false;
+    }
+
+    // If no rects, return false
+    if (collider->rects_count == 0) {
+        profile_count_add("map_collides_early_no_collider_rects");
+        return false;
+    }
+
+    profile_start(PROFILE_ENTITY_COMP_MAP_COLLIDES);
+
+    // High level bounds check
+    EseRect *collider_bounds = collider->base.entity->collision_world_bounds;
+    if (!collider_bounds || !ese_rect_intersects(map_bounds, collider_bounds)) {
+        profile_cancel(PROFILE_ENTITY_COMP_MAP_COLLIDES);
+        profile_count_add("map_collides_early_world_bounds_miss");
+        return false;
+    }
+
+    // map size
+    size_t mw = ese_map_get_width(component->map);
+    size_t mh = ese_map_get_height(component->map);
+    
+    EseRect **world_rects = memory_manager.malloc(sizeof(EseRect*) * collider->rects_count, MMTAG_COMP_MAP);
+    for (size_t i = 0; i < collider->rects_count; i++) {
+        world_rects[i] = ese_rect_create(component->base.lua);
+        ese_rect_set_x(
+            world_rects[i],
+            ese_rect_get_x(collider->rects[i]) +
+            ese_point_get_x(collider->base.entity->position)
+        );
+        ese_rect_set_y(world_rects[i],
+                       ese_rect_get_y(collider->rects[i]) +
+                       ese_point_get_y(collider->base.entity->position));
+        ese_rect_set_width(world_rects[i],
+                           ese_rect_get_width(collider->rects[i]));
+        ese_rect_set_height(world_rects[i],
+                            ese_rect_get_height(collider->rects[i]));
+        ese_rect_set_rotation(world_rects[i],
+                              ese_rect_get_rotation(collider->rects[i]));
+    }
+
+    bool did_hit = false;
+    for (size_t y = 0; y < mh; y++) {
+        for (size_t x = 0; x < mw; x++) {
+            profile_count_add("map_collides_cell_checked");
+            // We don't own the cell, so we don't need to destroy it
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
+            // cell_rect is in world coords
+            EseRect *cell_rect = entity_component_map_get_cell_rect(component, x, y);
+
+            bool intersect = false;
+            for (size_t i = 0; i < collider->rects_count; i++) {
+                if (ese_rect_intersects(world_rects[i], cell_rect)) {
+                    intersect = true;
+                    break;
+                }
+            }
+
+            // Only count cells that are marked solid
+            if (intersect ) {
+                profile_count_add("map_collides_solid_hits");
+                // hit is owned by the caller's array
+                EseCollisionHit *hit = ese_collision_hit_create(collider->base.entity->lua);
+                ese_collision_hit_set_kind(hit, COLLISION_KIND_MAP);
+                ese_collision_hit_set_entity(hit, collider->base.entity);
+                ese_collision_hit_set_target(hit, component->base.entity);
+                ese_collision_hit_set_state(hit, COLLISION_STATE_STAY);
+                ese_collision_hit_set_map(hit, component->map);
+                ese_collision_hit_set_cell_x(hit, x);
+                ese_collision_hit_set_cell_y(hit, y);
+
+                array_push(out_hits, hit);
+                did_hit = true;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < collider->rects_count; i++) {
+        ese_rect_destroy(world_rects[i]);
+    }
+    memory_manager.free(world_rects);
+    
+    profile_stop(PROFILE_ENTITY_COMP_MAP_COLLIDES, "entity_comp_map_collides_comp");
+    return did_hit;
 }
 
 void _entity_component_map_draw_grid(
@@ -1295,6 +1416,9 @@ static void _entity_component_map_changed(EseMap *map, void *userdata)
             }
         }
         component->show_layer_count = new_count;
+
+    // Map structure changed; refresh world bounds
+    _entity_component_map_update_world_bounds(component);
     }
 }
 
@@ -1314,16 +1438,14 @@ EseRect *entity_component_map_get_cell_rect(EseEntityComponentMap *component, in
     {
         case MAP_TYPE_GRID:
         {
-            const int tw = component->size;
-            const int th = component->size;
-            float cx = ese_point_get_x(component->position);
-            float cy = ese_point_get_y(component->position);
-            float rx = (x - cx) * tw;
-            float ry = (y - cy) * th;
+            float map_x = ese_point_get_x(component->base.entity->position);
+            float map_y = ese_point_get_y(component->base.entity->position);
+            float rx = x * component->size + map_x;
+            float ry = y * component->size + map_y;
             ese_rect_set_x(rect, rx);
             ese_rect_set_y(rect, ry);
-            ese_rect_set_width(rect, (float)tw);
-            ese_rect_set_height(rect, (float)th);
+            ese_rect_set_width(rect, (float)component->size);
+            ese_rect_set_height(rect, (float)component->size);
             ese_rect_set_rotation(rect, 0.0f);
             break;
         }
@@ -1393,34 +1515,64 @@ EseRect *entity_component_map_get_cell_rect(EseEntityComponentMap *component, in
     return rect;
 }
 
-int entity_component_map_cell_intersect(EseEntityComponentMap *component, EseRect *rect, int out_count, EseMapCell **out_cells)
+// ========================================
+// Private helpers
+// ========================================
+
+static void _entity_component_map_update_world_bounds(EseEntityComponentMap *component)
 {
-    log_assert("ENTITY_COMP_MAP", component, "entity_component_map_cell_intersect called with NULL component");
-    log_assert("ENTITY_COMP_MAP", component->map, "entity_component_map_cell_intersect called with NULL map");
-    log_assert("ENTITY_COMP_MAP", rect, "entity_component_map_cell_intersect called with NULL rect");
+    log_assert("ENTITY_COMP_MAP", component, "_entity_component_map_update_world_bounds called with NULL component");
 
-    int mw = ese_map_get_width(component->map);
-    int mh = ese_map_get_height(component->map);
-
-    int count = 0;
-
-    // Conservatively iterate all cells; can be optimized later with spatial index
-    for (int y = 0; y < mh; y++)
-    {
-        for (int x = 0; x < mw; x++)
-        {
-            EseRect *cell_rect = entity_component_map_get_cell_rect(component, x, y);
-            bool hit = ese_rect_intersects(rect, cell_rect);
-            ese_rect_destroy(cell_rect);
-            if (!hit) continue;
-
-            if (out_cells && count < out_count)
-            {
-                out_cells[count] = ese_map_get_cell(component->map, (uint32_t)x, (uint32_t)y);
-            }
-            count++;
+    // If not attached yet, or no map set, clear bounds
+    if (!component->base.entity || !component->map) {
+        if (component->base.entity && component->base.entity->collision_world_bounds) {
+            ese_rect_destroy(component->base.entity->collision_world_bounds);
+            component->base.entity->collision_world_bounds = NULL;
         }
+        return;
     }
 
-    return count;
+    if (!component->base.entity->collision_world_bounds) {
+        component->base.entity->collision_world_bounds = ese_rect_create(component->base.lua);
+    }
+
+    EseRect *world_bounds = component->base.entity->collision_world_bounds;
+    int mw = ese_map_get_width(component->map);
+    int mh = ese_map_get_height(component->map);
+    float px = ese_point_get_x(component->base.entity->position);
+    float py = ese_point_get_y(component->base.entity->position);
+    
+    // Calculate bounds only for solid cells, not the entire map
+    float min_x = INFINITY, min_y = INFINITY, max_x = -INFINITY, max_y = -INFINITY;
+    bool has_solid_cells = false;
+    
+    for (int y = 0; y < mh; y++) {
+        for (int x = 0; x < mw; x++) {
+            EseMapCell *cell = ese_map_get_cell(component->map, x, y);
+            if (cell && (ese_map_cell_get_flags(cell) & MAP_CELL_FLAG_SOLID)) {
+                float cell_x = px + (float)x * (float)component->size;
+                float cell_y = py + (float)y * (float)component->size;
+                min_x = fminf(min_x, cell_x);
+                min_y = fminf(min_y, cell_y);
+                max_x = fmaxf(max_x, cell_x + (float)component->size);
+                max_y = fmaxf(max_y, cell_y + (float)component->size);
+                has_solid_cells = true;
+            }
+        }
+    }
+    
+    if (has_solid_cells) {
+        ese_rect_set_x(world_bounds, min_x);
+        ese_rect_set_y(world_bounds, min_y);
+        ese_rect_set_width(world_bounds, max_x - min_x);
+        ese_rect_set_height(world_bounds, max_y - min_y);
+        ese_rect_set_rotation(world_bounds, 0.0f);
+    } else {
+        // No solid cells - set bounds to zero size
+        ese_rect_set_x(world_bounds, px);
+        ese_rect_set_y(world_bounds, py);
+        ese_rect_set_width(world_bounds, 0.0f);
+        ese_rect_set_height(world_bounds, 0.0f);
+        ese_rect_set_rotation(world_bounds, 0.0f);
+    }
 }

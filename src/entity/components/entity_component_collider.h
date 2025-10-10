@@ -59,6 +59,10 @@ bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collid
 
 void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collider, bool draw_debug);
 
+bool entity_component_collider_get_map_interaction(EseEntityComponentCollider *collider);
+
+void entity_component_collider_set_map_interaction(EseEntityComponentCollider *collider, bool enabled);
+
 void entity_component_collider_ref(EseEntityComponentCollider *component);
 
 void entity_component_collider_unref(EseEntityComponentCollider *component);

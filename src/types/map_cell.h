@@ -13,6 +13,10 @@ typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
 typedef struct EseMap EseMap;
 
+// Map cell flags
+// Marks a cell as collidable/solid for entity↔map collisions
+#define MAP_CELL_FLAG_SOLID (1u << 0)
+
 /**
  * @brief Callback function type for map cell change notifications.
  *

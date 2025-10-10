@@ -205,7 +205,7 @@ bool ese_map_resize(EseMap *map, uint32_t new_width, uint32_t new_height);
  * @param map Pointer to the EseMap object
  * @return Width of the map
  */
-int ese_map_get_width(EseMap *map);
+size_t ese_map_get_width(EseMap *map);
 
 /**
  * @brief Gets the height of the map.
@@ -213,7 +213,7 @@ int ese_map_get_width(EseMap *map);
  * @param map Pointer to the EseMap object
  * @return Height of the map
  */
-int ese_map_get_height(EseMap *map);
+size_t ese_map_get_height(EseMap *map);
 
 /**
  * @brief Gets the type of the map.

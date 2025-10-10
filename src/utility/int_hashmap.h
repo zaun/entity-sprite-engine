@@ -27,7 +27,7 @@ EseIntHashMap* int_hashmap_create(EseIntHashMapFreeFn free_fn);
  *
  * @param map Pointer to the EseIntHashMap to free.
  */
-void int_hashmap_free(EseIntHashMap* map);
+void int_hashmap_destroy(EseIntHashMap* map);
 
 /**
  * @brief Clear all key-value pairs from the hash map.

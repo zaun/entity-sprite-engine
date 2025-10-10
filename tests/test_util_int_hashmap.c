@@ -27,7 +27,7 @@ static void test_int_hashmap_clear_resets_size_and_removes_entries(void);
 static void test_int_hashmap_iter_empty_and_basic(void);
 static void test_int_hashmap_iter_all_entries_no_duplicates(void);
 static void test_int_hashmap_resize_many_entries_integrity(void);
-static void test_int_hashmap_free_fn_called_on_clear_and_free_not_on_remove_or_overwrite(void);
+static void test_int_hashmap_destroy_fn_called_on_clear_and_free_not_on_remove_or_overwrite(void);
 static void test_int_hashmap_iter_allows_null_out_params(void);
 static void test_int_hashmap_keys_zero_and_uint64_max(void);
 static void test_int_hashmap_set_on_null_map_is_noop(void);
@@ -76,7 +76,7 @@ int main(void) {
     RUN_TEST(test_int_hashmap_iter_empty_and_basic);
     RUN_TEST(test_int_hashmap_iter_all_entries_no_duplicates);
     RUN_TEST(test_int_hashmap_resize_many_entries_integrity);
-    RUN_TEST(test_int_hashmap_free_fn_called_on_clear_and_free_not_on_remove_or_overwrite);
+    RUN_TEST(test_int_hashmap_destroy_fn_called_on_clear_and_free_not_on_remove_or_overwrite);
     RUN_TEST(test_int_hashmap_iter_allows_null_out_params);
     RUN_TEST(test_int_hashmap_keys_zero_and_uint64_max);
     RUN_TEST(test_int_hashmap_set_on_null_map_is_noop);
@@ -90,10 +90,10 @@ static void test_int_hashmap_create_and_free(void) {
     EseIntHashMap *map = int_hashmap_create(NULL);
     TEST_ASSERT_NOT_NULL_MESSAGE(map, "create should return a map");
     TEST_ASSERT_EQUAL_size_t_MESSAGE(0, int_hashmap_size(map), "new map size should be 0");
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 
     /* free(NULL) should be safe */
-    int_hashmap_free(NULL);
+    int_hashmap_destroy(NULL);
 }
 
 static void test_int_hashmap_null_inputs(void) {
@@ -127,7 +127,7 @@ static void test_int_hashmap_set_get_single(void) {
     /* get of missing key returns NULL */
     TEST_ASSERT_NULL(int_hashmap_get(map, 8ULL));
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_set_null_value_is_noop(void) {
@@ -151,7 +151,7 @@ static void test_int_hashmap_set_null_value_is_noop(void) {
     TEST_ASSERT_NOT_NULL(got);
     TEST_ASSERT_EQUAL_INT(5, *got);
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_update_existing_key_does_not_change_size(void) {
@@ -171,7 +171,7 @@ static void test_int_hashmap_update_existing_key_does_not_change_size(void) {
     /* caller is responsible for v1 (was overwritten and not freed by map) */
     memory_manager.free(v1);
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_remove_existing_and_nonexisting(void) {
@@ -190,7 +190,7 @@ static void test_int_hashmap_remove_existing_and_nonexisting(void) {
     TEST_ASSERT_NULL(int_hashmap_remove(map, 7ULL));
     TEST_ASSERT_EQUAL_size_t(0, int_hashmap_size(map));
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_clear_resets_size_and_removes_entries(void) {
@@ -207,7 +207,7 @@ static void test_int_hashmap_clear_resets_size_and_removes_entries(void) {
         TEST_ASSERT_NULL(int_hashmap_get(map, i));
     }
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_iter_empty_and_basic(void) {
@@ -232,7 +232,7 @@ static void test_int_hashmap_iter_empty_and_basic(void) {
     TEST_ASSERT_EQUAL_INT(1, seen);
     int_hashmap_iter_free(iter);
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_iter_all_entries_no_duplicates(void) {
@@ -265,7 +265,7 @@ static void test_int_hashmap_iter_all_entries_no_duplicates(void) {
         memory_manager.free(p);
     }
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_resize_many_entries_integrity(void) {
@@ -290,10 +290,10 @@ static void test_int_hashmap_resize_many_entries_integrity(void) {
     }
     TEST_ASSERT_EQUAL_size_t(0, int_hashmap_size(map));
 
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
-static void test_int_hashmap_free_fn_called_on_clear_and_free_not_on_remove_or_overwrite(void) {
+static void test_int_hashmap_destroy_fn_called_on_clear_and_free_not_on_remove_or_overwrite(void) {
     g_free_count = 0;
     EseIntHashMap *map = int_hashmap_create(tracked_free);
 
@@ -336,7 +336,7 @@ static void test_int_hashmap_free_fn_called_on_clear_and_free_not_on_remove_or_o
     int *e = alloc_int(5);
     int_hashmap_set(map, 11ULL, e);
     prev_free_count = g_free_count;
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
     TEST_ASSERT_EQUAL_INT(prev_free_count + 2, g_free_count);
 }
 
@@ -351,7 +351,7 @@ static void test_int_hashmap_iter_allows_null_out_params(void) {
     /* next should end */
     TEST_ASSERT_EQUAL_INT(0, int_hashmap_iter_next(iter, NULL, NULL));
     int_hashmap_iter_free(iter);
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_keys_zero_and_uint64_max(void) {
@@ -364,7 +364,7 @@ static void test_int_hashmap_keys_zero_and_uint64_max(void) {
     int *b = (int *)int_hashmap_remove(map, UINT64_MAX);
     memory_manager.free(a);
     memory_manager.free(b);
-    int_hashmap_free(map);
+    int_hashmap_destroy(map);
 }
 
 static void test_int_hashmap_set_on_null_map_is_noop(void) {

@@ -30,6 +30,8 @@ endif()
 
 project(entityspriteengine LANGUAGES ${PROJECT_LANGUAGES})
 
+enable_testing()
+
 # Enable profiling
 add_definitions(-DESE_PROFILE_ENABLED)
 

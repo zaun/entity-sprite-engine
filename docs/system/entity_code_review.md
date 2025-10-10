@@ -28,7 +28,7 @@ Overall architecture and entity/component model
   - The hash key uses a static char buffer: this is not thread-safe. If you ever multi-thread collisions, this will be a race. Consider using a per-call heap buffer or a thread-local buffer, or store combined keys as 128-bit/struct keys in the hashmap directly.
 
 - Potential correctness concerns
-  - entity_component_detect_collision_component casts EntityComponent* to specific subtype structs incorrectly:
+  - entity_component_detect_collision_with_component casts EntityComponent* to specific subtype structs incorrectly:
     - You currently do:
       EntityComponentCollider *colliderA = (EntityComponentCollider *)a;
       but a actually points to the base struct, and the collider’s data is at a->data.
@@ -121,7 +121,7 @@ High/critical issues and fixes
    - asset_load_script and asset_load_atlas are fine. Consider limiting what paths can be loaded or validate resource names strictly to avoid path traversal (you appear to use filesystem_get_resource; ensure it’s safe).
 
 Correctness and safety bugs to fix now
-- Casting bug in entity_component_detect_collision_component:
+- Casting bug in entity_component_detect_collision_with_component:
   - Replace:
     EntityComponentCollider *colliderA = (EntityComponentCollider *)a;
     EntityComponentCollider *colliderB = (EntityComponentCollider *)b;

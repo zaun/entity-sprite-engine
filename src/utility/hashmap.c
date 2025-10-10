@@ -102,7 +102,7 @@ EseHashMap* hashmap_create(EseHashMapFreeFn free_fn) {
     return map;
 }
 
-void hashmap_free(EseHashMap* map) {
+void hashmap_destroy(EseHashMap* map) {
     if (!map) return;
 
     for (size_t i = 0; i < map->capacity; i++) {

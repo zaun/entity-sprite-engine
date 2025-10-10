@@ -451,6 +451,13 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg) {
                 lua_pushnil(L);
             }
             break;
+        case LUA_VAL_COLLISION_HIT:
+            if (arg->value.collision_hit) {
+                ese_collision_hit_lua_push(arg->value.collision_hit);
+            } else {
+                lua_pushnil(L);
+            }
+            break;
         case LUA_VAL_MAP_CELL:
             if (arg->value.map_cell) {
                 ese_map_cell_lua_push(arg->value.map_cell);

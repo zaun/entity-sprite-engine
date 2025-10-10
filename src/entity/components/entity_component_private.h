@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "entity/entity.h"
+#include "utility/array.h"
 
 
 // Forward declarations
@@ -31,6 +32,7 @@ typedef struct ComponentVTable {
     void (*update)(EseEntityComponent* component, EseEntity* entity, float delta_time);
     void (*draw)(EseEntityComponent* component, int screen_x, int screen_y, void* callbacks, void* user_data);
     bool (*run_function)(EseEntityComponent* component, EseEntity* entity, const char* func_name, int argc, void* argv[]);
+    void (*collides)(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits);
     void (*ref)(EseEntityComponent* component);
     void (*unref)(EseEntityComponent* component);
 } ComponentVTable;

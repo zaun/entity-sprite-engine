@@ -196,7 +196,7 @@ void lua_engine_destroy(EseLuaEngine *engine) {
     log_assert("LUA_ENGINE", engine, "engine_destroy called with NULL engine");
 
     // Need to iterate and memory_manager.free all script references
-    hashmap_free(engine->internal->functions);
+    hashmap_destroy(engine->internal->functions);
 
     if (engine->internal->sandbox_master_ref != LUA_NOREF) {
         luaL_unref(engine->runtime, LUA_REGISTRYINDEX, engine->internal->sandbox_master_ref);

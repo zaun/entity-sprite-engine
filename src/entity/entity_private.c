@@ -15,8 +15,27 @@
 #include "entity/entity_private.h"
 #include "entity/entity.h"
 #include "utility/profile.h"
+#include "entity/components/entity_component_collider.h"
 
 #define ENTITY_INITIAL_CAPACITY 10
+
+/**
+ * @brief Callback function called when entity position changes
+ * 
+ * @param point The position point that changed
+ * @param user_data The entity that owns the position point
+ */
+static void _entity_position_changed(EsePoint *point, void *user_data) {
+    EseEntity *entity = (EseEntity *)user_data;
+    
+    // Update collision bounds for all collider components
+    for (size_t i = 0; i < entity->component_count; i++) {
+        EseEntityComponent *comp = entity->components[i];
+        if (comp->active && comp->type == ENTITY_COMPONENT_COLLIDER) {
+            entity_component_collider_position_changed((EseEntityComponentCollider *)comp->data);
+        }
+    }
+}
 
 EseEntity *_entity_make(EseLuaEngine *engine) {
     profile_start(PROFILE_ENTITY_CREATE);
@@ -24,6 +43,9 @@ EseEntity *_entity_make(EseLuaEngine *engine) {
     EseEntity *entity = memory_manager.malloc(sizeof(EseEntity), MMTAG_ENTITY);
     entity->position = ese_point_create(engine);
     ese_point_ref(entity->position);
+    
+    // Register a watcher to update collision bounds when position changes
+    ese_point_add_watcher(entity->position, _entity_position_changed, entity);
     entity->id = ese_uuid_create(engine);
     ese_uuid_ref(entity->id);
     entity->active = true;
@@ -76,47 +98,6 @@ int _entity_component_find_index(EseEntity *entity, const char *id) {
         }
     }
     return -1;
-}
-
-const char* _get_collision_key(EseUUID *a, EseUUID *b) {
-    const char* ida = ese_uuid_get_value(a);
-    const char* idb = ese_uuid_get_value(b);
-    const char* first = ida;
-    const char* second = idb;
-    if (strcmp(ida, idb) > 0) { first = idb; second = ida; }
-    size_t keylen = strlen(first) + 1 + strlen(second) + 1;
-    char *key = memory_manager.malloc(keylen, MMTAG_ENGINE);
-    snprintf(key, keylen, "%s|%s", first, second);
-    return key; // NOTE: caller (hashmap_set) MUST take ownership and free later
-}
-
-bool _entity_test_collision(EseEntity *a, EseEntity *b) {
-    log_assert("ENTITY", a, "entity_test_collision called with NULL a");
-    log_assert("ENTITY", b, "entity_test_collision called with NULL b");
-
-    profile_start(PROFILE_ENTITY_COLLISION_TEST);
-
-    for (size_t i = 0; i < a->component_count; i++) {
-        EseEntityComponent *comp_a = a->components[i];
-        if (!comp_a->active || comp_a->type != ENTITY_COMPONENT_COLLIDER) {
-            continue;
-        }
-
-        for (size_t j = 0; j < b->component_count; j++) {
-            EseEntityComponent *comp_b = b->components[j];
-            if (!comp_b->active || comp_b->type != ENTITY_COMPONENT_COLLIDER) {
-                continue;
-            }
-
-            if (entity_component_detect_collision_component(comp_a, comp_b)) {
-                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
-                return true;
-            }
-        }
-    }
-
-    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_test_collision");
-    return false;
 }
 
 /**

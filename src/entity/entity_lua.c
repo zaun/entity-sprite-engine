@@ -671,10 +671,11 @@ static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index
         case LUA_TBOOLEAN:
             lua_value_set_bool(result, lua_toboolean(L, index));
             break;
-        case LUA_TSTRING:
+        case LUA_TSTRING: {
             const char *str = lua_tostring(L, index);
             lua_value_set_string(result, str);
             break;
+        }
         case LUA_TUSERDATA: {
             void *udata = lua_touserdata(L, index);
             lua_value_set_userdata(result, udata);
@@ -894,6 +895,22 @@ static int _entity_lua_index(lua_State *L) {
             lua_pushnil(L);
             return 1;
         }
+    } else if (strcmp(key, "bounds") == 0) {
+        if (entity->collision_bounds != NULL) {
+            ese_rect_lua_push(entity->collision_bounds);
+            return 1;
+        } else {
+            lua_pushnil(L);
+            return 1;
+        }
+    } else if (strcmp(key, "world_bounds") == 0) {
+        if (entity->collision_world_bounds != NULL) {
+            ese_rect_lua_push(entity->collision_world_bounds);
+            return 1;
+        } else {
+            lua_pushnil(L);
+            return 1;
+        }
     } else if (strcmp(key, "dispatch") == 0) {
         lua_pushlightuserdata(L, entity);
         lua_pushcclosure(L, _entity_lua_dispatch, 1);
@@ -1008,12 +1025,15 @@ static int _entity_lua_newindex(lua_State *L) {
         if (!new_position_point) {
             return luaL_error(L, "Entity position must be a EsePoint object");
         }
-        // Copy values, don't copy reference (ownership safety)
-        ese_point_set_x(entity->position, ese_point_get_x(new_position_point));
-        ese_point_set_y(entity->position, ese_point_get_y(new_position_point));
+        // Use entity_set_position to ensure collision bounds are updated
+        entity_set_position(entity, ese_point_get_x(new_position_point), ese_point_get_y(new_position_point));
         // Pop the point off the stack
         lua_pop(L, 1);
         return 0;
+    } else if (strcmp(key, "bounds") == 0) {
+        return luaL_error(L, "Entity components is not assignable");
+    } else if (strcmp(key, "world_bounds") == 0) {
+        return luaL_error(L, "Entity components is not assignable");
     } else if (strcmp(key, "components") == 0) {
         return luaL_error(L, "Entity components is not assignable");
     } else if (strcmp(key, "data") == 0 || strcmp(key, "__data") == 0) {

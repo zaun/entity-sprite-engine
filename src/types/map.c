@@ -185,12 +185,12 @@ static int _ese_map_lua_resize(lua_State *L) {
     return 1;
 }
 
-int ese_map_get_width(EseMap *map) {
+size_t ese_map_get_width(EseMap *map) {
     log_assert("MAP", map, "ese_map_get_width called with NULL map");
     return map->width;
 }
 
-int ese_map_get_height(EseMap *map) {
+size_t ese_map_get_height(EseMap *map) {
     log_assert("MAP", map, "ese_map_get_height called with NULL map");
     return map->height;
 }
@@ -346,7 +346,7 @@ static int _ese_map_lua_tostring(lua_State *L) {
     }
 
     char buf[160];
-    snprintf(buf, sizeof(buf), "Map: %p (title=%s, width=%u, height=%u, type=%s)",
+    snprintf(buf, sizeof(buf), "Map: %p (title=%s, width=%zu, height=%zu, type=%s)",
              (void *)map,
              map->title ? map->title : "(null)",
              map->width, map->height,
@@ -365,8 +365,8 @@ static int _ese_map_lua_new(lua_State *L) {
         return luaL_error(L, "Map.new(width, height, [type]) requires at least two numbers");
     }
 
-    uint32_t width = (uint32_t)lua_tonumber(L, 1);
-    uint32_t height = (uint32_t)lua_tonumber(L, 2);
+    size_t width = (size_t)lua_tonumber(L, 1);
+    size_t height = (size_t)lua_tonumber(L, 2);
     EseMapType type = MAP_TYPE_GRID;
 
     if (width == 0 || height == 0) {

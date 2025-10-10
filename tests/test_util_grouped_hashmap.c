@@ -113,8 +113,8 @@ static void test_grouped_hashmap_create_and_free_null(void) {
     EseGroupedHashMap *map = grouped_hashmap_create(NULL);
     TEST_ASSERT_NOT_NULL_MESSAGE(map, "map should be created");
     TEST_ASSERT_EQUAL_UINT_MESSAGE(0u, grouped_hashmap_size(map), "size should be 0");
-    grouped_hashmap_free(NULL); // should be a no-op
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(NULL); // should be a no-op
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_basic_set_get_remove(void) {
@@ -144,7 +144,7 @@ static void test_grouped_hashmap_basic_set_get_remove(void) {
     TEST_ASSERT_NULL(grouped_hashmap_get(map, "g1", "id2"));
     TEST_ASSERT_EQUAL_UINT_MESSAGE(2u, grouped_hashmap_size(map), "size should be 2 after remove");
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_overwrite_calls_free_fn(void) {
@@ -164,7 +164,7 @@ static void test_grouped_hashmap_overwrite_calls_free_fn(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, count_a, "free_fn should have been called for old value");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, count_b, "new value should not be freed yet");
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
     // During free, free_fn is called once for remaining value 'b'
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, count_b, "free_fn should be called during map free");
 }
@@ -180,14 +180,14 @@ static void test_grouped_hashmap_remove_returns_value_and_does_not_free(void) {
     memory_manager.free(ret);
     TEST_ASSERT_EQUAL_UINT_MESSAGE(0u, grouped_hashmap_size(map), "size should be 0 after remove");
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_remove_missing_is_null_and_warns(void) {
     EseGroupedHashMap *map = grouped_hashmap_create(NULL);
     void *ret = grouped_hashmap_remove(map, "nope", "id");
     TEST_ASSERT_NULL(ret);
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_remove_group_frees_each_value(void) {
@@ -210,7 +210,7 @@ static void test_grouped_hashmap_remove_group_frees_each_value(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, count_b, "free_fn called for g1/id2");
     TEST_ASSERT_EQUAL_UINT_MESSAGE(1u, grouped_hashmap_size(map), "only g2/id3 remains");
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
     // c should be freed during map free
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, count_c, "remaining value freed on map free");
 }
@@ -235,7 +235,7 @@ static void test_grouped_hashmap_size_counts_correctly(void) {
         memory_manager.free(v);
     }
     TEST_ASSERT_EQUAL_UINT_MESSAGE(5u, grouped_hashmap_size(map), "half removed");
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_null_argument_behaviors(void) {
@@ -265,7 +265,7 @@ static void test_grouped_hashmap_null_argument_behaviors(void) {
     // size(NULL) => 0
     TEST_ASSERT_EQUAL_UINT_MESSAGE(0u, grouped_hashmap_size(NULL), "size(NULL) should be 0");
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_collisions_and_resize(void) {
@@ -298,7 +298,7 @@ static void test_grouped_hashmap_collisions_and_resize(void) {
     TEST_ASSERT_EQUAL_STRING("nv", (char*)grouped_hashmap_get(map, "g0", "i0"));
 
     // Cleanup by freeing map (should free remaining values)
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_iterator_traversal(void) {
@@ -323,7 +323,7 @@ static void test_grouped_hashmap_iterator_traversal(void) {
     TEST_ASSERT_TRUE(seen_A1 && seen_A2 && seen_B1);
     grouped_hashmap_iter_free(iter);
 
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 static void test_grouped_hashmap_iter_nulls_are_safe(void) {
@@ -339,7 +339,7 @@ static void test_grouped_hashmap_iter_nulls_are_safe(void) {
     TEST_ASSERT_TRUE(grouped_hashmap_iter_next(iter, NULL, NULL, NULL) == 1 || grouped_hashmap_iter_next(iter, NULL, NULL, NULL) == 0);
 
     grouped_hashmap_iter_free(iter);
-    grouped_hashmap_free(map);
+    grouped_hashmap_destroy(map);
 }
 
 

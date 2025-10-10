@@ -83,20 +83,18 @@ int main(void) {
     RUN_TEST(test_engine_creation);
     RUN_TEST(test_engine_destroy);
     RUN_TEST(test_engine_add_entity);
-    // RUN_TEST(test_engine_remove_entity);
-    // RUN_TEST(test_engine_clear_entities);
+    RUN_TEST(test_engine_remove_entity);
+    RUN_TEST(test_engine_clear_entities);
     RUN_TEST(test_engine_start);
-    RUN_TEST(test_engine_get_entity_count);
-    RUN_TEST(test_engine_console_functions);
     RUN_TEST(test_engine_update);
     RUN_TEST(test_engine_detect_collision_rect);
     RUN_TEST(test_engine_get_sprite);
     RUN_TEST(test_engine_find_by_tag);
     RUN_TEST(test_engine_find_by_id);
-    // RUN_TEST(test_engine_null_pointer_handling);
+    RUN_TEST(test_engine_get_entity_count);
+    RUN_TEST(test_engine_console_functions);
+    RUN_TEST(test_engine_null_pointer_handling);
     RUN_TEST(test_engine_edge_cases);
-
-    memory_manager.destroy();
 
     return UNITY_END();
 }
@@ -116,7 +114,8 @@ static void test_engine_creation(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->lua_engine, "Lua engine should be created");
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->entities, "Entities list should be created");
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->del_entities, "Deletion entities list should be created");
-    TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->collision_bin, "Collision bin should be created");
+    TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->spatial_index, "Spatial index should be created");
+    TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->collision_resolver, "Collision resolver should be created");
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->console, "Console should be created");
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->draw_list, "Draw list should be created");
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine->render_list_a, "Render list A should be created");
@@ -196,6 +195,7 @@ static void test_engine_remove_entity(void) {
 
 static void test_engine_clear_entities(void) {
     g_engine = engine_create(NULL);
+    EseInputState *test_input = ese_input_state_create(NULL);
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine, "Engine should be created");
     
     EseLuaEngine *lua_engine = g_engine->lua_engine;
@@ -203,8 +203,10 @@ static void test_engine_clear_entities(void) {
     // Test 1: Clear empty engine
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Empty engine should have 0 entities");
     engine_clear_entities(g_engine, false);
+    engine_update(g_engine, 0.0f, test_input);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Empty engine should still have 0 entities after clear");
     engine_clear_entities(g_engine, true);
+    engine_update(g_engine, 0.0f, test_input);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Empty engine should still have 0 entities after clear with persistent=true");
     
     // Test 2: Clear non-persistent entities
@@ -214,32 +216,38 @@ static void test_engine_clear_entities(void) {
     engine_add_entity(g_engine, entity2);
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, engine_get_entity_count(g_engine), "Engine should have 2 entities");
     engine_clear_entities(g_engine, false);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing non-persistent");
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, dlist_size(g_engine->del_entities), "Deletion list should have 2 entities");
+    engine_update(g_engine, 0.0f, test_input);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing non-persistent");
     // Don't manually clear - let the engine handle it
     
     // Test 3: Clear persistent entities (should preserve them when include_persistent=false)
     EseEntity *entity3 = entity_create(lua_engine);
     entity_set_persistent(entity3, true);
+    engine_update(g_engine, 0.0f, test_input);
     EseEntity *entity4 = entity_create(lua_engine);
     entity_set_persistent(entity4, true);
+    engine_update(g_engine, 0.0f, test_input);
     engine_add_entity(g_engine, entity3);
     engine_add_entity(g_engine, entity4);
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, engine_get_entity_count(g_engine), "Engine should have 2 entities");
     engine_clear_entities(g_engine, false);
+    engine_update(g_engine, 0.0f, test_input);
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, engine_get_entity_count(g_engine), "Engine should still have 2 entities after clearing non-persistent (persistent preserved)");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, dlist_size(g_engine->del_entities), "Deletion list should have 0 entities");
     
     // Test 4: Clear all entities (include_persistent=true)
     engine_clear_entities(g_engine, true);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing all");
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, dlist_size(g_engine->del_entities), "Deletion list should have 2 entities");
+    engine_update(g_engine, 0.0f, test_input);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing all");
     // Don't manually clear - let the engine handle it
     
     // Test 5: Mixed entities
     EseEntity *entity5 = entity_create(lua_engine);
     EseEntity *entity6 = entity_create(lua_engine);
     entity_set_persistent(entity6, true);
+    engine_update(g_engine, 0.0f, test_input);
     EseEntity *entity7 = entity_create(lua_engine);
     engine_add_entity(g_engine, entity5);
     engine_add_entity(g_engine, entity6);
@@ -247,14 +255,18 @@ static void test_engine_clear_entities(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(3, engine_get_entity_count(g_engine), "Engine should have 3 entities");
     
     engine_clear_entities(g_engine, false); // Should clear 2 non-persistent, preserve 1 persistent
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, engine_get_entity_count(g_engine), "Engine should have 1 persistent entity remaining");
     TEST_ASSERT_EQUAL_INT_MESSAGE(2, dlist_size(g_engine->del_entities), "Deletion list should have 2 non-persistent entities");
+    engine_update(g_engine, 0.0f, test_input);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, engine_get_entity_count(g_engine), "Engine should have 1 persistent entity remaining");
     dlist_clear(g_engine->del_entities);
     
     engine_clear_entities(g_engine, true); // Should clear the remaining 1 persistent entity
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing all");
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, dlist_size(g_engine->del_entities), "Deletion list should have 1 persistent entity");
+    engine_update(g_engine, 0.0f, test_input);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, engine_get_entity_count(g_engine), "Engine should have 0 entities after clearing all");
     dlist_clear(g_engine->del_entities);
+    
+    ese_input_state_destroy(test_input);
 }
 
 static void test_engine_start(void) {
@@ -343,8 +355,7 @@ static void test_engine_find_by_tag(void) {
     
     // Test with no entities
     EseEntity **results = engine_find_by_tag(g_engine, "test", 10);
-    TEST_ASSERT_NOT_NULL_MESSAGE(results, "Results array should be allocated");
-    TEST_ASSERT_NULL_MESSAGE(results[0], "First result should be NULL with no entities");
+    TEST_ASSERT_NULL_MESSAGE(results, "Results array should be NULL");
     memory_manager.free(results);
     
     // Add entities with tags
@@ -464,20 +475,18 @@ static void test_engine_edge_cases(void) {
     // Test collision detection with max_count = 0
     EseRect *test_rect = ese_rect_create(lua_engine);
     EseEntity **results = engine_detect_collision_rect(g_engine, test_rect, 0);
-    TEST_ASSERT_NOT_NULL_MESSAGE(results, "Results array should be allocated even with max_count 0");
+    TEST_ASSERT_NOT_NULL_MESSAGE(results, "Collision detection results array should be allocated even with max_count 0");
     TEST_ASSERT_NULL_MESSAGE(results[0], "First result should be NULL");
     memory_manager.free(results);
     
     // Test find_by_tag with max_count = 0
     results = engine_find_by_tag(g_engine, "test", 0);
-    TEST_ASSERT_NOT_NULL_MESSAGE(results, "Results array should be allocated even with max_count 0");
-    TEST_ASSERT_NULL_MESSAGE(results[0], "First result should be NULL");
+    TEST_ASSERT_NULL_MESSAGE(results, "Result should be NULL with max_count 0");
     memory_manager.free(results);
     
     // Test find_by_tag with empty tag
     results = engine_find_by_tag(g_engine, "", 10);
-    TEST_ASSERT_NOT_NULL_MESSAGE(results, "Results array should be allocated");
-    TEST_ASSERT_NULL_MESSAGE(results[0], "Should not find entities with empty tag");
+    TEST_ASSERT_NULL_MESSAGE(results, "Result should be NULL with empty tag");
     memory_manager.free(results);
     
     // Test find_by_id with empty string

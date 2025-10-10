@@ -79,18 +79,6 @@ EseEntity *_entity_make(EseLuaEngine *engine);
  */
 int _entity_component_find_index(EseEntity *entity, const char *id);
 
-/**
- * @brief Generates a unique, order-independent key for a collision pair.
- *
- * @param uuid1 The first entity's UUID.
- * @param uuid2 The second entity's UUID.
- * 
- * @return const char* A pointer to a static buffer containing the string key.
- */
-const char* _get_collision_key(EseUUID* uuid1, EseUUID* uuid2);
-
-bool _entity_test_collision(EseEntity *a, EseEntity *b);
-
 void _entity_subscription_free(void *value);
 
 #endif // ESE_ENTITY_PRIVATE_H

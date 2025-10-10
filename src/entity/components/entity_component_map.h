@@ -60,6 +60,4 @@ EseEntityComponent *entity_component_map_create(EseLuaEngine *engine);
 
 EseRect *entity_component_map_get_cell_rect(EseEntityComponentMap *comp, int x, int y);
 
-int entity_component_map_cell_intersect(EseEntityComponentMap *comp, EseRect *rect, int out_count, EseMapCell **out_cells);
-
 #endif // ESE_ENTITY_COMPONENT_MAP_H

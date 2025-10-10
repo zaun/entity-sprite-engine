@@ -16,6 +16,7 @@ typedef struct EseRay EseRay;
 typedef struct EseTileSet EseTileSet;
 typedef struct EseUUID EseUUID;
 typedef struct EseVector EseVector;
+typedef struct EseCollisionHit EseCollisionHit;
 typedef struct EsePoint EsePoint;
 typedef struct EseRect EseRect;
 
@@ -174,6 +175,8 @@ EseLuaValue *lua_value_create_uuid(const char *name, struct EseUUID* uuid);
 
 EseLuaValue *lua_value_create_vector(const char *name, struct EseVector* vector);
 
+EseLuaValue *lua_value_create_collision_hit(const char *name, struct EseCollisionHit* hit);
+
 EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc, EseLuaValue *upvalue);
 
 /**
@@ -282,6 +285,8 @@ void lua_value_set_arc(EseLuaValue *val, struct EseArc* arc);
 
 void lua_value_set_cfunc(EseLuaValue *val, EseLuaCFunction cfunc, EseLuaValue *upvalue);
 
+void lua_value_set_collision_hit(EseLuaValue *val, struct EseCollisionHit* hit);
+
 /**
  * @brief Searches a EseLuaValue table for a property by name and returns a pointer to it.
  * 
@@ -340,6 +345,8 @@ struct EseUUID* lua_value_get_uuid(EseLuaValue *val);
 
 struct EseVector* lua_value_get_vector(EseLuaValue *val);
 
+struct EseCollisionHit* lua_value_get_collision_hit(EseLuaValue *val);
+
 EseLuaCFunction lua_value_get_cfunc(EseLuaValue *val);
 EseLuaValue* lua_value_get_cfunc_upvalue(EseLuaValue *val);
 
@@ -365,6 +372,7 @@ bool lua_value_is_ray(EseLuaValue *val);
 bool lua_value_is_tileset(EseLuaValue *val);
 bool lua_value_is_uuid(EseLuaValue *val);
 bool lua_value_is_vector(EseLuaValue *val);
+bool lua_value_is_collision_hit(EseLuaValue *val);
 bool lua_value_is_cfunc(EseLuaValue *val);
 bool lua_value_is_error(EseLuaValue *val);
 

@@ -73,50 +73,47 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
     profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
 }
 
-bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntityComponent *b) {
-    log_assert("ENTITY_COMP", a, "entity_component_detect_collision_component called with NULL a");
-    log_assert("ENTITY_COMP", b, "entity_component_detect_collision_component called with NULL b");
+void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b, EseArray *out_hits) {
+    log_assert("ENTITY_COMP", a, "entity_component_detect_collision_with_component called with NULL a");
+    log_assert("ENTITY_COMP", b, "entity_component_detect_collision_with_component called with NULL b");
+    log_assert("ENTITY_COMP", out_hits, "entity_component_detect_collision_with_component called with NULL out_hits");
 
-    profile_start(PROFILE_ENTITY_COLLISION_TEST);
-
-    if (a->type != ENTITY_COMPONENT_COLLIDER || b->type != ENTITY_COMPONENT_COLLIDER) {
-        profile_cancel(PROFILE_ENTITY_COLLISION_TEST);
-        return false;
+    // Both components must be active
+    if (!a->active || !b->active) {
+        return;
     }
 
-    EseEntityComponentCollider *colliderA = (EseEntityComponentCollider *)a->data;
-    EseEntityComponentCollider *colliderB = (EseEntityComponentCollider *)b->data;
-
-    // Get entity positions once
-    float pos_a_x = ese_point_get_x(a->entity->position);
-    float pos_a_y = ese_point_get_y(a->entity->position);
-    float pos_b_x = ese_point_get_x(b->entity->position);
-    float pos_b_y = ese_point_get_y(b->entity->position);
-
-    for (size_t i = 0; i < colliderA->rects_count; i++) {
-        EseRect *rect_a = colliderA->rects[i];
-        float a_x = ese_rect_get_x(rect_a) + ese_point_get_x(colliderA->offset) + pos_a_x;
-        float a_y = ese_rect_get_y(rect_a) + ese_point_get_y(colliderA->offset) + pos_a_y;
-        float a_w = ese_rect_get_width(rect_a);
-        float a_h = ese_rect_get_height(rect_a);
-        
-        for (size_t j = 0; j < colliderB->rects_count; j++) {
-            EseRect *rect_b = colliderB->rects[j];
-            float b_x = ese_rect_get_x(rect_b) + ese_point_get_x(colliderB->offset) + pos_b_x;
-            float b_y = ese_rect_get_y(rect_b) + ese_point_get_y(colliderB->offset) + pos_b_y;
-            float b_w = ese_rect_get_width(rect_b);
-            float b_h = ese_rect_get_height(rect_b);
-            
-            // Direct AABB intersection test without creating rect objects
-            if (a_x < b_x + b_w && a_x + a_w > b_x && a_y < b_y + b_h && a_y + a_h > b_y) {
-                profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
-                return true;
-            }
-        }
+    // Test collider vs collider
+    if (a->type == ENTITY_COMPONENT_COLLIDER && b->type == ENTITY_COMPONENT_COLLIDER) {
+        profile_count_add("dispatch_collider_vs_collider");
+        a->vtable->collides(a, b, out_hits);
+        return;
     }
-    
-    profile_stop(PROFILE_ENTITY_COLLISION_TEST, "entity_component_detect_collision");
-    return false;
+
+    // Test collider vs map
+    if (
+        a->type == ENTITY_COMPONENT_COLLIDER &&
+        b->type == ENTITY_COMPONENT_MAP &&
+        ((EseEntityComponentCollider*)(a->data))->map_interaction
+    ) {
+        profile_count_add("dispatch_collider_vs_map");
+        b->vtable->collides(b, a, out_hits);
+        return;
+    }
+
+    // Test map vs collider
+    if (
+        a->type == ENTITY_COMPONENT_MAP &&
+        b->type == ENTITY_COMPONENT_COLLIDER &&
+        ((EseEntityComponentCollider*)(b->data))->map_interaction
+    ) {
+        profile_count_add("dispatch_map_vs_collider");
+        a->vtable->collides(a, b, out_hits);
+        return;
+    }
+
+    // Nothing to test
+    return;
 }
 
 bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRect *rect) {
@@ -127,15 +124,16 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
 
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     for (size_t i = 0; i < collider->rects_count; i++) {
-        EseRect *colliderRect = ese_rect_copy(collider->rects[i]);
-        ese_rect_set_x(colliderRect, ese_rect_get_x(colliderRect) + ese_point_get_x(component->entity->position));
-        ese_rect_set_y(colliderRect, ese_rect_get_y(colliderRect) + ese_point_get_y(component->entity->position));
-        if (ese_rect_intersects(colliderRect, rect)) {
-            ese_rect_destroy(colliderRect);
+        EseRect *colliderRect = collider->rects[i];
+        EseRect *worldRect = ese_rect_copy(colliderRect);
+        ese_rect_set_x(worldRect, ese_rect_get_x(worldRect) + ese_point_get_x(component->entity->position));
+        ese_rect_set_y(worldRect, ese_rect_get_y(worldRect) + ese_point_get_y(component->entity->position));
+        if (ese_rect_intersects(worldRect, rect)) {
+            ese_rect_destroy(worldRect);
             profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_coll_rect");
             return true;
         }
-        ese_rect_destroy(colliderRect);
+        ese_rect_destroy(worldRect);
     }
     
     profile_stop(PROFILE_ENTITY_COLLISION_RECT_DETECT, "entity_component_detect_coll_rect");

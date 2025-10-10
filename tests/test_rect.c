@@ -36,7 +36,9 @@ static void test_ese_rect_copy_requires_engine(void);
 static void test_ese_rect_copy(void);
 static void test_ese_rect_area(void);
 static void test_ese_rect_contains_point(void);
+static void test_ese_rect_contains_point_rotated(void);
 static void test_ese_rect_intersects(void);
+static void test_ese_rect_intersects_rotated(void);
 static void test_ese_rect_watcher_system(void);
 static void test_ese_rect_lua_integration(void);
 static void test_ese_rect_lua_init(void);
@@ -115,7 +117,9 @@ int main(void) {
     RUN_TEST(test_ese_rect_copy);
     RUN_TEST(test_ese_rect_area);
     RUN_TEST(test_ese_rect_contains_point);
+    RUN_TEST(test_ese_rect_contains_point_rotated);
     RUN_TEST(test_ese_rect_intersects);
+    RUN_TEST(test_ese_rect_intersects_rotated);
     RUN_TEST(test_ese_rect_watcher_system);
     RUN_TEST(test_ese_rect_lua_integration);
     RUN_TEST(test_ese_rect_lua_init);
@@ -347,6 +351,215 @@ static void test_ese_rect_intersects(void) {
     TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Non-overlapping rectangles should not intersect");
     TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "Non-intersection should be commutative");
 
+    ese_rect_destroy(rect1);
+    ese_rect_destroy(rect2);
+    ese_rect_destroy(rect3);
+}
+
+static void test_ese_rect_contains_point_rotated(void) {
+    EseRect *rect = ese_rect_create(g_engine);
+    
+    // Test with rect at (0,0) and size 20x20
+    ese_rect_set_x(rect, 0.0f);
+    ese_rect_set_y(rect, 0.0f);
+    ese_rect_set_width(rect, 20.0f);
+    ese_rect_set_height(rect, 20.0f);
+    
+    // Test 45 degree rotation (π/4 radians)
+    ese_rect_set_rotation(rect, M_PI / 4.0f);
+    
+    // For a 20x20 square at (0,0) rotated 45 degrees, the center is at (10,10)
+    // The rotated square should contain points near the center
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 10.0f), "Center point (10,10) should be inside 45° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 15.0f, 10.0f), "Point (15,10) should be inside 45° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 15.0f), "Point (10,15) should be inside 45° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 25.0f, 10.0f), "Point (25,10) should not be inside 45° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 25.0f), "Point (10,25) should not be inside 45° rotated rect");
+    
+    // Test 135 degree rotation (3π/4 radians)
+    ese_rect_set_rotation(rect, 3.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 10.0f), "Center point (10,10) should be inside 135° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 5.0f, 10.0f), "Point (5,10) should be inside 135° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 15.0f), "Point (10,15) should be inside 135° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, -5.0f, 10.0f), "Point (-5,10) should not be inside 135° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 25.0f), "Point (10,25) should not be inside 135° rotated rect");
+    
+    // Test 225 degree rotation (5π/4 radians)
+    ese_rect_set_rotation(rect, 5.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 10.0f), "Center point (10,10) should be inside 225° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 5.0f, 10.0f), "Point (5,10) should be inside 225° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 5.0f), "Point (10,5) should be inside 225° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, -5.0f, 10.0f), "Point (-5,10) should not be inside 225° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 10.0f, -5.0f), "Point (10,-5) should not be inside 225° rotated rect");
+    
+    // Test 315 degree rotation (7π/4 radians)
+    ese_rect_set_rotation(rect, 7.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 10.0f), "Center point (10,10) should be inside 315° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 15.0f, 10.0f), "Point (15,10) should be inside 315° rotated rect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 10.0f, 5.0f), "Point (10,5) should be inside 315° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 25.0f, 10.0f), "Point (25,10) should not be inside 315° rotated rect");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 10.0f, -5.0f), "Point (10,-5) should not be inside 315° rotated rect");
+    
+    // Now test with rect at (50,50) position
+    ese_rect_set_x(rect, 50.0f);
+    ese_rect_set_y(rect, 50.0f);
+    
+    // Test 45 degree rotation at (50,50)
+    ese_rect_set_rotation(rect, M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 60.0f), "Center point (60,60) should be inside 45° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 65.0f, 60.0f), "Point (65,60) should be inside 45° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 65.0f), "Point (60,65) should be inside 45° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 75.0f, 60.0f), "Point (75,60) should not be inside 45° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 75.0f), "Point (60,75) should not be inside 45° rotated rect at (50,50)");
+    
+    // Test 135 degree rotation at (50,50)
+    ese_rect_set_rotation(rect, 3.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 60.0f), "Center point (60,60) should be inside 135° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 55.0f, 60.0f), "Point (55,60) should be inside 135° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 65.0f), "Point (60,65) should be inside 135° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 45.0f, 60.0f), "Point (45,60) should not be inside 135° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 75.0f), "Point (60,75) should not be inside 135° rotated rect at (50,50)");
+    
+    // Test 225 degree rotation at (50,50)
+    ese_rect_set_rotation(rect, 5.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 60.0f), "Center point (60,60) should be inside 225° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 55.0f, 60.0f), "Point (55,60) should be inside 225° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 55.0f), "Point (60,55) should be inside 225° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 45.0f, 60.0f), "Point (45,60) should not be inside 225° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 45.0f), "Point (60,45) should not be inside 225° rotated rect at (50,50)");
+    
+    // Test 315 degree rotation at (50,50)
+    ese_rect_set_rotation(rect, 7.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 60.0f), "Center point (60,60) should be inside 315° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 65.0f, 60.0f), "Point (65,60) should be inside 315° rotated rect at (50,50)");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 55.0f), "Point (60,55) should be inside 315° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 75.0f, 60.0f), "Point (75,60) should not be inside 315° rotated rect at (50,50)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_contains_point(rect, 60.0f, 45.0f), "Point (60,45) should not be inside 315° rotated rect at (50,50)");
+    
+    ese_rect_destroy(rect);
+}
+
+static void test_ese_rect_intersects_rotated(void) {
+    EseRect *rect1 = ese_rect_create(g_engine);
+    EseRect *rect2 = ese_rect_create(g_engine);
+    EseRect *rect3 = ese_rect_create(g_engine);
+    
+    // Test with rects at (0,0) and size 20x20
+    ese_rect_set_x(rect1, 0.0f);
+    ese_rect_set_y(rect1, 0.0f);
+    ese_rect_set_width(rect1, 20.0f);
+    ese_rect_set_height(rect1, 20.0f);
+    ese_rect_set_rotation(rect1, 0.0f); // No rotation for rect1
+    
+    ese_rect_set_x(rect2, 10.0f);
+    ese_rect_set_y(rect2, 10.0f);
+    ese_rect_set_width(rect2, 20.0f);
+    ese_rect_set_height(rect2, 20.0f);
+    
+    ese_rect_set_x(rect3, 30.0f);
+    ese_rect_set_y(rect3, 30.0f);
+    ese_rect_set_width(rect3, 20.0f);
+    ese_rect_set_height(rect3, 20.0f);
+    
+    // Test 45 degree rotation
+    ese_rect_set_rotation(rect2, M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 should intersect with 45° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "45° rotated rect2 should intersect with rect1 (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 should not intersect with 45° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "45° rotated rect3 should not intersect with rect1 (commutative)");
+    
+    // Test 135 degree rotation
+    ese_rect_set_rotation(rect2, 3.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 3.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 should intersect with 135° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "135° rotated rect2 should intersect with rect1 (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 should not intersect with 135° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "135° rotated rect3 should not intersect with rect1 (commutative)");
+    
+    // Test 225 degree rotation
+    ese_rect_set_rotation(rect2, 5.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 5.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 should intersect with 225° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "225° rotated rect2 should intersect with rect1 (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 should not intersect with 225° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "225° rotated rect3 should not intersect with rect1 (commutative)");
+    
+    // Test 315 degree rotation
+    ese_rect_set_rotation(rect2, 7.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 7.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 should intersect with 315° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "315° rotated rect2 should intersect with rect1 (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 should not intersect with 315° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "315° rotated rect3 should not intersect with rect1 (commutative)");
+    
+    // Now test with rects at (50,50) position
+    ese_rect_set_x(rect1, 50.0f);
+    ese_rect_set_y(rect1, 50.0f);
+    
+    ese_rect_set_x(rect2, 60.0f);
+    ese_rect_set_y(rect2, 60.0f);
+    
+    ese_rect_set_x(rect3, 80.0f);
+    ese_rect_set_y(rect3, 80.0f);
+    
+    // Test 45 degree rotation at (50,50)
+    ese_rect_set_rotation(rect2, M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 at (50,50) should intersect with 45° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "45° rotated rect2 should intersect with rect1 at (50,50) (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 at (50,50) should not intersect with 45° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "45° rotated rect3 should not intersect with rect1 at (50,50) (commutative)");
+    
+    // Test 135 degree rotation at (50,50)
+    ese_rect_set_rotation(rect2, 3.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 3.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 at (50,50) should intersect with 135° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "135° rotated rect2 should intersect with rect1 at (50,50) (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 at (50,50) should not intersect with 135° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "135° rotated rect3 should not intersect with rect1 at (50,50) (commutative)");
+    
+    // Test 225 degree rotation at (50,50)
+    ese_rect_set_rotation(rect2, 5.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 5.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 at (50,50) should intersect with 225° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "225° rotated rect2 should intersect with rect1 at (50,50) (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 at (50,50) should not intersect with 225° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "225° rotated rect3 should not intersect with rect1 at (50,50) (commutative)");
+    
+    // Test 315 degree rotation at (50,50)
+    ese_rect_set_rotation(rect2, 7.0f * M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, 7.0f * M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Rect1 at (50,50) should intersect with 315° rotated rect2");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "315° rotated rect2 should intersect with rect1 at (50,50) (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "Rect1 at (50,50) should not intersect with 315° rotated rect3");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "315° rotated rect3 should not intersect with rect1 at (50,50) (commutative)");
+    
+    // Test both rects rotated
+    ese_rect_set_rotation(rect1, M_PI / 4.0f);
+    ese_rect_set_rotation(rect2, M_PI / 4.0f);
+    ese_rect_set_rotation(rect3, M_PI / 4.0f);
+    
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect1, rect2), "Both 45° rotated rects should intersect");
+    TEST_ASSERT_TRUE_MESSAGE(ese_rect_intersects(rect2, rect1), "Both 45° rotated rects should intersect (commutative)");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect1, rect3), "45° rotated rects should not intersect when far apart");
+    TEST_ASSERT_FALSE_MESSAGE(ese_rect_intersects(rect3, rect1), "45° rotated rects should not intersect when far apart (commutative)");
+    
     ese_rect_destroy(rect1);
     ese_rect_destroy(rect2);
     ese_rect_destroy(rect3);

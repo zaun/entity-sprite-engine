@@ -26,7 +26,7 @@ EseHashMap* hashmap_create(EseHashMapFreeFn free_fn);
  *
  * @param map Pointer to the EseHashMap to free.
  */
-void hashmap_free(EseHashMap* map);
+void hashmap_destroy(EseHashMap* map);
 
 /**
  * @brief Clear all key-value pairs from the hash map.

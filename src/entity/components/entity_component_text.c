@@ -37,6 +37,10 @@ static bool _text_vtable_run_function(EseEntityComponent* component, EseEntity* 
     return false;
 }
 
+static void _text_vtable_collides_component(EseEntityComponent* a, EseEntityComponent* b, EseArray *out_hits) {
+    (void)a; (void)b; (void)out_hits;
+}
+
 static void _text_vtable_ref(EseEntityComponent* component) {
     EseEntityComponentText *text = (EseEntityComponentText*)component->data;
     log_assert("ENTITY_COMP", text, "text vtable ref called with NULL");
@@ -71,6 +75,7 @@ static const ComponentVTable text_vtable = {
     .update = _text_vtable_update,
     .draw = _text_vtable_draw,
     .run_function = _text_vtable_run_function,
+    .collides = _text_vtable_collides_component,
     .ref = _text_vtable_ref,
     .unref = _text_vtable_unref
 };

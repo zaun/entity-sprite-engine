@@ -42,10 +42,8 @@ static void test_entity_creation();
 static void test_entity_copy();
 static void test_entity_update();
 static void test_entity_run_function();
-static void test_entity_collision_detection();
 static void test_entity_collision_callbacks();
 // Rename to match Unity test implementation name
-static void test_entity_collision_with_rect(void);
 static void test_entity_draw();
 static void test_entity_component_management();
 static void test_entity_tags();
@@ -243,27 +241,6 @@ static void test_entity_run_function() {
     
 }
 
-// Test entity collision detection
-static void test_entity_collision_detection() {
-    
-    
-    EseEntity *entity1 = entity_create(test_engine);
-    EseEntity *entity2 = entity_create(test_engine);
-    
-    // Test collision state with no collider components
-    int collision_state = entity_check_collision_state(entity1, entity2);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, collision_state, "Entities with no colliders should not collide");
-    
-    // Test collision state with same entity
-    collision_state = entity_check_collision_state(entity1, entity1);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, collision_state, "Entity should not collide with itself");
-    
-    entity_destroy(entity1);
-    entity_destroy(entity2);
-    
-    
-}
-
 // Test entity collision callbacks
 static void test_entity_collision_callbacks() {
     const char *script = 
@@ -290,7 +267,12 @@ static void test_entity_collision_callbacks() {
         entity_component_add(entity2, lua_comp2);
 
         // Test collision callbacks with no collider components
-        entity_process_collision_callbacks(entity1, entity2, 0); // NONE
+        EseCollisionHit *hit = ese_collision_hit_create(test_engine);
+        ese_collision_hit_set_kind(hit, COLLISION_KIND_COLLIDER);
+        ese_collision_hit_set_entity(hit, entity1);
+        ese_collision_hit_set_target(hit, entity2);
+        ese_collision_hit_set_state(hit, COLLISION_STATE_NONE);
+        entity_process_collision_callbacks(hit);
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should not have the enter tag after none");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should not have the enter tag after ");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should not have the stay tag after none");
@@ -298,7 +280,8 @@ static void test_entity_collision_callbacks() {
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should not have the exit tag after none");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should not have the exit tag after none");
 
-        entity_process_collision_callbacks(entity1, entity2, 1); // ENTER
+        ese_collision_hit_set_state(hit, COLLISION_STATE_ENTER);
+        entity_process_collision_callbacks(hit);
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after enter");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after enter");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should not have the stay tag after enter");
@@ -306,7 +289,8 @@ static void test_entity_collision_callbacks() {
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should not have the exit tag after enter");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should not have the exit tag after enter");
 
-        entity_process_collision_callbacks(entity1, entity2, 2); // STAY
+        ese_collision_hit_set_state(hit, COLLISION_STATE_STAY);
+        entity_process_collision_callbacks(hit);
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after stay");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after stay");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should have the stay tag after stay");
@@ -314,7 +298,8 @@ static void test_entity_collision_callbacks() {
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity not should have the exit tag after stay");
         TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity not should have the exit tag after stay");
 
-        entity_process_collision_callbacks(entity1, entity2, 3); // EXIT
+        ese_collision_hit_set_state(hit, COLLISION_STATE_LEAVE);
+        entity_process_collision_callbacks(hit);
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after exit");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after exit");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should have the stay tag after exit");
@@ -322,125 +307,10 @@ static void test_entity_collision_callbacks() {
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should have the exit tag after exit");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should have the exit tag after exit");
 
+        ese_collision_hit_destroy(hit);
         entity_destroy(entity1);
         entity_destroy(entity2);
     }
-    
-    
-}
-
-// Test entity collision with rect
-static void test_entity_collision_with_rect(void) {
-    const char *script = 
-    "function ENTITY:entity_update(delta_time)\n"
-    "end\n"
-    "function ENTITY:entity_collision_enter(other)\n"
-    "    self:add_tag('enter')\n"
-    "end\n"
-    "function ENTITY:entity_collision_stay(other)\n"
-    "    self:add_tag('stay')\n"
-    "end\n"
-    "function ENTITY:entity_collision_exit(other)\n"
-    "    self:add_tag('exit')\n"
-    "end\n";
-    
-    bool load_result = lua_engine_load_script_from_string(test_engine, script, "test_entity_script", "ENTITY");
-    TEST_ASSERT_TRUE_MESSAGE(load_result, "Test script should load successfully");
-    
-    if (load_result) {
-        EseEntity *entity1 = entity_create(test_engine);
-        EseEntity *entity2 = entity_create(test_engine);
-
-        EseEntityComponent *lua_comp1 = entity_component_lua_create(test_engine, "test_entity_script");
-        EseEntityComponent *lua_comp2 = entity_component_lua_create(test_engine, "test_entity_script");
-
-        entity_component_add(entity1, lua_comp1);
-        entity_component_add(entity2, lua_comp2);
-
-        EseEntityComponent *collider1 = entity_component_collider_create(test_engine);
-        EseEntityComponent *collider2 = entity_component_collider_create(test_engine);
-
-        entity_component_add(entity1, collider1);
-        entity_component_add(entity2, collider2);
-
-        EseRect *rect1 = ese_rect_create(test_engine);
-        EseRect *rect2 = ese_rect_create(test_engine);
-
-        ese_rect_set_x(rect1, 0);
-        ese_rect_set_y(rect1, 0);
-        ese_rect_set_width(rect1, 100);
-        ese_rect_set_height(rect1, 100);
-
-        ese_rect_set_x(rect2, 0);
-        ese_rect_set_y(rect2, 0);
-        ese_rect_set_width(rect2, 100);
-        ese_rect_set_height(rect2, 100);
-
-        entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider1), rect1);
-        entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider2), rect2);
-
-        entity_set_position(entity1, 0, 0);
-        entity_set_position(entity2, 300, 0);
-
-        int collision_state = 0;
-
-        // No collisions
-        entity_update(entity1, 0.016f);
-        entity_update(entity2, 0.016f);
-        collision_state = entity_check_collision_state(entity1, entity2);
-        entity_process_collision_callbacks(entity1, entity2, collision_state);
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should not have the enter tag after no collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should not have the enter tag after no collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should not have the stay tag after no collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "stay"), "Entity should not have the stay tag after no collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should not have the exit tag after no collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should not have the exit tag after no collisions");
-
-        // Collisions entier
-        entity_set_position(entity1, 150, 0);
-        entity_set_position(entity2, 200, 0);
-        entity_update(entity1, 0.016f);
-        entity_update(entity2, 0.016f);
-        collision_state = entity_check_collision_state(entity1, entity2);
-        entity_process_collision_callbacks(entity1, entity2, collision_state);
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should not have the stay tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "stay"), "Entity should not have the stay tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should not have the exit tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should not have the exit tag after collisions");
-
-        // Collisions entier
-        entity_set_position(entity1, 200, 0);
-        entity_set_position(entity2, 200, 0);
-        entity_update(entity1, 0.016f);
-        entity_update(entity2, 0.016f);
-        collision_state = entity_check_collision_state(entity1, entity2);
-        entity_process_collision_callbacks(entity1, entity2, collision_state);
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should have the stay tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "stay"), "Entity should have the stay tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should not have the exit tag after collisions");
-        TEST_ASSERT_FALSE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should not have the exit tag after collisions");
-
-        // Collisions entier
-        entity_set_position(entity1, 301, 0);
-        entity_set_position(entity2, 200, 0);
-        entity_update(entity1, 0.016f);
-        entity_update(entity2, 0.016f);
-        collision_state = entity_check_collision_state(entity1, entity2);
-        entity_process_collision_callbacks(entity1, entity2, collision_state);
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "enter"), "Entity should have the enter tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "stay"), "Entity should have the stay tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "stay"), "Entity should have the stay tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity1, "exit"), "Entity should have the exit tag after collisions");
-        TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity2, "exit"), "Entity should have the exit tag after collisions");
-
-        entity_destroy(entity1);
-        entity_destroy(entity2);
-    }            
     
     
 }
@@ -587,13 +457,6 @@ static void test_entity_null_pointer_aborts() {
     // Test that update functions abort with NULL pointers
     ASSERT_DEATH((entity_update(NULL, 0.016f)), "entity_update should abort with NULL entity");
     ASSERT_DEATH((entity_run_function_with_args(NULL, "test", 0, NULL)), "entity_run_function_with_args should abort with NULL entity");
-    
-    // Test that collision functions abort with NULL pointers
-    ASSERT_DEATH((entity_check_collision_state(NULL, entity)), "entity_check_collision_state should abort with NULL first entity");
-    ASSERT_DEATH((entity_check_collision_state(entity, NULL)), "entity_check_collision_state should abort with NULL second entity");
-    ASSERT_DEATH((entity_process_collision_callbacks(NULL, entity, 0)), "entity_process_collision_callbacks should abort with NULL first entity");
-    ASSERT_DEATH((entity_process_collision_callbacks(entity, NULL, 0)), "entity_process_collision_callbacks should abort with NULL second entity");
-    ASSERT_DEATH((entity_detect_collision_rect(NULL, NULL)), "entity_detect_collision_rect should abort with NULL entity");
     
     // Test that draw function aborts with NULL pointers
     ASSERT_DEATH((entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL entity");
@@ -878,9 +741,7 @@ int main(void) {
     RUN_TEST(test_entity_copy);
     RUN_TEST(test_entity_update);
     RUN_TEST(test_entity_run_function);
-    RUN_TEST(test_entity_collision_detection);
     RUN_TEST(test_entity_collision_callbacks);
-    RUN_TEST(test_entity_collision_with_rect);
     RUN_TEST(test_entity_draw);
     RUN_TEST(test_entity_component_management);
     RUN_TEST(test_entity_tags);

@@ -24,6 +24,7 @@
 #include "types/tileset.h"
 #include "types/uuid.h"
 #include "types/vector.h"
+#include "types/collision_hit.h"
 
 
 /**
@@ -96,6 +97,10 @@ static void _lua_value_reset(EseLuaValue *val, bool keep_name) {
 
     if (val->type == LUA_VAL_VECTOR) {
         val->value.vector = NULL;
+    }
+
+    if (val->type == LUA_VAL_COLLISION_HIT) {
+        val->value.collision_hit = NULL;
     }
 
     if (val->type == LUA_VAL_CFUNC) {
@@ -220,6 +225,9 @@ EseLuaValue* lua_value_copy(const EseLuaValue *src) {
             break;
         case LUA_VAL_VECTOR:
             copy->value.vector = ese_vector_copy(src->value.vector);
+            break;
+        case LUA_VAL_COLLISION_HIT:
+            copy->value.collision_hit = ese_collision_hit_copy(src->value.collision_hit);
             break;
         case LUA_VAL_CFUNC:
             copy->value.cfunc_data.cfunc = src->value.cfunc_data.cfunc;  // Function pointers are just copied
@@ -444,6 +452,16 @@ EseLuaValue *lua_value_create_vector(const char *name, struct EseVector* vector)
     return v;
 }
 
+EseLuaValue *lua_value_create_collision_hit(const char *name, struct EseCollisionHit* hit) {
+    log_assert("LUA_VALUE", name, "lua_value_create_collision_hit called with NULL name");
+
+    EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
+    v->type = LUA_VAL_COLLISION_HIT;
+    v->value.collision_hit = hit;
+    if (name) v->name = memory_manager.strdup(name, MMTAG_LUA_VALUE);
+    return v;
+}
+
 EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc, EseLuaValue *upvalue) {
     log_assert("LUA_VALUE", name, "lua_value_create_cfunc called with NULL name");
     log_assert("LUA_VALUE", cfunc, "lua_value_create_cfunc called with NULL cfunc");
@@ -629,6 +647,19 @@ void lua_value_set_cfunc(EseLuaValue *val, EseLuaCFunction cfunc, EseLuaValue *u
     profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_cfunc");
 }
 
+void lua_value_set_collision_hit(EseLuaValue *val, struct EseCollisionHit* hit) {
+    log_assert("LUA_VALUE", val, "lua_value_set_collision_hit called with NULL val");
+
+    profile_start(PROFILE_LUA_VALUE_SET);
+
+    _lua_value_reset(val, true);
+
+    val->type = LUA_VAL_COLLISION_HIT;
+    val->value.collision_hit = hit;
+
+    profile_stop(PROFILE_LUA_VALUE_SET, "lua_value_set_collision_hit");
+}
+
 EseLuaValue *lua_value_get_table_prop(EseLuaValue *val, const char *prop_name) {
     log_assert("LUA_VALUE", val, "lua_value_get_table_prop called with NULL val");
 
@@ -778,6 +809,12 @@ EseVector* lua_value_get_vector(EseLuaValue *val) {
     return val->value.vector;
 }
 
+EseCollisionHit* lua_value_get_collision_hit(EseLuaValue *val) {
+    log_assert("LUA_VALUE", val, "lua_value_get_collision_hit called with NULL val");
+
+    return val->value.collision_hit;
+}
+
 EseLuaCFunction lua_value_get_cfunc(EseLuaValue *val) {
     log_assert("LUA_VALUE", val, "lua_value_get_cfunc called with NULL val");
 
@@ -869,6 +906,10 @@ bool lua_value_is_uuid(EseLuaValue *val) {
 
 bool lua_value_is_vector(EseLuaValue *val) {
     return val && val->type == LUA_VAL_VECTOR;
+}
+
+bool lua_value_is_collision_hit(EseLuaValue *val) {
+    return val && val->type == LUA_VAL_COLLISION_HIT;
 }
 
 bool lua_value_is_cfunc(EseLuaValue *val) {
@@ -970,6 +1011,9 @@ static void _log_luavalue_rec(
             break;
         case LUA_VAL_CFUNC:
             *offset += snprintf(buf + *offset, buflen - *offset, "CFunc: %p (upvalue: %p)\n", val->value.cfunc_data.cfunc, val->value.cfunc_data.upvalue);
+            break;
+        case LUA_VAL_COLLISION_HIT:
+            *offset += snprintf(buf + *offset, buflen - *offset, "CollisionHit: %p\n", val->value.collision_hit);
             break;
         case LUA_VAL_ERROR:
             *offset += snprintf(buf + *offset, buflen - *offset, "Error: %s\n", val->value.string);

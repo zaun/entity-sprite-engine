@@ -103,7 +103,7 @@ EseIntHashMap* int_hashmap_create(EseIntHashMapFreeFn free_fn) {
     return map;
 }
 
-void int_hashmap_free(EseIntHashMap* map) {
+void int_hashmap_destroy(EseIntHashMap* map) {
     if (!map) return;
 
     for (size_t i = 0; i < map->capacity; i++) {

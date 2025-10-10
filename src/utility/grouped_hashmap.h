@@ -14,7 +14,7 @@ typedef void (*EseGroupedHashMapFreeFn)(void *value);
 EseGroupedHashMap* grouped_hashmap_create(EseGroupedHashMapFreeFn free_fn);
 
 // Free the EseHashMap and all its nodes (calls free_fn for each value)
-void grouped_hashmap_free(EseGroupedHashMap* map);
+void grouped_hashmap_destroy(EseGroupedHashMap* map);
 
 // Set a value for (group, id)
 void grouped_hashmap_set(EseGroupedHashMap* map, const char* group, const char* id, void* value);

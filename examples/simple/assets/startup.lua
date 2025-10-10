@@ -1,5 +1,6 @@
 function STARTUP:makeskull()
     local skull = Entity.new()
+    skull.draw_order = 3
 
     if asset_load_script("skull.lua") then
         local lua_comp = EntityComponentLua.new()
@@ -25,8 +26,6 @@ function STARTUP:makeskull()
 end
 
 function STARTUP:startup()
-    print("simple startup script started")
-
     if asset_load_shader("game", "shaders.glsl") == false then
         print("Shaders failed")
         return
@@ -88,7 +87,7 @@ function STARTUP:startup()
 
     local horse_collider = EntityComponentCollider.new()
     horse_collider.draw_debug = true
-    print(horse_collider.rects)
+    horse_collider.map_interaction = true
     horse_collider.rects.add(Rect.new(0, 0, 144, 144))
     horse.components.add(horse_collider)
 
@@ -106,8 +105,4 @@ function STARTUP:startup()
 
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
-
-    print(Camera.position.x, Camera.position.y)
-
-    print("simple startup script done")
 end

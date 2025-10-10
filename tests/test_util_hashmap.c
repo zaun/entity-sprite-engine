@@ -108,7 +108,7 @@ static void test_hashmap_create_and_free(void) {
     EseHashMap *map = hashmap_create(NULL);
     TEST_ASSERT_NOT_NULL_MESSAGE(map, "hashmap_create should return a map");
     TEST_ASSERT_EQUAL_UINT_MESSAGE(0, hashmap_size(map), "new map size should be 0");
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_set_get_basic(void) {
@@ -134,7 +134,7 @@ static void test_hashmap_set_get_basic(void) {
     hashmap_clear(map);
     memory_manager.free(a);
     memory_manager.free(b);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_update_existing_key(void) {
@@ -157,7 +157,7 @@ static void test_hashmap_update_existing_key(void) {
     hashmap_clear(map);
     memory_manager.free(a);
     memory_manager.free(b);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_remove_and_return_value(void) {
@@ -175,7 +175,7 @@ static void test_hashmap_remove_and_return_value(void) {
     TEST_ASSERT_NULL(hashmap_get(map, "k"));
 
     memory_manager.free(removed);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_clear(void) {
@@ -197,7 +197,7 @@ static void test_hashmap_clear(void) {
     // values are not freed when free_fn is NULL
     memory_manager.free(a);
     memory_manager.free(b);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_size_and_empty_cases(void) {
@@ -210,7 +210,7 @@ static void test_hashmap_size_and_empty_cases(void) {
     // remove unknown
     TEST_ASSERT_NULL(hashmap_remove(map, "missing"));
 
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_iterate_all_entries(void) {
@@ -243,7 +243,7 @@ static void test_hashmap_iterate_all_entries(void) {
     // cleanup
     for (int i = 0; i < N; i++) memory_manager.free(values[i]);
     memory_manager.free(values);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_resize_rehashing(void) {
@@ -274,7 +274,7 @@ static void test_hashmap_resize_rehashing(void) {
     // cleanup
     for (int i = 0; i < N; i++) memory_manager.free(values[i]);
     memory_manager.free(values);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_null_arguments(void) {
@@ -297,7 +297,7 @@ static void test_hashmap_null_arguments(void) {
     // iterator on NULL
     TEST_ASSERT_NULL(hashmap_iter_create(NULL));
 
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_value_free_function_on_clear_and_free(void) {
@@ -323,7 +323,7 @@ static void test_hashmap_value_free_function_on_clear_and_free(void) {
     hashmap_set(map, "c", v3);
     hashmap_set(map, "d", v4);
 
-    hashmap_free(map);
+    hashmap_destroy(map);
     TEST_ASSERT_EQUAL_INT(2, g_tracker.freed_count);
 }
 
@@ -339,7 +339,7 @@ static void test_hashmap_remove_does_not_free_value(void) {
     TEST_ASSERT_EQUAL_INT(0, g_tracker.freed_count);
     memory_manager.free(removed);
 
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_keys_are_copied_and_independent(void) {
@@ -362,13 +362,13 @@ static void test_hashmap_keys_are_copied_and_independent(void) {
     // cleanup
     hashmap_clear(map);
     memory_manager.free(val);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_get_unknown_key_returns_null(void) {
     EseHashMap *map = hashmap_create(NULL);
     TEST_ASSERT_NULL(hashmap_get(map, "nope"));
-    hashmap_free(map);
+    hashmap_destroy(map);
 }
 
 static void test_hashmap_iter_handles_empty_and_progression(void) {
@@ -402,5 +402,5 @@ static void test_hashmap_iter_handles_empty_and_progression(void) {
     memory_manager.free(a);
     memory_manager.free(b);
     memory_manager.free(c);
-    hashmap_free(map);
+    hashmap_destroy(map);
 }

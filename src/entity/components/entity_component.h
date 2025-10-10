@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENTS_H
 
 #include "entity/entity.h" // EntityDrawTextureCallback, EntityDrawRectCallback
+#include "utility/array.h"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;
@@ -29,7 +30,7 @@ void entity_component_push(EseEntityComponent *component);
 
 void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time);
 
-bool entity_component_detect_collision_component(EseEntityComponent *a, EseEntityComponent *b);
+void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b, EseArray *out_hits);
 
 bool entity_component_detect_collision_rect(EseEntityComponent *a, EseRect *rect);
 
