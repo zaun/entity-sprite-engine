@@ -31,10 +31,6 @@ void spatial_index_auto_tune(SpatialIndex *index);
 // The returned EseArray is owned by the index and must not be freed by the caller.
 EseArray *spatial_index_get_pairs(SpatialIndex *index);
 
-// Generate pairs including previous collisions for exit detection
-// The returned EseArray is owned by the index and must not be freed by the caller.
-EseArray *spatial_index_get_pairs_with_previous(SpatialIndex *index, void *previous_collisions);
-
 #endif // ESE_SPATIAL_INDEX_H
 
 

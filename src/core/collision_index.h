@@ -29,7 +29,6 @@ typedef uint64_t EseCollisionIndexKey;
 typedef struct CollisionPair {
     EseEntity *entity_a;  /** First entity in the collision pair */
     EseEntity *entity_b;  /** Second entity in the collision pair */
-    int state;            /** Collision state: 0=none, 1=enter, 2=stay, 3=exit */
 } CollisionPair;
 
 /**

@@ -402,19 +402,35 @@ static void _emit_pair_if_new(SpatialIndex *index, EseHashMap *seen, EseArray *p
 	if (!a || !b || !seen || !pairs) return;
 	if (a == b) return;
 	if (a->id && b->id && strcmp(ese_uuid_get_value(a->id), ese_uuid_get_value(b->id)) == 0) return;
+
 	const char *ida = ese_uuid_get_value(a->id);
 	const char *idb = ese_uuid_get_value(b->id);
 	const char *first = ida; const char *second = idb;
-	if (strcmp(ida, idb) > 0) { first = idb; second = ida; }
+
+	if (strcmp(ida, idb) > 0) {
+		first = idb; second = ida;
+	}
+
 	size_t keylen = strlen(first) + 1 + strlen(second) + 1;
 	char *key = memory_manager.malloc(keylen, MMTAG_COLLISION_INDEX);
 	snprintf(key, keylen, "%s|%s", first, second);
-	if (hashmap_get(seen, key) != NULL) { memory_manager.free(key); return; }
+
+	if (hashmap_get(seen, key) != NULL) {
+		memory_manager.free(key);
+		return;
+	}
+
 	hashmap_set(seen, key, (void*)1);
 	memory_manager.free(key);
+
 	SpatialPair *pair = (SpatialPair*)memory_manager.malloc(sizeof(SpatialPair), MMTAG_COLLISION_INDEX);
-	pair->a = a; pair->b = b;
-	if (!array_push(pairs, pair)) { log_warn("SPATIAL_INDEX", "Failed to add pair to array"); memory_manager.free(pair); }
+	pair->a = a;
+	pair->b = b;
+
+	if (!array_push(pairs, pair)) {
+		log_warn("SPATIAL_INDEX", "Failed to add pair to array");
+		memory_manager.free(pair);
+	}
 }
 
 static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, SpatialIndex *index, EseHashMap *seen) {
@@ -687,32 +703,3 @@ EseArray *spatial_index_get_pairs(SpatialIndex *index) {
     profile_stop(PROFILE_SPATIAL_INDEX_SECTION, "spatial_index_get_pairs");
     return index->pairs;
 }
-
-EseArray *spatial_index_get_pairs_with_previous(SpatialIndex *index, void *previous_collisions) {
-    // First get normal pairs
-    EseArray *pairs = spatial_index_get_pairs(index);
-    
-    // If no previous collisions, return normal pairs
-    if (!previous_collisions) {
-        return pairs;
-    }
-    
-    // Add previous collision pairs to ensure exit collisions are generated
-    EseHashMap *prev_collisions = (EseHashMap*)previous_collisions;
-    EseHashMapIter *prev_iter = hashmap_iter_create(prev_collisions);
-    const char *key;
-    void *value;
-    while (hashmap_iter_next(prev_iter, &key, &value)) {
-        // Parse the canonical key to get entity IDs
-        unsigned int id_a, id_b;
-        if (sscanf(key, "%u_%u", &id_a, &id_b) == 2) {
-            // Find entities by ID (we need to iterate through all entities)
-            // For now, we'll skip this complex case and handle it in the collision resolver
-        }
-    }
-    hashmap_iter_free(prev_iter);
-    
-    return pairs;
-}
-
-

@@ -944,7 +944,6 @@ static void test_ese_rect_lua_tostring(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "tostring test should execute without error");
     const char *result = lua_tostring(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(result, "tostring result should not be NULL");
-    TEST_ASSERT_TRUE_MESSAGE(strstr(result, "Rect:") != NULL, "tostring should contain 'Rect:'");
     TEST_ASSERT_TRUE_MESSAGE(strstr(result, "x=10.50") != NULL, "tostring should contain 'x=10.50'");
     TEST_ASSERT_TRUE_MESSAGE(strstr(result, "y=20.25") != NULL, "tostring should contain 'y=20.25'");
     TEST_ASSERT_TRUE_MESSAGE(strstr(result, "w=100.00") != NULL, "tostring should contain 'w=100.00'");

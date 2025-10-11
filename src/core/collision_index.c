@@ -37,7 +37,7 @@ static DBVHNode *_dbvh_rotate_left(DBVHNode *x);
 static void _dbvh_update_bounds(DBVHNode *node);
 static void _dbvh_collect_entities(DBVHNode *root, EseArray *entities);
 static void _collision_index_convert_cell_to_dbvh(EseCollisionIndex *index, int center_x, int center_y);
-static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b, int state);
+static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b);
 
 // DBVH function forward declarations
 static DBVHNode *_dbvh_node_create(EseEntity *entity);
@@ -206,7 +206,7 @@ static void _dbvh_collect_entities(DBVHNode *root, EseArray *entities) {
 }
 
 // Emit helper: canonicalize unordered pair, check seen, push to pairs.
-static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b, int state) {
+static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashMap *seen, EseArray *pairs, EseEntity *a, EseEntity *b) {
     if (!a || !b || !seen || !pairs) return;
 
     // Skip if the same entity
@@ -239,7 +239,6 @@ static void _collision_index_emit_pair_if_new(EseCollisionIndex *index, EseHashM
     CollisionPair *pair = (CollisionPair*)memory_manager.malloc(sizeof(CollisionPair), MMTAG_COLLISION_INDEX);
     pair->entity_a = a;
     pair->entity_b = b;
-    pair->state = state;
 
     if (!array_push(pairs, pair)) {
         log_warn("COLLISION_INDEX", "Failed to add collision pair to array");
@@ -257,8 +256,7 @@ static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex
         EseEntity *a = (EseEntity*)array_get(entities, i);
         for (size_t j = i + 1; j < array_size(entities); j++) {
             EseEntity *b = (EseEntity*)array_get(entities, j);
-            int state = entity_check_collision_state(a, b);
-            if (state != 0) _collision_index_emit_pair_if_new(index, seen, pairs, a, b, state);
+            _collision_index_emit_pair_if_new(index, seen, pairs, a, b);
         }
     }
     // cross-boundary: test DBVH entities against neighboring grid bins (outside 3x3)
@@ -280,8 +278,7 @@ static void _dbvh_query_pairs(DBVHNode *root, EseArray *pairs, EseCollisionIndex
                     void *val;
                     while (dlist_iter_next(it, &val)) {
                         EseEntity *b = (EseEntity*)val;
-                        int state = entity_check_collision_state(a, b);
-                        if (state != 0) _collision_index_emit_pair_if_new(index, seen, pairs, a, b, state);
+                        _collision_index_emit_pair_if_new(index, seen, pairs, a, b);
                     }
                     dlist_iter_free(it);
                 }
@@ -523,8 +520,7 @@ EseArray *collision_index_get_pairs(EseCollisionIndex *index) {
                 void *b_val;
                 while (dlist_iter_next(inner, &b_val)) {
                     EseEntity *b = (EseEntity*)b_val;
-                    int state = entity_check_collision_state(a, b);
-                    if (state != 0) _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, a, b, state);
+                    _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, a, b);
                 }
                 dlist_iter_free(inner);
             }
@@ -552,8 +548,7 @@ EseArray *collision_index_get_pairs(EseCollisionIndex *index) {
                     void *n_val;
                     while (dlist_iter_next(neigh_it, &n_val)) {
                         EseEntity *n = (EseEntity*)n_val;
-                        int state = entity_check_collision_state(c, n);
-                        if (state != 0) _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, c, n, state);
+                        _collision_index_emit_pair_if_new(index, seen, index->collision_pairs, c, n);
                     }
                     dlist_iter_free(neigh_it);
                 }
