@@ -28,7 +28,6 @@
 #include "utility/profile.h"
 #include "types/input_state.h"
 #include "entity/components/entity_component_map.h"
- 
 
 EseEngine *engine_create(const char *startup_script) {
     log_init();
@@ -53,9 +52,6 @@ EseEngine *engine_create(const char *startup_script) {
     engine->collision_resolver = collision_resolver_create();
 
     engine->lua_engine = lua_engine_create();
-
-    // Map components registry (engine does not own elements)
-    engine->map_components = array_create(8, NULL);
 
     // Add lookups
     lua_engine_add_registry_key(engine->lua_engine->runtime, ENGINE_KEY, engine);
@@ -159,55 +155,12 @@ void engine_destroy(EseEngine *engine) {
         spatial_index_destroy(engine->spatial_index);
     }
 
-    if (engine->map_components) {
-        // Engine does not own elements; just destroy the container
-        array_destroy(engine->map_components);
-        engine->map_components = NULL;
-    }
-
     lua_engine_instance_remove(engine->lua_engine, engine->startup_ref);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, ENGINE_KEY);
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
     lua_engine_destroy(engine->lua_engine);
 
     memory_manager.free(engine);
-}
-
-void engine_add_map_component(EseEngine *engine, EseEntityComponentMap *map) {
-    log_assert("ENGINE", engine, "engine_add_map_component called with NULL engine");
-    log_assert("ENGINE", map, "engine_add_map_component called with NULL map");
-
-    if (!engine->map_components) {
-        engine->map_components = array_create(8, NULL);
-    }
-
-    // Avoid duplicates
-    size_t count = array_size(engine->map_components);
-    for (size_t i = 0; i < count; i++) {
-        if (array_get(engine->map_components, i) == map) {
-            return;
-        }
-    }
-
-    array_push(engine->map_components, map);
-    // Maintain Lua refcount so the proxy remains valid while registered
-    map->base.vtable->ref(&map->base);
-}
-
-void engine_remove_map_component(EseEngine *engine, EseEntityComponentMap *map) {
-    log_assert("ENGINE", engine, "engine_remove_map_component called with NULL engine");
-    log_assert("ENGINE", map, "engine_remove_map_component called with NULL map");
-
-    if (!engine->map_components) return;
-
-    size_t count = array_size(engine->map_components);
-    for (size_t i = 0; i < count; i++) {
-        if (array_get(engine->map_components, i) == map) {
-            array_remove_at(engine->map_components, i);
-            map->base.vtable->unref(&map->base);
-            return;
-        }
-    }
 }
 
 void engine_add_entity(EseEngine *engine, EseEntity *entity) {

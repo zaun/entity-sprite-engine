@@ -114,14 +114,6 @@ static void _entity_cleanup(EseEntity *entity) {
     }
 
     for (size_t i = 0; i < entity->component_count; ++i) {
-        // If this is a map component, ensure it is unregistered from engine map_components.
-        if (entity->components[i]->type == ENTITY_COMPONENT_MAP) {
-            EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(entity->lua->runtime, ENGINE_KEY);
-            if (engine) {
-                engine_remove_map_component(engine, (EseEntityComponentMap*)entity->components[i]->data);
-            }
-        }
-
         // Ensure component Lua refs are decremented before destroy so cleanup runs
         entity->components[i]->vtable->unref(entity->components[i]);
         entity_component_destroy(entity->components[i]);

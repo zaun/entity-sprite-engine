@@ -225,19 +225,4 @@ void engine_pubsub_sub(EseEngine *engine, const char *name, EseEntity *entity, c
  */
 void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name);
 
-/**
- * @brief Adds a map component to the engine's map_components registry.
- *
- * The engine does not own the component; it only holds a reference for global access.
- * This function will ref the component to ensure its Lua proxy remains valid.
- */
-void engine_add_map_component(EseEngine *engine, EseEntityComponentMap *map);
-
-/**
- * @brief Removes a map component from the engine's map_components registry.
- *
- * This will unref the component previously added.
- */
-void engine_remove_map_component(EseEngine *engine, EseEntityComponentMap *map);
-
 #endif // ESE_ENGINE_H

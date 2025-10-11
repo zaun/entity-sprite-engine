@@ -130,14 +130,6 @@ static int _entity_lua_components_add(lua_State *L) {
     }
 
     entity_component_add(entity, comp);
-
-    // If this is a map component, register with engine map_components
-    if (comp->type == ENTITY_COMPONENT_MAP) {
-        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-        if (engine) {
-            engine_add_map_component(engine, (EseEntityComponentMap*)comp->data);
-        }
-    }
     
     if (is_updated) {
         comp->vtable->ref(comp);
@@ -193,14 +185,6 @@ static int _entity_lua_components_remove(lua_State *L) {
         lua_pushboolean(L, false);
         // Stack: [entity, component, false]
         return 1;
-    }
-    
-    // If this is a map component, unregister from engine map_components before removal.
-    if (comp_to_remove->type == ENTITY_COMPONENT_MAP) {
-        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-        if (engine) {
-            engine_remove_map_component(engine, (EseEntityComponentMap*)comp_to_remove->data);
-        }
     }
 
     // Shift elements to remove the component.
@@ -280,14 +264,6 @@ static int _entity_lua_components_insert(lua_State *L) {
     
     entity->components[index] = comp;
     entity->component_count++;
-
-    // If this is a map component, register with engine map_components
-    if (comp->type == ENTITY_COMPONENT_MAP) {
-        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-        if (engine) {
-            engine_add_map_component(engine, (EseEntityComponentMap*)comp->data);
-        }
-    }
     
     if (is_updated) {
         comp->vtable->ref(comp);
@@ -320,14 +296,6 @@ static int _entity_lua_components_pop(lua_State *L) {
     }
     
     EseEntityComponent *comp = entity->components[entity->component_count - 1];
-
-    // If this is a map component, unregister from engine map_components
-    if (comp->type == ENTITY_COMPONENT_MAP) {
-        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-        if (engine) {
-            engine_remove_map_component(engine, (EseEntityComponentMap*)comp->data);
-        }
-    }
     comp->vtable->unref(comp);
     entity->components[entity->component_count - 1] = NULL;
     entity->component_count--; 
@@ -358,14 +326,6 @@ static int _entity_lua_components_shift(lua_State *L) {
     }
     
     EseEntityComponent *comp = entity->components[0];
-
-    // If this is a map component, unregister from engine map_components
-    if (comp->type == ENTITY_COMPONENT_MAP) {
-        EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-        if (engine) {
-            engine_remove_map_component(engine, (EseEntityComponentMap*)comp->data);
-        }
-    }
     comp->vtable->unref(comp);
     
     // Shift all elements

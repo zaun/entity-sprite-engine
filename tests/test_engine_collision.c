@@ -486,7 +486,6 @@ static void test_collision_with_map(void) {
     TEST_ASSERT_NOT_NULL_MESSAGE(map_entity, "Map entity should be created");
     entity_component_add(map_entity, map_comp);
     engine_add_entity(g_engine, map_entity);
-    engine_add_map_component(g_engine, map_data);
 
     // Put entity and map into engine
     engine_add_entity(g_engine, entity);
