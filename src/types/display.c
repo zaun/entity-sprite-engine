@@ -6,6 +6,7 @@
 #include "utility/profile.h"
 #include "types/display.h"
 #include "types/display_private.h"
+#include "types/display_lua.h"
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
@@ -14,18 +15,10 @@
 // Core helpers
 static EseDisplay *_ese_display_make(void);
 
-// Lua metamethods
-static int _ese_display_lua_gc(lua_State *L);
-static int _ese_display_lua_index(lua_State *L);
-static int _ese_display_lua_newindex(lua_State *L);
-static int _ese_display_lua_tostring(lua_State *L);
-
-// Lua constructors
-// static int _ese_display_lua_new(lua_State *L); // REMOVED
-
-// Lua viewport helpers
-static int _ese_display_viewport_index(lua_State *L);
-static int _ese_display_readonly_error(lua_State *L);
+// Private static setter forward declarations
+static void _ese_display_set_lua_ref(EseDisplay *display, int lua_ref);
+static void _ese_display_set_lua_ref_count(EseDisplay *display, int lua_ref_count);
+static void _ese_display_set_state(EseDisplay *display, lua_State *state);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -48,149 +41,28 @@ static EseDisplay *_ese_display_make() {
     display->aspect_ratio = 1.0f;
     display->viewport.width = 0;
     display->viewport.height = 0;
-    display->state = NULL;
-    display->lua_ref = LUA_NOREF;
-    display->lua_ref_count = 0;
+    _ese_display_set_state(display, NULL);
+    _ese_display_set_lua_ref(display, LUA_NOREF);
+    _ese_display_set_lua_ref_count(display, 0);
     return display;
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseDisplay
- * 
- * Handles cleanup when a Lua proxy table for an EseDisplay is garbage collected.
- * Only frees the underlying EseDisplay if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_display_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseDisplay **ud = (EseDisplay **)luaL_testudata(L, 1, "DisplayMeta");
-    if (!ud) {
-        return 0; // Not our userdata
-    }
-    
-    EseDisplay *display = *ud;
-    if (display) {
-        // If lua_ref == LUA_NOREF, there are no more references to this display, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this display was referenced from C and should not be freed.
-        if (display->lua_ref == LUA_NOREF) {
-            ese_display_destroy(display);
-        }
-    }
-
-    return 0;
+// Private static setters for Lua state management
+static void _ese_display_set_lua_ref(EseDisplay *display, int lua_ref) {
+    display->lua_ref = lua_ref;
 }
 
-/**
- * @brief Lua __index metamethod for EseDisplay property access
- * 
- * Provides read access to display properties from Lua. When a Lua script
- * accesses display.width, display.height, display.fullscreen, etc., this function is called
- * to retrieve the values. Creates read-only proxy tables for viewport data.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
-static int _ese_display_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_DISPLAY_INDEX);
-    EseDisplay *display = ese_display_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!display || !key) {
-        profile_cancel(PROFILE_LUA_DISPLAY_INDEX);
-        return 0;
-    }
-
-    // Simple properties
-    if (strcmp(key, "fullscreen") == 0) {
-        lua_pushboolean(L, display->fullscreen);
-        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (fullscreen)");
-        return 1;
-    }
-    if (strcmp(key, "width") == 0) {
-        lua_pushinteger(L, display->width);
-        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (width)");
-        return 1;
-    }
-    if (strcmp(key, "height") == 0) {
-        lua_pushinteger(L, display->height);
-        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (height)");
-        return 1;
-    }
-    if (strcmp(key, "aspect_ratio") == 0) {
-        lua_pushnumber(L, display->aspect_ratio);
-        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (aspect_ratio)");
-        return 1;
-    }
-
-    // viewport table proxy (read-only)
-    if (strcmp(key, "viewport") == 0) {
-        // Create the table
-        lua_newtable(L);
-
-        // Create and set the metatable
-        lua_newtable(L);
-        
-        // Set __index closure with the viewport pointer as upvalue
-        lua_pushlightuserdata(L, &display->viewport);
-        lua_pushcclosure(L, _ese_display_viewport_index, 1);
-        lua_setfield(L, -2, "__index");
-        
-        // Set __newindex to error
-        lua_pushcfunction(L, _ese_display_readonly_error);
-        lua_setfield(L, -2, "__newindex");
-        
-        // Apply metatable to the table
-        lua_setmetatable(L, -2);
-
-        profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (viewport)");
-        return 1;
-    }
-
-    profile_stop(PROFILE_LUA_DISPLAY_INDEX, "ese_display_lua_index (invalid)");
-    return 0;
+static void _ese_display_set_lua_ref_count(EseDisplay *display, int lua_ref_count) {
+    display->lua_ref_count = lua_ref_count;
 }
 
-/**
- * @brief Lua __newindex metamethod for EseDisplay property assignment
- * 
- * Provides write access to display properties from Lua. Since display state is read-only,
- * this function always returns an error for any property assignment attempts.
- * 
- * @param L Lua state
- * @return Never returns (always calls luaL_error)
- */
-static int _ese_display_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_DISPLAY_NEWINDEX);
-    profile_stop(PROFILE_LUA_DISPLAY_NEWINDEX, "ese_display_lua_newindex (error)");
-    return luaL_error(L, "Display object is read-only");
+static void _ese_display_set_state(EseDisplay *display, lua_State *state) {
+    display->state = state;
 }
 
-/**
- * @brief Lua __tostring metamethod for EseDisplay string representation
- * 
- * Converts an EseDisplay to a human-readable string for debugging and display.
- * The format includes the memory address, dimensions, fullscreen status, and viewport size.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_display_lua_tostring(lua_State *L) {
-    EseDisplay *display = ese_display_lua_get(L, 1);
-    if (!display) {
-        lua_pushstring(L, "Display: (invalid)");
-        return 1;
-    }
-    char buf[256];
-    snprintf(buf, sizeof(buf), "Display: %p (%dx%d, %s, viewport: %dx%d)", 
-             (void *)display, display->width, display->height,
-             display->fullscreen ? "fullscreen" : "windowed",
-             display->viewport.width, display->viewport.height);
-    lua_pushstring(L, buf);
-    return 1;
-}
+
+
+
 
 // Lua constructors
 // static int _ese_display_lua_new(lua_State *L) { // REMOVED
@@ -209,45 +81,7 @@ static int _ese_display_lua_tostring(lua_State *L) {
 //     return 1;
 // }
 
-// Lua viewport helpers
-/**
- * @brief Lua helper function for accessing viewport properties
- * 
- * Provides read-only access to viewport properties (width, height) from Lua.
- * This function is used as the __index metamethod for the viewport proxy table.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
-static int _ese_display_viewport_index(lua_State *L) {
-    EseViewport *viewport = (EseViewport *)lua_touserdata(L, lua_upvalueindex(1));
-    const char *key = lua_tostring(L, 2);
-    if (!viewport || !key) return 0;
 
-    if (strcmp(key, "width") == 0) {
-        lua_pushinteger(L, viewport->width);
-        return 1;
-    }
-    if (strcmp(key, "height") == 0) {
-        lua_pushinteger(L, viewport->height);
-        return 1;
-    }
-
-    return 0;
-}
-
-/**
- * @brief Lua helper function for read-only error handling
- * 
- * Called when any attempt is made to modify read-only display state tables.
- * Always returns an error indicating that the tables are read-only.
- * 
- * @param L Lua state
- * @return Never returns (always calls luaL_error)
- */
-static int _ese_display_readonly_error(lua_State *L) {
-    return luaL_error(L, "Display tables are read-only");
-}
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -261,7 +95,7 @@ EseDisplay *ese_display_create(EseLuaEngine *engine) {
     EseDisplay *display = _ese_display_make();
     log_assert("DISPLAY_STATE", display, "ese_display_create failed to allocate memory");
 
-    display->state = engine->runtime;
+    _ese_display_set_state(display, engine->runtime);
     return display;
 }
 
@@ -277,9 +111,9 @@ EseDisplay *ese_display_copy(const EseDisplay *src) {
     copy->height = src->height;
     copy->aspect_ratio = src->aspect_ratio;
     copy->viewport = src->viewport; // Struct copy
-    copy->state = src->state;
-    copy->lua_ref = LUA_NOREF;
-    copy->lua_ref_count = 0;
+    _ese_display_set_state(copy, src->state);
+    _ese_display_set_lua_ref(copy, LUA_NOREF);
+    _ese_display_set_lua_ref_count(copy, 0);
 
     return copy;
 }
@@ -287,7 +121,7 @@ EseDisplay *ese_display_copy(const EseDisplay *src) {
 void ese_display_destroy(EseDisplay *display) {
     if (!display) return;
     
-    if (display->lua_ref == LUA_NOREF) {
+    if (ese_display_get_lua_ref(display) == LUA_NOREF) {
         // No Lua references, safe to free immediately
         memory_manager.free(display);
     } else {
@@ -299,31 +133,23 @@ void ese_display_destroy(EseDisplay *display) {
 
 // Lua integration
 void ese_display_lua_init(EseLuaEngine *engine) {
-    log_assert("DISPLAY_STATE", engine, "ese_display_lua_init called with NULL engine");
-    log_assert("DISPLAY_STATE", engine->runtime, "ese_display_lua_init called with NULL engine->runtime");
-
-    // Create metatable
-    lua_engine_new_object_meta(engine, "DisplayMeta", 
-        _ese_display_lua_index, 
-        _ese_display_lua_newindex, 
-        _ese_display_lua_gc, 
-        _ese_display_lua_tostring);    
+    _ese_display_lua_init(engine);
 }
 
 void ese_display_lua_push(EseDisplay *display) {
     log_assert("DISPLAY", display, "ese_display_lua_push called with NULL display");
 
-    if (display->lua_ref == LUA_NOREF) {
+    if (ese_display_get_lua_ref(display) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EseDisplay **ud = (EseDisplay **)lua_newuserdata(display->state, sizeof(EseDisplay *));
+        EseDisplay **ud = (EseDisplay **)lua_newuserdata(ese_display_get_state(display), sizeof(EseDisplay *));
         *ud = display;
 
         // Attach metatable
-        luaL_getmetatable(display->state, "DisplayMeta");
-        lua_setmetatable(display->state, -2);
+        luaL_getmetatable(ese_display_get_state(display), DISPLAY_META);
+        lua_setmetatable(ese_display_get_state(display), -2);
     } else {
         // C-owned: get from registry
-        lua_rawgeti(display->state, LUA_REGISTRYINDEX, display->lua_ref);
+        lua_rawgeti(ese_display_get_state(display), LUA_REGISTRYINDEX, ese_display_get_lua_ref(display));
     }
 }
 
@@ -336,7 +162,7 @@ EseDisplay *ese_display_lua_get(lua_State *L, int idx) {
     }
     
     // Get the userdata and check metatable
-    EseDisplay **ud = (EseDisplay **)luaL_testudata(L, idx, "DisplayMeta");
+    EseDisplay **ud = (EseDisplay **)luaL_testudata(L, idx, DISPLAY_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -347,21 +173,21 @@ EseDisplay *ese_display_lua_get(lua_State *L, int idx) {
 void ese_display_ref(EseDisplay *display) {
     log_assert("DISPLAY", display, "ese_display_ref called with NULL display");
     
-    if (display->lua_ref == LUA_NOREF) {
+    if (ese_display_get_lua_ref(display) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseDisplay **ud = (EseDisplay **)lua_newuserdata(display->state, sizeof(EseDisplay *));
+        EseDisplay **ud = (EseDisplay **)lua_newuserdata(ese_display_get_state(display), sizeof(EseDisplay *));
         *ud = display;
 
         // Attach metatable
-        luaL_getmetatable(display->state, "DisplayMeta");
-        lua_setmetatable(display->state, -2);
+        luaL_getmetatable(ese_display_get_state(display), DISPLAY_META);
+        lua_setmetatable(ese_display_get_state(display), -2);
 
         // Store hard reference to prevent garbage collection
-        display->lua_ref = luaL_ref(display->state, LUA_REGISTRYINDEX);
-        display->lua_ref_count = 1;
+        _ese_display_set_lua_ref(display, luaL_ref(ese_display_get_state(display), LUA_REGISTRYINDEX));
+        _ese_display_set_lua_ref_count(display, 1);
     } else {
         // Already referenced - just increment count
-        display->lua_ref_count++;
+        _ese_display_set_lua_ref_count(display, ese_display_get_lua_ref_count(display) + 1);
     }
 
     profile_count_add("ese_display_ref_count");
@@ -370,13 +196,13 @@ void ese_display_ref(EseDisplay *display) {
 void ese_display_unref(EseDisplay *display) {
     if (!display) return;
     
-    if (display->lua_ref != LUA_NOREF && display->lua_ref_count > 0) {
-        display->lua_ref_count--;
+    if (ese_display_get_lua_ref(display) != LUA_NOREF && ese_display_get_lua_ref_count(display) > 0) {
+        _ese_display_set_lua_ref_count(display, ese_display_get_lua_ref_count(display) - 1);
         
-        if (display->lua_ref_count == 0) {
+        if (ese_display_get_lua_ref_count(display) == 0) {
             // No more references - remove from registry
-            luaL_unref(display->state, LUA_REGISTRYINDEX, display->lua_ref);
-            display->lua_ref = LUA_NOREF;
+            luaL_unref(ese_display_get_state(display), LUA_REGISTRYINDEX, ese_display_get_lua_ref(display));
+            _ese_display_set_lua_ref(display, LUA_NOREF);
         }
     }
 
@@ -433,6 +259,11 @@ int ese_display_get_viewport_width(const EseDisplay *display) {
 int ese_display_get_viewport_height(const EseDisplay *display) {
     log_assert("DISPLAY_STATE", display, "ese_display_get_viewport_height called with NULL display");
     return display->viewport.height;
+}
+
+EseViewport *ese_display_get_viewport(const EseDisplay *display) {
+    log_assert("DISPLAY_STATE", display, "ese_display_get_viewport called with NULL display");
+    return (EseViewport *)&display->viewport;
 }
 
 lua_State *ese_display_get_state(const EseDisplay *display) {

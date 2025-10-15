@@ -8,6 +8,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/point.h"
+#include "types/point_lua.h"
 #include "vendor/json/cJSON.h"
 
 // The actual EsePoint struct definition (private to this file)
@@ -31,25 +32,14 @@ typedef struct EsePoint {
 // ========================================
 
 // Core helpers
-static EsePoint *_ese_point_make(void);
 
 // Watcher system
-static void _ese_point_make_point_notify_watchers(EsePoint *point);
 
-// Lua metamethods
-static int _ese_point_lua_gc(lua_State *L);
-static int _ese_point_lua_index(lua_State *L);
-static int _ese_point_lua_newindex(lua_State *L);
-static int _ese_point_lua_tostring(lua_State *L);
+// Private static setters for Lua state management
+static void _ese_point_set_lua_ref(EsePoint *point, int lua_ref);
+static void _ese_point_set_lua_ref_count(EsePoint *point, int lua_ref_count);
+static void _ese_point_set_state(EsePoint *point, lua_State *state);
 
-// Lua constructors
-static int _ese_point_lua_new(lua_State *L);
-static int _ese_point_lua_zero(lua_State *L);
-static int _ese_point_lua_distance(lua_State *L);
-
-// Lua JSON methods
-static int _ese_point_lua_from_json(lua_State *L);
-static int _ese_point_lua_to_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -64,13 +54,13 @@ static int _ese_point_lua_to_json(lua_State *L);
  * 
  * @return Pointer to the newly created EsePoint, or NULL on allocation failure
  */
-static EsePoint *_ese_point_make() {
+EsePoint *_ese_point_make() {
     EsePoint *point = (EsePoint *)memory_manager.malloc(sizeof(EsePoint), MMTAG_POINT);
     point->x = 0.0f;
     point->y = 0.0f;
     point->state = NULL;
-    point->lua_ref = LUA_NOREF;
-    point->lua_ref_count = 0;
+    _ese_point_set_lua_ref(point, LUA_NOREF);
+    _ese_point_set_lua_ref_count(point, 0);
     point->watchers = NULL;
     point->watcher_userdata = NULL;
     point->watcher_count = 0;
@@ -88,7 +78,7 @@ static EsePoint *_ese_point_make() {
  * 
  * @param point Pointer to the EsePoint that has changed
  */
-static void _ese_point_make_point_notify_watchers(EsePoint *point) {
+void _ese_point_make_point_notify_watchers(EsePoint *point) {
     if (!point || point->watcher_count == 0) return;
     
     for (size_t i = 0; i < point->watcher_count; i++) {
@@ -98,354 +88,22 @@ static void _ese_point_make_point_notify_watchers(EsePoint *point) {
     }
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EsePoint
- * 
- * Handles cleanup when a Lua proxy table for an EsePoint is garbage collected.
- * Only frees the underlying EsePoint if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_point_lua_gc(lua_State *L) {
-    // Get from userdata
-    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, POINT_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
-    }
-    
-    EsePoint *point = *ud;
-    if (point) {
-        // If lua_ref == LUA_NOREF, there are no more references to this point, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this point was referenced from C and should not be freed.
-        if (point->lua_ref == LUA_NOREF) {
-            ese_point_destroy(point);
-        }
-    }
-
-    return 0;
+// Private static setters for Lua state management
+static void _ese_point_set_lua_ref(EsePoint *point, int lua_ref) {
+    point->lua_ref = lua_ref;
 }
 
-/**
- * @brief Lua __index metamethod for EsePoint property access
- * 
- * Provides read access to point properties (x, y) from Lua. When a Lua script
- * accesses point.x or point.y, this function is called to retrieve the values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
-static int _ese_point_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_INDEX);
-    EsePoint *point = ese_point_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!point || !key) {
-        profile_cancel(PROFILE_LUA_POINT_INDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "x") == 0) {
-        lua_pushnumber(L, point->x);
-        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "y") == 0) {
-        lua_pushnumber(L, point->y);
-        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "toJSON") == 0) {
-        lua_pushlightuserdata(L, point);
-        lua_pushcclosure(L, _ese_point_lua_to_json, 1);
-        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (method)");
-        return 1;
-    }
-
-    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (invalid)");
-    return 0;
+static void _ese_point_set_lua_ref_count(EsePoint *point, int lua_ref_count) {
+    point->lua_ref_count = lua_ref_count;
 }
 
-/**
- * @brief Lua __newindex metamethod for EsePoint property assignment
- * 
- * Provides write access to point properties (x, y) from Lua. When a Lua script
- * assigns to point.x or point.y, this function is called to update the values
- * and notify any registered watchers of the change.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_point_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_NEWINDEX);
-    EsePoint *point = ese_point_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!point || !key) {
-        profile_cancel(PROFILE_LUA_POINT_INDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "x") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
-            return luaL_error(L, "point.x must be a number");
-        }
-        point->x = (float)lua_tonumber(L, 3);
-        _ese_point_make_point_notify_watchers(point);
-        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "y") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
-            return luaL_error(L, "point.y must be a number");
-        }
-        point->y = (float)lua_tonumber(L, 3);
-        _ese_point_make_point_notify_watchers(point);
-        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
-        return 0;
-    }
-    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
+static void _ese_point_set_state(EsePoint *point, lua_State *state) {
+    point->state = state;
 }
 
-/**
- * @brief Lua __tostring metamethod for EsePoint string representation
- * 
- * Converts an EsePoint to a human-readable string for debugging and display.
- * The format includes the memory address and current x,y coordinates.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_point_lua_tostring(lua_State *L) {
-    EsePoint *point = ese_point_lua_get(L, 1);
-
-    if (!point) {
-        lua_pushstring(L, "Point: (invalid)");
-        return 1;
-    }
-
-    char buf[64];
-    snprintf(buf, sizeof(buf), "(x=%.3f, y=%.3f)", point->x, point->y);
-    lua_pushstring(L, buf);
-
-    return 1;
-}
-
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EsePoint instances
- * 
- * Creates a new EsePoint from Lua with specified x,y coordinates. This function
- * is called when Lua code executes `Point.new(x, y)`. It validates the arguments,
- * creates the underlying EsePoint, and returns a proxy table that provides
- * access to the point's properties and methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_point_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_NEW);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 2) {
-        profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "Point.new(number, number) takes 2 arguments");
-    }
-    
-    if (lua_type(L, 1) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
-    }
-    if (lua_type(L, 2) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_POINT_NEW);  
-        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
-    }
-
-    float x = (float)lua_tonumber(L, 1);
-    float y = (float)lua_tonumber(L, 2);
-
-    // Create the point
-    EsePoint *point = _ese_point_make();
-    point->x = x;
-    point->y = y;
-    point->state = L;
-
-    // Create userdata directly
-    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
-    *ud = point;
-
-    // Attach metatable
-    luaL_getmetatable(L, POINT_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating EsePoint at origin
- * 
- * Creates a new EsePoint at the origin (0,0) from Lua. This function is called
- * when Lua code executes `Point.zero()`. It's a convenience constructor for
- * creating points at the default position.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_point_lua_zero(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_ZERO);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 0) {
-        profile_cancel(PROFILE_LUA_POINT_NEW);
-        return luaL_error(L, "Point.zero() takes 0 arguments");
-    }
-    
-    // Create the point using the standard creation function
-    EsePoint *point = _ese_point_make();  // We'll set the state manually
-    point->state = L;
-
-    // Create userdata directly
-    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
-    *ud = point;
-
-    // Attach metatable
-    luaL_getmetatable(L, POINT_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
-    return 1;
-}
-
-static int _ese_point_lua_distance(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_ZERO);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 2) {
-        profile_cancel(PROFILE_LUA_POINT_ZERO);
-        return luaL_error(L, "Point.distance(point, point) takes 2 arguments");
-    }
-
-    EsePoint *point1 = ese_point_lua_get(L, 1);
-    EsePoint *point2 = ese_point_lua_get(L, 2);
-
-    if (!point1 || !point2) {
-        profile_cancel(PROFILE_LUA_POINT_ZERO);
-        return luaL_error(L, "Point.distance(point, point) arguments must be points");
-    }
-
-    float distance = ese_point_distance(point1, point2);
-    lua_pushnumber(L, (double)distance);
-
-    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_distance");
-    return 1;
-}
-
-/**
- * @brief Lua static method for creating EsePoint from JSON string
- *
- * Creates a new EsePoint from a JSON string. This function is called when Lua code
- * executes `Point.fromJSON(json_string)`. It parses the JSON string, validates it
- * contains point data, and creates a new point with the specified coordinates.
- *
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_point_lua_from_json(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_FROM_JSON);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 1) {
-        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-        return luaL_error(L, "Point.fromJSON(string) takes 1 argument");
-    }
-
-    if (lua_type(L, 1) != LUA_TSTRING) {
-        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-        return luaL_error(L, "Point.fromJSON(string) argument must be a string");
-    }
-
-    const char *json_str = lua_tostring(L, 1);
-
-    // Parse JSON string
-    cJSON *json = cJSON_Parse(json_str);
-    if (!json) {
-        log_error("POINT", "Point.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
-        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-        return luaL_error(L, "Point.fromJSON: invalid JSON string");
-    }
-
-    // Get the current engine from Lua registry
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    if (!engine) {
-        cJSON_Delete(json);
-        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-        return luaL_error(L, "Point.fromJSON: no engine available");
-    }
-
-    // Use the existing deserialization function
-    EsePoint *point = ese_point_deserialize(engine, json);
-    cJSON_Delete(json); // Clean up JSON object
-
-    if (!point) {
-        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-        return luaL_error(L, "Point.fromJSON: failed to deserialize point");
-    }
-
-    ese_point_lua_push(point);
-
-    profile_stop(PROFILE_LUA_POINT_FROM_JSON, "point_lua_from_json");
-    return 1;
-}
-
-/**
- * @brief Lua instance method for converting EsePoint to JSON string
- *
- * Converts an EsePoint to a JSON string representation. This function is called when
- * Lua code executes `point:toJSON()`. It serializes the point's coordinates to JSON
- * format and returns the string.
- *
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the JSON string)
- */
-static int _ese_point_lua_to_json(lua_State *L) {
-    profile_start(PROFILE_LUA_POINT_TO_JSON);
-
-    EsePoint *point = ese_point_lua_get(L, 1);
-    if (!point) {
-        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-        return luaL_error(L, "Point:toJSON() called on invalid point");
-    }
-
-    // Serialize point to JSON
-    cJSON *json = ese_point_serialize(point);
-    if (!json) {
-        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-        return luaL_error(L, "Point:toJSON() failed to serialize point");
-    }
-
-    // Convert JSON to string
-    char *json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json); // Clean up JSON object
-
-    if (!json_str) {
-        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-        return luaL_error(L, "Point:toJSON() failed to convert to string");
-    }
-
-    // Push the JSON string onto the stack (lua_pushstring makes a copy)
-    lua_pushstring(L, json_str);
-
-    // Clean up the string (cJSON_PrintUnformatted uses malloc)
-    // Note: We free here, but lua_pushstring should have made a copy
-    free(json_str); // cJSON doesnt use the memory manager.
-
-    profile_stop(PROFILE_LUA_POINT_TO_JSON, "point_lua_to_json");
-    return 1;
+void ese_point_set_state(EsePoint *point, lua_State *state) {
+    log_assert("POINT", point, "ese_point_set_state called with NULL point");
+    point->state = state;
 }
 
 // ========================================
@@ -456,7 +114,7 @@ static int _ese_point_lua_to_json(lua_State *L) {
 EsePoint *ese_point_create(EseLuaEngine *engine) {
     log_assert("POINT", engine, "ese_point_create called with NULL engine");
     EsePoint *point = _ese_point_make();
-    point->state = engine->runtime;
+    _ese_point_set_state(point, engine->runtime);
     return point;
 }
 
@@ -467,8 +125,8 @@ EsePoint *ese_point_copy(const EsePoint *source) {
     copy->x = source->x;
     copy->y = source->y;
     copy->state = source->state;
-    copy->lua_ref = LUA_NOREF;
-    copy->lua_ref_count = 0;
+    _ese_point_set_lua_ref(copy, LUA_NOREF);
+    _ese_point_set_lua_ref_count(copy, 0);
     copy->watchers = NULL;
     copy->watcher_userdata = NULL;
     copy->watcher_count = 0;
@@ -479,7 +137,7 @@ EsePoint *ese_point_copy(const EsePoint *source) {
 void ese_point_destroy(EsePoint *point) {
     if (!point) return;
     
-    if (point->lua_ref == LUA_NOREF) {
+    if (ese_point_get_lua_ref(point) == LUA_NOREF) {
         // No Lua references, safe to free immediately
     
         // Free watcher arrays if they exist
@@ -506,34 +164,23 @@ void ese_point_destroy(EsePoint *point) {
 void ese_point_lua_init(EseLuaEngine *engine) {
     log_assert("POINT", engine, "ese_point_lua_init called with NULL engine");
     
-    // Create metatable
-    lua_engine_new_object_meta(engine, POINT_PROXY_META, 
-        _ese_point_lua_index, 
-        _ese_point_lua_newindex, 
-        _ese_point_lua_gc, 
-        _ese_point_lua_tostring);
-    
-    // Create global Point table with functions
-    const char *keys[] = {"new", "zero", "distance", "fromJSON"};
-    lua_CFunction functions[] = {_ese_point_lua_new, _ese_point_lua_zero, 
-                                _ese_point_lua_distance, _ese_point_lua_from_json};
-    lua_engine_new_object(engine, "Point", 4, keys, functions);
+    _ese_point_lua_init(engine);
 }
 
 void ese_point_lua_push(EsePoint *point) {
     log_assert("POINT", point, "ese_point_lua_push called with NULL point");
 
-    if (point->lua_ref == LUA_NOREF) {
+    if (ese_point_get_lua_ref(point) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
+        EsePoint **ud = (EsePoint **)lua_newuserdata(ese_point_get_state(point), sizeof(EsePoint *));
         *ud = point;
 
         // Attach metatable
-        luaL_getmetatable(point->state, POINT_PROXY_META);
-        lua_setmetatable(point->state, -2);
+        luaL_getmetatable(ese_point_get_state(point), POINT_PROXY_META);
+        lua_setmetatable(ese_point_get_state(point), -2);
     } else {
         // C-owned: get from registry
-        lua_rawgeti(point->state, LUA_REGISTRYINDEX, point->lua_ref);
+        lua_rawgeti(ese_point_get_state(point), LUA_REGISTRYINDEX, ese_point_get_lua_ref(point));
     }
 }
 
@@ -557,21 +204,21 @@ EsePoint *ese_point_lua_get(lua_State *L, int idx) {
 void ese_point_ref(EsePoint *point) {
     log_assert("POINT", point, "ese_point_ref called with NULL point");
     
-    if (point->lua_ref == LUA_NOREF) {
+    if (ese_point_get_lua_ref(point) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EsePoint **ud = (EsePoint **)lua_newuserdata(point->state, sizeof(EsePoint *));
+        EsePoint **ud = (EsePoint **)lua_newuserdata(ese_point_get_state(point), sizeof(EsePoint *));
         *ud = point;
 
         // Attach metatable
-        luaL_getmetatable(point->state, POINT_PROXY_META);
-        lua_setmetatable(point->state, -2);
+        luaL_getmetatable(ese_point_get_state(point), POINT_PROXY_META);
+        lua_setmetatable(ese_point_get_state(point), -2);
 
         // Store hard reference to prevent garbage collection
-        point->lua_ref = luaL_ref(point->state, LUA_REGISTRYINDEX);
-        point->lua_ref_count = 1;
+        _ese_point_set_lua_ref(point, luaL_ref(ese_point_get_state(point), LUA_REGISTRYINDEX));
+        _ese_point_set_lua_ref_count(point, 1);
     } else {
         // Already referenced - just increment count
-        point->lua_ref_count++;
+        _ese_point_set_lua_ref_count(point, ese_point_get_lua_ref_count(point) + 1);
     }
 
     profile_count_add("ese_point_ref_count");
@@ -580,13 +227,13 @@ void ese_point_ref(EsePoint *point) {
 void ese_point_unref(EsePoint *point) {
     if (!point) return;
     
-    if (point->lua_ref != LUA_NOREF && point->lua_ref_count > 0) {
-        point->lua_ref_count--;
+    if (ese_point_get_lua_ref(point) != LUA_NOREF && ese_point_get_lua_ref_count(point) > 0) {
+        _ese_point_set_lua_ref_count(point, ese_point_get_lua_ref_count(point) - 1);
         
-        if (point->lua_ref_count == 0) {
+        if (ese_point_get_lua_ref_count(point) == 0) {
             // No more references - remove from registry
-            luaL_unref(point->state, LUA_REGISTRYINDEX, point->lua_ref);
-            point->lua_ref = LUA_NOREF;
+            luaL_unref(ese_point_get_state(point), LUA_REGISTRYINDEX, ese_point_get_lua_ref(point));
+            _ese_point_set_lua_ref(point, LUA_NOREF);
         }
     }
 

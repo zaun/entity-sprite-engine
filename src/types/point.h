@@ -140,6 +140,28 @@ int ese_point_get_lua_ref(const EsePoint *point);
 int ese_point_get_lua_ref_count(const EsePoint *point);
 
 /**
+ * @brief Sets the Lua state associated with this point.
+ * 
+ * @param point Pointer to the EsePoint object
+ * @param state Pointer to the Lua state
+ */
+void ese_point_set_state(EsePoint *point, lua_State *state);
+
+/**
+ * @brief Internal function to create a new point (used by Lua constructor).
+ * 
+ * @return Pointer to the new EsePoint object
+ */
+EsePoint *_ese_point_make(void);
+
+/**
+ * @brief Internal function to notify watchers (used by Lua functions).
+ * 
+ * @param point Pointer to the EsePoint object
+ */
+void _ese_point_make_point_notify_watchers(EsePoint *point);
+
+/**
  * @brief Adds a watcher callback to be notified when any point property changes.
  * 
  * @details The callback will be called whenever any property (x, y) of the point is modified.

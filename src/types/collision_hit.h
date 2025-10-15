@@ -109,8 +109,23 @@ EseMap *ese_collision_hit_get_map(const EseCollisionHit *hit);
 /** @brief Sets the map cell X coordinate; hit owns and replaces the value. */
 void ese_collision_hit_set_cell_x(EseCollisionHit *hit, int cell_x);
 
+/** @brief Gets the cell X coordinate; returns 0 if not set. */
+int ese_collision_hit_get_cell_x(const EseCollisionHit *hit);
+
 /** @brief Sets the map cell Y coordinate; hit owns and replaces the value. */
 void ese_collision_hit_set_cell_y(EseCollisionHit *hit, int cell_y);
+
+/** @brief Gets the cell Y coordinate; returns 0 if not set. */
+int ese_collision_hit_get_cell_y(const EseCollisionHit *hit);
+
+/** @brief Gets the Lua state associated with the collision hit. */
+lua_State *ese_collision_hit_get_state_ptr(const EseCollisionHit *hit);
+
+/** @brief Gets the Lua registry reference for the collision hit. */
+int ese_collision_hit_get_lua_ref(const EseCollisionHit *hit);
+
+/** @brief Gets the Lua reference count for the collision hit. */
+int ese_collision_hit_get_lua_ref_count(const EseCollisionHit *hit);
 
 #endif // ESE_COLLISION_HIT_H
 

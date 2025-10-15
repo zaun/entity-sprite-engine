@@ -6,6 +6,7 @@
 #include "vendor/json/cJSON.h"
 
 #define POLY_LINE_PROXY_META "PolyLineProxyMeta"
+#define POLY_LINE_META "PolyLineMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -237,6 +238,78 @@ int ese_poly_line_get_lua_ref(const EsePolyLine *poly_line);
  * @return The current reference count
  */
 int ese_poly_line_get_lua_ref_count(const EsePolyLine *poly_line);
+
+/**
+ * @brief Gets the x-coordinate of a point at the specified index.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param index Index of the point (0-based)
+ * @return The x-coordinate of the point
+ */
+float ese_poly_line_get_point_x(const EsePolyLine *poly_line, size_t index);
+
+/**
+ * @brief Gets the y-coordinate of a point at the specified index.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param index Index of the point (0-based)
+ * @return The y-coordinate of the point
+ */
+float ese_poly_line_get_point_y(const EsePolyLine *poly_line, size_t index);
+
+/**
+ * @brief Sets the type of the polyline.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param type The new type (OPEN, CLOSED, or FILLED)
+ */
+void ese_poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type);
+
+/**
+ * @brief Sets the stroke width of the polyline.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param stroke_width The new stroke width
+ */
+void ese_poly_line_set_stroke_width(EsePolyLine *poly_line, float stroke_width);
+
+/**
+ * @brief Sets the stroke color of the polyline.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param stroke_color The new stroke color (can be NULL)
+ */
+void ese_poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *stroke_color);
+
+/**
+ * @brief Sets the fill color of the polyline.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param fill_color The new fill color (can be NULL)
+ */
+void ese_poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *fill_color);
+
+/**
+ * @brief Sets the Lua state associated with this polyline.
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ * @param state Pointer to the Lua state
+ */
+void ese_poly_line_set_state(EsePolyLine *poly_line, lua_State *state);
+
+/**
+ * @brief Internal function to create a new polyline (used by Lua constructor).
+ * 
+ * @return Pointer to the new EsePolyLine object
+ */
+EsePolyLine *_ese_poly_line_make(void);
+
+/**
+ * @brief Internal function to notify watchers (used by Lua functions).
+ * 
+ * @param poly_line Pointer to the EsePolyLine object
+ */
+void _ese_poly_line_notify_watchers(EsePolyLine *poly_line);
 
 /**
  * @brief Adds a watcher callback to be notified when any polyline property changes.

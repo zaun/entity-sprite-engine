@@ -7,6 +7,7 @@
 #include "core/memory_manager.h"
 #include "graphics/sprite.h"
 #include "types/tileset.h"
+#include "types/tileset_lua.h"
 
 #define INITIAL_SPRITE_CAPACITY 4
 
@@ -56,16 +57,11 @@ static uint32_t _get_random_weight(EseTileSet *tiles, uint32_t max_weight) {
 // ========================================
 
 // Core helpers
-static EseTileSet *_ese_tileset_make(void);
 
-// Lua metamethods
-static int _ese_tileset_lua_gc(lua_State *L);
-static int _ese_tileset_lua_index(lua_State *L);
-static int _ese_tileset_lua_newindex(lua_State *L);
-static int _ese_tileset_lua_tostring(lua_State *L);
-
-// Lua constructors
-static int _ese_tileset_lua_new(lua_State *L);
+// Private setters for Lua state management
+static void _ese_tileset_set_lua_ref(EseTileSet *tiles, int lua_ref);
+static void _ese_tileset_set_lua_ref_count(EseTileSet *tiles, int lua_ref_count);
+static void _ese_tileset_set_state(EseTileSet *tiles, lua_State *state);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -80,7 +76,7 @@ static int _ese_tileset_lua_new(lua_State *L);
  * 
  * @return Pointer to the newly created EseTileSet, or NULL on allocation failure
  */
-static EseTileSet *_ese_tileset_make() {
+EseTileSet *_ese_tileset_make() {
     EseTileSet *tiles = (EseTileSet *)memory_manager.malloc(sizeof(EseTileSet), MMTAG_TILESET);
     if (!tiles) return NULL;
     
@@ -99,264 +95,24 @@ static EseTileSet *_ese_tileset_make() {
     return tiles;
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseTileSet
- * 
- * Handles cleanup when a Lua userdata for an EseTileSet is garbage collected.
- * Only frees the underlying EseTileSet if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_tileset_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseTileSet **ud = (EseTileSet **)luaL_testudata(L, 1, TILESET_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
+// Private setters for Lua state management
+static void _ese_tileset_set_lua_ref(EseTileSet *tiles, int lua_ref) {
+    if (tiles) {
+        tiles->lua_ref = lua_ref;
     }
-    
-    EseTileSet *tiles = *ud;
-    if (tiles && !tiles->destroyed) {
-        // If lua_ref == LUA_NOREF, there are no more references to this tileset, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this tileset was referenced from C and should not be freed.
-        if (tiles->lua_ref == LUA_NOREF) {
-            ese_tileset_destroy(tiles);
-        }
+}
+
+static void _ese_tileset_set_lua_ref_count(EseTileSet *tiles, int lua_ref_count) {
+    if (tiles) {
+        tiles->lua_ref_count = lua_ref_count;
     }
-
-    return 0;
 }
 
-/* ----------------- Lua Methods ----------------- */
-
-static int _ese_tileset_lua_add_sprite(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in add_sprite");
-
-    if (!lua_isnumber(L, 2) || !lua_isstring(L, 3))
-        return luaL_error(L, "add_sprite(tile_id, sprite_id, [weight]) requires number, string, [number]");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    const char *sprite_str = lua_tostring(L, 3);
-    uint16_t weight = lua_isnumber(L, 4) ? (uint16_t)lua_tonumber(L, 4) : 1;
-
-    if (!sprite_str || strlen(sprite_str) == 0)
-        return luaL_error(L, "sprite_id cannot be empty");
-    if (weight == 0)
-        return luaL_error(L, "weight must be > 0");
-
-    lua_pushboolean(L, ese_tileset_add_sprite(tiles, tile_id, sprite_str, weight));
-    return 1;
-}
-
-static int _ese_tileset_lua_remove_sprite(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in remove_sprite");
-
-    if (!lua_isnumber(L, 2) || !lua_isstring(L, 3))
-        return luaL_error(L, "remove_sprite(tile_id, sprite_id) requires number, string");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    const char *sprite_str = lua_tostring(L, 3);
-
-    if (!sprite_str || strlen(sprite_str) == 0)
-        return luaL_error(L, "sprite_id cannot be empty");
-
-    lua_pushboolean(L, ese_tileset_remove_sprite(tiles, tile_id, sprite_str));
-    return 1;
-}
-
-static int _ese_tileset_lua_get_sprite(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in get_sprite");
-
-    if (!lua_isnumber(L, 2))
-        return luaL_error(L, "get_sprite(tile_id) requires a number");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    const char *sprite = ese_tileset_get_sprite(tiles, tile_id);
-
-    if (!sprite) lua_pushnil(L);
-    else lua_pushstring(L, sprite);
-    return 1;
-}
-
-static int _ese_tileset_lua_clear_mapping(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in clear_mapping");
-
-    if (!lua_isnumber(L, 2))
-        return luaL_error(L, "clear_mapping(tile_id) requires a number");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    ese_tileset_clear_mapping(tiles, tile_id);
-    return 0;
-}
-
-static int _ese_tileset_lua_get_sprite_count(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in get_sprite_count");
-
-    if (!lua_isnumber(L, 2))
-        return luaL_error(L, "get_sprite_count(tile_id) requires a number");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    lua_pushnumber(L, ese_tileset_get_sprite_count(tiles, tile_id));
-    return 1;
-}
-
-static int _ese_tileset_lua_update_sprite_weight(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    if (!tiles) return luaL_error(L, "Invalid Tiles in update_sprite_weight");
-
-    if (!lua_isnumber(L, 2) || !lua_isstring(L, 3) || !lua_isnumber(L, 4))
-        return luaL_error(L, "update_sprite_weight(tile_id, sprite_id, weight) requires number, string, number");
-
-    uint8_t tile_id = (uint8_t)lua_tonumber(L, 2);
-    const char *sprite_str = lua_tostring(L, 3);
-    uint16_t weight = (uint16_t)lua_tonumber(L, 4);
-
-    if (!sprite_str || strlen(sprite_str) == 0)
-        return luaL_error(L, "sprite_id cannot be empty");
-    if (weight == 0)
-        return luaL_error(L, "weight must be > 0");
-
-    lua_pushboolean(L, ese_tileset_update_sprite_weight(tiles, tile_id, sprite_str, weight));
-    return 1;
-}
-
-/**
- * @brief Lua __index metamethod for EseTileSet property access
- * 
- * Provides read access to tileset methods from Lua. When a Lua script
- * accesses tileset.method, this function is called to retrieve the methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid methods, 0 for invalid)
- */
-static int _ese_tileset_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_TILESET_INDEX);
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!tiles || !key) {
-        profile_cancel(PROFILE_LUA_TILESET_INDEX);
-        return 0;
+static void _ese_tileset_set_state(EseTileSet *tiles, lua_State *state) {
+    if (tiles) {
+        tiles->state = state;
     }
-
-    if (strcmp(key, "add_sprite") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_add_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "remove_sprite") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_remove_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "get_sprite") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_get_sprite);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "clear_mapping") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_clear_mapping);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "get_sprite_count") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_get_sprite_count);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "update_sprite_weight") == 0) {
-        lua_pushcfunction(L, _ese_tileset_lua_update_sprite_weight);
-        profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (method)");
-        return 1;
-    }
-    profile_stop(PROFILE_LUA_TILESET_INDEX, "ese_tileset_lua_index (invalid)");
-    return 0;
 }
-
-/**
- * @brief Lua __newindex metamethod for EseTileSet property assignment
- * 
- * Provides write access to tileset properties from Lua. Currently returns
- * an error as direct assignment is not supported - use methods instead.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_tileset_lua_newindex(lua_State *L) {
-    return luaL_error(L, "Direct assignment not supported - use methods");
-}
-
-/**
- * @brief Lua __tostring metamethod for EseTileSet string representation
- * 
- * Converts an EseTileSet to a human-readable string for debugging and display.
- * The format includes the memory address and total sprite count.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_tileset_lua_tostring(lua_State *L) {
-    EseTileSet *tiles = ese_tileset_lua_get(L, 1);
-
-    if (!tiles) {
-        lua_pushstring(L, "Tileset: (invalid)");
-        return 1;
-    }
-
-    size_t total = 0;
-    for (int i = 0; i < 256; i++) {
-        total += tiles->mappings[i].sprite_count;
-    }
-
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Tileset: %p (total_sprites=%zu)", (void *)tiles, total);
-    lua_pushstring(L, buf);
-    return 1;
-}
-
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EseTileSet instances
- * 
- * Creates a new EseTileSet from Lua. This function is called when Lua code 
- * executes `Tileset.new()`. It creates the underlying EseTileSet and returns 
- * a userdata that provides access to the tileset's methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the userdata)
- */
-static int _ese_tileset_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_TILESET_NEW);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 0) {
-        profile_cancel(PROFILE_LUA_TILESET_NEW);
-        return luaL_error(L, "Tileset.new() takes 0 arguments");
-    }
-
-    // Create the tileset
-    EseTileSet *tiles = _ese_tileset_make();
-    if (!tiles) {
-        profile_cancel(PROFILE_LUA_TILESET_NEW);
-        return luaL_error(L, "Failed to create Tileset");
-    }
-    tiles->state = L;
-
-    // Create userdata directly
-    EseTileSet **ud = (EseTileSet **)lua_newuserdata(L, sizeof(EseTileSet *));
-    *ud = tiles;
-
-    // Attach metatable
-    luaL_getmetatable(L, TILESET_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_TILESET_NEW, "ese_tileset_lua_new");
-    return 1;
-}
-
-/* ----------------- Lua Methods ----------------- */
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -367,7 +123,7 @@ EseTileSet *ese_tileset_create(EseLuaEngine *engine) {
     log_assert("TILESET", engine, "ese_tileset_create called with NULL engine");
     EseTileSet *tiles = _ese_tileset_make();
     if (!tiles) return NULL;
-    tiles->state = engine->runtime;
+    _ese_tileset_set_state(tiles, engine->runtime);
     return tiles;
 }
 
@@ -378,10 +134,10 @@ EseTileSet *ese_tileset_copy(const EseTileSet *source) {
     if (!copy) return NULL;
     
     // Copy basic fields
-    copy->rng_seed = source->rng_seed;
-    copy->state = source->state;
-    copy->lua_ref = LUA_NOREF;
-    copy->lua_ref_count = 0;
+    copy->rng_seed = ese_tileset_get_rng_seed(source);
+    _ese_tileset_set_state(copy, ese_tileset_get_state(source));
+    _ese_tileset_set_lua_ref(copy, LUA_NOREF);
+    _ese_tileset_set_lua_ref_count(copy, 0);
     copy->destroyed = false;
     
     // Deep copy mappings
@@ -452,7 +208,7 @@ void ese_tileset_destroy(EseTileSet *tiles) {
     
     tiles->destroyed = true;
     
-    if (tiles->lua_ref == LUA_NOREF) {
+    if (ese_tileset_get_lua_ref(tiles) == LUA_NOREF) {
         // No Lua references, safe to free immediately
         for (int i = 0; i < 256; i++) {
             EseTileMapping *m = &tiles->mappings[i];
@@ -479,35 +235,23 @@ size_t ese_tileset_sizeof(void) {
 
 // Lua integration
 void ese_tileset_lua_init(EseLuaEngine *engine) {
-    log_assert("TILESET", engine, "ese_tileset_lua_init called with NULL engine");
-    
-    // Create metatable
-    lua_engine_new_object_meta(engine, TILESET_PROXY_META, 
-        _ese_tileset_lua_index, 
-        _ese_tileset_lua_newindex, 
-        _ese_tileset_lua_gc, 
-        _ese_tileset_lua_tostring);
-
-    // Create global Tileset table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_ese_tileset_lua_new};
-    lua_engine_new_object(engine, "Tileset", 1, keys, functions);
+    _ese_tileset_lua_init(engine);
 }
 
 void ese_tileset_lua_push(EseTileSet *tiles) {
     log_assert("TILESET", tiles, "ese_tileset_lua_push called with NULL tiles");
 
-    if (tiles->lua_ref == LUA_NOREF) {
+    if (ese_tileset_get_lua_ref(tiles) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EseTileSet **ud = (EseTileSet **)lua_newuserdata(tiles->state, sizeof(EseTileSet *));
+        EseTileSet **ud = (EseTileSet **)lua_newuserdata(ese_tileset_get_state(tiles), sizeof(EseTileSet *));
         *ud = tiles;
 
         // Attach metatable
-        luaL_getmetatable(tiles->state, TILESET_PROXY_META);
-        lua_setmetatable(tiles->state, -2);
+        luaL_getmetatable(ese_tileset_get_state(tiles), TILESET_PROXY_META);
+        lua_setmetatable(ese_tileset_get_state(tiles), -2);
     } else {
         // C-owned: get from registry
-        lua_rawgeti(tiles->state, LUA_REGISTRYINDEX, tiles->lua_ref);
+        lua_rawgeti(ese_tileset_get_state(tiles), LUA_REGISTRYINDEX, ese_tileset_get_lua_ref(tiles));
     }
 }
 
@@ -531,21 +275,22 @@ EseTileSet *ese_tileset_lua_get(lua_State *L, int idx) {
 void ese_tileset_ref(EseTileSet *tiles) {
     log_assert("TILESET", tiles, "ese_tileset_ref called with NULL tiles");
     
-    if (tiles->lua_ref == LUA_NOREF) {
+    if (ese_tileset_get_lua_ref(tiles) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseTileSet **ud = (EseTileSet **)lua_newuserdata(tiles->state, sizeof(EseTileSet *));
+        EseTileSet **ud = (EseTileSet **)lua_newuserdata(ese_tileset_get_state(tiles), sizeof(EseTileSet *));
         *ud = tiles;
 
         // Attach metatable
-        luaL_getmetatable(tiles->state, TILESET_PROXY_META);
-        lua_setmetatable(tiles->state, -2);
+        luaL_getmetatable(ese_tileset_get_state(tiles), TILESET_PROXY_META);
+        lua_setmetatable(ese_tileset_get_state(tiles), -2);
 
         // Store hard reference to prevent garbage collection
-        tiles->lua_ref = luaL_ref(tiles->state, LUA_REGISTRYINDEX);
-        tiles->lua_ref_count = 1;
+        int lua_ref = luaL_ref(ese_tileset_get_state(tiles), LUA_REGISTRYINDEX);
+        _ese_tileset_set_lua_ref(tiles, lua_ref);
+        _ese_tileset_set_lua_ref_count(tiles, 1);
     } else {
         // Already referenced - just increment count
-        tiles->lua_ref_count++;
+        _ese_tileset_set_lua_ref_count(tiles, ese_tileset_get_lua_ref_count(tiles) + 1);
     }
 
     profile_count_add("ese_tileset_ref_count");
@@ -554,13 +299,14 @@ void ese_tileset_ref(EseTileSet *tiles) {
 void ese_tileset_unref(EseTileSet *tiles) {
     if (!tiles) return;
     
-    if (tiles->lua_ref != LUA_NOREF && tiles->lua_ref_count > 0) {
-        tiles->lua_ref_count--;
+    if (ese_tileset_get_lua_ref(tiles) != LUA_NOREF && ese_tileset_get_lua_ref_count(tiles) > 0) {
+        int new_count = ese_tileset_get_lua_ref_count(tiles) - 1;
+        _ese_tileset_set_lua_ref_count(tiles, new_count);
         
-        if (tiles->lua_ref_count == 0) {
+        if (new_count == 0) {
             // No more references - remove from registry
-            luaL_unref(tiles->state, LUA_REGISTRYINDEX, tiles->lua_ref);
-            tiles->lua_ref = LUA_NOREF;
+            luaL_unref(ese_tileset_get_state(tiles), LUA_REGISTRYINDEX, ese_tileset_get_lua_ref(tiles));
+            _ese_tileset_set_lua_ref(tiles, LUA_NOREF);
         }
     }
 
@@ -712,5 +458,11 @@ bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const 
 void ese_tileset_set_seed(EseTileSet *tiles, uint32_t seed) {
     if (tiles) {
         tiles->rng_seed = seed;
+    }
+}
+
+void ese_tileset_set_state(EseTileSet *tiles, lua_State *state) {
+    if (tiles) {
+        tiles->state = state;
     }
 }

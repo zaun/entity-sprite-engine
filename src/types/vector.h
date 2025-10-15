@@ -6,6 +6,7 @@
 #include "vendor/json/cJSON.h"
 
 #define VECTOR_PROXY_META "VectorProxyMeta"
+#define VECTOR_META "VectorMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -130,6 +131,25 @@ int ese_vector_get_lua_ref(const EseVector *vector);
  * @return The current reference count
  */
 int ese_vector_get_lua_ref_count(const EseVector *vector);
+
+/**
+ * @brief Sets the Lua state associated with this vector.
+ * 
+ * @param vector Pointer to the EseVector object
+ * @param state Pointer to the Lua state
+ */
+void ese_vector_set_state(EseVector *vector, lua_State *state);
+
+/**
+ * @brief Creates a new EseVector instance with default values
+ * 
+ * @details Internal function used by Lua constructors and other internal functions.
+ * Allocates memory for a new EseVector and initializes all fields to safe defaults.
+ * The vector starts at origin (0,0) with no Lua state or references.
+ * 
+ * @return Pointer to the newly created EseVector, or NULL on allocation failure
+ */
+EseVector *_ese_vector_make(void);
 
 // Lua integration
 /**

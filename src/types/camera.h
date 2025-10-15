@@ -1,6 +1,9 @@
 #ifndef ESE_CAMERA_STATE_H
 #define ESE_CAMERA_STATE_H
 
+// Constants
+#define CAMERA_META "CameraMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -25,6 +28,79 @@ typedef struct {
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
+
+// Property accessors
+/**
+ * @brief Gets the position of the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The position EsePoint of the camera
+ */
+EsePoint *ese_camera_get_position(const EseCamera *camera_state);
+
+/**
+ * @brief Sets the position of the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @param position The new position EsePoint
+ */
+void ese_camera_set_position(EseCamera *camera_state, EsePoint *position);
+
+/**
+ * @brief Gets the rotation of the camera in radians
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The rotation of the camera in radians
+ */
+float ese_camera_get_rotation(const EseCamera *camera_state);
+
+/**
+ * @brief Sets the rotation of the camera in radians
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @param rotation The new rotation value in radians
+ */
+void ese_camera_set_rotation(EseCamera *camera_state, float rotation);
+
+/**
+ * @brief Gets the scale of the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The scale of the camera
+ */
+float ese_camera_get_scale(const EseCamera *camera_state);
+
+/**
+ * @brief Sets the scale of the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @param scale The new scale value
+ */
+void ese_camera_set_scale(EseCamera *camera_state, float scale);
+
+/**
+ * @brief Gets the Lua state associated with the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The Lua state associated with the camera
+ */
+lua_State *ese_camera_get_state(const EseCamera *camera_state);
+
+/**
+ * @brief Gets the Lua registry reference for the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The Lua registry reference for the camera
+ */
+int ese_camera_get_lua_ref(const EseCamera *camera_state);
+
+/**
+ * @brief Gets the Lua reference count for the camera
+ *
+ * @param camera_state Pointer to the EseCamera object
+ * @return The Lua reference count for the camera
+ */
+int ese_camera_get_lua_ref_count(const EseCamera *camera_state);
 
 // Core lifecycle
 /**

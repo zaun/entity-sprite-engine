@@ -5,6 +5,7 @@
 #include "scripting/lua_engine_private.h"
 #include "scripting/lua_value.h"
 #include "types/collision_hit.h"
+#include "types/collision_hit_lua.h"
 #include "types/map.h"
 #include "types/rect.h"
 #include "entity/entity.h"
@@ -40,149 +41,19 @@ struct EseCollisionHit {
 // PRIVATE FORWARD DECLARATIONS
 // ========================================
 
-/// Lua: __gc metamethod for EseCollisionHit
-static int _ese_collision_hit_lua_gc(lua_State *L);
-/// Lua: __index metamethod for EseCollisionHit
-static int _ese_collision_hit_lua_index(lua_State *L);
-/// Lua: __newindex metamethod for EseCollisionHit
-static int _ese_collision_hit_lua_newindex(lua_State *L);
-/// Lua: __tostring metamethod for EseCollisionHit
-static int _ese_collision_hit_lua_tostring(lua_State *L);
-/// Register EseCollisionHit constants table into the global table
-static void _register_collision_hit_constants(lua_State *L);
 
 /// Internal creation helper
 static EseCollisionHit *_ese_collision_hit_make(void);
+
+/// Private setters
+static void _ese_collision_hit_set_lua_ref(EseCollisionHit *hit, int lua_ref);
+static void _ese_collision_hit_set_lua_ref_count(EseCollisionHit *hit, int lua_ref_count);
+static void _ese_collision_hit_set_state_ptr(EseCollisionHit *hit, lua_State *state_ptr);
 
 // ========================================
 // PRIVATE FUNCTIONS
 // ========================================
 
-/**
- * @brief Registers constant tables for EseCollisionHit in the active Lua table.
- *
- * Pushes TYPE (COLLIDER, MAP) and STATE (ENTER, STAY, LEAVE) sub-tables.
- */
-static void _register_collision_hit_constants(lua_State *L) {
-    // EseCollisionHit.TYPE
-    lua_newtable(L);
-    lua_pushinteger(L, COLLISION_KIND_COLLIDER);
-    lua_setfield(L, -2, "COLLIDER");
-    lua_pushinteger(L, COLLISION_KIND_MAP);
-    lua_setfield(L, -2, "MAP");
-    lua_setfield(L, -2, "TYPE");
-
-    // EseCollisionHit.STATE
-    lua_newtable(L);
-    lua_pushinteger(L, COLLISION_STATE_ENTER);
-    lua_setfield(L, -2, "ENTER");
-    lua_pushinteger(L, COLLISION_STATE_STAY);
-    lua_setfield(L, -2, "STAY");
-    lua_pushinteger(L, COLLISION_STATE_LEAVE);
-    lua_setfield(L, -2, "LEAVE");
-    lua_setfield(L, -2, "STATE");
-}
-
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseCollisionHit
- *
- * Frees the underlying hit when there are no C-side references.
- */
-static int _ese_collision_hit_lua_gc(lua_State *L) {
-    EseCollisionHit **ud = (EseCollisionHit **)luaL_testudata(L, 1, COLLISION_HIT_META);
-    if (!ud) return 0;
-    EseCollisionHit *hit = *ud;
-    if (hit && hit->lua_ref == LUA_NOREF) {
-        ese_collision_hit_destroy(hit);
-    }
-    return 0;
-}
-
-/**
- * @brief Lua __index metamethod for EseCollisionHit property access
- *
- * Provides read access to hit properties (kind, state, entity, target) and
- * type-specific data (rect, map, cell_x, cell_y).
- */
-static int _ese_collision_hit_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_COLLISION_HIT_INDEX);
-    EseCollisionHit *hit = ese_collision_hit_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!hit || !key) { profile_cancel(PROFILE_LUA_COLLISION_HIT_INDEX); return 0; }
-
-    if (strcmp(key, "kind") == 0) {
-        lua_pushinteger(L, hit->kind);
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "state") == 0) {
-        lua_pushinteger(L, hit->state);
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "entity") == 0) {
-        entity_lua_push(hit->entity);
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "target") == 0) {
-        entity_lua_push(hit->target);
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "rect") == 0) {
-        if (hit->kind == COLLISION_KIND_COLLIDER && hit->data.rect) {
-            ese_rect_lua_push(hit->data.rect);
-            profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-            return 1;
-        }
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (invalid)");
-        return 0;
-    } else if (strcmp(key, "map") == 0) {
-        if (hit->kind == COLLISION_KIND_MAP && hit->data.map) {
-            ese_map_lua_push(hit->data.map);
-            profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-            return 1;
-        }
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (invalid)");
-        return 0;
-    } else if (strcmp(key, "cell_x") == 0) {
-        if (hit->kind == COLLISION_KIND_MAP && hit->data.cell_x) {
-            _lua_engine_push_luavalue(L, hit->data.cell_x);
-            profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-            return 1;
-        }
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (invalid)");
-        return 0;
-    } else if (strcmp(key, "cell_y") == 0) {
-        if (hit->kind == COLLISION_KIND_MAP && hit->data.cell_y) {
-            _lua_engine_push_luavalue(L, hit->data.cell_y);
-            profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (getter)");
-            return 1;
-        }
-        profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (invalid)");
-        return 0;
-    }
-
-    profile_stop(PROFILE_LUA_COLLISION_HIT_INDEX, "collision_hit_lua_index (invalid)");
-    return 0;
-}
-
-/**
- * @brief Lua __newindex metamethod for EseCollisionHit (read-only)
- */
-static int _ese_collision_hit_lua_newindex(lua_State *L) {
-    return luaL_error(L, "EseCollisionHit is read-only");
-}
-
-/**
- * @brief Lua __tostring metamethod for EseCollisionHit string representation
- */
-static int _ese_collision_hit_lua_tostring(lua_State *L) {
-    EseCollisionHit *hit = ese_collision_hit_lua_get(L, 1);
-    if (!hit) { lua_pushstring(L, "EseCollisionHit: (invalid)"); return 1; }
-    char buf[160];
-    snprintf(buf, sizeof(buf), "EseCollisionHit: %p (kind=%d, state=%d)", (void*)hit, (int)hit->kind, (int)hit->state);
-    lua_pushstring(L, buf);
-    return 1;
-}
 
 // Internal helpers
 /**
@@ -199,9 +70,9 @@ static EseCollisionHit *_ese_collision_hit_make(void) {
     hit->data.cell_x = NULL;
     hit->data.cell_y = NULL;
     hit->state = COLLISION_STATE_ENTER;
-    hit->state_ptr = NULL;
-    hit->lua_ref = LUA_NOREF;
-    hit->lua_ref_count = 0;
+    _ese_collision_hit_set_state_ptr(hit, NULL);
+    _ese_collision_hit_set_lua_ref(hit, LUA_NOREF);
+    _ese_collision_hit_set_lua_ref_count(hit, 0);
     return hit;
 }
 
@@ -213,7 +84,7 @@ static EseCollisionHit *_ese_collision_hit_make(void) {
 EseCollisionHit *ese_collision_hit_create(EseLuaEngine *engine) {
     log_assert("COLLISION_HIT", engine, "ese_collision_hit_create called with NULL engine");
     EseCollisionHit *hit = _ese_collision_hit_make();
-    hit->state_ptr = engine->runtime;
+    _ese_collision_hit_set_state_ptr(hit, engine->runtime);
     return hit;
 }
 
@@ -221,26 +92,26 @@ EseCollisionHit *ese_collision_hit_copy(const EseCollisionHit *src) {
     log_assert("COLLISION_HIT", src, "ese_collision_hit_copy called with NULL src");
 
     // Recover engine from Lua state and create a fresh instance
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(src->state_ptr, LUA_ENGINE_KEY);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(ese_collision_hit_get_state_ptr(src), LUA_ENGINE_KEY);
     log_assert("COLLISION_HIT", engine, "ese_collision_hit_copy could not resolve engine from Lua state");
 
     EseCollisionHit *copy = ese_collision_hit_create(engine);
 
     // Copy simple fields
-    ese_collision_hit_set_kind(copy, src->kind);
-    ese_collision_hit_set_state(copy, src->state);
-    ese_collision_hit_set_entity(copy, src->entity);
-    ese_collision_hit_set_target(copy, src->target);
+    ese_collision_hit_set_kind(copy, ese_collision_hit_get_kind(src));
+    ese_collision_hit_set_state(copy, ese_collision_hit_get_state(src));
+    ese_collision_hit_set_entity(copy, ese_collision_hit_get_entity(src));
+    ese_collision_hit_set_target(copy, ese_collision_hit_get_target(src));
 
     // Copy kind-specific data
-    if (src->kind == COLLISION_KIND_COLLIDER) {
-        if (src->data.rect) {
-            ese_collision_hit_set_rect(copy, src->data.rect); // performs deep copy internally
+    if (ese_collision_hit_get_kind(src) == COLLISION_KIND_COLLIDER) {
+        if (ese_collision_hit_get_rect(src)) {
+            ese_collision_hit_set_rect(copy, ese_collision_hit_get_rect(src)); // performs deep copy internally
         }
-    } else if (src->kind == COLLISION_KIND_MAP) {
-        ese_collision_hit_set_map(copy, src->data.map);
-        int cx = src->data.cell_x ? (int)lua_value_get_number(src->data.cell_x) : 0;
-        int cy = src->data.cell_y ? (int)lua_value_get_number(src->data.cell_y) : 0;
+    } else if (ese_collision_hit_get_kind(src) == COLLISION_KIND_MAP) {
+        ese_collision_hit_set_map(copy, ese_collision_hit_get_map(src));
+        int cx = ese_collision_hit_get_cell_x(src);
+        int cy = ese_collision_hit_get_cell_y(src);
         ese_collision_hit_set_cell_x(copy, cx);
         ese_collision_hit_set_cell_y(copy, cy);
     }
@@ -250,14 +121,13 @@ EseCollisionHit *ese_collision_hit_copy(const EseCollisionHit *src) {
 
 void ese_collision_hit_destroy(EseCollisionHit *hit) {
     if (!hit) return;
-    if (hit->lua_ref == LUA_NOREF) {
+    if (ese_collision_hit_get_lua_ref(hit) == LUA_NOREF) {
         // Free owned resources depending on kind
-        if (hit->kind == COLLISION_KIND_COLLIDER) {
-            if (hit->data.rect) {
-                ese_rect_destroy(hit->data.rect);
-                hit->data.rect = NULL;
+        if (ese_collision_hit_get_kind(hit) == COLLISION_KIND_COLLIDER) {
+            if (ese_collision_hit_get_rect(hit)) {
+                ese_rect_destroy(ese_collision_hit_get_rect(hit));
             }
-        } else if (hit->kind == COLLISION_KIND_MAP) {
+        } else if (ese_collision_hit_get_kind(hit) == COLLISION_KIND_MAP) {
             if (hit->data.cell_x) {
                 lua_value_destroy(hit->data.cell_x);
                 hit->data.cell_x = NULL;
@@ -279,37 +149,18 @@ void ese_collision_hit_destroy(EseCollisionHit *hit) {
 void ese_collision_hit_lua_init(EseLuaEngine *engine) {
     log_assert("COLLISION_HIT", engine, "ese_collision_hit_lua_init called with NULL engine");
 
-    // Create metatable
-    lua_engine_new_object_meta(engine, COLLISION_HIT_META, 
-        _ese_collision_hit_lua_index, 
-        _ese_collision_hit_lua_newindex, 
-        _ese_collision_hit_lua_gc, 
-        _ese_collision_hit_lua_tostring);
-
-    // Create global EseCollisionHit table with only constants
-    lua_State *L = engine->runtime;
-    lua_getglobal(L, "EseCollisionHit");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        lua_newtable(L);
-        _register_collision_hit_constants(L);
-        lua_setglobal(L, "EseCollisionHit");
-    } else {
-        // augment existing table
-        _register_collision_hit_constants(L);
-        lua_pop(L, 1);
-    }
+    _ese_collision_hit_lua_init(engine);
 }
 
 void ese_collision_hit_lua_push(EseCollisionHit *hit) {
     log_assert("COLLISION_HIT", hit, "ese_collision_hit_lua_push called with NULL hit");
-    if (hit->lua_ref == LUA_NOREF) {
-        EseCollisionHit **ud = (EseCollisionHit **)lua_newuserdata(hit->state_ptr, sizeof(EseCollisionHit *));
+    if (ese_collision_hit_get_lua_ref(hit) == LUA_NOREF) {
+        EseCollisionHit **ud = (EseCollisionHit **)lua_newuserdata(ese_collision_hit_get_state_ptr(hit), sizeof(EseCollisionHit *));
         *ud = hit;
-        luaL_getmetatable(hit->state_ptr, COLLISION_HIT_META);
-        lua_setmetatable(hit->state_ptr, -2);
+        luaL_getmetatable(ese_collision_hit_get_state_ptr(hit), COLLISION_HIT_META);
+        lua_setmetatable(ese_collision_hit_get_state_ptr(hit), -2);
     } else {
-        lua_rawgeti(hit->state_ptr, LUA_REGISTRYINDEX, hit->lua_ref);
+        lua_rawgeti(ese_collision_hit_get_state_ptr(hit), LUA_REGISTRYINDEX, ese_collision_hit_get_lua_ref(hit));
     }
 }
 
@@ -323,25 +174,26 @@ EseCollisionHit *ese_collision_hit_lua_get(lua_State *L, int idx) {
 
 void ese_collision_hit_ref(EseCollisionHit *hit) {
     log_assert("COLLISION_HIT", hit, "ese_collision_hit_ref called with NULL hit");
-    if (hit->lua_ref == LUA_NOREF) {
-        EseCollisionHit **ud = (EseCollisionHit **)lua_newuserdata(hit->state_ptr, sizeof(EseCollisionHit *));
+    if (ese_collision_hit_get_lua_ref(hit) == LUA_NOREF) {
+        EseCollisionHit **ud = (EseCollisionHit **)lua_newuserdata(ese_collision_hit_get_state_ptr(hit), sizeof(EseCollisionHit *));
         *ud = hit;
-        luaL_getmetatable(hit->state_ptr, COLLISION_HIT_META);
-        lua_setmetatable(hit->state_ptr, -2);
-        hit->lua_ref = luaL_ref(hit->state_ptr, LUA_REGISTRYINDEX);
-        hit->lua_ref_count = 1;
+        luaL_getmetatable(ese_collision_hit_get_state_ptr(hit), COLLISION_HIT_META);
+        lua_setmetatable(ese_collision_hit_get_state_ptr(hit), -2);
+        int ref = luaL_ref(ese_collision_hit_get_state_ptr(hit), LUA_REGISTRYINDEX);
+        _ese_collision_hit_set_lua_ref(hit, ref);
+        _ese_collision_hit_set_lua_ref_count(hit, 1);
     } else {
-        hit->lua_ref_count++;
+        _ese_collision_hit_set_lua_ref_count(hit, ese_collision_hit_get_lua_ref_count(hit) + 1);
     }
 }
 
 void ese_collision_hit_unref(EseCollisionHit *hit) {
     if (!hit) return;
-    if (hit->lua_ref != LUA_NOREF && hit->lua_ref_count > 0) {
-        hit->lua_ref_count--;
-        if (hit->lua_ref_count == 0) {
-            luaL_unref(hit->state_ptr, LUA_REGISTRYINDEX, hit->lua_ref);
-            hit->lua_ref = LUA_NOREF;
+    if (ese_collision_hit_get_lua_ref(hit) != LUA_NOREF && ese_collision_hit_get_lua_ref_count(hit) > 0) {
+        _ese_collision_hit_set_lua_ref_count(hit, ese_collision_hit_get_lua_ref_count(hit) - 1);
+        if (ese_collision_hit_get_lua_ref_count(hit) == 0) {
+            luaL_unref(ese_collision_hit_get_state_ptr(hit), LUA_REGISTRYINDEX, ese_collision_hit_get_lua_ref(hit));
+            _ese_collision_hit_set_lua_ref(hit, LUA_NOREF);
         }
     }
 }
@@ -492,4 +344,52 @@ int ese_collision_hit_get_cell_y(const EseCollisionHit *hit) {
     log_assert("COLLISION_HIT", hit->kind == COLLISION_KIND_MAP, "ese_collision_hit_get_cell_y called with non-map hit");
 
     return hit->data.cell_y ? (int)lua_value_get_number(hit->data.cell_y) : 0;
+}
+
+lua_State *ese_collision_hit_get_state_ptr(const EseCollisionHit *hit) {
+    log_assert("COLLISION_HIT", hit, "ese_collision_hit_get_state_ptr called with NULL hit");
+    return hit->state_ptr;
+}
+
+int ese_collision_hit_get_lua_ref(const EseCollisionHit *hit) {
+    log_assert("COLLISION_HIT", hit, "ese_collision_hit_get_lua_ref called with NULL hit");
+    return hit->lua_ref;
+}
+
+int ese_collision_hit_get_lua_ref_count(const EseCollisionHit *hit) {
+    log_assert("COLLISION_HIT", hit, "ese_collision_hit_get_lua_ref_count called with NULL hit");
+    return hit->lua_ref_count;
+}
+
+/**
+ * @brief Sets the Lua registry reference for the collision hit (private)
+ *
+ * @param hit Pointer to the EseCollisionHit object
+ * @param lua_ref The new Lua registry reference value
+ */
+static void _ese_collision_hit_set_lua_ref(EseCollisionHit *hit, int lua_ref) {
+    log_assert("COLLISION_HIT", hit != NULL, "_ese_collision_hit_set_lua_ref: hit cannot be NULL");
+    hit->lua_ref = lua_ref;
+}
+
+/**
+ * @brief Sets the Lua reference count for the collision hit (private)
+ *
+ * @param hit Pointer to the EseCollisionHit object
+ * @param lua_ref_count The new Lua reference count value
+ */
+static void _ese_collision_hit_set_lua_ref_count(EseCollisionHit *hit, int lua_ref_count) {
+    log_assert("COLLISION_HIT", hit != NULL, "_ese_collision_hit_set_lua_ref_count: hit cannot be NULL");
+    hit->lua_ref_count = lua_ref_count;
+}
+
+/**
+ * @brief Sets the Lua state associated with the collision hit (private)
+ *
+ * @param hit Pointer to the EseCollisionHit object
+ * @param state_ptr The new Lua state value
+ */
+static void _ese_collision_hit_set_state_ptr(EseCollisionHit *hit, lua_State *state_ptr) {
+    log_assert("COLLISION_HIT", hit != NULL, "_ese_collision_hit_set_state_ptr: hit cannot be NULL");
+    hit->state_ptr = state_ptr;
 }

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #define MAP_PROXY_META "MapProxyMeta"
+#define MAP_META "MapMeta"
 
 /* --- Forward declarations --------------------------------------------------------------------- */
 
@@ -242,6 +243,111 @@ EseTileSet *ese_map_get_tileset(EseMap *map);
  * @return Maximum number of layers across all cells
  */
 size_t ese_map_get_layer_count(EseMap *map);
+
+/**
+ * @brief Gets the Lua state associated with this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return Pointer to the Lua state, or NULL if none
+ */
+lua_State *ese_map_get_state(const EseMap *map);
+
+/**
+ * @brief Gets the Lua registry reference for this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return The Lua registry reference value
+ */
+int ese_map_get_lua_ref(const EseMap *map);
+
+/**
+ * @brief Gets the Lua reference count for this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return The current reference count
+ */
+int ese_map_get_lua_ref_count(const EseMap *map);
+
+/**
+ * @brief Gets the engine associated with this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return Pointer to the EseLuaEngine, or NULL if none
+ */
+EseLuaEngine *ese_map_get_engine(const EseMap *map);
+
+/**
+ * @brief Gets the title of the map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return The title string, or NULL if none
+ */
+const char *ese_map_get_title(const EseMap *map);
+
+/**
+ * @brief Gets the author of the map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return The author string, or NULL if none
+ */
+const char *ese_map_get_author(const EseMap *map);
+
+/**
+ * @brief Gets the version of the map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @return The version number
+ */
+int ese_map_get_version(const EseMap *map);
+
+/**
+ * @brief Sets the type of the map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @param type The new map type
+ */
+void ese_map_set_type(EseMap *map, EseMapType type);
+
+/**
+ * @brief Sets the engine associated with this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @param engine Pointer to the EseLuaEngine
+ */
+void ese_map_set_engine(EseMap *map, EseLuaEngine *engine);
+
+/**
+ * @brief Sets the Lua state associated with this map.
+ * 
+ * @param map Pointer to the EseMap object
+ * @param state Pointer to the Lua state
+ */
+void ese_map_set_state(EseMap *map, lua_State *state);
+
+/**
+ * @brief Internal function to create a new map (used by Lua constructor).
+ * 
+ * @param width Width of the map
+ * @param height Height of the map
+ * @param type Type of the map
+ * @return Pointer to the new EseMap object
+ */
+EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type);
+
+/**
+ * @brief Internal function to allocate the cells array (used by Lua constructor).
+ * 
+ * @param map Pointer to the EseMap object
+ * @return true if successful, false otherwise
+ */
+bool _allocate_cells_array(EseMap *map);
+
+/**
+ * @brief Internal function to notify watchers (used by Lua functions).
+ * 
+ * @param map Pointer to the EseMap object
+ */
+void _ese_map_notify_watchers(EseMap *map);
 
 /**
  * @brief Adds a watcher callback notified when the map or its cells change.

@@ -14,6 +14,7 @@
 #include <stddef.h>
 
 #define INPUT_STATE_PROXY_META "InputStateProxyMeta"
+#define INPUT_STATE_META "InputStateMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;

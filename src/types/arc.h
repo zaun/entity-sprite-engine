@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include "vendor/json/cJSON.h"
 
+// Constants
+#define ARC_META "ArcMeta"
+
 // Forward declarations
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;

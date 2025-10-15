@@ -17,6 +17,9 @@
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 
+// Constants
+#define DISPLAY_META "DisplayMeta"
+
 /**
  * @brief A structure to define a viewport rectangle.
  */
@@ -235,6 +238,14 @@ int ese_display_get_viewport_width(const EseDisplay *display);
  * @return The viewport height in pixels.
  */
 int ese_display_get_viewport_height(const EseDisplay *display);
+
+/**
+ * @brief Gets the viewport pointer.
+ * 
+ * @param display A pointer to the `EseDisplay` object.
+ * @return A pointer to the viewport structure.
+ */
+EseViewport *ese_display_get_viewport(const EseDisplay *display);
 
 /**
  * @brief Gets the Lua state pointer.

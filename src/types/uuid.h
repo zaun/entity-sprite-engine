@@ -7,6 +7,7 @@
 #include "vendor/json/cJSON.h"
 
 #define UUID_PROXY_META "UUIDProxyMeta"
+#define UUID_META "UUIDMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -110,6 +111,25 @@ int ese_uuid_get_lua_ref(const EseUUID *uuid);
  * @return The current reference count
  */
 int ese_uuid_get_lua_ref_count(const EseUUID *uuid);
+
+/**
+ * @brief Sets the Lua state associated with this UUID.
+ * 
+ * @param uuid Pointer to the EseUUID object
+ * @param state Pointer to the Lua state
+ */
+void ese_uuid_set_state(EseUUID *uuid, lua_State *state);
+
+/**
+ * @brief Creates a new EseUUID instance with default values
+ * 
+ * @details Internal function used by Lua constructors and other internal functions.
+ * Allocates memory for a new EseUUID and initializes all fields to safe defaults.
+ * The UUID starts with no Lua state or references, and a new random UUID is generated.
+ * 
+ * @return Pointer to the newly created EseUUID, or NULL on allocation failure
+ */
+EseUUID *_ese_uuid_make(void);
 
 // Lua integration
 /**

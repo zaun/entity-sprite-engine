@@ -8,6 +8,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/poly_line.h"
+#include "types/poly_line_lua.h"
 #include "types/point.h"
 #include "types/color.h"
 #include "vendor/json/cJSON.h"
@@ -39,28 +40,14 @@ typedef struct EsePolyLine {
 // ========================================
 
 // Core helpers
-static EsePolyLine *_ese_poly_line_make(void);
 
 // Watcher system
-static void _ese_poly_line_notify_watchers(EsePolyLine *poly_line);
 
-// Lua metamethods
-static int _ese_poly_line_lua_gc(lua_State *L);
-static int _ese_poly_line_lua_index(lua_State *L);
-static int _ese_poly_line_lua_newindex(lua_State *L);
-static int _ese_poly_line_lua_tostring(lua_State *L);
-static int _ese_poly_line_lua_to_json(lua_State *L);
+// Private static setters for Lua state management
+static void _ese_poly_line_set_lua_ref(EsePolyLine *poly_line, int lua_ref);
+static void _ese_poly_line_set_lua_ref_count(EsePolyLine *poly_line, int lua_ref_count);
+static void _ese_poly_line_set_state(EsePolyLine *poly_line, lua_State *state);
 
-// Lua constructors
-static int _ese_poly_line_lua_new(lua_State *L);
-
-// Lua utility methods
-static int _ese_poly_line_lua_add_point(lua_State *L);
-static int _ese_poly_line_lua_remove_point(lua_State *L);
-static int _ese_poly_line_lua_get_point(lua_State *L);
-static int _ese_poly_line_lua_get_point_count(lua_State *L);
-static int _ese_poly_line_lua_clear_points(lua_State *L);
-static int _ese_poly_line_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -75,7 +62,7 @@ static int _ese_poly_line_lua_from_json(lua_State *L);
  * 
  * @return Pointer to the newly created EsePolyLine, or NULL on allocation failure
  */
-static EsePolyLine *_ese_poly_line_make() {
+EsePolyLine *_ese_poly_line_make() {
     EsePolyLine *poly_line = (EsePolyLine *)memory_manager.malloc(sizeof(EsePolyLine), MMTAG_POLY_LINE);
     poly_line->type = POLY_LINE_OPEN;
     poly_line->stroke_width = 1.0f;
@@ -104,7 +91,7 @@ static EsePolyLine *_ese_poly_line_make() {
  * 
  * @param poly_line Pointer to the EsePolyLine that has changed
  */
-static void _ese_poly_line_notify_watchers(EsePolyLine *poly_line) {
+void _ese_poly_line_notify_watchers(EsePolyLine *poly_line) {
     if (!poly_line || poly_line->watcher_count == 0) return;
     
     for (size_t i = 0; i < poly_line->watcher_count; i++) {
@@ -114,425 +101,17 @@ static void _ese_poly_line_notify_watchers(EsePolyLine *poly_line) {
     }
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EsePolyLine
- * 
- * Handles cleanup when a Lua proxy table for an EsePolyLine is garbage collected.
- * Only frees the underlying EsePolyLine if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_poly_line_lua_gc(lua_State *L) {
-    // Get from userdata
-    EsePolyLine **ud = (EsePolyLine **)luaL_testudata(L, 1, POLY_LINE_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
-    }
-    
-    EsePolyLine *poly_line = *ud;
-    if (poly_line) {
-        // If lua_ref == LUA_NOREF, there are no more references to this polyline, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this polyline was referenced from C and should not be freed.
-        if (poly_line->lua_ref == LUA_NOREF) {
-            ese_poly_line_destroy(poly_line);
-        }
-    }
-
-    return 0;
+// Private static setters for Lua state management
+static void _ese_poly_line_set_lua_ref(EsePolyLine *poly_line, int lua_ref) {
+    poly_line->lua_ref = lua_ref;
 }
 
-/**
- * @brief Lua __index metamethod for EsePolyLine property access
- * 
- * Provides read access to polyline properties from Lua. When a Lua script
- * accesses polyline properties, this function is called to retrieve the values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
-static int _ese_poly_line_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_INDEX);
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!poly_line || !key) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_INDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "type") == 0) {
-        lua_pushinteger(L, (int)poly_line->type);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "stroke_width") == 0) {
-        lua_pushnumber(L, poly_line->stroke_width);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "stroke_color") == 0) {
-        if (poly_line->stroke_color) {
-            ese_color_lua_push(poly_line->stroke_color);
-        } else {
-            lua_pushnil(L);
-        }
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "fill_color") == 0) {
-        if (poly_line->fill_color) {
-            ese_color_lua_push(poly_line->fill_color);
-        } else {
-            lua_pushnil(L);
-        }
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "add_point") == 0) {
-        lua_pushcfunction(L, _ese_poly_line_lua_add_point);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "remove_point") == 0) {
-        lua_pushcfunction(L, _ese_poly_line_lua_remove_point);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "get_point") == 0) {
-        lua_pushcfunction(L, _ese_poly_line_lua_get_point);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "get_point_count") == 0) {
-        lua_pushcfunction(L, _ese_poly_line_lua_get_point_count);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "clear_points") == 0) {
-        lua_pushcfunction(L, _ese_poly_line_lua_clear_points);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "toJSON") == 0) {
-        lua_pushlightuserdata(L, poly_line);
-        lua_pushcclosure(L, _ese_poly_line_lua_to_json, 1);
-        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
-        return 1;
-    }
-    profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (invalid)");
-    return 0;
+static void _ese_poly_line_set_lua_ref_count(EsePolyLine *poly_line, int lua_ref_count) {
+    poly_line->lua_ref_count = lua_ref_count;
 }
 
-/**
- * @brief Lua __newindex metamethod for EsePolyLine property assignment
- * 
- * Provides write access to polyline properties from Lua. When a Lua script
- * assigns to polyline properties, this function is called to update the values
- * and notify any registered watchers of the change.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_poly_line_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_NEWINDEX);
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!poly_line || !key) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-        return 0;
-    }
-    
-    if (strcmp(key, "type") == 0) {
-        if (!lua_isnumber(L, 3)) {
-            profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-            return luaL_error(L, "type must be a number");
-        }
-        int type_val = (int)lua_tonumber(L, 3);
-        if (type_val < 0 || type_val > 2) {
-            profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-            return luaL_error(L, "type must be 0 (OPEN), 1 (CLOSED), or 2 (FILLED)");
-        }
-        poly_line->type = (EsePolyLineType)type_val;
-        _ese_poly_line_notify_watchers(poly_line);
-        profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "stroke_width") == 0) {
-        if (!lua_isnumber(L, 3)) {
-            profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-            return luaL_error(L, "stroke_width must be a number");
-        }
-        poly_line->stroke_width = (float)lua_tonumber(L, 3);
-        _ese_poly_line_notify_watchers(poly_line);
-        profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "stroke_color") == 0) {
-        int vtype = lua_type(L, 3);
-        if (vtype == LUA_TNIL || vtype == LUA_TNONE) {
-            if (poly_line->stroke_color) {
-                ese_color_unref(poly_line->stroke_color);
-                poly_line->stroke_color = NULL;
-            }
-            _ese_poly_line_notify_watchers(poly_line);
-            profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-            return 0;
-        }
-        EseColor *color = ese_color_lua_get(L, 3);
-        if (!color) {
-            profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-            return luaL_error(L, "stroke_color must be a Color object or nil");
-        }
-        if (poly_line->stroke_color) {
-            ese_color_unref(poly_line->stroke_color);
-        }
-        poly_line->stroke_color = color;
-        ese_color_ref(poly_line->stroke_color);
-        _ese_poly_line_notify_watchers(poly_line);
-        profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "fill_color") == 0) {
-        int vtype = lua_type(L, 3);
-        if (vtype == LUA_TNIL || vtype == LUA_TNONE) {
-            if (poly_line->fill_color) {
-                ese_color_unref(poly_line->fill_color);
-                poly_line->fill_color = NULL;
-            }
-            _ese_poly_line_notify_watchers(poly_line);
-            profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-            return 0;
-        }
-        EseColor *color = ese_color_lua_get(L, 3);
-        if (!color) {
-            profile_cancel(PROFILE_LUA_POLY_LINE_NEWINDEX);
-            return luaL_error(L, "fill_color must be a Color object or nil");
-        }
-        if (poly_line->fill_color) {
-            ese_color_unref(poly_line->fill_color);
-        }
-        poly_line->fill_color = color;
-        ese_color_ref(poly_line->fill_color);
-        _ese_poly_line_notify_watchers(poly_line);
-        profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (setter)");
-        return 0;
-    }
-    profile_stop(PROFILE_LUA_POLY_LINE_NEWINDEX, "poly_line_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
-}
-
-/**
- * @brief Lua __tostring metamethod for EsePolyLine string representation
- * 
- * Converts an EsePolyLine to a human-readable string for debugging and display.
- * The format includes the memory address and current properties.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_poly_line_lua_tostring(lua_State *L) {
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-
-    if (!poly_line) {
-        lua_pushstring(L, "PolyLine: (invalid)");
-        return 1;
-    }
-
-    const char *type_str = "UNKNOWN";
-    switch (poly_line->type) {
-        case POLY_LINE_OPEN: type_str = "OPEN"; break;
-        case POLY_LINE_CLOSED: type_str = "CLOSED"; break;
-        case POLY_LINE_FILLED: type_str = "FILLED"; break;
-    }
-
-    char buf[256];
-    snprintf(buf, sizeof(buf), "PolyLine: %p (type=%s, points=%zu, stroke_width=%.2f)", 
-             (void*)poly_line, type_str, poly_line->point_count, poly_line->stroke_width);
-    lua_pushstring(L, buf);
-
-    return 1;
-}
-
-/**
- * @brief Lua instance method for converting EsePolyLine to JSON string
- */
-static int _ese_poly_line_lua_to_json(lua_State *L) {
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    if (!poly_line) {
-        return luaL_error(L, "PolyLine:toJSON() called on invalid polyline");
-    }
-
-    cJSON *json = ese_poly_line_serialize(poly_line);
-    if (!json) {
-        return luaL_error(L, "PolyLine:toJSON() failed to serialize polyline");
-    }
-
-    char *json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    if (!json_str) {
-        return luaL_error(L, "PolyLine:toJSON() failed to convert to string");
-    }
-
-    lua_pushstring(L, json_str);
-    free(json_str);
-    return 1;
-}
-
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EsePolyLine instances
- * 
- * Creates a new EsePolyLine from Lua. This function is called when Lua code executes `PolyLine.new()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_poly_line_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_NEW);
-
-    // Create the polyline
-    EsePolyLine *poly_line = _ese_poly_line_make();
-    poly_line->state = L;
-
-    // Create userdata directly; Lua owns it (no registry ref)
-    EsePolyLine **ud = (EsePolyLine **)lua_newuserdata(L, sizeof(EsePolyLine *));
-    *ud = poly_line;
-    luaL_getmetatable(L, POLY_LINE_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_POLY_LINE_NEW, "poly_line_lua_new");
-    return 1;
-}
-
-// Lua utility methods
-/**
- * @brief Lua method for adding a point to the polyline
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_poly_line_lua_add_point(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_ADD_POINT);
-    
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    EsePoint *point = ese_point_lua_get(L, 2);
-    
-    if (!poly_line || !point) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_ADD_POINT);
-        return luaL_error(L, "add_point requires a polyline and a point");
-    }
-    
-    bool success = ese_poly_line_add_point(poly_line, point);
-    if (!success) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_ADD_POINT);
-        return luaL_error(L, "Failed to add point to polyline");
-    }
-    
-    profile_stop(PROFILE_LUA_POLY_LINE_ADD_POINT, "poly_line_lua_add_point");
-    return 0;
-}
-
-/**
- * @brief Lua method for removing a point from the polyline
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_poly_line_lua_remove_point(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_REMOVE_POINT);
-    
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    if (!poly_line) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_REMOVE_POINT);
-        return luaL_error(L, "remove_point requires a polyline");
-    }
-    
-    if (!lua_isnumber(L, 2)) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_REMOVE_POINT);
-        return luaL_error(L, "Index must be a number");
-    }
-    
-    size_t index = (size_t)lua_tonumber(L, 2);
-    bool success = ese_poly_line_remove_point(poly_line, index);
-    if (!success) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_REMOVE_POINT);
-        return luaL_error(L, "Invalid point index");
-    }
-    
-    profile_stop(PROFILE_LUA_POLY_LINE_REMOVE_POINT, "poly_line_lua_remove_point");
-    return 0;
-}
-
-/**
- * @brief Lua method for getting a point from the polyline
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid point, 0 for invalid)
- */
-static int _ese_poly_line_lua_get_point(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_GET_POINT);
-    
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    if (!poly_line) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_GET_POINT);
-        return luaL_error(L, "get_point requires a polyline");
-    }
-    
-    if (!lua_isnumber(L, 2)) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_GET_POINT);
-        return luaL_error(L, "Index must be a number");
-    }
-    
-    size_t index = (size_t)lua_tonumber(L, 2);
-    if (index >= poly_line->point_count) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_GET_POINT);
-        return luaL_error(L, "Invalid point index");
-    }
-
-    size_t coord_index = index * 2;
-    float x = poly_line->points ? poly_line->points[coord_index] : 0.0f;
-    float y = poly_line->points ? poly_line->points[coord_index + 1] : 0.0f;
-    log_error("POLY_LINE", "get_point index=%zu x=%.2f y=%.2f count=%zu", index, x, y, poly_line->point_count);
-
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(poly_line->state, LUA_ENGINE_KEY);
-    EsePoint *point = ese_point_create(engine);
-    ese_point_set_x(point, x);
-    ese_point_set_y(point, y);
-
-    ese_point_lua_push(point);
-
-    profile_stop(PROFILE_LUA_POLY_LINE_GET_POINT, "poly_line_lua_get_point");
-    return 1;
-}
-
-/**
- * @brief Lua method for getting the point count
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_poly_line_lua_get_point_count(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_GET_POINT_COUNT);
-    
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    if (!poly_line) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_GET_POINT_COUNT);
-        return luaL_error(L, "get_point_count requires a polyline");
-    }
-    
-    lua_pushinteger(L, (int)ese_poly_line_get_point_count(poly_line));
-    profile_stop(PROFILE_LUA_POLY_LINE_GET_POINT_COUNT, "poly_line_lua_get_point_count");
-    return 1;
-}
-
-/**
- * @brief Lua method for clearing all points
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_poly_line_lua_clear_points(lua_State *L) {
-    profile_start(PROFILE_LUA_POLY_LINE_CLEAR_POINTS);
-    
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
-    if (!poly_line) {
-        profile_cancel(PROFILE_LUA_POLY_LINE_CLEAR_POINTS);
-        return luaL_error(L, "clear_points requires a polyline");
-    }
-    
-    ese_poly_line_clear_points(poly_line);
-    profile_stop(PROFILE_LUA_POLY_LINE_CLEAR_POINTS, "poly_line_lua_clear_points");
-    return 0;
+static void _ese_poly_line_set_state(EsePolyLine *poly_line, lua_State *state) {
+    poly_line->state = state;
 }
 
 // ========================================
@@ -633,21 +212,9 @@ void ese_poly_line_destroy(EsePolyLine *poly_line) {
 }
 
 // Property access
-void ese_poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type) {
-    log_assert("POLY_LINE", poly_line, "poly_line_set_type called with NULL poly_line");
-    poly_line->type = type;
-    _ese_poly_line_notify_watchers(poly_line);
-}
-
 EsePolyLineType ese_poly_line_get_type(const EsePolyLine *poly_line) {
     log_assert("POLY_LINE", poly_line, "poly_line_get_type called with NULL poly_line");
     return poly_line->type;
-}
-
-void ese_poly_line_set_stroke_width(EsePolyLine *poly_line, float width) {
-    log_assert("POLY_LINE", poly_line, "poly_line_set_stroke_width called with NULL poly_line");
-    poly_line->stroke_width = width;
-    _ese_poly_line_notify_watchers(poly_line);
 }
 
 float ese_poly_line_get_stroke_width(const EsePolyLine *poly_line) {
@@ -655,21 +222,9 @@ float ese_poly_line_get_stroke_width(const EsePolyLine *poly_line) {
     return poly_line->stroke_width;
 }
 
-void ese_poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *color) {
-    log_assert("POLY_LINE", poly_line, "poly_line_set_stroke_color called with NULL poly_line");
-    poly_line->stroke_color = color;
-    _ese_poly_line_notify_watchers(poly_line);
-}
-
 EseColor *ese_poly_line_get_stroke_color(const EsePolyLine *poly_line) {
     log_assert("POLY_LINE", poly_line, "poly_line_get_stroke_color called with NULL poly_line");
     return poly_line->stroke_color;
-}
-
-void ese_poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *color) {
-    log_assert("POLY_LINE", poly_line, "poly_line_set_fill_color called with NULL poly_line");
-    poly_line->fill_color = color;
-    _ese_poly_line_notify_watchers(poly_line);
 }
 
 EseColor *ese_poly_line_get_fill_color(const EsePolyLine *poly_line) {
@@ -788,6 +343,53 @@ int ese_poly_line_get_lua_ref_count(const EsePolyLine *poly_line) {
     return poly_line->lua_ref_count;
 }
 
+float ese_poly_line_get_point_x(const EsePolyLine *poly_line, size_t index) {
+    log_assert("POLY_LINE", poly_line, "poly_line_get_point_x called with NULL poly_line");
+    if (index >= poly_line->point_count) {
+        return 0.0f;
+    }
+    size_t coord_index = index * 2;
+    return poly_line->points ? poly_line->points[coord_index] : 0.0f;
+}
+
+float ese_poly_line_get_point_y(const EsePolyLine *poly_line, size_t index) {
+    log_assert("POLY_LINE", poly_line, "poly_line_get_point_y called with NULL poly_line");
+    if (index >= poly_line->point_count) {
+        return 0.0f;
+    }
+    size_t coord_index = index * 2;
+    return poly_line->points ? poly_line->points[coord_index + 1] : 0.0f;
+}
+
+void ese_poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type) {
+    log_assert("POLY_LINE", poly_line, "poly_line_set_type called with NULL poly_line");
+    poly_line->type = type;
+    _ese_poly_line_notify_watchers(poly_line);
+}
+
+void ese_poly_line_set_stroke_width(EsePolyLine *poly_line, float stroke_width) {
+    log_assert("POLY_LINE", poly_line, "poly_line_set_stroke_width called with NULL poly_line");
+    poly_line->stroke_width = stroke_width;
+    _ese_poly_line_notify_watchers(poly_line);
+}
+
+void ese_poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *stroke_color) {
+    log_assert("POLY_LINE", poly_line, "poly_line_set_stroke_color called with NULL poly_line");
+    poly_line->stroke_color = stroke_color;
+    _ese_poly_line_notify_watchers(poly_line);
+}
+
+void ese_poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *fill_color) {
+    log_assert("POLY_LINE", poly_line, "poly_line_set_fill_color called with NULL poly_line");
+    poly_line->fill_color = fill_color;
+    _ese_poly_line_notify_watchers(poly_line);
+}
+
+void ese_poly_line_set_state(EsePolyLine *poly_line, lua_State *state) {
+    log_assert("POLY_LINE", poly_line, "poly_line_set_state called with NULL poly_line");
+    poly_line->state = state;
+}
+
 // Watcher system
 bool ese_poly_line_add_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback, void *userdata) {
     log_assert("POLY_LINE", poly_line, "poly_line_add_watcher called with NULL poly_line");
@@ -853,17 +455,7 @@ bool ese_poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCall
 void ese_poly_line_lua_init(EseLuaEngine *engine) {
     log_assert("POLY_LINE", engine, "poly_line_lua_init called with NULL engine");
     
-    // Create metatable
-    lua_engine_new_object_meta(engine, POLY_LINE_PROXY_META, 
-        _ese_poly_line_lua_index, 
-        _ese_poly_line_lua_newindex, 
-        _ese_poly_line_lua_gc, 
-        _ese_poly_line_lua_tostring);
-    
-    // Create global PolyLine table with functions
-    const char *keys[] = {"new", "fromJSON"};
-    lua_CFunction functions[] = {_ese_poly_line_lua_new, _ese_poly_line_lua_from_json};
-    lua_engine_new_object(engine, "PolyLine", 2, keys, functions);
+    _ese_poly_line_lua_init(engine);
 }
 
 void ese_poly_line_lua_push(EsePolyLine *poly_line) {

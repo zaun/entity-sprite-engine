@@ -9,6 +9,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "vendor/json/cJSON.h"
+#include "types/rect_lua.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
@@ -72,27 +73,10 @@ static void _ese_rect_to_obb(const EseRect *r, OBB *out);
 // Collision detection
 static bool _ese_obb_overlap(const OBB *A, const OBB *B);
 
-// Lua metamethods
-static int _ese_rect_lua_gc(lua_State *L);
-static int _ese_rect_lua_index(lua_State *L);
-static int _ese_rect_lua_newindex(lua_State *L);
-static int _ese_rect_lua_tostring(lua_State *L);
-
-// Lua constructors
-static int _ese_rect_lua_new(lua_State *L);
-static int _ese_rect_lua_zero(lua_State *L);
-
-// Lua methods
-static int _ese_rect_lua_area(lua_State *L);
-static int _ese_rect_lua_contains_point(lua_State *L);
-static int _ese_rect_lua_intersects(lua_State *L);
-
-// Lua JSON methods
-static int _ese_rect_lua_from_json(lua_State *L);
-static int _ese_rect_lua_to_json(lua_State *L);
-
-// Watcher system
-static void _ese_rect_notify_watchers(EseRect *rect);
+// Private static setters for Lua state management
+static void _ese_rect_set_lua_ref(EseRect *rect, int lua_ref);
+static void _ese_rect_set_lua_ref_count(EseRect *rect, int lua_ref_count);
+static void _ese_rect_set_state(EseRect *rect, lua_State *state);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -122,6 +106,19 @@ static EseRect *_ese_rect_make() {
     rect->watcher_count = 0;
     rect->watcher_capacity = 0;
     return rect;
+}
+
+// Private static setters for Lua state management
+static void _ese_rect_set_lua_ref(EseRect *rect, int lua_ref) {
+    rect->lua_ref = lua_ref;
+}
+
+static void _ese_rect_set_lua_ref_count(EseRect *rect, int lua_ref_count) {
+    rect->lua_ref_count = lua_ref_count;
+}
+
+static void _ese_rect_set_state(EseRect *rect, lua_State *state) {
+    rect->state = state;
 }
 
 /**
@@ -185,487 +182,6 @@ static bool _ese_obb_overlap(const OBB *A, const OBB *B) {
     return true;
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseRect
- * 
- * Handles cleanup when a Lua proxy table for an EseRect is garbage collected.
- * Only frees the underlying EseRect if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_rect_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseRect **ud = (EseRect **)luaL_testudata(L, 1, RECT_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
-    }
-    
-    EseRect *rect = *ud;
-    if (rect) {
-        // If lua_ref == LUA_NOREF, there are no more references to this rect, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this rect was referenced from C and should not be freed.
-        if (rect->lua_ref == LUA_NOREF) {
-            ese_rect_destroy(rect);
-        }
-    }
-
-    return 0;
-}
-
-/**
- * @brief Lua __index metamethod for EseRect property access
- * 
- * Provides read access to rect properties (x, y, width, height, rotation) from Lua.
- * When a Lua script accesses rect.x, rect.y, etc., this function is called to retrieve the values.
- * Also provides access to methods like contains_point, intersects, and area.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties/methods, 0 for invalid)
- */
-static int _ese_rect_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_INDEX);
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!rect || !key) {
-        profile_cancel(PROFILE_LUA_RECT_INDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "x") == 0) {
-        lua_pushnumber(L, rect->x);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "y") == 0) {
-        lua_pushnumber(L, rect->y);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "width") == 0) {
-        lua_pushnumber(L, rect->width);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "height") == 0) {
-        lua_pushnumber(L, rect->height);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "rotation") == 0) {
-        lua_pushnumber(L, (double)rad_to_deg(rect->rotation));
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "contains_point") == 0) {
-        lua_pushlightuserdata(L, rect);
-        lua_pushcclosure(L, _ese_rect_lua_contains_point, 1);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "intersects") == 0) {
-        lua_pushlightuserdata(L, rect);
-        lua_pushcclosure(L, _ese_rect_lua_intersects, 1);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "area") == 0) {
-        lua_pushlightuserdata(L, rect);
-        lua_pushcclosure(L, _ese_rect_lua_area, 1);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "toJSON") == 0) {
-        lua_pushlightuserdata(L, rect);
-        lua_pushcclosure(L, _ese_rect_lua_to_json, 1);
-        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
-        return 1;
-    }
-    profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (invalid)");
-    return 0;
-}
-
-/**
- * @brief Lua __newindex metamethod for EseRect property assignment
- * 
- * Provides write access to rect properties (x, y, width, height, rotation) from Lua.
- * When a Lua script assigns to rect.x, rect.y, etc., this function is called to update
- * the values and notify any registered watchers of the change.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_rect_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_NEWINDEX);
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!rect || !key) {
-        profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "x") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-            return luaL_error(L, "rect.x must be a number");
-        }
-        rect->x = (float)lua_tonumber(L, 3);
-        _ese_rect_notify_watchers(rect);
-        profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "y") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-            return luaL_error(L, "rect.y must be a number");
-        }
-        rect->y = (float)lua_tonumber(L, 3);
-        _ese_rect_notify_watchers(rect);
-        profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "width") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-            return luaL_error(L, "rect.width must be a number");
-        }
-        rect->width = (float)lua_tonumber(L, 3);
-        _ese_rect_notify_watchers(rect);
-        profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "height") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-            return luaL_error(L, "rect.height must be a number");
-        }
-        rect->height = (float)lua_tonumber(L, 3);
-        _ese_rect_notify_watchers(rect);
-        profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
-        return 0;
-    }  else if (strcmp(key, "rotation") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEWINDEX);
-            return luaL_error(L, "rect.rotation must be a number (degrees)");
-        }
-        float deg = (float)lua_tonumber(L, 3);
-        rect->rotation = deg_to_rad(deg);
-        _ese_rect_notify_watchers(rect);
-        profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (setter)");
-        return 0;
-    }
-    profile_stop(PROFILE_LUA_RECT_NEWINDEX, "rect_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
-}
-
-/**
- * @brief Lua __tostring metamethod for EseRect string representation
- * 
- * Converts an EseRect to a human-readable string for debugging and display.
- * The format includes the memory address and current x,y,width,height,rotation values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_rect_lua_tostring(lua_State *L) {
-    EseRect *rect = ese_rect_lua_get(L, 1);
-
-    if (!rect) {
-        lua_pushstring(L, "Rect: (invalid)");
-        return 1;
-    }
-
-    char buf[160];
-    snprintf(
-        buf, sizeof(buf),
-        "(x=%.3f, y=%.3f, w=%.3f, h=%.3f, rot=%.3fdeg)",
-        rect->x, rect->y, rect->width, rect->height,
-        (double)rad_to_deg(rect->rotation)
-    );
-    lua_pushstring(L, buf);
-
-    return 1;
-}
-
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EseRect instances
- * 
- * Creates a new EseRect from Lua with specified x,y,width,height coordinates.
- * This function is called when Lua code executes `Rect.new(x, y, width, height)`.
- * It validates the arguments, creates the underlying EseRect, and returns a proxy
- * table that provides access to the rect's properties and methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_rect_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_NEW);
-
-    int n_args = lua_gettop(L);
-    if (n_args == 4) {
-        if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER || 
-            lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_RECT_NEW);
-            return luaL_error(L, "Rect.new(number, number, number, number) arguments must be numbers");
-        }
-    } else {
-        profile_cancel(PROFILE_LUA_RECT_NEW);
-        return luaL_error(L, "Rect.new(number, number, number, number) takes 4 arguments");
-    }
-
-    float x = (float)lua_tonumber(L, 1);
-    float y = (float)lua_tonumber(L, 2);
-    float width = (float)lua_tonumber(L, 3);
-    float height = (float)lua_tonumber(L, 4);
-
-    // Create the rect using the standard creation function
-    EseRect *rect = _ese_rect_make();
-    rect->x = x;
-    rect->y = y;
-    rect->width = width;
-    rect->height = height;
-    rect->state = L;
-    
-    // Create userdata directly
-    EseRect **ud = (EseRect **)lua_newuserdata(L, sizeof(EseRect *));
-    *ud = rect;
-
-    // Attach metatable
-    luaL_getmetatable(L, RECT_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_RECT_NEW, "rect_lua_new");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating EseRect at origin
- * 
- * Creates a new EseRect at the origin (0,0) with zero dimensions from Lua.
- * This function is called when Lua code executes `Rect.zero()`. It's a convenience
- * constructor for creating rects at the default position and size.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_rect_lua_zero(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_ZERO);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 0) {
-        profile_cancel(PROFILE_LUA_RECT_ZERO);
-        return luaL_error(L, "Rect.zero() takes 0 arguments");
-    }
-
-    // Create the rect using the standard creation function
-    EseRect *rect = _ese_rect_make();  // We'll set the state manually
-    rect->state = L;
-    
-    // Create userdata directly
-    EseRect **ud = (EseRect **)lua_newuserdata(L, sizeof(EseRect *));
-    *ud = rect;
-
-    // Attach metatable
-    luaL_getmetatable(L, RECT_PROXY_META);
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_RECT_ZERO, "rect_lua_zero");
-    return 1;
-}
-
-// Lua methods
-/**
- * @brief Lua method for calculating rect area
- * 
- * Calculates and returns the area of the rectangle (width * height).
- * This is a Lua method that can be called on rect instances.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the area value)
- */
-static int _ese_rect_lua_area(lua_State *L) {
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 1) {
-        return luaL_error(L, "rect:area() takes 0 argument");
-    }
-    
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in area method");
-    }
-    
-    lua_pushnumber(L, ese_rect_area(rect));
-    return 1;
-}
-
-/**
- * @brief Lua method for testing if a point is contained within the rect
- * 
- * Tests whether the specified (x,y) point lies within the rectangle bounds.
- * Handles both axis-aligned and rotated rectangles appropriately.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - boolean result)
- */
-static int _ese_rect_lua_contains_point(lua_State *L) {
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in contains_point method");
-    }
-
-    float x, y;
-    
-    int n_args = lua_gettop(L);
-    if (n_args == 3) {
-        if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
-            return luaL_error(L, "rect:contains_point(number, number) arguments must be numbers");
-        }
-        x = (float)lua_tonumber(L, 2);
-        y = (float)lua_tonumber(L, 3);
-    } else if (n_args == 2) {
-        EsePoint *point = ese_point_lua_get(L, 2);
-        if (!point) {
-            return luaL_error(L, "rect:contains_point(point) requires a point");
-        }
-        x = ese_point_get_x(point);
-        y = ese_point_get_y(point);
-    } else {
-        return luaL_error(L, "nrect:contains_point(point) takes 1 argument\nrect:contains_point(number, number) takes 2 arguments");
-    }
-        
-    
-    lua_pushboolean(L, ese_rect_contains_point(rect, x, y));
-    return 1;
-}
-
-/**
- * @brief Lua method for testing intersection with another rect
- * 
- * Tests whether this rectangle intersects with another rectangle.
- * Uses efficient collision detection algorithms for both AABB and OBB cases.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - boolean result)
- */
-static int _ese_rect_lua_intersects(lua_State *L) {
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 2) {
-        return luaL_error(L, "Rect.intersects(rect) takes 1 arguments");
-    }
-
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in intersects method");
-    }
-    
-    EseRect *other = ese_rect_lua_get(L, 2);
-    if (!other) {
-        return luaL_error(L, "rect:intersects(rect) requires another EseRect object");
-    }
-    
-    lua_pushboolean(L, ese_rect_intersects(rect, other));
-    return 1;
-}
-
-/**
- * @brief Lua static method for creating EseRect from JSON string
- *
- * Creates a new EseRect from a JSON string. This function is called when Lua code
- * executes `Rect.fromJSON(json_string)`. It parses the JSON string, validates it
- * contains rect data, and creates a new rect with the specified coordinates and dimensions.
- *
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_rect_lua_from_json(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_FROM_JSON);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 1) {
-        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
-        return luaL_error(L, "Rect.fromJSON(string) takes 1 argument");
-    }
-
-    if (lua_type(L, 1) != LUA_TSTRING) {
-        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
-        return luaL_error(L, "Rect.fromJSON(string) argument must be a string");
-    }
-
-    const char *json_str = lua_tostring(L, 1);
-
-    // Parse JSON string
-    cJSON *json = cJSON_Parse(json_str);
-    if (!json) {
-        log_error("RECT", "Rect.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
-        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
-        return luaL_error(L, "Rect.fromJSON: invalid JSON string");
-    }
-
-    // Get the current engine from Lua registry
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    if (!engine) {
-        cJSON_Delete(json);
-        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
-        return luaL_error(L, "Rect.fromJSON: no engine available");
-    }
-
-    // Use the existing deserialization function
-    EseRect *rect = ese_rect_deserialize(engine, json);
-    cJSON_Delete(json); // Clean up JSON object
-
-    if (!rect) {
-        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
-        return luaL_error(L, "Rect.fromJSON: failed to deserialize rect");
-    }
-
-    ese_rect_lua_push(rect);
-
-    profile_stop(PROFILE_LUA_RECT_FROM_JSON, "rect_lua_from_json");
-    return 1;
-}
-
-/**
- * @brief Lua instance method for converting EseRect to JSON string
- *
- * Converts an EseRect to a JSON string representation. This function is called when
- * Lua code executes `rect:toJSON()`. It serializes the rect's coordinates, dimensions,
- * and rotation to JSON format and returns the string.
- *
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the JSON string)
- */
-static int _ese_rect_lua_to_json(lua_State *L) {
-    profile_start(PROFILE_LUA_RECT_TO_JSON);
-
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
-        return luaL_error(L, "Rect:toJSON() called on invalid rect");
-    }
-
-    // Serialize rect to JSON
-    cJSON *json = ese_rect_serialize(rect);
-    if (!json) {
-        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
-        return luaL_error(L, "Rect:toJSON() failed to serialize rect");
-    }
-
-    // Convert JSON to string
-    char *json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json); // Clean up JSON object
-
-    if (!json_str) {
-        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
-        return luaL_error(L, "Rect:toJSON() failed to convert to string");
-    }
-
-    // Push the JSON string onto the stack (lua_pushstring makes a copy)
-    lua_pushstring(L, json_str);
-
-    // Clean up the string (cJSON_Print uses malloc)
-    // Note: We free here, but lua_pushstring should have made a copy
-    free(json_str); // cJSON doesnt use the memory manager.
-
-    profile_stop(PROFILE_LUA_RECT_TO_JSON, "rect_lua_to_json");
-    return 1;
-}
-
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -674,7 +190,7 @@ static int _ese_rect_lua_to_json(lua_State *L) {
 EseRect *ese_rect_create(EseLuaEngine *engine) {
     log_assert("RECT", engine, "ese_rect_create called with NULL engine");
     EseRect *rect = _ese_rect_make();
-    rect->state = engine->runtime;
+    _ese_rect_set_state(rect, engine->runtime);
     return rect;
 }
 
@@ -687,9 +203,9 @@ EseRect *ese_rect_copy(const EseRect *source) {
     copy->width = source->width;
     copy->height = source->height;
     copy->rotation = source->rotation;
-    copy->state = source->state;
-    copy->lua_ref = LUA_NOREF;
-    copy->lua_ref_count = 0;
+    _ese_rect_set_state(copy, ese_rect_get_state(source));
+    _ese_rect_set_lua_ref(copy, LUA_NOREF);
+    _ese_rect_set_lua_ref_count(copy, 0);
     copy->watchers = NULL;
     copy->watcher_userdata = NULL;
     copy->watcher_count = 0;
@@ -700,7 +216,7 @@ EseRect *ese_rect_copy(const EseRect *source) {
 void ese_rect_destroy(EseRect *rect) {
     if (!rect) return;
     
-    if (rect->lua_ref == LUA_NOREF) {
+    if (ese_rect_get_lua_ref(rect) == LUA_NOREF) {
         // No Lua references, safe to free immediately
     
         // Free watcher arrays if they exist
@@ -755,7 +271,7 @@ cJSON *ese_rect_serialize(const EseRect *rect) {
     }
 
     // Add x coordinate
-    cJSON *x = cJSON_CreateNumber((double)rect->x);
+    cJSON *x = cJSON_CreateNumber((double)ese_rect_get_x(rect));
     if (!x || !cJSON_AddItemToObject(json, "x", x)) {
         log_error("RECT", "Failed to add x field to rect serialization");
         cJSON_Delete(json);
@@ -763,7 +279,7 @@ cJSON *ese_rect_serialize(const EseRect *rect) {
     }
 
     // Add y coordinate
-    cJSON *y = cJSON_CreateNumber((double)rect->y);
+    cJSON *y = cJSON_CreateNumber((double)ese_rect_get_y(rect));
     if (!y || !cJSON_AddItemToObject(json, "y", y)) {
         log_error("RECT", "Failed to add y field to rect serialization");
         cJSON_Delete(json);
@@ -771,7 +287,7 @@ cJSON *ese_rect_serialize(const EseRect *rect) {
     }
 
     // Add width
-    cJSON *width = cJSON_CreateNumber((double)rect->width);
+    cJSON *width = cJSON_CreateNumber((double)ese_rect_get_width(rect));
     if (!width || !cJSON_AddItemToObject(json, "width", width)) {
         log_error("RECT", "Failed to add width field to rect serialization");
         cJSON_Delete(json);
@@ -779,7 +295,7 @@ cJSON *ese_rect_serialize(const EseRect *rect) {
     }
 
     // Add height
-    cJSON *height = cJSON_CreateNumber((double)rect->height);
+    cJSON *height = cJSON_CreateNumber((double)ese_rect_get_height(rect));
     if (!height || !cJSON_AddItemToObject(json, "height", height)) {
         log_error("RECT", "Failed to add height field to rect serialization");
         cJSON_Delete(json);
@@ -787,7 +303,7 @@ cJSON *ese_rect_serialize(const EseRect *rect) {
     }
 
     // Add rotation
-    cJSON *rotation = cJSON_CreateNumber((double)rad_to_deg(rect->rotation));
+    cJSON *rotation = cJSON_CreateNumber((double)rad_to_deg(ese_rect_get_rotation(rect)));
     if (!rotation || !cJSON_AddItemToObject(json, "rotation", rotation)) {
         log_error("RECT", "Failed to add rotation field to rect serialization");
         cJSON_Delete(json);
@@ -872,35 +388,23 @@ EseRect *ese_rect_deserialize(EseLuaEngine *engine, const cJSON *data) {
 
 // Lua integration
 void ese_rect_lua_init(EseLuaEngine *engine) {
-    log_assert("RECT", engine, "ese_rect_lua_init called with NULL engine");
-    
-    // Create metatable
-    lua_engine_new_object_meta(engine, RECT_PROXY_META, 
-        _ese_rect_lua_index, 
-        _ese_rect_lua_newindex, 
-        _ese_rect_lua_gc, 
-        _ese_rect_lua_tostring);
-    
-    // Create global Rect table with functions
-    const char *keys[] = {"new", "zero", "fromJSON"};
-    lua_CFunction functions[] = {_ese_rect_lua_new, _ese_rect_lua_zero, _ese_rect_lua_from_json};
-    lua_engine_new_object(engine, "Rect", 3, keys, functions);
+    _ese_rect_lua_init(engine);
 }
 
 void ese_rect_lua_push(EseRect *rect) {
     log_assert("RECT", rect, "ese_rect_lua_push called with NULL rect");
 
-    if (rect->lua_ref == LUA_NOREF) {
+    if (ese_rect_get_lua_ref(rect) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EseRect **ud = (EseRect **)lua_newuserdata(rect->state, sizeof(EseRect *));
+        EseRect **ud = (EseRect **)lua_newuserdata(ese_rect_get_state(rect), sizeof(EseRect *));
         *ud = rect;
 
         // Attach metatable
-        luaL_getmetatable(rect->state, RECT_PROXY_META);
-        lua_setmetatable(rect->state, -2);
+        luaL_getmetatable(ese_rect_get_state(rect), RECT_PROXY_META);
+        lua_setmetatable(ese_rect_get_state(rect), -2);
     } else {
         // C-owned: get from registry
-        lua_rawgeti(rect->state, LUA_REGISTRYINDEX, rect->lua_ref);
+        lua_rawgeti(ese_rect_get_state(rect), LUA_REGISTRYINDEX, ese_rect_get_lua_ref(rect));
     }
 }
 
@@ -924,21 +428,22 @@ EseRect *ese_rect_lua_get(lua_State *L, int idx) {
 void ese_rect_ref(EseRect *rect) {
     log_assert("RECT", rect, "ese_rect_ref called with NULL rect");
     
-    if (rect->lua_ref == LUA_NOREF) {
+    if (ese_rect_get_lua_ref(rect) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseRect **ud = (EseRect **)lua_newuserdata(rect->state, sizeof(EseRect *));
+        EseRect **ud = (EseRect **)lua_newuserdata(ese_rect_get_state(rect), sizeof(EseRect *));
         *ud = rect;
 
         // Attach metatable
-        luaL_getmetatable(rect->state, RECT_PROXY_META);
-        lua_setmetatable(rect->state, -2);
+        luaL_getmetatable(ese_rect_get_state(rect), RECT_PROXY_META);
+        lua_setmetatable(ese_rect_get_state(rect), -2);
 
         // Store hard reference to prevent garbage collection
-        rect->lua_ref = luaL_ref(rect->state, LUA_REGISTRYINDEX);
-        rect->lua_ref_count = 1;
+        int ref = luaL_ref(ese_rect_get_state(rect), LUA_REGISTRYINDEX);
+        _ese_rect_set_lua_ref(rect, ref);
+        _ese_rect_set_lua_ref_count(rect, 1);
     } else {
         // Already referenced - just increment count
-        rect->lua_ref_count++;
+        _ese_rect_set_lua_ref_count(rect, ese_rect_get_lua_ref_count(rect) + 1);
     }
 
     profile_count_add("ese_rect_ref_count");
@@ -947,13 +452,14 @@ void ese_rect_ref(EseRect *rect) {
 void ese_rect_unref(EseRect *rect) {
     if (!rect) return;
     
-    if (rect->lua_ref != LUA_NOREF && rect->lua_ref_count > 0) {
-        rect->lua_ref_count--;
+    if (ese_rect_get_lua_ref(rect) != LUA_NOREF && ese_rect_get_lua_ref_count(rect) > 0) {
+        int new_count = ese_rect_get_lua_ref_count(rect) - 1;
+        _ese_rect_set_lua_ref_count(rect, new_count);
         
-        if (rect->lua_ref_count == 0) {
+        if (new_count == 0) {
             // No more references - remove from registry
-            luaL_unref(rect->state, LUA_REGISTRYINDEX, rect->lua_ref);
-            rect->lua_ref = LUA_NOREF;
+            luaL_unref(ese_rect_get_state(rect), LUA_REGISTRYINDEX, ese_rect_get_lua_ref(rect));
+            _ese_rect_set_lua_ref(rect, LUA_NOREF);
         }
     }
 
@@ -964,17 +470,23 @@ void ese_rect_unref(EseRect *rect) {
 bool ese_rect_contains_point(const EseRect *rect, float x, float y) {
     log_assert("RECT", rect, "ese_rect_contains_point called with NULL rect");
 
+    float rotation = ese_rect_get_rotation(rect);
+    float rect_x = ese_rect_get_x(rect);
+    float rect_y = ese_rect_get_y(rect);
+    float width = ese_rect_get_width(rect);
+    float height = ese_rect_get_height(rect);
+
     /* fast AABB path */
-    if (fabsf(rect->rotation) < 1e-6f) {
-        return (x >= rect->x && x <= rect->x + rect->width &&
-                y >= rect->y && y <= rect->y + rect->height);
+    if (fabsf(rotation) < 1e-6f) {
+        return (x >= rect_x && x <= rect_x + width &&
+                y >= rect_y && y <= rect_y + height);
     }
 
     /* transform point to rect-local coordinates by rotating around center by -rotation */
-    float cx = rect->x + rect->width * 0.5f;
-    float cy = rect->y + rect->height * 0.5f;
-    float ca = cosf(rect->rotation);
-    float sa = sinf(rect->rotation);
+    float cx = rect_x + width * 0.5f;
+    float cy = rect_y + height * 0.5f;
+    float ca = cosf(rotation);
+    float sa = sinf(rotation);
 
     float dx = x - cx;
     float dy = y - cy;
@@ -982,8 +494,8 @@ bool ese_rect_contains_point(const EseRect *rect, float x, float y) {
     float localX = ca * dx + sa * dy;
     float localY = -sa * dx + ca * dy;
 
-    float halfW = rect->width * 0.5f;
-    float halfH = rect->height * 0.5f;
+    float halfW = width * 0.5f;
+    float halfH = height * 0.5f;
 
     return (localX >= -halfW && localX <= halfW && localY >= -halfH && localY <= halfH);
 }
@@ -992,12 +504,24 @@ bool ese_rect_intersects(const EseRect *rect1, const EseRect *rect2) {
     log_assert("RECT", rect1, "ese_rect_intersects called with NULL first rect");
     log_assert("RECT", rect2, "ese_rect_intersects called with NULL second rect");
 
+    float rot1 = ese_rect_get_rotation(rect1);
+    float rot2 = ese_rect_get_rotation(rect2);
+
     /* fast AABB path if both rotations are effectively zero */
-    if (fabsf(rect1->rotation) < 1e-6f && fabsf(rect2->rotation) < 1e-6f) {
-        return !(rect1->x > rect2->x + rect2->width ||
-                 rect2->x > rect1->x + rect1->width ||
-                 rect1->y > rect2->y + rect2->height ||
-                 rect2->y > rect1->y + rect1->height);
+    if (fabsf(rot1) < 1e-6f && fabsf(rot2) < 1e-6f) {
+        float x1 = ese_rect_get_x(rect1);
+        float y1 = ese_rect_get_y(rect1);
+        float w1 = ese_rect_get_width(rect1);
+        float h1 = ese_rect_get_height(rect1);
+        float x2 = ese_rect_get_x(rect2);
+        float y2 = ese_rect_get_y(rect2);
+        float w2 = ese_rect_get_width(rect2);
+        float h2 = ese_rect_get_height(rect2);
+        
+        return !(x1 > x2 + w2 ||
+                 x2 > x1 + w1 ||
+                 y1 > y2 + h2 ||
+                 y2 > y1 + h1);
     }
 
     OBB a, b;
@@ -1009,7 +533,7 @@ bool ese_rect_intersects(const EseRect *rect1, const EseRect *rect2) {
 
 float ese_rect_area(const EseRect *rect) {
     log_assert("RECT", rect, "ese_rect_area called with NULL rect");
-    return rect->width * rect->height;
+    return ese_rect_get_width(rect) * ese_rect_get_height(rect);
 }
 
 // Property access
@@ -1155,7 +679,7 @@ bool ese_rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, voi
  * 
  * @param rect Pointer to the EseRect that has changed
  */
-static void _ese_rect_notify_watchers(EseRect *rect) {
+void _ese_rect_notify_watchers(EseRect *rect) {
     if (!rect || rect->watcher_count == 0) return;
     
     for (size_t i = 0; i < rect->watcher_count; i++) {

@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #define MAP_CELL_PROXY_META "MapCellProxyMeta"
+#define MAP_CELL_META "MapCellMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;

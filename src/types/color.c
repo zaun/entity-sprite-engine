@@ -8,6 +8,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/color.h"
+#include "types/color_lua.h"
 #include "vendor/json/cJSON.h"
 
 // The actual EseColor struct definition (private to this file)
@@ -38,25 +39,11 @@ static EseColor *_ese_color_make(void);
 // Watcher system
 static void _ese_color_notify_watchers(EseColor *color);
 
-// Lua metamethods
-static int _ese_color_lua_gc(lua_State *L);
-static int _ese_color_lua_index(lua_State *L);
-static int _ese_color_lua_newindex(lua_State *L);
-static int _ese_color_lua_tostring(lua_State *L);
+// Private setters
+static void _ese_color_set_lua_ref(EseColor *color, int lua_ref);
+static void _ese_color_set_lua_ref_count(EseColor *color, int lua_ref_count);
+static void _ese_color_set_state(EseColor *color, lua_State *state);
 
-// Lua constructors
-static int _ese_color_lua_new(lua_State *L);
-static int _ese_color_lua_white(lua_State *L);
-static int _ese_color_lua_black(lua_State *L);
-static int _ese_color_lua_red(lua_State *L);
-static int _ese_color_lua_green(lua_State *L);
-static int _ese_color_lua_blue(lua_State *L);
-
-// Lua utility methods
-static int _ese_color_lua_set_hex(lua_State *L);
-static int _ese_color_lua_set_byte(lua_State *L);
-static int _ese_color_lua_to_json(lua_State *L);
-static int _ese_color_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -77,14 +64,47 @@ static EseColor *_ese_color_make() {
     color->g = 0.0f;
     color->b = 0.0f;
     color->a = 1.0f;
-    color->state = NULL;
-    color->lua_ref = LUA_NOREF;
-    color->lua_ref_count = 0;
+    _ese_color_set_state(color, NULL);
+    _ese_color_set_lua_ref(color, LUA_NOREF);
+    _ese_color_set_lua_ref_count(color, 0);
     color->watchers = NULL;
     color->watcher_userdata = NULL;
     color->watcher_count = 0;
     color->watcher_capacity = 0;
     return color;
+}
+
+/**
+ * @brief Sets the Lua registry reference for the color (private)
+ *
+ * @param color Pointer to the EseColor object
+ * @param lua_ref The new Lua registry reference value
+ */
+static void _ese_color_set_lua_ref(EseColor *color, int lua_ref) {
+    log_assert("COLOR", color != NULL, "_ese_color_set_lua_ref: color cannot be NULL");
+    color->lua_ref = lua_ref;
+}
+
+/**
+ * @brief Sets the Lua reference count for the color (private)
+ *
+ * @param color Pointer to the EseColor object
+ * @param lua_ref_count The new Lua reference count value
+ */
+static void _ese_color_set_lua_ref_count(EseColor *color, int lua_ref_count) {
+    log_assert("COLOR", color != NULL, "_ese_color_set_lua_ref_count: color cannot be NULL");
+    color->lua_ref_count = lua_ref_count;
+}
+
+/**
+ * @brief Sets the Lua state associated with the color (private)
+ *
+ * @param color Pointer to the EseColor object
+ * @param state The new Lua state value
+ */
+static void _ese_color_set_state(EseColor *color, lua_State *state) {
+    log_assert("COLOR", color != NULL, "_ese_color_set_state: color cannot be NULL");
+    color->state = state;
 }
 
 // Watcher system
@@ -107,541 +127,9 @@ static void _ese_color_notify_watchers(EseColor *color) {
     }
 }
 
-// Lua metamethods
-/**
- * @brief Lua garbage collection metamethod for EseColor
- * 
- * Handles cleanup when a Lua proxy table for an EseColor is garbage collected.
- * Only frees the underlying EseColor if it has no C-side references.
- * 
- * @param L Lua state
- * @return Always returns 0 (no values pushed)
- */
-static int _ese_color_lua_gc(lua_State *L) {
-    // Get from userdata
-    EseColor **ud = (EseColor **)luaL_testudata(L, 1, "ColorMeta");
-    if (!ud) {
-        return 0; // Not our userdata
-    }
-    
-    EseColor *color = *ud;
-    if (color) {
-        // If lua_ref == LUA_NOREF, there are no more references to this color, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this color was referenced from C and should not be freed.
-        if (color->lua_ref == LUA_NOREF) {
-            ese_color_destroy(color);
-        }
-    }
 
-    return 0;
-}
 
-/**
- * @brief Lua __index metamethod for EseColor property access
- * 
- * Provides read access to color properties (r, g, b, a) from Lua. When a Lua script
- * accesses color.r, color.g, color.b, or color.a, this function is called to retrieve the values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (1 for valid properties, 0 for invalid)
- */
-static int _ese_color_lua_index(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_INDEX);
-    EseColor *color = ese_color_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!color || !key) {
-        profile_cancel(PROFILE_LUA_COLOR_INDEX);
-        return 0;
-    }
 
-    if (strcmp(key, "r") == 0) {
-        lua_pushnumber(L, color->r);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "g") == 0) {
-        lua_pushnumber(L, color->g);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "b") == 0) {
-        lua_pushnumber(L, color->b);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "a") == 0) {
-        lua_pushnumber(L, color->a);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (getter)");
-        return 1;
-    } else if (strcmp(key, "set_hex") == 0) {
-        lua_pushcfunction(L, _ese_color_lua_set_hex);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "set_byte") == 0) {
-        lua_pushcfunction(L, _ese_color_lua_set_byte);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
-        return 1;
-    } else if (strcmp(key, "toJSON") == 0) {
-        lua_pushcfunction(L, _ese_color_lua_to_json);
-        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
-        return 1;
-    }
-    profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (invalid)");
-    return 0;
-}
-
-/**
- * @brief Lua __newindex metamethod for EseColor property assignment
- * 
- * Provides write access to color properties (r, g, b, a) from Lua. When a Lua script
- * assigns to color.r, color.g, color.b, or color.a, this function is called to update the values
- * and notify any registered watchers of the change.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_color_lua_newindex(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_NEWINDEX);
-    EseColor *color = ese_color_lua_get(L, 1);
-    const char *key = lua_tostring(L, 2);
-    if (!color || !key) {
-        profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
-        return 0;
-    }
-
-    if (strcmp(key, "r") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
-            return luaL_error(L, "color.r must be a number");
-        }
-        color->r = (float)lua_tonumber(L, 3);
-        _ese_color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "g") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
-            return luaL_error(L, "color.g must be a number");
-        }
-        color->g = (float)lua_tonumber(L, 3);
-        _ese_color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "b") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
-            return luaL_error(L, "color.b must be a number");
-        }
-        color->b = (float)lua_tonumber(L, 3);
-        _ese_color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
-        return 0;
-    } else if (strcmp(key, "a") == 0) {
-        if (lua_type(L, 3) != LUA_TNUMBER) {
-            profile_cancel(PROFILE_LUA_COLOR_NEWINDEX);
-            return luaL_error(L, "color.a must be a number");
-        }
-        color->a = (float)lua_tonumber(L, 3);
-        _ese_color_notify_watchers(color);
-        profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (setter)");
-        return 0;
-    }
-    profile_stop(PROFILE_LUA_COLOR_NEWINDEX, "ese_color_lua_newindex (invalid)");
-    return luaL_error(L, "unknown or unassignable property '%s'", key);
-}
-
-/**
- * @brief Lua __tostring metamethod for EseColor string representation
- * 
- * Converts an EseColor to a human-readable string for debugging and display.
- * The format includes the memory address and current r,g,b,a values.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1)
- */
-static int _ese_color_lua_tostring(lua_State *L) {
-    EseColor *color = ese_color_lua_get(L, 1);
-
-    if (!color) {
-        lua_pushstring(L, "Color: (invalid)");
-        return 1;
-    }
-
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Color: %p (r=%.2f, g=%.2f, b=%.2f, a=%.2f)", 
-             (void*)color, color->r, color->g, color->b, color->a);
-    lua_pushstring(L, buf);
-
-    return 1;
-}
-
-// Lua constructors
-/**
- * @brief Lua constructor function for creating new EseColor instances
- * 
- * Creates a new EseColor from Lua with specified r,g,b,a values. This function
- * is called when Lua code executes `Color.new(r, g, b, a)`. It validates the arguments,
- * creates the underlying EseColor, and returns a proxy table that provides
- * access to the color's properties and methods.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_new(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_NEW);
-
-    int argc = lua_gettop(L);
-    if (argc < 3 || argc > 4) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "Color.new(r, g, b) takes 3 arguments\nColor.new(r, g, b, a) takes 4 arguments");
-    }
-
-    if (lua_type(L, 1) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "r must be a number");
-    }
-    if (lua_type(L, 2) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "g must be a number");
-    }
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "b must be a number");
-    }
-    if (argc == 4 && lua_type(L, 4) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "a must be a number");
-    }
-
-    float r = (float)lua_tonumber(L, 1);
-    float g = (float)lua_tonumber(L, 2);
-    float b = (float)lua_tonumber(L, 3);
-    float a = 1.0f;
-    if (argc == 4) {
-        a = (float)lua_tonumber(L, 4);
-    }
-
-    if (r < 0.0f || r > 1.0f) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "r must be between 0.0 and 1.0");
-    }
-    if (g < 0.0f || g > 1.0f) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "g must be between 0.0 and 1.0");
-    }
-    if (b < 0.0f || b > 1.0f) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "b must be between 0.0 and 1.0");
-    }
-    if (a < 0.0f || a > 1.0f) {
-        profile_cancel(PROFILE_LUA_COLOR_NEW);
-        return luaL_error(L, "a must be between 0.0 and 1.0");
-    }
-
-    // Create the color
-    EseColor *color = _ese_color_make();
-    color->state = L;
-    color->r = r;
-    color->g = g;
-    color->b = b;
-    color->a = a;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_NEW, "ese_color_lua_new");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating white EseColor
- * 
- * Creates a new EseColor with white color (1,1,1,1) from Lua. This function is called
- * when Lua code executes `Color.white()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_white(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_WHITE);
-    EseColor *color = _ese_color_make();
-    color->r = 1.0f;
-    color->g = 1.0f;
-    color->b = 1.0f;
-    color->a = 1.0f;
-    color->state = L;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_WHITE, "ese_color_lua_white");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating black EseColor
- * 
- * Creates a new EseColor with black color (0,0,0,1) from Lua. This function is called
- * when Lua code executes `Color.black()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_black(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_BLACK);
-    EseColor *color = _ese_color_make();
-    color->r = 0.0f;
-    color->g = 0.0f;
-    color->b = 0.0f;
-    color->a = 1.0f;
-    color->state = L;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_BLACK, "ese_color_lua_black");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating red EseColor
- * 
- * Creates a new EseColor with red color (1,0,0,1) from Lua. This function is called
- * when Lua code executes `Color.red()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_red(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_RED);
-    EseColor *color = _ese_color_make();
-    color->r = 1.0f;
-    color->g = 0.0f;
-    color->b = 0.0f;
-    color->a = 1.0f;
-    color->state = L;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_RED, "ese_color_lua_red");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating green EseColor
- * 
- * Creates a new EseColor with green color (0,1,0,1) from Lua. This function is called
- * when Lua code executes `Color.green()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_green(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_GREEN);
-    EseColor *color = _ese_color_make();
-    color->r = 0.0f;
-    color->g = 1.0f;
-    color->b = 0.0f;
-    color->a = 1.0f;
-    color->state = L;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_GREEN, "ese_color_lua_green");
-    return 1;
-}
-
-/**
- * @brief Lua constructor function for creating blue EseColor
- * 
- * Creates a new EseColor with blue color (0,0,1,1) from Lua. This function is called
- * when Lua code executes `Color.blue()`.
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 1 - the proxy table)
- */
-static int _ese_color_lua_blue(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_BLUE);
-    EseColor *color = _ese_color_make();
-    color->r = 0.0f;
-    color->g = 0.0f;
-    color->b = 1.0f;
-    color->a = 1.0f;
-    color->state = L;
-
-    // Create userdata directly
-    EseColor **ud = (EseColor **)lua_newuserdata(L, sizeof(EseColor *));
-    *ud = color;
-
-    // Attach metatable
-    luaL_getmetatable(L, "ColorMeta");
-    lua_setmetatable(L, -2);
-
-    profile_stop(PROFILE_LUA_COLOR_BLUE, "ese_color_lua_blue");
-    return 1;
-}
-
-// Lua utility methods
-/**
- * @brief Lua method for setting color from hex string
- * 
- * Sets the color from a hex string in formats: #RGB, #RRGGBB, #RGBA, #RRGGBBAA
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_color_lua_set_hex(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_SET_HEX);
-
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 2) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
-        return luaL_error(L, "Color.set_hex(hex_string) takes 1 argument");
-    }
-    
-    if (lua_type(L, 2) != LUA_TSTRING) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
-        return luaL_error(L, "Color.set_hex(hex_string) arguments must be a string");
-    }
-    
-    EseColor *color = ese_color_lua_get(L, 1);
-    const char *hex_string = lua_tostring(L, 2);
-    
-    bool success = ese_color_set_hex(color, hex_string);
-    if (!success) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_HEX);
-        return luaL_error(L, "Invalid hex string format (#RGB, #RRGGBB, #RGBA, #RRGGBBAA)");
-    }
-    
-    profile_stop(PROFILE_LUA_COLOR_SET_HEX, "ese_color_lua_set_hex");
-    return 0;
-}
-
-/**
- * @brief Lua method for setting color from byte values
- * 
- * Sets the color from byte values (0-255) for each component
- * 
- * @param L Lua state
- * @return Number of values pushed onto the stack (always 0)
- */
-static int _ese_color_lua_set_byte(lua_State *L) {
-    profile_start(PROFILE_LUA_COLOR_SET_BYTE);
-
-    // Expect self + 4 numeric args
-    int argc = lua_gettop(L);
-    if (argc != 5) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
-        return luaL_error(L, "Color.set_byte(r, g, b, a) takes 4 arguments");
-    }
-    
-    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER ||
-        lua_type(L, 4) != LUA_TNUMBER || lua_type(L, 5) != LUA_TNUMBER) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
-        return luaL_error(L, "Color.set_byte(r, g, b, a) arguments must be numbers");
-    }
-
-    EseColor *color = ese_color_lua_get(L, 1);
-    if (!color) {
-        profile_cancel(PROFILE_LUA_COLOR_SET_BYTE);
-        return luaL_error(L, "set_byte requires a color");
-    }
-
-    unsigned char r = (unsigned char)lua_tonumber(L, 2);
-    unsigned char g = (unsigned char)lua_tonumber(L, 3);
-    unsigned char b = (unsigned char)lua_tonumber(L, 4);
-    unsigned char a = (unsigned char)lua_tonumber(L, 5);
-
-    ese_color_set_byte(color, r, g, b, a);
-
-    profile_stop(PROFILE_LUA_COLOR_SET_BYTE, "ese_color_lua_set_byte");
-    return 0;
-}
-
-/**
- * @brief Lua instance method for converting EseColor to JSON string
- */
-static int _ese_color_lua_to_json(lua_State *L) {
-    EseColor *color = ese_color_lua_get(L, 1);
-    if (!color) {
-        return luaL_error(L, "Color:toJSON() called on invalid color");
-    }
-
-    cJSON *json = ese_color_serialize(color);
-    if (!json) {
-        return luaL_error(L, "Color:toJSON() failed to serialize color");
-    }
-
-    char *json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    if (!json_str) {
-        return luaL_error(L, "Color:toJSON() failed to convert to string");
-    }
-    lua_pushstring(L, json_str);
-    free(json_str);
-    return 1;
-}
-
-/**
- * @brief Lua static method for creating EseColor from JSON string
- */
-static int _ese_color_lua_from_json(lua_State *L) {
-    int argc = lua_gettop(L);
-    if (argc != 1) {
-        return luaL_error(L, "Color.fromJSON(string) takes 1 argument");
-    }
-    if (lua_type(L, 1) != LUA_TSTRING) {
-        return luaL_error(L, "Color.fromJSON(string) argument must be a string");
-    }
-
-    const char *json_str = lua_tostring(L, 1);
-    cJSON *json = cJSON_Parse(json_str);
-    if (!json) {
-        log_error("COLOR", "Color.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
-        return luaL_error(L, "Color.fromJSON: invalid JSON string");
-    }
-
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    if (!engine) {
-        cJSON_Delete(json);
-        return luaL_error(L, "Color.fromJSON: no engine available");
-    }
-
-    EseColor *color = ese_color_deserialize(engine, json);
-    cJSON_Delete(json);
-    if (!color) {
-        return luaL_error(L, "Color.fromJSON: failed to deserialize color");
-    }
-
-    ese_color_lua_push(color);
-    return 1;
-}
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -651,7 +139,7 @@ static int _ese_color_lua_from_json(lua_State *L) {
 EseColor *ese_color_create(EseLuaEngine *engine) {
     log_assert("COLOR", engine, "ese_color_create called with NULL engine");
     EseColor *color = _ese_color_make();
-    color->state = engine->runtime;
+    _ese_color_set_state(color, engine->runtime);
     return color;
 }
 
@@ -659,13 +147,13 @@ EseColor *ese_color_copy(const EseColor *source) {
     log_assert("COLOR", source, "ese_color_copy called with NULL source");
     
     EseColor *copy = (EseColor *)memory_manager.malloc(sizeof(EseColor), MMTAG_COLOR);
-    copy->r = source->r;
-    copy->g = source->g;
-    copy->b = source->b;
-    copy->a = source->a;
-    copy->state = source->state;
-    copy->lua_ref = LUA_NOREF;
-    copy->lua_ref_count = 0;
+    copy->r = ese_color_get_r(source);
+    copy->g = ese_color_get_g(source);
+    copy->b = ese_color_get_b(source);
+    copy->a = ese_color_get_a(source);
+    _ese_color_set_state(copy, ese_color_get_state(source));
+    _ese_color_set_lua_ref(copy, LUA_NOREF);
+    _ese_color_set_lua_ref_count(copy, 0);
     copy->watchers = NULL;
     copy->watcher_userdata = NULL;
     copy->watcher_count = 0;
@@ -676,7 +164,7 @@ EseColor *ese_color_copy(const EseColor *source) {
 void ese_color_destroy(EseColor *color) {
     if (!color) return;
     
-    if (color->lua_ref == LUA_NOREF) {
+    if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // No Lua references, safe to free immediately
     
         // Free watcher arrays if they exist
@@ -825,35 +313,23 @@ bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback,
 void ese_color_lua_init(EseLuaEngine *engine) {
     log_assert("COLOR", engine, "ese_color_lua_init called with NULL engine");
     
-    // Create metatable
-    lua_engine_new_object_meta(engine, "ColorMeta", 
-        _ese_color_lua_index, 
-        _ese_color_lua_newindex, 
-        _ese_color_lua_gc, 
-        _ese_color_lua_tostring);
-    
-    // Create global Color table with functions
-    const char *keys[] = {"new", "white", "black", "red", "green", "blue", "fromJSON"};
-    lua_CFunction functions[] = {_ese_color_lua_new, _ese_color_lua_white, _ese_color_lua_black, 
-                                _ese_color_lua_red, _ese_color_lua_green, _ese_color_lua_blue, 
-                                _ese_color_lua_from_json};
-    lua_engine_new_object(engine, "Color", 7, keys, functions);
+    _ese_color_lua_init(engine);
 }
 
 void ese_color_lua_push(EseColor *color) {
     log_assert("COLOR", color, "ese_color_lua_push called with NULL color");
 
-    if (color->lua_ref == LUA_NOREF) {
+    if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EseColor **ud = (EseColor **)lua_newuserdata(color->state, sizeof(EseColor *));
+        EseColor **ud = (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
         *ud = color;
 
         // Attach metatable
-        luaL_getmetatable(color->state, "ColorMeta");
-        lua_setmetatable(color->state, -2);
+        luaL_getmetatable(ese_color_get_state(color), COLOR_META);
+        lua_setmetatable(ese_color_get_state(color), -2);
     } else {
         // C-owned: get from registry
-        lua_rawgeti(color->state, LUA_REGISTRYINDEX, color->lua_ref);
+        lua_rawgeti(ese_color_get_state(color), LUA_REGISTRYINDEX, ese_color_get_lua_ref(color));
     }
 }
 
@@ -866,7 +342,7 @@ EseColor *ese_color_lua_get(lua_State *L, int idx) {
     }
     
     // Get the userdata and check metatable
-    EseColor **ud = (EseColor **)luaL_testudata(L, idx, "ColorMeta");
+    EseColor **ud = (EseColor **)luaL_testudata(L, idx, COLOR_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
@@ -877,21 +353,22 @@ EseColor *ese_color_lua_get(lua_State *L, int idx) {
 void ese_color_ref(EseColor *color) {
     log_assert("COLOR", color, "ese_color_ref called with NULL color");
     
-    if (color->lua_ref == LUA_NOREF) {
+    if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseColor **ud = (EseColor **)lua_newuserdata(color->state, sizeof(EseColor *));
+        EseColor **ud = (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
         *ud = color;
 
         // Attach metatable
-        luaL_getmetatable(color->state, "ColorMeta");
-        lua_setmetatable(color->state, -2);
+        luaL_getmetatable(ese_color_get_state(color), COLOR_META);
+        lua_setmetatable(ese_color_get_state(color), -2);
 
         // Store hard reference to prevent garbage collection
-        color->lua_ref = luaL_ref(color->state, LUA_REGISTRYINDEX);
-        color->lua_ref_count = 1;
+        int ref = luaL_ref(ese_color_get_state(color), LUA_REGISTRYINDEX);
+        _ese_color_set_lua_ref(color, ref);
+        _ese_color_set_lua_ref_count(color, 1);
     } else {
         // Already referenced - just increment count
-        color->lua_ref_count++;
+        _ese_color_set_lua_ref_count(color, ese_color_get_lua_ref_count(color) + 1);
     }
 
     profile_count_add("ese_color_ref_count");
@@ -900,13 +377,13 @@ void ese_color_ref(EseColor *color) {
 void ese_color_unref(EseColor *color) {
     if (!color) return;
     
-    if (color->lua_ref != LUA_NOREF && color->lua_ref_count > 0) {
-        color->lua_ref_count--;
+    if (ese_color_get_lua_ref(color) != LUA_NOREF && ese_color_get_lua_ref_count(color) > 0) {
+        _ese_color_set_lua_ref_count(color, ese_color_get_lua_ref_count(color) - 1);
         
-        if (color->lua_ref_count == 0) {
+        if (ese_color_get_lua_ref_count(color) == 0) {
             // No more references - remove from registry
-            luaL_unref(color->state, LUA_REGISTRYINDEX, color->lua_ref);
-            color->lua_ref = LUA_NOREF;
+            luaL_unref(ese_color_get_state(color), LUA_REGISTRYINDEX, ese_color_get_lua_ref(color));
+            _ese_color_set_lua_ref(color, LUA_NOREF);
         }
     }
 

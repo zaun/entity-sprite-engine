@@ -35,6 +35,13 @@ enable_testing()
 # Enable profiling
 add_definitions(-DESE_PROFILE_ENABLED)
 
+# Treat warnings as errors
+if(MSVC)
+    add_compile_options(/WX)
+else()
+    add_compile_options(-Werror)
+endif()
+
 #
 # Platform
 #

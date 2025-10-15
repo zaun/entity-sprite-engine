@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #define TILESET_PROXY_META "TilesetProxyMeta"
+#define TILESET_META "TilesetMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -236,5 +237,24 @@ bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id,
                                   const char *sprite_id, uint16_t new_weight);
 
 void ese_tileset_set_seed(EseTileSet *tiles, uint32_t seed);
+
+/**
+ * @brief Sets the Lua state associated with this tileset.
+ * 
+ * @param tiles Pointer to the EseTileSet object
+ * @param state Pointer to the Lua state
+ */
+void ese_tileset_set_state(EseTileSet *tiles, lua_State *state);
+
+/**
+ * @brief Creates a new EseTileSet instance with default values
+ * 
+ * @details Internal function used by Lua constructors and other internal functions.
+ * Allocates memory for a new EseTileSet and initializes all fields to safe defaults.
+ * The tileset starts with empty mappings and no Lua state.
+ * 
+ * @return Pointer to the newly created EseTileSet, or NULL on allocation failure
+ */
+EseTileSet *_ese_tileset_make(void);
 
 #endif // ESE_TILE_SET_H

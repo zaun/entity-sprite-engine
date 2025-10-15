@@ -6,6 +6,7 @@
 #include "vendor/json/cJSON.h"
 
 #define RECT_PROXY_META "RectProxyMeta"
+#define RECT_META "RectMeta"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -195,6 +196,16 @@ bool ese_rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *
  * @return true if watcher was removed, false if not found
  */
 bool ese_rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
+
+/**
+ * @brief Notifies all registered watchers of a rect change
+ * 
+ * @details Internal function used to notify all registered watcher callbacks
+ *          when any rect property (x, y, width, height, rotation) is modified.
+ * 
+ * @param rect Pointer to the EseRect that has changed
+ */
+void _ese_rect_notify_watchers(EseRect *rect);
 
 /**
  * @brief Sets the rotation of the rectangle.

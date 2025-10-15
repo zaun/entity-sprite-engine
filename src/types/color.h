@@ -9,6 +9,9 @@
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 
+// Constants
+#define COLOR_META "ColorMeta"
+
 /**
  * @brief Represents a color with RGBA components as normalized floats (0-1).
  * 

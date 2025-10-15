@@ -10,6 +10,7 @@ typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseRect EseRect;
 
 #define RAY_PROXY_META "RayProxyMeta"
+#define RAY_META "RayMeta"
 
 /**
  * @brief Opaque ray structure.
