@@ -584,35 +584,19 @@ void ese_input_state_lua_init(EseLuaEngine *engine) {
     log_assert("INPUT_STATE", engine, "ese_input_state_lua_init called with NULL engine");
     log_assert("INPUT_STATE", engine->runtime, "ese_input_state_lua_init called with NULL engine->runtime");
 
-    if (luaL_newmetatable(engine->runtime, INPUT_STATE_PROXY_META)) {
-        log_debug("LUA", "Adding InputStateMeta to engine");
-        lua_pushstring(engine->runtime, INPUT_STATE_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _input_state_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _input_state_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _input_state_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _input_state_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create main metatable
+    lua_engine_new_object_meta(engine, INPUT_STATE_PROXY_META, 
+        _input_state_lua_index, 
+        _input_state_lua_newindex, 
+        _input_state_lua_gc, 
+        _input_state_lua_tostring);
 
     // Create KEY table metatable
-    if (luaL_newmetatable(engine->runtime, INPUT_STATE_PROXY_META "_KEY")) {
-        lua_pushstring(engine->runtime, INPUT_STATE_PROXY_META "_KEY");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _input_state_key_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _input_state_readonly_error);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    lua_engine_new_object_meta(engine, INPUT_STATE_PROXY_META "_KEY", 
+        _input_state_key_index, 
+        _input_state_readonly_error, 
+        NULL, 
+        NULL);
 }
 
 void ese_input_state_lua_push(EseInputState *input) {

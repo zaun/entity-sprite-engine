@@ -852,37 +852,18 @@ bool ese_poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCall
 // Lua integration
 void ese_poly_line_lua_init(EseLuaEngine *engine) {
     log_assert("POLY_LINE", engine, "poly_line_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, POLY_LINE_PROXY_META)) {
-        log_debug("LUA", "Adding entity PolyLineProxyMeta to engine");
-        lua_pushstring(engine->runtime, POLY_LINE_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
     
-    // Create global EsePolyLine table with constructor
-    lua_getglobal(engine->runtime, "PolyLine");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1); // Pop the nil value
-        log_debug("LUA", "Creating global polyline table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_from_json);
-        lua_setfield(engine->runtime, -2, "fromJSON");
-        lua_setglobal(engine->runtime, "PolyLine");
-    } else {
-        lua_pop(engine->runtime, 1); // Pop the existing polyline table
-    }
+    // Create metatable
+    lua_engine_new_object_meta(engine, POLY_LINE_PROXY_META, 
+        _ese_poly_line_lua_index, 
+        _ese_poly_line_lua_newindex, 
+        _ese_poly_line_lua_gc, 
+        _ese_poly_line_lua_tostring);
+    
+    // Create global PolyLine table with functions
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_ese_poly_line_lua_new, _ese_poly_line_lua_from_json};
+    lua_engine_new_object(engine, "PolyLine", 2, keys, functions);
 }
 
 void ese_poly_line_lua_push(EsePolyLine *poly_line) {

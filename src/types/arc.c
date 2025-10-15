@@ -741,39 +741,17 @@ void ese_arc_destroy(EseArc *arc) {
 
 // Lua integration
 void ese_arc_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "ArcMeta")) {
-        log_debug("LUA", "Adding entity ArcMeta to engine");
-        lua_pushstring(engine->runtime, "ArcMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create metatable
+    lua_engine_new_object_meta(engine, "ArcMeta", 
+        _ese_arc_lua_index, 
+        _ese_arc_lua_newindex, 
+        _ese_arc_lua_gc, 
+        _ese_arc_lua_tostring);
     
-    // Create global EseArc table with constructor
-    lua_getglobal(engine->runtime, "Arc");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1);
-        log_debug("LUA", "Creating global EseArc table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_zero);
-        lua_setfield(engine->runtime, -2, "zero");
-        lua_pushcfunction(engine->runtime, _ese_arc_lua_from_json);
-        lua_setfield(engine->runtime, -2, "fromJSON");
-        lua_setglobal(engine->runtime, "Arc");
-    } else {
-        lua_pop(engine->runtime, 1);
-    }
+    // Create global Arc table with functions
+    const char *keys[] = {"new", "zero", "fromJSON"};
+    lua_CFunction functions[] = {_ese_arc_lua_new, _ese_arc_lua_zero, _ese_arc_lua_from_json};
+    lua_engine_new_object(engine, "Arc", 3, keys, functions);
 }
 
 void ese_arc_lua_push(EseArc *arc) {

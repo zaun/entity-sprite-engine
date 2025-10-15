@@ -396,22 +396,13 @@ void ese_map_cell_destroy(EseMapCell *cell) {
 /* --- Lua Init --------------------------------------------------------------------------------- */
 void ese_map_cell_lua_init(EseLuaEngine *engine) {
     log_assert("MAPCELL", engine, "ese_map_cell_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, MAP_CELL_PROXY_META)) {
-        log_debug("LUA", "Adding MapCellProxyMeta to engine");
-        lua_pushstring(engine->runtime, MAP_CELL_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_map_cell_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    
+    // Create metatable
+    lua_engine_new_object_meta(engine, MAP_CELL_PROXY_META, 
+        _ese_map_cell_lua_index, 
+        _ese_map_cell_lua_newindex, 
+        _ese_map_cell_lua_gc, 
+        _ese_map_cell_lua_tostring);
 }
 
 /* --- C API ------------------------------------------------------------------------------------ */

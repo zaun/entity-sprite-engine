@@ -1107,3 +1107,96 @@ void *lua_getextraspace_lj(lua_State *L) {
 
     return p;
 }
+
+bool lua_engine_new_object_meta(
+    EseLuaEngine *engine,
+    const char *name,
+    lua_CFunction index_func,
+    lua_CFunction newindex_func,
+    lua_CFunction gc_func,
+    lua_CFunction tostring_func
+) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_new_object_meta called with NULL engine");
+    log_assert("LUA_ENGINE", engine->runtime, "lua_engine_new_object_meta called with NULL runtime");
+    log_assert("LUA_ENGINE", name, "lua_engine_new_object_meta called with NULL name");
+
+    if (luaL_newmetatable(engine->runtime, name)) {
+        log_debug("LUA", "Adding entity %s to engine", name);
+        
+        // Set __name
+        lua_pushstring(engine->runtime, name);
+        lua_setfield(engine->runtime, -2, "__name");
+        
+        // Set __index
+        if (index_func) {
+            lua_pushcfunction(engine->runtime, index_func);
+            lua_setfield(engine->runtime, -2, "__index");
+        }
+        
+        // Set __newindex
+        if (newindex_func) {
+            lua_pushcfunction(engine->runtime, newindex_func);
+            lua_setfield(engine->runtime, -2, "__newindex");
+        }
+        
+        // Set __gc
+        if (gc_func) {
+            lua_pushcfunction(engine->runtime, gc_func);
+            lua_setfield(engine->runtime, -2, "__gc");
+        }
+        
+        // Set __tostring
+        if (tostring_func) {
+            lua_pushcfunction(engine->runtime, tostring_func);
+            lua_setfield(engine->runtime, -2, "__tostring");
+        }
+        
+        // Lock the metatable to prevent tampering
+        lua_pushstring(engine->runtime, "locked");
+        lua_setfield(engine->runtime, -2, "__metatable");
+    }
+    
+    lua_pop(engine->runtime, 1);
+    return true;
+}
+
+bool lua_engine_new_object(
+    EseLuaEngine *engine,
+    const char *name,
+    int count,
+    const char *keys[],
+    lua_CFunction functions[]
+) {
+    log_assert("LUA_ENGINE", engine, "lua_engine_new_object called with NULL engine");
+    log_assert("LUA_ENGINE", engine->runtime, "lua_engine_new_object called with NULL runtime");
+    log_assert("LUA_ENGINE", name, "lua_engine_new_object called with NULL name");
+    log_assert("LUA_ENGINE", count >= 0, "lua_engine_new_object called with negative count");
+    log_assert("LUA_ENGINE", keys, "lua_engine_new_object called with NULL keys array");
+    log_assert("LUA_ENGINE", functions, "lua_engine_new_object called with NULL functions array");
+
+    // Check if the global table already exists
+    lua_getglobal(engine->runtime, name);
+    if (lua_isnil(engine->runtime, -1)) {
+        lua_pop(engine->runtime, 1);
+        log_debug("LUA", "Creating global %s table", name);
+        
+        // Create new table
+        lua_newtable(engine->runtime);
+        
+        // Add all the key-function pairs
+        for (int i = 0; i < count; i++) {
+            log_assert("LUA_ENGINE", keys[i], "lua_engine_new_object called with NULL key at index %d", i);
+            log_assert("LUA_ENGINE", functions[i], "lua_engine_new_object called with NULL function at index %d", i);
+            
+            lua_pushcfunction(engine->runtime, functions[i]);
+            lua_setfield(engine->runtime, -2, keys[i]);
+        }
+        
+        // Set as global
+        lua_setglobal(engine->runtime, name);
+    } else {
+        lua_pop(engine->runtime, 1);
+    }
+    
+    return true;
+}

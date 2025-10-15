@@ -237,22 +237,12 @@ void ese_camera_lua_init(EseLuaEngine *engine) {
     log_assert("CAMERA_STATE", engine, "ese_camera_lua_init called with NULL engine");
     log_assert("CAMERA_STATE", engine->runtime, "ese_camera_lua_init called with NULL engine->runtime");
 
-    if (luaL_newmetatable(engine->runtime, "CameraMeta")) {
-        log_debug("LUA", "Adding CameraMeta to engine");
-        lua_pushstring(engine->runtime, "CameraMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_camera_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _ese_camera_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _ese_camera_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _ese_camera_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create metatable
+    lua_engine_new_object_meta(engine, "CameraMeta", 
+        _ese_camera_lua_index, 
+        _ese_camera_lua_newindex, 
+        _ese_camera_lua_gc, 
+        _ese_camera_lua_tostring);
 }
 
 void ese_camera_lua_push(EseCamera *camera_state) {

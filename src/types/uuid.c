@@ -311,37 +311,17 @@ void ese_uuid_destroy(EseUUID *uuid) {
 void ese_uuid_lua_init(EseLuaEngine *engine) {
     log_assert("UUID", engine, "ese_uuid_lua_init called with NULL engine");
 
-    if (luaL_newmetatable(engine->runtime, UUID_PROXY_META)) {
-        log_debug("LUA", "Adding entity UUIDProxyMeta to engine");
-        lua_pushstring(engine->runtime, UUID_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create metatable
+    lua_engine_new_object_meta(engine, UUID_PROXY_META, 
+        _ese_uuid_lua_index, 
+        _ese_uuid_lua_newindex, 
+        _ese_uuid_lua_gc, 
+        _ese_uuid_lua_tostring);
     
-    // Create global EseUUID table with constructor
-    lua_getglobal(engine->runtime, "UUID");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1); // Pop the nil value
-        log_debug("LUA", "Creating global EseUUID table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _ese_uuid_lua_from_json);
-        lua_setfield(engine->runtime, -2, "fromJSON");
-        lua_setglobal(engine->runtime, "UUID");
-    } else {
-        lua_pop(engine->runtime, 1); // Pop the existing EseUUID table
-    }
+    // Create global UUID table with functions
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_ese_uuid_lua_new, _ese_uuid_lua_from_json};
+    lua_engine_new_object(engine, "UUID", 2, keys, functions);
 }
 
 void ese_uuid_lua_push(EseUUID *uuid) {

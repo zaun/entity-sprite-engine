@@ -280,24 +280,14 @@ void ese_collision_hit_lua_init(EseLuaEngine *engine) {
     log_assert("COLLISION_HIT", engine, "ese_collision_hit_lua_init called with NULL engine");
 
     // Create metatable
-    lua_State *L = engine->runtime;
-    if (luaL_newmetatable(L, COLLISION_HIT_META)) {
-        lua_pushstring(L, COLLISION_HIT_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _ese_collision_hit_lua_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _ese_collision_hit_lua_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _ese_collision_hit_lua_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _ese_collision_hit_lua_tostring);
-        lua_setfield(L, -2, "__tostring");
-        lua_pushstring(L, "locked");
-        lua_setfield(L, -2, "__metatable");
-    }
-    lua_pop(L, 1);
+    lua_engine_new_object_meta(engine, COLLISION_HIT_META, 
+        _ese_collision_hit_lua_index, 
+        _ese_collision_hit_lua_newindex, 
+        _ese_collision_hit_lua_gc, 
+        _ese_collision_hit_lua_tostring);
 
     // Create global EseCollisionHit table with only constants
+    lua_State *L = engine->runtime;
     lua_getglobal(L, "EseCollisionHit");
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);

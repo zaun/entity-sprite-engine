@@ -626,39 +626,17 @@ int ese_vector_get_lua_ref_count(const EseVector *vector) {
 void ese_vector_lua_init(EseLuaEngine *engine) {
     log_assert("VECTOR", engine, "ese_vector_lua_init called with NULL engine");
 
-    if (luaL_newmetatable(engine->runtime, VECTOR_PROXY_META)) {
-        log_debug("LUA", "Adding entity VectorProxyMeta to engine");
-        lua_pushstring(engine->runtime, VECTOR_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create metatable
+    lua_engine_new_object_meta(engine, VECTOR_PROXY_META, 
+        _ese_vector_lua_index, 
+        _ese_vector_lua_newindex, 
+        _ese_vector_lua_gc, 
+        _ese_vector_lua_tostring);
     
-    // Create global EseVector table with constructor
-    lua_getglobal(engine->runtime, "Vector");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1);
-        log_debug("LUA", "Creating global EseVector table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_zero);
-        lua_setfield(engine->runtime, -2, "zero");
-        lua_pushcfunction(engine->runtime, _ese_vector_lua_from_json);
-        lua_setfield(engine->runtime, -2, "fromJSON");
-        lua_setglobal(engine->runtime, "Vector");
-    } else {
-        lua_pop(engine->runtime, 1);
-    }
+    // Create global Vector table with functions
+    const char *keys[] = {"new", "zero", "fromJSON"};
+    lua_CFunction functions[] = {_ese_vector_lua_new, _ese_vector_lua_zero, _ese_vector_lua_from_json};
+    lua_engine_new_object(engine, "Vector", 3, keys, functions);
 }
 
 void ese_vector_lua_push(EseVector *vector) {

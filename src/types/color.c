@@ -824,47 +824,20 @@ bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback,
 // Lua integration
 void ese_color_lua_init(EseLuaEngine *engine) {
     log_assert("COLOR", engine, "ese_color_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, "ColorMeta")) {
-        log_debug("LUA", "Adding entity ColorMeta to engine");
-        lua_pushstring(engine->runtime, "ColorMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_color_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_color_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_color_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
     
-    // Create global EseColor table with constructors
-    lua_getglobal(engine->runtime, "Color");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1); // Pop the nil value
-        log_debug("LUA", "Creating global color table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_color_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_white);
-        lua_setfield(engine->runtime, -2, "white");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_black);
-        lua_setfield(engine->runtime, -2, "black");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_red);
-        lua_setfield(engine->runtime, -2, "red");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_green);
-        lua_setfield(engine->runtime, -2, "green");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_blue);
-        lua_setfield(engine->runtime, -2, "blue");
-        lua_pushcfunction(engine->runtime, _ese_color_lua_from_json);
-        lua_setfield(engine->runtime, -2, "fromJSON");
-        lua_setglobal(engine->runtime, "Color");
-    } else {
-        lua_pop(engine->runtime, 1); // Pop the existing color table
-    }
+    // Create metatable
+    lua_engine_new_object_meta(engine, "ColorMeta", 
+        _ese_color_lua_index, 
+        _ese_color_lua_newindex, 
+        _ese_color_lua_gc, 
+        _ese_color_lua_tostring);
+    
+    // Create global Color table with functions
+    const char *keys[] = {"new", "white", "black", "red", "green", "blue", "fromJSON"};
+    lua_CFunction functions[] = {_ese_color_lua_new, _ese_color_lua_white, _ese_color_lua_black, 
+                                _ese_color_lua_red, _ese_color_lua_green, _ese_color_lua_blue, 
+                                _ese_color_lua_from_json};
+    lua_engine_new_object(engine, "Color", 7, keys, functions);
 }
 
 void ese_color_lua_push(EseColor *color) {

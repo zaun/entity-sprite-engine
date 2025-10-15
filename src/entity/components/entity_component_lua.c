@@ -647,38 +647,17 @@ static int _entity_component_lua_tostring(lua_State *L) {
 void _entity_component_lua_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_lua_init called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    // Create metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_LUA_PROXY_META, 
+        _entity_component_lua_index, 
+        _entity_component_lua_newindex, 
+        _entity_component_lua_gc, 
+        _entity_component_lua_tostring);
     
-    // Register EseEntityComponentLua metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentLuaProxyMeta to engine");
-        lua_pushstring(L, "EntityComponentLuaProxyMeta");
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_lua_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_lua_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_lua_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_lua_tostring);
-        lua_setfield(L, -2, "__tostring");
-        lua_pushstring(L, "locked");
-        lua_setfield(L, -2, "__metatable");
-    }
-    lua_pop(L, 1);
-    
-    // Create global EseEntityComponentLua table with constructor
-    lua_getglobal(L, "EntityComponentLua");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        log_debug("LUA", "Creating global EseEntityComponentLua table");
-        lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_lua_new);
-        lua_setfield(L, -2, "new");
-        lua_setglobal(L, "EntityComponentLua");
-    } else {
-        lua_pop(L, 1);
-    }
+    // Create global EntityComponentLua table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_entity_component_lua_new};
+    lua_engine_new_object(engine, "EntityComponentLua", 1, keys, functions);
     
     profile_count_add("entity_comp_lua_init_count");
 }

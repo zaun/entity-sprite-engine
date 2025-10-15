@@ -238,4 +238,51 @@ bool lua_engine_run_function(
 int lua_isinteger_lj(lua_State *L, int idx);
 void *lua_getextraspace_lj(lua_State *L);
 
+/**
+ * @brief Creates a new Lua metatable for an object type with standard metamethods.
+ * 
+ * @details Checks if the metatable already exists and only creates it if it doesn't.
+ *          Sets up standard metamethods: __name, __index, __newindex, __gc, and __tostring.
+ *          Also sets __metatable to "locked" to prevent tampering.
+ * 
+ * @param engine Pointer to the EseLuaEngine instance.
+ * @param name Name of the metatable (e.g., "ArcMeta").
+ * @param index_func Function to handle __index metamethod.
+ * @param newindex_func Function to handle __newindex metamethod.
+ * @param gc_func Function to handle __gc metamethod.
+ * @param tostring_func Function to handle __tostring metamethod.
+ * 
+ * @return true if the metatable was created or already existed, false on error.
+ */
+bool lua_engine_new_object_meta(
+    EseLuaEngine *engine,
+    const char *name,
+    lua_CFunction index_func,
+    lua_CFunction newindex_func,
+    lua_CFunction gc_func,
+    lua_CFunction tostring_func
+);
+
+/**
+ * @brief Creates a new global Lua table with the specified name and functions.
+ * 
+ * @details Checks if the global table already exists and only creates it if it doesn't.
+ *          Creates a new table and populates it with the provided key-function pairs.
+ * 
+ * @param engine Pointer to the EseLuaEngine instance.
+ * @param name Name of the global table to create.
+ * @param count Number of key-function pairs to add.
+ * @param keys Array of string keys for the functions.
+ * @param functions Array of lua_CFunction pointers corresponding to the keys.
+ * 
+ * @return true if the table was created or already existed, false on error.
+ */
+bool lua_engine_new_object(
+    EseLuaEngine *engine,
+    const char *name,
+    int count,
+    const char *keys[],
+    lua_CFunction functions[]
+);
+
 #endif // ESE_LUA_ENGINE_H

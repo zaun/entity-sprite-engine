@@ -77,7 +77,10 @@ EseEntity *entity_lua_get(lua_State *L, int idx) {
  * @brief Lua function to create a new EseEntity object.
  */
 static int _entity_lua_new(lua_State *L) {
-    EseLuaEngine *lua = (EseLuaEngine *)lua_touserdata(L, lua_upvalueindex(1));
+    EseLuaEngine *lua = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!lua) {
+        return luaL_error(L, "Lua engine not found");
+    }
     EseEntity *entity = _entity_make(lua);
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
@@ -1233,64 +1236,25 @@ static void _entity_remove_subscription(EseEntity *entity, const char *topic_nam
 }
 
 void entity_lua_init(EseLuaEngine *engine) {
-    if (luaL_newmetatable(engine->runtime, "EntityProxyMeta")) {
-        log_debug("LUA", "Adding entity EntityProxyMeta to engine");
-        lua_pushstring(engine->runtime, "EntityProxyMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _entity_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushcfunction(engine->runtime, _entity_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");
-        lua_pushcfunction(engine->runtime, _entity_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");
-        lua_pushcfunction(engine->runtime, _entity_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create EntityProxyMeta metatable
+    lua_engine_new_object_meta(engine, "EntityProxyMeta", 
+        _entity_lua_index, 
+        _entity_lua_newindex, 
+        _entity_lua_gc, 
+        _entity_lua_tostring);
 
-    if (luaL_newmetatable(engine->runtime, "ComponentsProxyMeta")) {
-        log_debug("LUA", "Adding entity ComponentsProxyMeta to engine");
-        lua_pushstring(engine->runtime, "ComponentsProxyMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _entity_lua_components_index);
-        lua_setfield(engine->runtime, -2, "__index");
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create ComponentsProxyMeta metatable
+    lua_engine_new_object_meta(engine, "ComponentsProxyMeta", 
+        _entity_lua_components_index, 
+        NULL, 
+        NULL, 
+        NULL);
     
-    // Create global EseEntity table with constructor
-    lua_getglobal(engine->runtime, "Entity");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1);
-        log_debug("LUA", "Creating global EseEntity table");
-        lua_newtable(engine->runtime);
-        lua_pushlightuserdata(engine->runtime, engine);
-        lua_pushcclosure(engine->runtime, _entity_lua_new, 1);
-        lua_setfield(engine->runtime, -2, "new");
-        
-        // Add static tag functions
-        lua_pushcfunction(engine->runtime, _entity_lua_find_by_tag);
-        lua_setfield(engine->runtime, -2, "find_by_tag");
-
-        lua_pushcfunction(engine->runtime, _entity_lua_find_first_by_tag);
-        lua_setfield(engine->runtime, -2, "find_first_by_tag");
-        
-        lua_pushcfunction(engine->runtime, _entity_lua_find_by_id);
-        lua_setfield(engine->runtime, -2, "find_by_id");
-        
-        lua_pushcfunction(engine->runtime, _entity_lua_get_count);
-        lua_setfield(engine->runtime, -2, "count");
-        
-        lua_pushcfunction(engine->runtime, _entity_lua_publish);
-        lua_setfield(engine->runtime, -2, "publish");
-        
-        lua_setglobal(engine->runtime, "Entity");
-    } else {
-        lua_pop(engine->runtime, 1);
-    }
+    // Create global Entity table with functions
+    const char *keys[] = {"new", "find_by_tag", "find_first_by_tag", "find_by_id", "count", "publish"};
+    lua_CFunction functions[] = {_entity_lua_new, _entity_lua_find_by_tag, _entity_lua_find_first_by_tag, 
+                                _entity_lua_find_by_id, _entity_lua_get_count, _entity_lua_publish};
+    lua_engine_new_object(engine, "Entity", 6, keys, functions);
 }
 
 bool _entity_lua_to_data(EseEntity *entity, EseLuaValue *value) {

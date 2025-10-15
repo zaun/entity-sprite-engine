@@ -480,35 +480,18 @@ size_t ese_tileset_sizeof(void) {
 // Lua integration
 void ese_tileset_lua_init(EseLuaEngine *engine) {
     log_assert("TILESET", engine, "ese_tileset_lua_init called with NULL engine");
-    if (luaL_newmetatable(engine->runtime, TILESET_PROXY_META)) {
-        log_debug("LUA", "Adding TilesetProxyMeta to engine");
-        lua_pushstring(engine->runtime, TILESET_PROXY_META);
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _ese_tileset_lua_index);
-        lua_setfield(engine->runtime, -2, "__index");               // For property getters
-        lua_pushcfunction(engine->runtime, _ese_tileset_lua_newindex);
-        lua_setfield(engine->runtime, -2, "__newindex");            // For property setters
-        lua_pushcfunction(engine->runtime, _ese_tileset_lua_gc);
-        lua_setfield(engine->runtime, -2, "__gc");                  // For garbage collection
-        lua_pushcfunction(engine->runtime, _ese_tileset_lua_tostring);
-        lua_setfield(engine->runtime, -2, "__tostring");            // For printing/debugging
-        lua_pushstring(engine->runtime, "locked");
-        lua_setfield(engine->runtime, -2, "__metatable");
-    }
-    lua_pop(engine->runtime, 1);
+    
+    // Create metatable
+    lua_engine_new_object_meta(engine, TILESET_PROXY_META, 
+        _ese_tileset_lua_index, 
+        _ese_tileset_lua_newindex, 
+        _ese_tileset_lua_gc, 
+        _ese_tileset_lua_tostring);
 
-    // Create global Tileset table with constructor
-    lua_getglobal(engine->runtime, "Tileset");
-    if (lua_isnil(engine->runtime, -1)) {
-        lua_pop(engine->runtime, 1); // Pop the nil value
-        log_debug("LUA", "Creating global Tileset table");
-        lua_newtable(engine->runtime);
-        lua_pushcfunction(engine->runtime, _ese_tileset_lua_new);
-        lua_setfield(engine->runtime, -2, "new");
-        lua_setglobal(engine->runtime, "Tileset");
-    } else {
-        lua_pop(engine->runtime, 1); // Pop the existing Tileset table
-    }
+    // Create global Tileset table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_ese_tileset_lua_new};
+    lua_engine_new_object(engine, "Tileset", 1, keys, functions);
 }
 
 void ese_tileset_lua_push(EseTileSet *tiles) {
