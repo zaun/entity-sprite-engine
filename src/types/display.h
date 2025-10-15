@@ -11,6 +11,7 @@
 #define ESE_DISPLAY_STATE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 // Forward declarations
 typedef struct lua_State lua_State;

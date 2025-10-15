@@ -231,6 +231,7 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
 
         metalWindow->inputState->keys_down[InputKey_CAPSLOCK] = (mods & NSEventModifierFlagCapsLock) != 0;
 
+        EseInputMouseButton mouse_button = -1;
         switch ([event type]) {
             case NSEventTypeKeyDown: {
                 EseInputKey key = _mapMacOSKeycodeToInputKey([event keyCode]);
@@ -249,16 +250,69 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
                 }
             } break;
             case NSEventTypeLeftMouseDown:
-                metalWindow->inputState->mouse_buttons[0] = true;
+                if (!metalWindow->inputState->mouse_down[InputMouse_LEFT]) {
+                    metalWindow->inputState->mouse_clicked[InputMouse_LEFT] = true;
+                }
+                metalWindow->inputState->mouse_down[InputMouse_LEFT] = true;
                 break;
             case NSEventTypeLeftMouseUp:
-                metalWindow->inputState->mouse_buttons[0] = false;
+                metalWindow->inputState->mouse_down[InputMouse_LEFT] = false;
+                metalWindow->inputState->mouse_released[InputMouse_LEFT] = true;
+                // do not touch mouse_clicked here
                 break;
             case NSEventTypeRightMouseDown:
-                metalWindow->inputState->mouse_buttons[1] = true;
+                if (!metalWindow->inputState->mouse_down[InputMouse_RIGHT]) {
+                    metalWindow->inputState->mouse_clicked[InputMouse_RIGHT] = true;
+                }
+                metalWindow->inputState->mouse_down[InputMouse_RIGHT] = true;
                 break;
             case NSEventTypeRightMouseUp:
-                metalWindow->inputState->mouse_buttons[1] = false;
+                metalWindow->inputState->mouse_down[InputMouse_RIGHT] = false;
+                metalWindow->inputState->mouse_released[InputMouse_RIGHT] = true;
+                break;
+            case NSEventTypeOtherMouseDown:
+                if ([event buttonNumber] < 2 ) {
+                    // skip left, right
+                    break;
+                }
+
+                if ([event buttonNumber] == 2) {
+                    mouse_button = InputMouse_MIDDLE;
+                } else if ([event buttonNumber] == 3) {
+                    mouse_button = InputMouse_X1;
+                } else if ([event buttonNumber] == 4) {
+                    mouse_button = InputMouse_X2;
+                }
+
+                if (mouse_button == -1) {
+                    break;
+                }
+                
+                if (!metalWindow->inputState->mouse_down[mouse_button]) {
+                    metalWindow->inputState->mouse_clicked[mouse_button] = true;
+                }
+                    metalWindow->inputState->mouse_down[mouse_button] = true;
+                break;
+            case NSEventTypeOtherMouseUp:
+                if ([event buttonNumber] < 2 ) {
+                    // skip left, right
+                    break;
+                }
+
+                if ([event buttonNumber] == 2) {
+                    mouse_button = InputMouse_MIDDLE;
+                } else if ([event buttonNumber] == 3) {
+                    mouse_button = InputMouse_X1;
+                } else if ([event buttonNumber] == 4) {
+                    mouse_button = InputMouse_X2;
+                }
+
+                if (mouse_button == -1) {
+                    break;
+                }
+
+                metalWindow->inputState->mouse_down[mouse_button] = false;
+                metalWindow->inputState->mouse_released[mouse_button] = true;
                 break;
             case NSEventTypeMouseMoved:
             case NSEventTypeLeftMouseDragged:
@@ -286,6 +340,8 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
     memset(metalWindow->inputState->keys_released, 0, sizeof(metalWindow->inputState->keys_released));
     metalWindow->inputState->mouse_scroll_dx = 0;
     metalWindow->inputState->mouse_scroll_dy = 0;
+    memset(metalWindow->inputState->mouse_clicked, 0, sizeof(metalWindow->inputState->mouse_clicked));
+    memset(metalWindow->inputState->mouse_released, 0, sizeof(metalWindow->inputState->mouse_released));
 
     if (!metalWindow->window || ![metalWindow->window isVisible]) {
         window->should_close = true;

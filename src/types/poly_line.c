@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
@@ -9,6 +10,7 @@
 #include "types/poly_line.h"
 #include "types/point.h"
 #include "types/color.h"
+#include "vendor/json/cJSON.h"
 
 // The actual EsePolyLine struct definition (private to this file)
 typedef struct EsePolyLine {
@@ -47,6 +49,7 @@ static int _ese_poly_line_lua_gc(lua_State *L);
 static int _ese_poly_line_lua_index(lua_State *L);
 static int _ese_poly_line_lua_newindex(lua_State *L);
 static int _ese_poly_line_lua_tostring(lua_State *L);
+static int _ese_poly_line_lua_to_json(lua_State *L);
 
 // Lua constructors
 static int _ese_poly_line_lua_new(lua_State *L);
@@ -57,6 +60,7 @@ static int _ese_poly_line_lua_remove_point(lua_State *L);
 static int _ese_poly_line_lua_get_point(lua_State *L);
 static int _ese_poly_line_lua_get_point_count(lua_State *L);
 static int _ese_poly_line_lua_clear_points(lua_State *L);
+static int _ese_poly_line_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -202,6 +206,11 @@ static int _ese_poly_line_lua_index(lua_State *L) {
         lua_pushcfunction(L, _ese_poly_line_lua_clear_points);
         profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, poly_line);
+        lua_pushcclosure(L, _ese_poly_line_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (method)");
+        return 1;
     }
     profile_stop(PROFILE_LUA_POLY_LINE_INDEX, "poly_line_lua_index (invalid)");
     return 0;
@@ -331,6 +340,31 @@ static int _ese_poly_line_lua_tostring(lua_State *L) {
              (void*)poly_line, type_str, poly_line->point_count, poly_line->stroke_width);
     lua_pushstring(L, buf);
 
+    return 1;
+}
+
+/**
+ * @brief Lua instance method for converting EsePolyLine to JSON string
+ */
+static int _ese_poly_line_lua_to_json(lua_State *L) {
+    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
+    if (!poly_line) {
+        return luaL_error(L, "PolyLine:toJSON() called on invalid polyline");
+    }
+
+    cJSON *json = ese_poly_line_serialize(poly_line);
+    if (!json) {
+        return luaL_error(L, "PolyLine:toJSON() failed to serialize polyline");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "PolyLine:toJSON() failed to convert to string");
+    }
+
+    lua_pushstring(L, json_str);
+    free(json_str);
     return 1;
 }
 
@@ -843,6 +877,8 @@ void ese_poly_line_lua_init(EseLuaEngine *engine) {
         lua_newtable(engine->runtime);
         lua_pushcfunction(engine->runtime, _ese_poly_line_lua_new);
         lua_setfield(engine->runtime, -2, "new");
+        lua_pushcfunction(engine->runtime, _ese_poly_line_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "PolyLine");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing polyline table
@@ -881,6 +917,41 @@ EsePolyLine *ese_poly_line_lua_get(lua_State *L, int idx) {
     }
     
     return *ud;
+}
+
+/**
+ * @brief Lua static method for creating EsePolyLine from JSON string
+ */
+static int _ese_poly_line_lua_from_json(lua_State *L) {
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "PolyLine.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "PolyLine.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("POLY_LINE", "PolyLine.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        return luaL_error(L, "PolyLine.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "PolyLine.fromJSON: no engine available");
+    }
+
+    EsePolyLine *poly_line = ese_poly_line_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!poly_line) {
+        return luaL_error(L, "PolyLine.fromJSON: failed to deserialize polyline");
+    }
+
+    ese_poly_line_lua_push(poly_line);
+    return 1;
 }
 
 void ese_poly_line_ref(EsePolyLine *poly_line) {
@@ -924,4 +995,238 @@ void ese_poly_line_unref(EsePolyLine *poly_line) {
 
 size_t ese_poly_line_sizeof(void) {
     return sizeof(EsePolyLine);
+}
+
+/**
+ * @brief Serializes an EsePolyLine to a cJSON object.
+ *
+ * Creates a cJSON object representing the polyline with type "POLY_LINE"
+ * and all properties including points, colors, and styling. Only serializes the
+ * geometric and styling data, not Lua-related fields.
+ *
+ * @param poly_line Pointer to the EsePolyLine object to serialize
+ * @return cJSON object representing the polyline, or NULL on failure
+ */
+cJSON *ese_poly_line_serialize(const EsePolyLine *poly_line) {
+    log_assert("POLY_LINE", poly_line, "ese_poly_line_serialize called with NULL poly_line");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("POLY_LINE", "Failed to create cJSON object for poly_line serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("POLY_LINE");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("POLY_LINE", "Failed to add type field to poly_line serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add polyline type
+    const char *type_str;
+    switch (poly_line->type) {
+        case POLY_LINE_OPEN: type_str = "OPEN"; break;
+        case POLY_LINE_CLOSED: type_str = "CLOSED"; break;
+        case POLY_LINE_FILLED: type_str = "FILLED"; break;
+        default: type_str = "UNKNOWN"; break;
+    }
+    cJSON *poly_type = cJSON_CreateString(type_str);
+    if (!poly_type || !cJSON_AddItemToObject(json, "poly_type", poly_type)) {
+        log_error("POLY_LINE", "Failed to add poly_type field to poly_line serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add stroke_width
+    cJSON *stroke_width = cJSON_CreateNumber((double)poly_line->stroke_width);
+    if (!stroke_width || !cJSON_AddItemToObject(json, "stroke_width", stroke_width)) {
+        log_error("POLY_LINE", "Failed to add stroke_width field to poly_line serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Serialize stroke_color if present
+    if (poly_line->stroke_color) {
+        cJSON *stroke_color_json = ese_color_serialize(poly_line->stroke_color);
+        if (!stroke_color_json || !cJSON_AddItemToObject(json, "stroke_color", stroke_color_json)) {
+            log_error("POLY_LINE", "Failed to add stroke_color field to poly_line serialization");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    // Serialize fill_color if present
+    if (poly_line->fill_color) {
+        cJSON *fill_color_json = ese_color_serialize(poly_line->fill_color);
+        if (!fill_color_json || !cJSON_AddItemToObject(json, "fill_color", fill_color_json)) {
+            log_error("POLY_LINE", "Failed to add fill_color field to poly_line serialization");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    // Add points array
+    cJSON *points_array = cJSON_CreateArray();
+    if (!points_array || !cJSON_AddItemToObject(json, "points", points_array)) {
+        log_error("POLY_LINE", "Failed to add points array to poly_line serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add each point as an array of [x, y] coordinates
+    for (size_t i = 0; i < poly_line->point_count; i++) {
+        cJSON *point_array = cJSON_CreateArray();
+        if (!point_array) {
+            log_error("POLY_LINE", "Failed to create point array for poly_line serialization");
+            cJSON_Delete(json);
+            return NULL;
+        }
+
+        cJSON *x = cJSON_CreateNumber((double)poly_line->points[i * 2]);
+        cJSON *y = cJSON_CreateNumber((double)poly_line->points[i * 2 + 1]);
+
+        if (!x || !y || !cJSON_AddItemToArray(point_array, x) || !cJSON_AddItemToArray(point_array, y)) {
+            log_error("POLY_LINE", "Failed to add point coordinates to poly_line serialization");
+            cJSON_Delete(point_array);
+            cJSON_Delete(json);
+            return NULL;
+        }
+
+        if (!cJSON_AddItemToArray(points_array, point_array)) {
+            log_error("POLY_LINE", "Failed to add point to points array in poly_line serialization");
+            cJSON_Delete(point_array);
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EsePolyLine from a cJSON object.
+ *
+ * Creates a new EsePolyLine from a cJSON object with type "POLY_LINE"
+ * and all properties including points, colors, and styling. The polyline is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_poly_line_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for polyline creation
+ * @param data cJSON object containing polyline data
+ * @return Pointer to newly created EsePolyLine object, or NULL on failure
+ */
+EsePolyLine *ese_poly_line_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("POLY_LINE", data, "ese_poly_line_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "POLY_LINE") != 0) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get poly_type field
+    cJSON *poly_type_item = cJSON_GetObjectItem(data, "poly_type");
+    if (!poly_type_item || !cJSON_IsString(poly_type_item)) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: invalid or missing poly_type field");
+        return NULL;
+    }
+
+    EsePolyLineType poly_type;
+    if (strcmp(poly_type_item->valuestring, "OPEN") == 0) {
+        poly_type = POLY_LINE_OPEN;
+    } else if (strcmp(poly_type_item->valuestring, "CLOSED") == 0) {
+        poly_type = POLY_LINE_CLOSED;
+    } else if (strcmp(poly_type_item->valuestring, "FILLED") == 0) {
+        poly_type = POLY_LINE_FILLED;
+    } else {
+        log_error("POLY_LINE", "PolyLine deserialization failed: invalid poly_type value");
+        return NULL;
+    }
+
+    // Get stroke_width field
+    cJSON *stroke_width_item = cJSON_GetObjectItem(data, "stroke_width");
+    if (!stroke_width_item || !cJSON_IsNumber(stroke_width_item)) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: invalid or missing stroke_width field");
+        return NULL;
+    }
+
+    // Get points array
+    cJSON *points_item = cJSON_GetObjectItem(data, "points");
+    if (!points_item || !cJSON_IsArray(points_item)) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: invalid or missing points array");
+        return NULL;
+    }
+
+    size_t point_count = cJSON_GetArraySize(points_item);
+    if (point_count == 0) {
+        log_error("POLY_LINE", "PolyLine deserialization failed: empty points array");
+        return NULL;
+    }
+
+    // Create new polyline
+    EsePolyLine *poly_line = ese_poly_line_create(engine);
+
+    // Set polyline type and stroke width
+    poly_line->type = poly_type;
+    poly_line->stroke_width = (float)stroke_width_item->valuedouble;
+
+    // Initialize points array
+    poly_line->point_capacity = point_count;
+    poly_line->point_count = 0;
+    poly_line->points = memory_manager.malloc(sizeof(float) * poly_line->point_capacity * 2, MMTAG_POLY_LINE);
+
+    // Add points
+    for (size_t i = 0; i < point_count; i++) {
+        cJSON *point_item = cJSON_GetArrayItem(points_item, i);
+        if (!point_item || !cJSON_IsArray(point_item) || cJSON_GetArraySize(point_item) != 2) {
+            log_error("POLY_LINE", "PolyLine deserialization failed: invalid point format");
+            ese_poly_line_destroy(poly_line);
+            return NULL;
+        }
+
+        cJSON *x_item = cJSON_GetArrayItem(point_item, 0);
+        cJSON *y_item = cJSON_GetArrayItem(point_item, 1);
+
+        if (!x_item || !cJSON_IsNumber(x_item) || !y_item || !cJSON_IsNumber(y_item)) {
+            log_error("POLY_LINE", "PolyLine deserialization failed: invalid point coordinates");
+            ese_poly_line_destroy(poly_line);
+            return NULL;
+        }
+
+        // Add point coordinates directly (ese_poly_line_add_point just extracts x,y)
+        size_t index = poly_line->point_count * 2;
+        poly_line->points[index] = (float)x_item->valuedouble;
+        poly_line->points[index + 1] = (float)y_item->valuedouble;
+        poly_line->point_count++;
+    }
+
+    // Deserialize stroke_color if present
+    cJSON *stroke_color_item = cJSON_GetObjectItem(data, "stroke_color");
+    if (stroke_color_item && cJSON_IsObject(stroke_color_item)) {
+        EseColor *stroke_color = ese_color_deserialize(engine, stroke_color_item);
+        if (stroke_color) {
+            ese_poly_line_set_stroke_color(poly_line, stroke_color);
+            // Don't destroy - polyline takes ownership
+        }
+    }
+
+    // Deserialize fill_color if present
+    cJSON *fill_color_item = cJSON_GetObjectItem(data, "fill_color");
+    if (fill_color_item && cJSON_IsObject(fill_color_item)) {
+        EseColor *fill_color = ese_color_deserialize(engine, fill_color_item);
+        if (fill_color) {
+            ese_poly_line_set_fill_color(poly_line, fill_color);
+            // Don't destroy - polyline takes ownership
+        }
+    }
+
+    return poly_line;
 }

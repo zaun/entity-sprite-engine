@@ -19,6 +19,7 @@
 #include "../src/types/rect.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -44,6 +45,7 @@ static void test_ese_rect_lua_integration(void);
 static void test_ese_rect_lua_init(void);
 static void test_ese_rect_lua_push(void);
 static void test_ese_rect_lua_get(void);
+static void test_ese_rect_serialization(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -60,6 +62,9 @@ static void test_ese_rect_lua_height(void);
 static void test_ese_rect_lua_rotation(void);
 static void test_ese_rect_lua_tostring(void);
 static void test_ese_rect_lua_gc(void);
+static void test_ese_rect_lua_from_json(void);
+static void test_ese_rect_lua_to_json(void);
+static void test_ese_rect_lua_json_round_trip(void);
 
 /**
 * Mock watcher callback for testing
@@ -125,6 +130,7 @@ int main(void) {
     RUN_TEST(test_ese_rect_lua_init);
     RUN_TEST(test_ese_rect_lua_push);
     RUN_TEST(test_ese_rect_lua_get);
+    RUN_TEST(test_ese_rect_serialization);
 
     RUN_TEST(test_ese_rect_lua_new);
     RUN_TEST(test_ese_rect_lua_zero);
@@ -138,6 +144,9 @@ int main(void) {
     RUN_TEST(test_ese_rect_lua_rotation);
     RUN_TEST(test_ese_rect_lua_tostring);
     RUN_TEST(test_ese_rect_lua_gc);
+    RUN_TEST(test_ese_rect_lua_from_json);
+    RUN_TEST(test_ese_rect_lua_to_json);
+    RUN_TEST(test_ese_rect_lua_json_round_trip);
 
     memory_manager.destroy();
 
@@ -996,4 +1005,187 @@ static void test_ese_rect_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Test Rect.fromJSON Lua static method
+*/
+static void test_ese_rect_lua_from_json(void) {
+    ese_rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test valid JSON string
+    const char *testA = "local r = Rect.fromJSON('{\"type\":\"RECT\",\"x\":15.5,\"y\":25.8,\"width\":100.0,\"height\":75.0,\"rotation\":1.57}'); "
+                       "if r then "
+                       "  if math.abs(r.x - 15.5) > 0.001 then error('Rect fromJSON should set correct x') end; "
+                       "  if math.abs(r.y - 25.8) > 0.001 then error('Rect fromJSON should set correct y') end; "
+                       "  if math.abs(r.width - 100.0) > 0.001 then error('Rect fromJSON should set correct width') end; "
+                       "  if math.abs(r.height - 75.0) > 0.001 then error('Rect fromJSON should set correct height') end; "
+                       "  if math.abs(r.rotation - 1.57) > 0.001 then error('Rect fromJSON should set correct rotation') end; "
+                       "else "
+                       "  error('Rect.fromJSON should return a rect'); "
+                       "end";
+
+    int resultA = luaL_dostring(L, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        fprintf(stderr, "ERROR in fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(L, 1);  // remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "Rect.fromJSON should work with valid JSON");
+
+    // Test invalid JSON string
+    const char *testB = "local r = Rect.fromJSON('invalid json'); "
+                       "if r then "
+                       "  error('Rect.fromJSON should fail with invalid JSON'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Rect.fromJSON should fail with invalid JSON");
+
+    // Test JSON with wrong type
+    const char *testC = "local r = Rect.fromJSON('{\"type\":\"POINT\",\"x\":15.5,\"y\":25.8,\"width\":100.0,\"height\":75.0}'); "
+                       "if r then "
+                       "  error('Rect.fromJSON should fail with wrong type'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Rect.fromJSON should fail with wrong type");
+
+    // Test JSON missing coordinates
+    const char *testD = "local r = Rect.fromJSON('{\"type\":\"RECT\"}'); "
+                       "if r then "
+                       "  error('Rect.fromJSON should fail with missing coordinates'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "Rect.fromJSON should fail with missing coordinates");
+}
+
+/**
+* Test Rect:toJSON Lua instance method
+*/
+static void test_ese_rect_lua_to_json(void) {
+    ese_rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test toJSON method - individual functionality test
+    const char *testA = "local r = Rect.new(10.5, 20.7, 100.0, 75.0) "
+                       "r.rotation = 90.0 "
+                       "local json = r:toJSON() "
+                       "if not json or json == '' then "
+                       "  error('toJSON should return non-empty string') "
+                       "end "
+                       "if not string.find(json, 'type') or not string.find(json, 'RECT') then "
+                       "  error('toJSON should return valid JSON') "
+                       "end;";
+
+    int result = luaL_dostring(L, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        printf("luaL_dostring error: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(L, 1);  // remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Rect:toJSON should create valid JSON");
+}
+
+/**
+* Test Rect JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_rect_lua_json_round_trip(void) {
+    ese_rect_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test JSON round-trip
+    const char *testA = "local original = Rect.new(12.34, 56.78, 100.0, 75.0) "
+                       "original.rotation = 1.23 "
+                       "local json = original:toJSON() "
+                       "local restored = Rect.fromJSON(json) "
+                       "if not restored then "
+                       "  error('Rect.fromJSON should return a rect') "
+                       "end "
+                       "if math.abs(original.x - restored.x) > 0.001 then "
+                       "  error('Rect round-trip should preserve x coordinate') "
+                       "end "
+                       "if math.abs(original.y - restored.y) > 0.001 then "
+                       "  error('Rect round-trip should preserve y coordinate') "
+                       "end "
+                       "if math.abs(original.width - restored.width) > 0.001 then "
+                       "  error('Rect round-trip should preserve width') "
+                       "end "
+                       "if math.abs(original.height - restored.height) > 0.001 then "
+                       "  error('Rect round-trip should preserve height') "
+                       "end "
+                       "if math.abs(original.rotation - restored.rotation) > 0.001 then "
+                       "  error('Rect round-trip should preserve rotation') "
+                       "end;";
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Rect JSON round-trip should work correctly");
+}
+
+/**
+* Tests for rect serialization/deserialization functionality
+*/
+static void test_ese_rect_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test rect
+    EseRect *original = ese_rect_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_rect_set_x(original, 10.5f);
+    ese_rect_set_y(original, 20.7f);
+    ese_rect_set_width(original, 100.0f);
+    ese_rect_set_height(original, 75.5f);
+    ese_rect_set_rotation(original, 1.5708f); // C function takes radians, so we pass π/2 radians
+
+    // Test serialization
+    cJSON *json = ese_rect_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("RECT", type_item->valuestring);
+
+    cJSON *x_item = cJSON_GetObjectItem(json, "x");
+    TEST_ASSERT_NOT_NULL(x_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(x_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 10.5, x_item->valuedouble);
+
+    cJSON *y_item = cJSON_GetObjectItem(json, "y");
+    TEST_ASSERT_NOT_NULL(y_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(y_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 20.7, y_item->valuedouble);
+
+    cJSON *width_item = cJSON_GetObjectItem(json, "width");
+    TEST_ASSERT_NOT_NULL(width_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(width_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 100.0, width_item->valuedouble);
+
+    cJSON *height_item = cJSON_GetObjectItem(json, "height");
+    TEST_ASSERT_NOT_NULL(height_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(height_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 75.5, height_item->valuedouble);
+
+    cJSON *rotation_item = cJSON_GetObjectItem(json, "rotation");
+    TEST_ASSERT_NOT_NULL(rotation_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(rotation_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 90.0, rotation_item->valuedouble); // JSON stores degrees, so we convert to radians
+
+    // Test deserialization
+    EseRect *deserialized = ese_rect_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all properties match
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.5f, ese_rect_get_x(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.7f, ese_rect_get_y(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, ese_rect_get_width(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 75.5f, ese_rect_get_height(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.57f, ese_rect_get_rotation(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_rect_destroy(original);
+    ese_rect_destroy(deserialized);
+    lua_engine_destroy(engine);
 }

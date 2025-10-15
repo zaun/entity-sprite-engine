@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "vendor/json/cJSON.h"
 
 #define VECTOR_PROXY_META "VectorProxyMeta"
 
@@ -216,5 +217,35 @@ float ese_vector_magnitude(const EseVector *vector);
  * @param vector Pointer to the EseVector object to normalize
  */
 void ese_vector_normalize(EseVector *vector);
+
+/**
+ * @brief Serializes an EseVector to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the vector with type "VECTOR"
+ *          and x, y components. Only serializes the
+ *          vector data, not Lua-related fields.
+ *
+ * @param vector Pointer to the EseVector object to serialize
+ * @return cJSON object representing the vector, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_vector_serialize(const EseVector *vector);
+
+/**
+ * @brief Deserializes an EseVector from a cJSON object.
+ *
+ * @details Creates a new EseVector from a cJSON object with type "VECTOR"
+ *          and x, y components. The vector is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_vector_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for vector creation
+ * @param data cJSON object containing vector data
+ * @return Pointer to newly created EseVector object, or NULL on failure
+ *
+ * @warning The returned EseVector must be freed with ese_vector_destroy() to prevent memory leaks
+ */
+EseVector *ese_vector_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_VECTOR_H

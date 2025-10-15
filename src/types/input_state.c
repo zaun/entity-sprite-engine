@@ -51,7 +51,9 @@ static int _input_state_lua_tostring(lua_State *L);
 
 // Lua helpers
 static int _input_state_keys_index(lua_State *L);
-static int _input_state_mouse_buttons_index(lua_State *L);
+static int _input_state_mouse_down_index(lua_State *L);
+static int _input_state_mouse_clicked_index(lua_State *L);
+static int _input_state_mouse_released_index(lua_State *L);
 static int _input_state_key_index(lua_State *L);
 static int _input_state_readonly_error(lua_State *L);
 
@@ -73,7 +75,9 @@ static EseInputState *_input_state_make() {
     memset(input->keys_down, 0, sizeof(input->keys_down));
     memset(input->keys_pressed, 0, sizeof(input->keys_pressed));
     memset(input->keys_released, 0, sizeof(input->keys_released));
-    memset(input->mouse_buttons, 0, sizeof(input->mouse_buttons));
+    memset(input->mouse_down, 0, sizeof(input->mouse_down));
+    memset(input->mouse_clicked, 0, sizeof(input->mouse_clicked));
+    memset(input->mouse_released, 0, sizeof(input->mouse_released));
 
     input->mouse_x = 0;
     input->mouse_y = 0;
@@ -188,13 +192,13 @@ static int _input_state_lua_index(lua_State *L) {
     }
 
     // mouse_buttons table proxy (read-only)
-    if (strcmp(key, "mouse_buttons") == 0) {
+    if (strcmp(key, "mouse_down") == 0) {
         // Create and set the metatable
         lua_newtable(L);
         
         // Set __index closure with the input pointer as upvalue
         lua_pushlightuserdata(L, input);
-        lua_pushcclosure(L, _input_state_mouse_buttons_index, 1);
+        lua_pushcclosure(L, _input_state_mouse_down_index, 1);
         lua_setfield(L, -2, "__index");
         
         // Set __newindex to error
@@ -204,7 +208,45 @@ static int _input_state_lua_index(lua_State *L) {
         // Apply metatable to the table
         lua_setmetatable(L, -2);
 
-        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_buttons)");
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_down)");
+        return 1;
+    }
+    if (strcmp(key, "mouse_clicked") == 0) {
+        // Create and set the metatable
+        lua_newtable(L);
+        
+        // Set __index closure with the input pointer as upvalue
+        lua_pushlightuserdata(L, input);
+        lua_pushcclosure(L, _input_state_mouse_clicked_index, 1);
+        lua_setfield(L, -2, "__index");
+        
+        // Set __newindex to error
+        lua_pushcfunction(L, _input_state_readonly_error);
+        lua_setfield(L, -2, "__newindex");
+        
+        // Apply metatable to the table
+        lua_setmetatable(L, -2);
+
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_clicked)");
+        return 1;
+    }
+    if (strcmp(key, "mouse_released") == 0) {
+        // Create and set the metatable
+        lua_newtable(L);
+        
+        // Set __index closure with the input pointer as upvalue
+        lua_pushlightuserdata(L, input);
+        lua_pushcclosure(L, _input_state_mouse_released_index, 1);
+        lua_setfield(L, -2, "__index");
+        
+        // Set __newindex to error
+        lua_pushcfunction(L, _input_state_readonly_error);
+        lua_setfield(L, -2, "__newindex");
+        
+        // Apply metatable to the table
+        lua_setmetatable(L, -2);
+
+        profile_stop(PROFILE_LUA_INPUT_STATE_INDEX, "input_state_lua_index (mouse_released)");
         return 1;
     }
 
@@ -334,13 +376,33 @@ static int _input_state_keys_index(lua_State *L) {
  * @param L Lua state
  * @return Number of values pushed onto the stack (always 1 - boolean button state)
  */
-static int _input_state_mouse_buttons_index(lua_State *L) {
+static int _input_state_mouse_down_index(lua_State *L) {
     EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
     int btn = (int)luaL_checkinteger(L, 2);
     if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
         return luaL_error(L, "Invalid mouse button index");
     }
-    lua_pushboolean(L, input->mouse_buttons[btn]);
+    lua_pushboolean(L, input->mouse_down[btn]);
+    return 1;
+}
+
+static int _input_state_mouse_clicked_index(lua_State *L) {
+    EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
+    int btn = (int)luaL_checkinteger(L, 2);
+    if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
+        return luaL_error(L, "Invalid mouse button index");
+    }
+    lua_pushboolean(L, input->mouse_clicked[btn]);
+    return 1;
+}
+
+static int _input_state_mouse_released_index(lua_State *L) {
+    EseInputState *input = (EseInputState *)lua_touserdata(L, lua_upvalueindex(1));
+    int btn = (int)luaL_checkinteger(L, 2);
+    if (btn < 0 || btn >= MOUSE_BUTTON_COUNT) {
+        return luaL_error(L, "Invalid mouse button index");
+    }
+    lua_pushboolean(L, input->mouse_released[btn]);
     return 1;
 }
 
@@ -434,10 +496,22 @@ bool ese_input_state_get_key_released(const EseInputState *input, EseInputKey ke
 }
 
 // Mouse button getters
-bool ese_input_state_get_mouse_button(const EseInputState *input, int button) {
-    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_button called with NULL input");
-    log_assert("INPUT_STATE", (button >= 0 && button < MOUSE_BUTTON_COUNT), "ese_input_state_get_mouse_button called with invalid button");
-    return input->mouse_buttons[button];
+bool ese_input_state_get_mouse_down(const EseInputState *input, int button) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_down called with NULL input");
+    log_assert("INPUT_STATE", (button >= 0 && button < MOUSE_BUTTON_COUNT), "ese_input_state_get_mouse_down called with invalid button");
+    return input->mouse_down[button];
+}
+
+bool ese_input_state_get_mouse_clicked(const EseInputState *input, int button) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_clicked called with NULL input");
+    log_assert("INPUT_STATE", (button >= 0 && button < MOUSE_BUTTON_COUNT), "ese_input_state_get_mouse_clicked called with invalid button");
+    return input->mouse_clicked[button];
+}
+
+bool ese_input_state_get_mouse_released(const EseInputState *input, int button) {
+    log_assert("INPUT_STATE", input, "ese_input_state_get_mouse_released called with NULL input");
+    log_assert("INPUT_STATE", (button >= 0 && button < MOUSE_BUTTON_COUNT), "ese_input_state_get_mouse_released called with invalid button");
+    return input->mouse_released[button];
 }
 
 // Lua state getters
@@ -476,7 +550,9 @@ EseInputState *ese_input_state_copy(const EseInputState *src) {
     memcpy(copy->keys_down, src->keys_down, sizeof(src->keys_down));
     memcpy(copy->keys_pressed, src->keys_pressed, sizeof(src->keys_pressed));
     memcpy(copy->keys_released, src->keys_released, sizeof(src->keys_released));
-    memcpy(copy->mouse_buttons, src->mouse_buttons, sizeof(src->mouse_buttons));
+    memcpy(copy->mouse_down, src->mouse_down, sizeof(src->mouse_down));
+    memcpy(copy->mouse_clicked, src->mouse_clicked, sizeof(src->mouse_clicked));
+    memcpy(copy->mouse_released, src->mouse_released, sizeof(src->mouse_released));
 
     copy->mouse_x = src->mouse_x;
     copy->mouse_y = src->mouse_y;

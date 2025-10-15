@@ -21,6 +21,8 @@
 #include "../src/types/vector.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -42,6 +44,10 @@ static void test_ese_ray_lua_integration(void);
 static void test_ese_ray_lua_init(void);
 static void test_ese_ray_lua_push(void);
 static void test_ese_ray_lua_get(void);
+static void test_ese_ray_serialization(void);
+static void test_ese_ray_lua_to_json(void);
+static void test_ese_ray_lua_from_json(void);
+static void test_ese_ray_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -99,6 +105,10 @@ int main(void) {
     RUN_TEST(test_ese_ray_lua_init);
     RUN_TEST(test_ese_ray_lua_push);
     RUN_TEST(test_ese_ray_lua_get);
+    RUN_TEST(test_ese_ray_serialization);
+    RUN_TEST(test_ese_ray_lua_to_json);
+    RUN_TEST(test_ese_ray_lua_from_json);
+    RUN_TEST(test_ese_ray_json_round_trip);
 
     RUN_TEST(test_ese_ray_lua_new);
     RUN_TEST(test_ese_ray_lua_zero);
@@ -736,4 +746,206 @@ static void test_ese_ray_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for ray serialization/deserialization functionality
+*/
+static void test_ese_ray_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test ray
+    EseRay *original = ese_ray_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_ray_set_x(original, 10.5f);
+    ese_ray_set_y(original, 20.7f);
+    ese_ray_set_dx(original, 3.0f);
+    ese_ray_set_dy(original, 4.0f);
+
+    // Test serialization
+    cJSON *json = ese_ray_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("RAY", type_item->valuestring);
+
+    cJSON *x_item = cJSON_GetObjectItem(json, "x");
+    TEST_ASSERT_NOT_NULL(x_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(x_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 10.5, x_item->valuedouble);
+
+    cJSON *y_item = cJSON_GetObjectItem(json, "y");
+    TEST_ASSERT_NOT_NULL(y_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(y_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 20.7, y_item->valuedouble);
+
+    cJSON *dx_item = cJSON_GetObjectItem(json, "dx");
+    TEST_ASSERT_NOT_NULL(dx_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(dx_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 3.0, dx_item->valuedouble);
+
+    cJSON *dy_item = cJSON_GetObjectItem(json, "dy");
+    TEST_ASSERT_NOT_NULL(dy_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(dy_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 4.0, dy_item->valuedouble);
+
+    // Test deserialization
+    EseRay *deserialized = ese_ray_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all properties match
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.5f, ese_ray_get_x(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.7f, ese_ray_get_y(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f, ese_ray_get_dx(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f, ese_ray_get_dy(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_ray_destroy(original);
+    ese_ray_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Ray:toJSON Lua instance method
+*
+* Tests the Lua toJSON instance method for EseRay objects.
+* Verifies that valid JSON strings are generated and error cases are handled.
+*/
+static void test_ese_ray_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_ray_lua_init(engine);
+
+    // Set engine in Lua registry so fromJSON can retrieve it
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    // Test toJSON method - individual functionality test
+    const char *testA = "local r = Ray.new(15.5, 25.8, 3.0, 4.0) "
+                       "local json = r:toJSON() "
+                       "print('JSON: ' .. json) "
+                       "if json == nil or json == '' then error('toJSON should return non-empty string') end "
+                       "if not string.find(json, '\"type\":\"RAY\"') then error('toJSON should return valid JSON') end "
+                       "if not string.find(json, '\"x\":15.5') then error('toJSON should contain correct x') end "
+                       "if not string.find(json, '\"y\":25.7') then error('toJSON should contain correct y') end "
+                       "if not string.find(json, '\"dx\":3') then error('toJSON should contain correct dx') end "
+                       "if not string.find(json, '\"dy\":4') then error('toJSON should contain correct dy') end "
+                       "return json; ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1); // Remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Ray:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Ray.fromJSON Lua static method
+*
+* Tests the Lua fromJSON static method for EseRay objects.
+* Verifies that valid JSON strings are parsed correctly and error cases are handled.
+*/
+static void test_ese_ray_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_ray_lua_init(engine);
+
+    // Set engine in Lua registry so fromJSON can retrieve it
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    // Test valid JSON string
+    const char *testA = "local json_str = '{\"type\":\"RAY\",\"x\":15.5,\"y\":25.8,\"dx\":3.0,\"dy\":4.0}' "
+                       "local r = Ray.fromJSON(json_str) "
+                       "if r == nil then error('Ray.fromJSON should return a ray') end "
+                       "if math.abs(r.x - 15.5) > 0.001 then error('Ray fromJSON should set correct x') end "
+                       "if math.abs(r.y - 25.8) > 0.001 then error('Ray fromJSON should set correct y') end "
+                       "if math.abs(r.dx - 3.0) > 0.001 then error('Ray fromJSON should set correct dx') end "
+                       "if math.abs(r.dy - 4.0) > 0.001 then error('Ray fromJSON should set correct dy') end ";
+
+    int resultA = luaL_dostring(engine->runtime, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in fromJSON testA: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1); // Remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "Ray.fromJSON should work with valid JSON");
+
+    // Test invalid JSON string
+    const char *testB = "local r = Ray.fromJSON('invalid json') "
+                       "error('Ray.fromJSON should fail with invalid JSON'); ";
+
+    int resultB = luaL_dostring(engine->runtime, testB);
+    if (resultB == LUA_OK) {
+        printf("ERROR in fromJSON testB: Expected failure but got success\n");
+    }
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, resultB, "Ray.fromJSON should fail with invalid JSON");
+
+    // Test JSON with wrong type
+    const char *testC = "local r = Ray.fromJSON('{\"type\":\"POINT\",\"x\":15.5,\"y\":25.8,\"dx\":3.0,\"dy\":4.0}') "
+                       "error('Ray.fromJSON should fail with wrong type'); ";
+
+    int resultC = luaL_dostring(engine->runtime, testC);
+    if (resultC == LUA_OK) {
+        printf("ERROR in fromJSON testC: Expected failure but got success\n");
+    }
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, resultC, "Ray.fromJSON should fail with wrong type");
+
+    // Test JSON missing coordinates
+    const char *testD = "local r = Ray.fromJSON('{\"type\":\"RAY\"}') "
+                       "error('Ray.fromJSON should fail with missing coordinates'); ";
+
+    int resultD = luaL_dostring(engine->runtime, testD);
+    if (resultD == LUA_OK) {
+        printf("ERROR in fromJSON testD: Expected failure but got success\n");
+    }
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, resultD, "Ray.fromJSON should fail with missing coordinates");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Ray JSON round-trip (toJSON -> fromJSON)
+*
+* Tests that serializing a ray to JSON and then deserializing it back
+* produces an equivalent ray object.
+*/
+static void test_ese_ray_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_ray_lua_init(engine);
+
+    // Set engine in Lua registry so fromJSON can retrieve it
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    // Test JSON round-trip
+    const char *testA = "local original = Ray.new(10.5, 20.7, 3.0, 4.0) "
+                       "local json = original:toJSON() "
+                       "local restored = Ray.fromJSON(json) "
+                       "if restored == nil then error('Ray.fromJSON should return a ray') end "
+                       "if math.abs(restored.x - original.x) > 0.001 then error('Round-trip should preserve x') end "
+                       "if math.abs(restored.y - original.y) > 0.001 then error('Round-trip should preserve y') end "
+                       "if math.abs(restored.dx - original.dx) > 0.001 then error('Round-trip should preserve dx') end "
+                       "if math.abs(restored.dy - original.dy) > 0.001 then error('Round-trip should preserve dy') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1); // Remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Ray JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }

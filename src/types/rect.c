@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
@@ -7,6 +8,7 @@
 #include "types/point.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
@@ -84,6 +86,10 @@ static int _ese_rect_lua_zero(lua_State *L);
 static int _ese_rect_lua_area(lua_State *L);
 static int _ese_rect_lua_contains_point(lua_State *L);
 static int _ese_rect_lua_intersects(lua_State *L);
+
+// Lua JSON methods
+static int _ese_rect_lua_from_json(lua_State *L);
+static int _ese_rect_lua_to_json(lua_State *L);
 
 // Watcher system
 static void _ese_rect_notify_watchers(EseRect *rect);
@@ -261,6 +267,11 @@ static int _ese_rect_lua_index(lua_State *L) {
     } else if (strcmp(key, "area") == 0) {
         lua_pushlightuserdata(L, rect);
         lua_pushcclosure(L, _ese_rect_lua_area, 1);
+        profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, rect);
+        lua_pushcclosure(L, _ese_rect_lua_to_json, 1);
         profile_stop(PROFILE_LUA_RECT_INDEX, "rect_lua_index (method)");
         return 1;
     }
@@ -551,6 +562,110 @@ static int _ese_rect_lua_intersects(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua static method for creating EseRect from JSON string
+ *
+ * Creates a new EseRect from a JSON string. This function is called when Lua code
+ * executes `Rect.fromJSON(json_string)`. It parses the JSON string, validates it
+ * contains rect data, and creates a new rect with the specified coordinates and dimensions.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
+static int _ese_rect_lua_from_json(lua_State *L) {
+    profile_start(PROFILE_LUA_RECT_FROM_JSON);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
+        return luaL_error(L, "Rect.fromJSON(string) takes 1 argument");
+    }
+
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
+        return luaL_error(L, "Rect.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+
+    // Parse JSON string
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("RECT", "Rect.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
+        return luaL_error(L, "Rect.fromJSON: invalid JSON string");
+    }
+
+    // Get the current engine from Lua registry
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
+        return luaL_error(L, "Rect.fromJSON: no engine available");
+    }
+
+    // Use the existing deserialization function
+    EseRect *rect = ese_rect_deserialize(engine, json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!rect) {
+        profile_cancel(PROFILE_LUA_RECT_FROM_JSON);
+        return luaL_error(L, "Rect.fromJSON: failed to deserialize rect");
+    }
+
+    ese_rect_lua_push(rect);
+
+    profile_stop(PROFILE_LUA_RECT_FROM_JSON, "rect_lua_from_json");
+    return 1;
+}
+
+/**
+ * @brief Lua instance method for converting EseRect to JSON string
+ *
+ * Converts an EseRect to a JSON string representation. This function is called when
+ * Lua code executes `rect:toJSON()`. It serializes the rect's coordinates, dimensions,
+ * and rotation to JSON format and returns the string.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the JSON string)
+ */
+static int _ese_rect_lua_to_json(lua_State *L) {
+    profile_start(PROFILE_LUA_RECT_TO_JSON);
+
+    EseRect *rect = ese_rect_lua_get(L, 1);
+    if (!rect) {
+        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
+        return luaL_error(L, "Rect:toJSON() called on invalid rect");
+    }
+
+    // Serialize rect to JSON
+    cJSON *json = ese_rect_serialize(rect);
+    if (!json) {
+        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
+        return luaL_error(L, "Rect:toJSON() failed to serialize rect");
+    }
+
+    // Convert JSON to string
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!json_str) {
+        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
+        return luaL_error(L, "Rect:toJSON() failed to convert to string");
+    }
+
+    // Push the JSON string onto the stack (lua_pushstring makes a copy)
+    lua_pushstring(L, json_str);
+
+    // Clean up the string (cJSON_Print uses malloc)
+    // Note: We free here, but lua_pushstring should have made a copy
+    free(json_str); // cJSON doesnt use the memory manager.
+
+    profile_stop(PROFILE_LUA_RECT_TO_JSON, "rect_lua_to_json");
+    return 1;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -612,6 +727,149 @@ size_t ese_rect_sizeof(void) {
     return sizeof(EseRect);
 }
 
+/**
+ * @brief Serializes an EseRect to a cJSON object.
+ *
+ * Creates a cJSON object representing the rect with type "RECT"
+ * and x, y, width, height, rotation coordinates. Only serializes the
+ * coordinate and dimension data, not Lua-related fields.
+ *
+ * @param rect Pointer to the EseRect object to serialize
+ * @return cJSON object representing the rect, or NULL on failure
+ */
+cJSON *ese_rect_serialize(const EseRect *rect) {
+    log_assert("RECT", rect, "ese_rect_serialize called with NULL rect");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("RECT", "Failed to create cJSON object for rect serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("RECT");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("RECT", "Failed to add type field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add x coordinate
+    cJSON *x = cJSON_CreateNumber((double)rect->x);
+    if (!x || !cJSON_AddItemToObject(json, "x", x)) {
+        log_error("RECT", "Failed to add x field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add y coordinate
+    cJSON *y = cJSON_CreateNumber((double)rect->y);
+    if (!y || !cJSON_AddItemToObject(json, "y", y)) {
+        log_error("RECT", "Failed to add y field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add width
+    cJSON *width = cJSON_CreateNumber((double)rect->width);
+    if (!width || !cJSON_AddItemToObject(json, "width", width)) {
+        log_error("RECT", "Failed to add width field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add height
+    cJSON *height = cJSON_CreateNumber((double)rect->height);
+    if (!height || !cJSON_AddItemToObject(json, "height", height)) {
+        log_error("RECT", "Failed to add height field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add rotation
+    cJSON *rotation = cJSON_CreateNumber((double)rad_to_deg(rect->rotation));
+    if (!rotation || !cJSON_AddItemToObject(json, "rotation", rotation)) {
+        log_error("RECT", "Failed to add rotation field to rect serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseRect from a cJSON object.
+ *
+ * Creates a new EseRect from a cJSON object with type "RECT"
+ * and x, y, width, height, rotation coordinates. The rect is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_rect_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for rect creation
+ * @param data cJSON object containing rect data
+ * @return Pointer to newly created EseRect object, or NULL on failure
+ */
+EseRect *ese_rect_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("RECT", data, "ese_rect_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("RECT", "Rect deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "RECT") != 0) {
+        log_error("RECT", "Rect deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get x coordinate
+    cJSON *x_item = cJSON_GetObjectItem(data, "x");
+    if (!x_item || !cJSON_IsNumber(x_item)) {
+        log_error("RECT", "Rect deserialization failed: invalid or missing x field");
+        return NULL;
+    }
+
+    // Get y coordinate
+    cJSON *y_item = cJSON_GetObjectItem(data, "y");
+    if (!y_item || !cJSON_IsNumber(y_item)) {
+        log_error("RECT", "Rect deserialization failed: invalid or missing y field");
+        return NULL;
+    }
+
+    // Get width
+    cJSON *width_item = cJSON_GetObjectItem(data, "width");
+    if (!width_item || !cJSON_IsNumber(width_item)) {
+        log_error("RECT", "Rect deserialization failed: invalid or missing width field");
+        return NULL;
+    }
+
+    // Get height
+    cJSON *height_item = cJSON_GetObjectItem(data, "height");
+    if (!height_item || !cJSON_IsNumber(height_item)) {
+        log_error("RECT", "Rect deserialization failed: invalid or missing height field");
+        return NULL;
+    }
+
+    // Get rotation (optional field)
+    cJSON *rotation_item = cJSON_GetObjectItem(data, "rotation");
+    float rotation = 0.0f;
+    if (rotation_item && cJSON_IsNumber(rotation_item)) {
+        rotation = deg_to_rad((float)rotation_item->valuedouble);
+    }
+
+    // Create new rect
+    EseRect *rect = ese_rect_create(engine);
+    ese_rect_set_x(rect, (float)x_item->valuedouble);
+    ese_rect_set_y(rect, (float)y_item->valuedouble);
+    ese_rect_set_width(rect, (float)width_item->valuedouble);
+    ese_rect_set_height(rect, (float)height_item->valuedouble);
+    ese_rect_set_rotation(rect, rotation);
+
+    return rect;
+}
+
 // Lua integration
 void ese_rect_lua_init(EseLuaEngine *engine) {
     log_assert("RECT", engine, "ese_rect_lua_init called with NULL engine");
@@ -642,6 +900,8 @@ void ese_rect_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "new");
         lua_pushcfunction(engine->runtime, _ese_rect_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
+        lua_pushcfunction(engine->runtime, _ese_rect_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Rect");
     } else {
         lua_pop(engine->runtime, 1);

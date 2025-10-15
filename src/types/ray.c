@@ -7,6 +7,7 @@
 #include "utility/profile.h"
 #include "types/types.h"
 #include "types/rect.h"
+#include "vendor/json/cJSON.h"
 
 // ========================================
 // PRIVATE STRUCT DEFINITION
@@ -50,6 +51,8 @@ static int _ese_ray_lua_zero(lua_State *L);
 static int _ese_ray_lua_intersects_rect(lua_State *L);
 static int _ese_ray_lua_get_point_at_distance(lua_State *L);
 static int _ese_ray_lua_normalize(lua_State *L);
+static int _ese_ray_lua_to_json(lua_State *L);
+static int _ese_ray_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -154,6 +157,11 @@ static int _ese_ray_lua_index(lua_State *L) {
     } else if (strcmp(key, "normalize") == 0) {
         lua_pushlightuserdata(L, ray);
         lua_pushcclosure(L, _ese_ray_lua_normalize, 1);
+        profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, ray);
+        lua_pushcclosure(L, _ese_ray_lua_to_json, 1);
         profile_stop(PROFILE_LUA_RAY_INDEX, "ray_lua_index (method)");
         return 1;
     }
@@ -424,6 +432,110 @@ static int _ese_ray_lua_normalize(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua instance method for converting EseRay to JSON string
+ *
+ * Converts an EseRay to a JSON string representation. This function is called when
+ * Lua code executes `ray:toJSON()`. It serializes the ray's origin and direction
+ * to JSON format and returns the string.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the JSON string)
+ */
+static int _ese_ray_lua_to_json(lua_State *L) {
+    profile_start(PROFILE_LUA_RAY_TO_JSON);
+
+    EseRay *ray = ese_ray_lua_get(L, 1);
+    if (!ray) {
+        profile_cancel(PROFILE_LUA_RAY_TO_JSON);
+        return luaL_error(L, "Ray:toJSON() called on invalid ray");
+    }
+
+    // Serialize ray to JSON
+    cJSON *json = ese_ray_serialize(ray);
+    if (!json) {
+        profile_cancel(PROFILE_LUA_RAY_TO_JSON);
+        return luaL_error(L, "Ray:toJSON() failed to serialize ray");
+    }
+
+    // Convert JSON to string
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!json_str) {
+        profile_cancel(PROFILE_LUA_RAY_TO_JSON);
+        return luaL_error(L, "Ray:toJSON() failed to convert to string");
+    }
+
+    // Push the JSON string onto the stack (lua_pushstring makes a copy)
+    lua_pushstring(L, json_str);
+
+    // Clean up the string (cJSON_Print uses malloc)
+    // Note: We free here, but lua_pushstring should have made a copy
+    free(json_str); // cJSON doesnt use the memory manager.
+
+    profile_stop(PROFILE_LUA_RAY_TO_JSON, "ray_lua_to_json");
+    return 1;
+}
+
+/**
+ * @brief Lua static method for creating EseRay from JSON string
+ *
+ * Creates a new EseRay from a JSON string. This function is called when Lua code
+ * executes `Ray.fromJSON(json_string)`. It parses the JSON string, validates it
+ * contains ray data, and creates a new ray with the specified origin and direction.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
+static int _ese_ray_lua_from_json(lua_State *L) {
+    profile_start(PROFILE_LUA_RAY_FROM_JSON);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        profile_cancel(PROFILE_LUA_RAY_FROM_JSON);
+        return luaL_error(L, "Ray.fromJSON(string) takes 1 argument");
+    }
+
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        profile_cancel(PROFILE_LUA_RAY_FROM_JSON);
+        return luaL_error(L, "Ray.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+
+    // Parse JSON string
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("RAY", "Ray.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        profile_cancel(PROFILE_LUA_RAY_FROM_JSON);
+        return luaL_error(L, "Ray.fromJSON: invalid JSON string");
+    }
+
+    // Get the current engine from Lua registry
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        profile_cancel(PROFILE_LUA_RAY_FROM_JSON);
+        return luaL_error(L, "Ray.fromJSON: no engine available");
+    }
+
+    // Use the existing deserialization function
+    EseRay *ray = ese_ray_deserialize(engine, json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!ray) {
+        profile_cancel(PROFILE_LUA_RAY_FROM_JSON);
+        return luaL_error(L, "Ray.fromJSON: failed to deserialize ray");
+    }
+
+    ese_ray_lua_push(ray);
+
+    profile_stop(PROFILE_LUA_RAY_FROM_JSON, "ray_lua_from_json");
+    return 1;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -493,6 +605,8 @@ void ese_ray_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "new");
         lua_pushcfunction(engine->runtime, _ese_ray_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
+        lua_pushcfunction(engine->runtime, _ese_ray_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Ray");
     } else {
         lua_pop(engine->runtime, 1);
@@ -578,6 +692,133 @@ void ese_ray_unref(EseRay *ray) {
 
 size_t ese_ray_sizeof(void) {
     return sizeof(struct EseRay);
+}
+
+/**
+ * @brief Serializes an EseRay to a cJSON object.
+ *
+ * Creates a cJSON object representing the ray with type "RAY"
+ * and x, y, dx, dy coordinates. Only serializes the
+ * coordinate and direction data, not Lua-related fields.
+ *
+ * @param ray Pointer to the EseRay object to serialize
+ * @return cJSON object representing the ray, or NULL on failure
+ */
+cJSON *ese_ray_serialize(const EseRay *ray) {
+    log_assert("RAY", ray, "ese_ray_serialize called with NULL ray");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("RAY", "Failed to create cJSON object for ray serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("RAY");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("RAY", "Failed to add type field to ray serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add x coordinate (origin)
+    cJSON *x = cJSON_CreateNumber((double)ray->x);
+    if (!x || !cJSON_AddItemToObject(json, "x", x)) {
+        log_error("RAY", "Failed to add x field to ray serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add y coordinate (origin)
+    cJSON *y = cJSON_CreateNumber((double)ray->y);
+    if (!y || !cJSON_AddItemToObject(json, "y", y)) {
+        log_error("RAY", "Failed to add y field to ray serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add dx component (direction)
+    cJSON *dx = cJSON_CreateNumber((double)ray->dx);
+    if (!dx || !cJSON_AddItemToObject(json, "dx", dx)) {
+        log_error("RAY", "Failed to add dx field to ray serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add dy component (direction)
+    cJSON *dy = cJSON_CreateNumber((double)ray->dy);
+    if (!dy || !cJSON_AddItemToObject(json, "dy", dy)) {
+        log_error("RAY", "Failed to add dy field to ray serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseRay from a cJSON object.
+ *
+ * Creates a new EseRay from a cJSON object with type "RAY"
+ * and x, y, dx, dy coordinates. The ray is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_ray_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for ray creation
+ * @param data cJSON object containing ray data
+ * @return Pointer to newly created EseRay object, or NULL on failure
+ */
+EseRay *ese_ray_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("RAY", data, "ese_ray_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("RAY", "Ray deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "RAY") != 0) {
+        log_error("RAY", "Ray deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get x coordinate (origin)
+    cJSON *x_item = cJSON_GetObjectItem(data, "x");
+    if (!x_item || !cJSON_IsNumber(x_item)) {
+        log_error("RAY", "Ray deserialization failed: invalid or missing x field");
+        return NULL;
+    }
+
+    // Get y coordinate (origin)
+    cJSON *y_item = cJSON_GetObjectItem(data, "y");
+    if (!y_item || !cJSON_IsNumber(y_item)) {
+        log_error("RAY", "Ray deserialization failed: invalid or missing y field");
+        return NULL;
+    }
+
+    // Get dx component (direction)
+    cJSON *dx_item = cJSON_GetObjectItem(data, "dx");
+    if (!dx_item || !cJSON_IsNumber(dx_item)) {
+        log_error("RAY", "Ray deserialization failed: invalid or missing dx field");
+        return NULL;
+    }
+
+    // Get dy component (direction)
+    cJSON *dy_item = cJSON_GetObjectItem(data, "dy");
+    if (!dy_item || !cJSON_IsNumber(dy_item)) {
+        log_error("RAY", "Ray deserialization failed: invalid or missing dy field");
+        return NULL;
+    }
+
+    // Create new ray
+    EseRay *ray = ese_ray_create(engine);
+    ese_ray_set_x(ray, (float)x_item->valuedouble);
+    ese_ray_set_y(ray, (float)y_item->valuedouble);
+    ese_ray_set_dx(ray, (float)dx_item->valuedouble);
+    ese_ray_set_dy(ray, (float)dy_item->valuedouble);
+
+    return ray;
 }
 
 float ese_ray_get_x(const EseRay *ray) {

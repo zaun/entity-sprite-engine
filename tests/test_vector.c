@@ -18,6 +18,8 @@
 #include "../src/types/vector.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -37,6 +39,10 @@ static void test_ese_vector_lua_integration(void);
 static void test_ese_vector_lua_init(void);
 static void test_ese_vector_lua_push(void);
 static void test_ese_vector_lua_get(void);
+static void test_ese_vector_serialization(void);
+static void test_ese_vector_lua_to_json(void);
+static void test_ese_vector_lua_from_json(void);
+static void test_ese_vector_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -90,6 +96,10 @@ int main(void) {
     RUN_TEST(test_ese_vector_lua_init);
     RUN_TEST(test_ese_vector_lua_push);
     RUN_TEST(test_ese_vector_lua_get);
+    RUN_TEST(test_ese_vector_serialization);
+    RUN_TEST(test_ese_vector_lua_to_json);
+    RUN_TEST(test_ese_vector_lua_from_json);
+    RUN_TEST(test_ese_vector_json_round_trip);
 
     RUN_TEST(test_ese_vector_lua_new);
     RUN_TEST(test_ese_vector_lua_zero);
@@ -654,4 +664,137 @@ static void test_ese_vector_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for vector serialization/deserialization functionality
+*/
+static void test_ese_vector_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test vector
+    EseVector *original = ese_vector_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_vector_set_x(original, 10.5f);
+    ese_vector_set_y(original, 20.7f);
+
+    // Test serialization
+    cJSON *json = ese_vector_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("VECTOR", type_item->valuestring);
+
+    cJSON *x_item = cJSON_GetObjectItem(json, "x");
+    TEST_ASSERT_NOT_NULL(x_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(x_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 10.5, x_item->valuedouble);
+
+    cJSON *y_item = cJSON_GetObjectItem(json, "y");
+    TEST_ASSERT_NOT_NULL(y_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(y_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 20.7, y_item->valuedouble);
+
+    // Test deserialization
+    EseVector *deserialized = ese_vector_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all components match
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.5f, ese_vector_get_x(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.7f, ese_vector_get_y(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_vector_destroy(original);
+    ese_vector_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Vector:toJSON Lua instance method
+*/
+static void test_ese_vector_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_vector_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local v = Vector.new(10.5, 20.7) "
+                       "local json = v:toJSON() "
+                       "if json == nil or json == '' then error('toJSON should return non-empty string') end "
+                       "if not string.find(json, '\"type\":\"VECTOR\"') then error('toJSON should return valid JSON') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in vector toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Vector:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Vector.fromJSON Lua static method
+*/
+static void test_ese_vector_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_vector_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local json_str = '{\\\"type\\\":\\\"VECTOR\\\",\\\"x\\\":10.5,\\\"y\\\":20.7}' "
+                       "local v = Vector.fromJSON(json_str) "
+                       "if v == nil then error('Vector.fromJSON should return a vector') end "
+                       "if math.abs(v.x - 10.5) > 0.001 then error('Vector fromJSON should set correct x') end "
+                       "if math.abs(v.y - 20.7) > 0.001 then error('Vector fromJSON should set correct y') end ";
+
+    int resultA = luaL_dostring(engine->runtime, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in vector fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "Vector.fromJSON should work with valid JSON");
+
+    const char *testB = "local v = Vector.fromJSON('invalid json')";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(engine->runtime, testB), "Vector.fromJSON should fail with invalid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Vector JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_vector_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_vector_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local original = Vector.new(10.5, 20.7) "
+                       "local json = original:toJSON() "
+                       "local restored = Vector.fromJSON(json) "
+                       "if not restored then error('Vector.fromJSON should return a vector') end "
+                       "if math.abs(restored.x - original.x) > 0.001 then error('Round-trip should preserve x') end "
+                       "if math.abs(restored.y - original.y) > 0.001 then error('Round-trip should preserve y') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in vector round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Vector JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }

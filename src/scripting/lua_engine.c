@@ -402,7 +402,7 @@ bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char* script
     char *processed_script = _replace_colon_calls(module_name, script);
 
     // Wrap script: LuaJIT-safe, returns module table
-    const char *prologue_fmt = "local %s = ...\n";
+    const char *prologue_fmt = "local %s = ... ;";
     const char *epilogue_fmt = "\nreturn %s\n";
     size_t new_len = strlen(prologue_fmt) + strlen(module_name)
                    + strlen(processed_script)

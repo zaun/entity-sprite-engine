@@ -22,6 +22,7 @@ typedef struct EseRenderer EseRenderer;
 typedef struct EseRect EseRect;
 typedef struct EseSprite EseSprite;
 typedef struct EseEntityComponentMap EseEntityComponentMap;
+typedef struct EseGui EseGui;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -224,5 +225,16 @@ void engine_pubsub_sub(EseEngine *engine, const char *name, EseEntity *entity, c
  * @param function_name The name of the function that was subscribed.
  */
 void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity, const char *function_name);
+
+/**
+ * @brief Retrieves the Nuklear context for the engine.
+ *
+ * This function returns a pointer to the Nuklear context, which can be used to
+ * access the Nuklear API for custom UI elements or integration.
+ *
+ * @param engine Pointer to the EseEngine instance.
+ * @return Pointer to the EseGui instance.
+ */
+EseGui *engine_get_gui(EseEngine *engine);
 
 #endif // ESE_ENGINE_H

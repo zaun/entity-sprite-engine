@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "vendor/json/cJSON.h"
 
 #define POLY_LINE_PROXY_META "PolyLineProxyMeta"
 
@@ -325,5 +326,35 @@ void ese_poly_line_ref(EsePolyLine *poly_line);
  * @param poly_line Pointer to the EsePolyLine object to unreference
  */
 void ese_poly_line_unref(EsePolyLine *poly_line);
+
+/**
+ * @brief Serializes an EsePolyLine to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the polyline with type "POLY_LINE"
+ *          and all properties including points, colors, and styling. Only serializes the
+ *          geometric and styling data, not Lua-related fields.
+ *
+ * @param poly_line Pointer to the EsePolyLine object to serialize
+ * @return cJSON object representing the polyline, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_poly_line_serialize(const EsePolyLine *poly_line);
+
+/**
+ * @brief Deserializes an EsePolyLine from a cJSON object.
+ *
+ * @details Creates a new EsePolyLine from a cJSON object with type "POLY_LINE"
+ *          and all properties including points, colors, and styling. The polyline is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_poly_line_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for polyline creation
+ * @param data cJSON object containing polyline data
+ * @return Pointer to newly created EsePolyLine object, or NULL on failure
+ *
+ * @warning The returned EsePolyLine must be freed with ese_poly_line_destroy() to prevent memory leaks
+ */
+EsePolyLine *ese_poly_line_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_POLY_LINE_H

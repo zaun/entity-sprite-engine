@@ -27,18 +27,22 @@ typedef struct lua_State lua_State;
  * Other code should use the getter functions in input_state.h.
  */
 struct EseInputState {
-    bool keys_down[InputKey_MAX];           /** State of keys currently held down. */
-    bool keys_pressed[InputKey_MAX];        /** Keys that were pressed this frame. */
-    bool keys_released[InputKey_MAX];       /** Keys that were released this frame. */
-    int mouse_x;                            /** The current X coordinate of the mouse cursor. */
-    int mouse_y;                            /** The current Y coordinate of the mouse cursor. */
-    int mouse_scroll_dx;                    /** The horizontal scroll delta this frame. */
-    int mouse_scroll_dy;                    /** The vertical scroll delta this frame. */
-    bool mouse_buttons[MOUSE_BUTTON_COUNT]; /** State of mouse buttons currently held down. */
+    bool keys_down[InputKey_MAX];               /** State of keys currently held down. */
+    bool keys_pressed[InputKey_MAX];            /** Keys that were pressed this frame. */
+    bool keys_released[InputKey_MAX];           /** Keys that were released this frame. */
 
-    lua_State *state;                       /** A pointer to the Lua state. */
-    int lua_ref;                            /** A reference to the Lua userdata object . */
-    int lua_ref_count;                      /** Number of times this input state has been referenced in C */
+    int mouse_x;                                /** The current X coordinate of the mouse cursor. */
+    int mouse_y;                                /** The current Y coordinate of the mouse cursor. */
+    int mouse_scroll_dx;                        /** The horizontal scroll delta this frame. */
+    int mouse_scroll_dy;                        /** The vertical scroll delta this frame. */
+
+    bool mouse_down[InputMouse_MAX];            /** State of mouse buttons currently held down. */
+    bool mouse_clicked[InputMouse_MAX];         /** Mouse buttons that were pressed this frame. */
+    bool mouse_released[InputMouse_MAX];        /** Mouse buttons that were released this frame. */
+
+    lua_State *state;                           /** A pointer to the Lua state. */
+    int lua_ref;                                /** A reference to the Lua userdata object . */
+    int lua_ref_count;                          /** Number of times this input state has been referenced in C */
 };
 
 #endif // ESE_INPUT_STATE_PRIVATE_H

@@ -18,6 +18,8 @@
 #include "../src/types/uuid.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -35,6 +37,10 @@ static void test_ese_uuid_lua_integration(void);
 static void test_ese_uuid_lua_init(void);
 static void test_ese_uuid_lua_push(void);
 static void test_ese_uuid_lua_get(void);
+static void test_ese_uuid_serialization(void);
+static void test_ese_uuid_lua_to_json(void);
+static void test_ese_uuid_lua_from_json(void);
+static void test_ese_uuid_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -83,6 +89,10 @@ int main(void) {
     RUN_TEST(test_ese_uuid_lua_init);
     RUN_TEST(test_ese_uuid_lua_push);
     RUN_TEST(test_ese_uuid_lua_get);
+    RUN_TEST(test_ese_uuid_serialization);
+    RUN_TEST(test_ese_uuid_lua_to_json);
+    RUN_TEST(test_ese_uuid_lua_from_json);
+    RUN_TEST(test_ese_uuid_json_round_trip);
 
     RUN_TEST(test_ese_uuid_lua_new);
     RUN_TEST(test_ese_uuid_lua_value);
@@ -411,4 +421,135 @@ static void test_ese_uuid_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for uuid serialization/deserialization functionality
+*/
+static void test_ese_uuid_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test uuid
+    EseUUID *original = ese_uuid_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    // Generate a new UUID to have a known value for testing
+    ese_uuid_generate_new(original);
+    const char *original_value = ese_uuid_get_value(original);
+
+    // Test serialization
+    cJSON *json = ese_uuid_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("UUID", type_item->valuestring);
+
+    cJSON *value_item = cJSON_GetObjectItem(json, "value");
+    TEST_ASSERT_NOT_NULL(value_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(value_item));
+    TEST_ASSERT_EQUAL_STRING(original_value, value_item->valuestring);
+
+    // Test deserialization
+    EseUUID *deserialized = ese_uuid_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify UUID value matches
+    TEST_ASSERT_EQUAL_STRING(original_value, ese_uuid_get_value(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_uuid_destroy(original);
+    ese_uuid_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test UUID:toJSON Lua instance method
+*/
+static void test_ese_uuid_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_uuid_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local u = UUID.new() "
+                       "local json = u:toJSON() "
+                       "if json == nil or json == '' then error('toJSON should return non-empty string') end "
+                       "if not string.find(json, '\"type\":\"UUID\"') then error('toJSON should return valid JSON') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in uuid toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "UUID:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test UUID.fromJSON Lua static method
+*/
+static void test_ese_uuid_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_uuid_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    // Prepare a UUID via C then build JSON string from it
+    EseUUID *tmp = ese_uuid_create(engine);
+    const char *val = ese_uuid_get_value(tmp);
+
+    char json_buf[128];
+    snprintf(json_buf, sizeof(json_buf), "{\\\"type\\\":\\\"UUID\\\",\\\"value\\\":\\\"%s\\\"}", val);
+
+    char lua_buf[256];
+    snprintf(lua_buf, sizeof(lua_buf), "local json_str = '%s' local u = UUID.fromJSON(json_str) if u == nil then error('UUID.fromJSON should return a uuid') end", json_buf);
+
+    int resultA = luaL_dostring(engine->runtime, lua_buf);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in uuid fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "UUID.fromJSON should work with valid JSON");
+
+    const char *testB = "local u = UUID.fromJSON('invalid json')";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(engine->runtime, testB), "UUID.fromJSON should fail with invalid JSON");
+
+    ese_uuid_destroy(tmp);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test UUID JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_uuid_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_uuid_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local original = UUID.new() "
+                       "local json = original:toJSON() "
+                       "local restored = UUID.fromJSON(json) "
+                       "if not restored then error('UUID.fromJSON should return a uuid') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in uuid round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "UUID JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }

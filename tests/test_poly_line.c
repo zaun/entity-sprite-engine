@@ -20,6 +20,8 @@
 #include "../src/types/color.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -45,6 +47,10 @@ static void test_ese_poly_line_lua_integration(void);
 static void test_ese_poly_line_lua_init(void);
 static void test_ese_poly_line_lua_push(void);
 static void test_ese_poly_line_lua_get(void);
+static void test_ese_poly_line_serialization(void);
+static void test_ese_poly_line_lua_to_json(void);
+static void test_ese_poly_line_lua_from_json(void);
+static void test_ese_poly_line_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -126,6 +132,10 @@ int main(void) {
     RUN_TEST(test_ese_poly_line_lua_init);
     RUN_TEST(test_ese_poly_line_lua_push);
     RUN_TEST(test_ese_poly_line_lua_get);
+    RUN_TEST(test_ese_poly_line_serialization);
+    RUN_TEST(test_ese_poly_line_lua_to_json);
+    RUN_TEST(test_ese_poly_line_lua_from_json);
+    RUN_TEST(test_ese_poly_line_json_round_trip);
 
     RUN_TEST(test_ese_poly_line_lua_new);
     RUN_TEST(test_ese_poly_line_lua_type);
@@ -804,5 +814,212 @@ static void test_ese_poly_line_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for polyline serialization/deserialization functionality
+*/
+static void test_ese_poly_line_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test polyline
+    EsePolyLine *original = ese_poly_line_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    // Set up the polyline with some points and styling
+    EsePoint *point1 = ese_point_create(engine);
+    EsePoint *point2 = ese_point_create(engine);
+    EsePoint *point3 = ese_point_create(engine);
+
+    ese_point_set_x(point1, 0.0f);
+    ese_point_set_y(point1, 0.0f);
+    ese_point_set_x(point2, 10.0f);
+    ese_point_set_y(point2, 10.0f);
+    ese_point_set_x(point3, 20.0f);
+    ese_point_set_y(point3, 0.0f);
+
+    ese_poly_line_add_point(original, point1);
+    ese_poly_line_add_point(original, point2);
+    ese_poly_line_add_point(original, point3);
+
+    EseColor *stroke_color = ese_color_create(engine);
+    EseColor *fill_color = ese_color_create(engine);
+
+    ese_color_set_r(stroke_color, 1.0f);
+    ese_color_set_g(stroke_color, 0.0f);
+    ese_color_set_b(stroke_color, 0.0f);
+    ese_color_set_a(stroke_color, 1.0f);
+
+    ese_color_set_r(fill_color, 0.0f);
+    ese_color_set_g(fill_color, 1.0f);
+    ese_color_set_b(fill_color, 0.0f);
+    ese_color_set_a(fill_color, 1.0f);
+
+    ese_poly_line_set_stroke_color(original, stroke_color);
+    ese_poly_line_set_fill_color(original, fill_color);
+    ese_poly_line_set_stroke_width(original, 2.5f);
+
+    // Test serialization
+    cJSON *json = ese_poly_line_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Debug: print the JSON
+    char *json_str = cJSON_PrintUnformatted(json);
+    printf("Serialized JSON: %s\n", json_str);
+    cJSON_free(json_str);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("POLY_LINE", type_item->valuestring);
+
+    cJSON *poly_type_item = cJSON_GetObjectItem(json, "poly_type");
+    TEST_ASSERT_NOT_NULL(poly_type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(poly_type_item));
+    TEST_ASSERT_EQUAL_STRING("OPEN", poly_type_item->valuestring);
+
+    cJSON *stroke_width_item = cJSON_GetObjectItem(json, "stroke_width");
+    TEST_ASSERT_NOT_NULL(stroke_width_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(stroke_width_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 2.5, stroke_width_item->valuedouble);
+
+    cJSON *points_item = cJSON_GetObjectItem(json, "points");
+    TEST_ASSERT_NOT_NULL(points_item);
+    TEST_ASSERT_TRUE(cJSON_IsArray(points_item));
+    TEST_ASSERT_EQUAL_INT(3, cJSON_GetArraySize(points_item));
+
+    cJSON *stroke_color_item = cJSON_GetObjectItem(json, "stroke_color");
+    TEST_ASSERT_NOT_NULL(stroke_color_item);
+    TEST_ASSERT_TRUE(cJSON_IsObject(stroke_color_item));
+
+    cJSON *fill_color_item = cJSON_GetObjectItem(json, "fill_color");
+    TEST_ASSERT_NOT_NULL(fill_color_item);
+    TEST_ASSERT_TRUE(cJSON_IsObject(fill_color_item));
+
+    // Test deserialization
+    EsePolyLine *deserialized = ese_poly_line_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all properties match
+    TEST_ASSERT_EQUAL_INT(POLY_LINE_OPEN, ese_poly_line_get_type(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.5f, ese_poly_line_get_stroke_width(deserialized));
+    TEST_ASSERT_EQUAL_INT(3, ese_poly_line_get_point_count(deserialized));
+
+    // Verify points by checking the raw point data
+    const float *deser_points = ese_poly_line_get_points(deserialized);
+    TEST_ASSERT_NOT_NULL(deser_points);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, deser_points[0]);  // x1
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, deser_points[1]);  // y1
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, deser_points[2]); // x2
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, deser_points[3]); // y2
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, deser_points[4]); // x3
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, deser_points[5]);  // y3
+
+    // Verify colors
+    EseColor *deser_stroke_color = ese_poly_line_get_stroke_color(deserialized);
+    EseColor *deser_fill_color = ese_poly_line_get_fill_color(deserialized);
+
+    TEST_ASSERT_NOT_NULL(deser_stroke_color);
+    TEST_ASSERT_NOT_NULL(deser_fill_color);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_r(deser_stroke_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_g(deser_stroke_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(deser_stroke_color));
+
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_r(deser_fill_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_color_get_g(deser_fill_color));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_color_get_b(deser_fill_color));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_point_destroy(point1);
+    ese_point_destroy(point2);
+    ese_point_destroy(point3);
+    ese_color_destroy(stroke_color);
+    ese_color_destroy(fill_color);
+    ese_poly_line_destroy(original);
+    ese_poly_line_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test PolyLine:toJSON Lua instance method
+*/
+static void test_ese_poly_line_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_poly_line_lua_init(engine);
+    ese_point_lua_init(engine);
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local p = PolyLine.new(); local pt1 = Point.new(0,0); local pt2 = Point.new(10,10); p:add_point(pt1); p:add_point(pt2); local json = p:toJSON() if json == nil or json == '' then error('toJSON should return non-empty string') end if not string.find(json, '\"type\":\"POLY_LINE\"') then error('toJSON should return valid JSON') end";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in polyline toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "PolyLine:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test PolyLine.fromJSON Lua static method
+*/
+static void test_ese_poly_line_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_poly_line_lua_init(engine);
+    ese_point_lua_init(engine);
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local json_str = '{\\\"type\\\":\\\"POLY_LINE\\\",\\\"poly_type\\\":\\\"OPEN\\\",\\\"stroke_width\\\":2.5,\\\"points\\\":[[0,0],[10,10]]}' local p = PolyLine.fromJSON(json_str) if p == nil then error('PolyLine.fromJSON should return a polyline') end";
+
+    int resultA = luaL_dostring(engine->runtime, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in polyline fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "PolyLine.fromJSON should work with valid JSON");
+
+    const char *testB = "local p = PolyLine.fromJSON('invalid json')";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(engine->runtime, testB), "PolyLine.fromJSON should fail with invalid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test PolyLine JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_poly_line_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_poly_line_lua_init(engine);
+    ese_point_lua_init(engine);
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local p = PolyLine.new(); local pt1 = Point.new(0,0); local pt2 = Point.new(10,10); p:add_point(pt1); p:add_point(pt2); p.stroke_width = 2.5; local json = p:toJSON() local restored = PolyLine.fromJSON(json) if not restored then error('PolyLine.fromJSON should return a polyline') end";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in polyline round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "PolyLine JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }
 

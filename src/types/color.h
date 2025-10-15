@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "vendor/json/cJSON.h"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -298,5 +299,35 @@ void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsig
  * @param a Pointer to store alpha component (0-255)
  */
 void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a);
+
+/**
+ * @brief Serializes an EseColor to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the color with type "COLOR"
+ *          and r, g, b, a components. Only serializes the
+ *          color data, not Lua-related fields.
+ *
+ * @param color Pointer to the EseColor object to serialize
+ * @return cJSON object representing the color, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_color_serialize(const EseColor *color);
+
+/**
+ * @brief Deserializes an EseColor from a cJSON object.
+ *
+ * @details Creates a new EseColor from a cJSON object with type "COLOR"
+ *          and r, g, b, a components. The color is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_color_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for color creation
+ * @param data cJSON object containing color data
+ * @return Pointer to newly created EseColor object, or NULL on failure
+ *
+ * @warning The returned EseColor must be freed with ese_color_destroy() to prevent memory leaks
+ */
+EseColor *ese_color_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_COLOR_H

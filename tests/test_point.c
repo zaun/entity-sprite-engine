@@ -18,6 +18,7 @@
 #include "../src/types/point.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -47,6 +48,10 @@ static void test_ese_point_lua_x(void);
 static void test_ese_point_lua_y(void);
 static void test_ese_point_lua_tostring(void);
 static void test_ese_point_lua_gc(void);
+static void test_ese_point_lua_from_json(void);
+static void test_ese_point_lua_to_json(void);
+static void test_ese_point_lua_json_round_trip(void);
+static void test_ese_point_serialization(void);
 
 /**
 * Mock watcher callback for testing
@@ -78,6 +83,148 @@ void setUp(void) {
 
 void tearDown(void) {
     lua_engine_destroy(g_engine);
+}
+
+/**
+* Tests for point serialization/deserialization functionality
+*/
+static void test_ese_point_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test point
+    EsePoint *original = ese_point_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_point_set_x(original, 10.5f);
+    ese_point_set_y(original, 20.7f);
+
+    // Test serialization
+    cJSON *json = ese_point_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("POINT", type_item->valuestring);
+
+    cJSON *x_item = cJSON_GetObjectItem(json, "x");
+    TEST_ASSERT_NOT_NULL(x_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(x_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 10.5, x_item->valuedouble);
+
+    cJSON *y_item = cJSON_GetObjectItem(json, "y");
+    TEST_ASSERT_NOT_NULL(y_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(y_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 20.7, y_item->valuedouble);
+
+    // Test deserialization
+    EsePoint *deserialized = ese_point_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify coordinates match
+    TEST_ASSERT_EQUAL_FLOAT(10.5f, ese_point_get_x(deserialized));
+    TEST_ASSERT_EQUAL_FLOAT(20.7f, ese_point_get_y(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_point_destroy(original);
+    ese_point_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Point.fromJSON Lua static method
+*/
+static void test_ese_point_lua_from_json(void) {
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test valid JSON string
+    const char *testA = "local p = Point.fromJSON('{\"type\":\"POINT\",\"x\":15.5,\"y\":25.8}'); "
+                       "if p then "
+                       "  if math.abs(p.x - 15.5) > 0.001 then error('Point fromJSON should set correct x') end; "
+                       "  if math.abs(p.y - 25.8) > 0.001 then error('Point fromJSON should set correct y') end; "
+                       "else "
+                       "  error('Point.fromJSON should return a point'); "
+                       "end";
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Point.fromJSON should work with valid JSON");
+
+    // Test invalid JSON string
+    const char *testB = "local p = Point.fromJSON('invalid json'); "
+                       "if p then "
+                       "  error('Point.fromJSON should fail with invalid JSON'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testB), "Point.fromJSON should fail with invalid JSON");
+
+    // Test JSON with wrong type
+    const char *testC = "local p = Point.fromJSON('{\"type\":\"RECT\",\"x\":15.5,\"y\":25.8}'); "
+                       "if p then "
+                       "  error('Point.fromJSON should fail with wrong type'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "Point.fromJSON should fail with wrong type");
+
+    // Test JSON missing coordinates
+    const char *testD = "local p = Point.fromJSON('{\"type\":\"POINT\"}'); "
+                       "if p then "
+                       "  error('Point.fromJSON should fail with missing coordinates'); "
+                       "end";
+
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testD), "Point.fromJSON should fail with missing coordinates");
+}
+
+/**
+* Test Point:toJSON Lua instance method
+*/
+static void test_ese_point_lua_to_json(void) {
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test toJSON method - individual functionality test
+    const char *testA = "local p = Point.new(10.5, 20.7) "
+                       "local json = p:toJSON() "
+                       "if not json or json == '' then "
+                       "  error('toJSON should return non-empty string') "
+                       "end "
+                       "if not string.find(json, 'type') or not string.find(json, 'POINT') then "
+                       "  error('toJSON should return valid JSON') "
+                       "end;";
+
+    int result = luaL_dostring(L, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        printf("luaL_dostring error: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(L, 1);  // remove error message from stack
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Point:toJSON should create valid JSON");
+}
+
+/**
+* Test Point JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_point_lua_json_round_trip(void) {
+    ese_point_lua_init(g_engine);
+    lua_State *L = g_engine->runtime;
+
+    // Test JSON round-trip
+    const char *testA = "local original = Point.new(12.34, 56.78) "
+                       "local json = original:toJSON() "
+                       "local restored = Point.fromJSON(json) "
+                       "if not restored then "
+                       "  error('Point.fromJSON should return a point') "
+                       "end "
+                       "if math.abs(original.x - restored.x) > 0.001 then "
+                       "  error('Point round-trip should preserve x coordinate') "
+                       "end "
+                       "if math.abs(original.y - restored.y) > 0.001 then "
+                       "  error('Point round-trip should preserve y coordinate') "
+                       "end;";
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "Point JSON round-trip should work correctly");
 }
 
 /**
@@ -113,6 +260,10 @@ int main(void) {
     RUN_TEST(test_ese_point_lua_y);
     RUN_TEST(test_ese_point_lua_tostring);
     RUN_TEST(test_ese_point_lua_gc);
+    RUN_TEST(test_ese_point_lua_from_json);
+    RUN_TEST(test_ese_point_lua_to_json);
+    RUN_TEST(test_ese_point_lua_json_round_trip);
+    RUN_TEST(test_ese_point_serialization);
 
     memory_manager.destroy();
 

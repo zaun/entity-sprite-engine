@@ -11,13 +11,20 @@ typedef enum EseDrawListObjectType {
     DL_TEXTURE,
     DL_RECT,
     DL_POLYLINE,
+    DL_MESH,
 } EseDrawListObjectType;
+
+typedef struct EseDrawListVertex {
+    float x, y;
+    float u, v;
+    unsigned char r, g, b, a;
+} EseDrawListVertex;
 
 // Create a new, empty draw_list (with internal object pool)
 EseDrawList* draw_list_create(void);
 
 // Free the draw_list and all its objects
-void draw_list_free(EseDrawList *draw_list);
+void draw_list_destroy(EseDrawList *draw_list);
 
 // Reset the list for a new frame (objects are reused, not freed)
 void draw_list_clear(EseDrawList *draw_list);
@@ -113,6 +120,22 @@ void draw_list_object_set_polyline_stroke_color(
 void draw_list_object_get_polyline_stroke_color(
     const EseDrawListObject* object,
     unsigned char* r, unsigned char* g, unsigned char* b, unsigned char* a
+);
+
+void draw_list_object_set_mesh(
+    EseDrawListObject* object,
+    EseDrawListVertex* verts, size_t vert_count,
+    uint32_t* indices, size_t idx_count,
+    const char* texture_id,
+    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+);
+
+void draw_list_object_get_mesh(
+    const EseDrawListObject* object,
+    const EseDrawListVertex** verts, size_t* vert_count,
+    const uint32_t** indices, size_t* idx_count,
+    const char** texture_id,
+    float* scissor_x, float* scissor_y, float* scissor_w, float* scissor_h
 );
 
 

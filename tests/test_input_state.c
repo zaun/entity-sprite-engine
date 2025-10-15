@@ -33,7 +33,7 @@ static void test_ese_input_state_mouse_scroll_dy(void);
 static void test_ese_input_state_keys_down(void);
 static void test_ese_input_state_keys_pressed(void);
 static void test_ese_input_state_keys_released(void);
-static void test_ese_input_state_mouse_buttons(void);
+static void test_ese_input_state_mouse_down(void);
 static void test_ese_input_state_ref(void);
 static void test_ese_input_state_copy_requires_engine(void);
 static void test_ese_input_state_copy(void);
@@ -53,7 +53,7 @@ static void test_ese_input_state_lua_mouse_scroll_dy(void);
 static void test_ese_input_state_lua_keys_down(void);
 static void test_ese_input_state_lua_keys_pressed(void);
 static void test_ese_input_state_lua_keys_released(void);
-static void test_ese_input_state_lua_mouse_buttons(void);
+static void test_ese_input_state_lua_mouse_down(void);
 static void test_ese_input_state_lua_key_constants(void);
 static void test_ese_input_state_lua_tostring(void);
 
@@ -91,7 +91,7 @@ int main(void) {
     RUN_TEST(test_ese_input_state_keys_down);
     RUN_TEST(test_ese_input_state_keys_pressed);
     RUN_TEST(test_ese_input_state_keys_released);
-    RUN_TEST(test_ese_input_state_mouse_buttons);
+    RUN_TEST(test_ese_input_state_mouse_down);
     RUN_TEST(test_ese_input_state_ref);
     RUN_TEST(test_ese_input_state_copy_requires_engine);
     RUN_TEST(test_ese_input_state_copy);
@@ -107,7 +107,7 @@ int main(void) {
     RUN_TEST(test_ese_input_state_lua_keys_down);
     RUN_TEST(test_ese_input_state_lua_keys_pressed);
     RUN_TEST(test_ese_input_state_lua_keys_released);
-    RUN_TEST(test_ese_input_state_lua_mouse_buttons);
+    RUN_TEST(test_ese_input_state_lua_mouse_down);
     RUN_TEST(test_ese_input_state_lua_key_constants);
     RUN_TEST(test_ese_input_state_lua_tostring);
 
@@ -149,7 +149,7 @@ static void test_ese_input_state_create(void) {
 
     // Test all mouse buttons are initially false
     for (int i = 0; i < MOUSE_BUTTON_COUNT; i++) {
-        TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_button(input, i), "All mouse buttons should be initially false");
+        TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_down(input, i), "All mouse buttons should be initially false");
     }
 
     ese_input_state_destroy(input);
@@ -292,25 +292,25 @@ static void test_ese_input_state_keys_released(void) {
     ese_input_state_destroy(input);
 }
 
-static void test_ese_input_state_mouse_buttons(void) {
+static void test_ese_input_state_mouse_down(void) {
     EseInputState *input = ese_input_state_create(g_engine);
 
     // Test initial values
-    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_button(input, 0), "Mouse button 0 should initially be false");
-    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_button(input, 1), "Mouse button 1 should initially be false");
+    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_down(input, 0), "Mouse button 0 should initially be false");
+    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_down(input, 1), "Mouse button 1 should initially be false");
 
     // Use direct field access to set values and test public getters
-    input->mouse_buttons[0] = true;  // Left button
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(input, 0), "Mouse button 0 should be down");
+    input->mouse_down[0] = true;  // Left button
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(input, 0), "Mouse button 0 should be down");
 
-    input->mouse_buttons[0] = false;
-    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_button(input, 0), "Mouse button 0 should not be down");
+    input->mouse_down[0] = false;
+    TEST_ASSERT_FALSE_MESSAGE(ese_input_state_get_mouse_down(input, 0), "Mouse button 0 should not be down");
 
-    input->mouse_buttons[1] = true;  // Right button
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(input, 1), "Mouse button 1 should be down");
+    input->mouse_down[1] = true;  // Right button
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(input, 1), "Mouse button 1 should be down");
 
-    input->mouse_buttons[2] = true;  // Middle button
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(input, 2), "Mouse button 2 should be down");
+    input->mouse_down[2] = true;  // Middle button
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(input, 2), "Mouse button 2 should be down");
 
     ese_input_state_destroy(input);
 }
@@ -337,7 +337,7 @@ static void test_ese_input_state_copy(void) {
     input->mouse_x = 10;
     input->mouse_y = 20;
     input->keys_down[InputKey_A] = true;
-    input->mouse_buttons[0] = true;
+    input->mouse_down[0] = true;
     EseInputState *copy = ese_input_state_copy(input);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
@@ -347,7 +347,7 @@ static void test_ese_input_state_copy(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(10, ese_input_state_get_mouse_x(copy), "Copy should have mouse_x = 10");
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, ese_input_state_get_mouse_y(copy), "Copy should have mouse_y = 20");
     TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_key_down(copy, InputKey_A), "Copy should have key A down");
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(copy, 0), "Copy should have mouse button 0 down");
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(copy, 0), "Copy should have mouse button 0 down");
 
     ese_input_state_unref(input);
     ese_input_state_destroy(input);
@@ -365,8 +365,8 @@ static void test_ese_input_state_direct_field_access(void) {
     input->keys_down[InputKey_A] = true;
     input->keys_pressed[InputKey_B] = true;
     input->keys_released[InputKey_C] = true;
-    input->mouse_buttons[0] = true;
-    input->mouse_buttons[1] = true;
+    input->mouse_down[0] = true;
+    input->mouse_down[1] = true;
 
     // Verify through getters
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, ese_input_state_get_mouse_x(input), "Direct field access should work for mouse_x");
@@ -376,8 +376,8 @@ static void test_ese_input_state_direct_field_access(void) {
     TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_key_down(input, InputKey_A), "Direct field access should work for keys_down");
     TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_key_pressed(input, InputKey_B), "Direct field access should work for keys_pressed");
     TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_key_released(input, InputKey_C), "Direct field access should work for keys_released");
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(input, 0), "Direct field access should work for mouse_buttons[0]");
-    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_button(input, 1), "Direct field access should work for mouse_buttons[1]");
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(input, 0), "Direct field access should work for mouse_down[0]");
+    TEST_ASSERT_TRUE_MESSAGE(ese_input_state_get_mouse_down(input, 1), "Direct field access should work for mouse_down[1]");
 
     ese_input_state_destroy(input);
 }
@@ -687,42 +687,42 @@ static void test_ese_input_state_lua_keys_released(void) {
     ese_input_state_destroy(input);
 }
 
-static void test_ese_input_state_lua_mouse_buttons(void) {
+static void test_ese_input_state_lua_mouse_down(void) {
     ese_input_state_lua_init(g_engine);
     EseInputState *input = ese_input_state_create(g_engine);
     lua_State *L = g_engine->runtime;
 
     // Set some mouse buttons
-    input->mouse_buttons[0] = true;  // Left button
-    input->mouse_buttons[1] = true;  // Right button
-    input->mouse_buttons[2] = false; // Middle button
+    input->mouse_down[0] = true;  // Left button
+    input->mouse_down[1] = true;  // Right button
+    input->mouse_down[2] = false; // Middle button
 
     // Push the input state to Lua with metatable
     ese_input_state_lua_push(input);
     lua_setglobal(L, "InputState");
 
-    // Test accessing mouse_buttons table
-    const char *test1 = "return InputState.mouse_buttons[0]";    
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get mouse_buttons[0] should execute without error");
+    // Test accessing mouse_down table
+    const char *test1 = "return InputState.mouse_down[0]";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test1), "get mouse_down[0] should execute without error");
     bool button_0 = lua_toboolean(L, -1);
     TEST_ASSERT_TRUE_MESSAGE(button_0, "Mouse button 0 should be down");
     lua_pop(L, 1);
 
-    const char *test2 = "return InputState.mouse_buttons[1]";    
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "get mouse_buttons[1] should execute without error");
+    const char *test2 = "return InputState.mouse_down[1]";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test2), "get mouse_down[1] should execute without error");
     bool button_1 = lua_toboolean(L, -1);
     TEST_ASSERT_TRUE_MESSAGE(button_1, "Mouse button 1 should be down");
     lua_pop(L, 1);
 
-    const char *test3 = "return InputState.mouse_buttons[2]";    
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "get mouse_buttons[2] should execute without error");
+    const char *test3 = "return InputState.mouse_down[2]";    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test3), "get mouse_down[2] should execute without error");
     bool button_2 = lua_toboolean(L, -1);
     TEST_ASSERT_FALSE_MESSAGE(button_2, "Mouse button 2 should not be down");
     lua_pop(L, 1);
 
-    // Test that setting mouse_buttons should fail
-    const char *test4 = "InputState.mouse_buttons[0] = false";    
-    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "set mouse_buttons should execute with error");
+    // Test that setting mouse_down should fail
+    const char *test4 = "InputState.mouse_down[0] = false";    
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "set mouse_down should execute with error");
 
     ese_input_state_destroy(input);
 }
@@ -759,12 +759,6 @@ static void test_ese_input_state_lua_key_constants(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test4), "get InputState.KEY.F1 should execute without error");
     int key_f1 = (int)lua_tointeger(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(InputKey_F1, key_f1, "KEY.F1 should equal InputKey_F1");
-    lua_pop(L, 1);
-
-    const char *test5 = "return InputState.KEY.MOUSE_LEFT";    
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test5), "get InputState.KEY.MOUSE_LEFT should execute without error");
-    int key_mouse_left = (int)lua_tointeger(L, -1);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(InputKey_MOUSE_LEFT, key_mouse_left, "KEY.MOUSE_LEFT should equal InputKey_MOUSE_LEFT");
     lua_pop(L, 1);
 
     // Test that KEY table is now read-only (modifications should fail)

@@ -144,10 +144,29 @@ static void glfw_mouse_button_callback(GLFWwindow *w, int button,
     EseGLFWWindow *pw = (EseGLFWWindow *)glfwGetWindowUserPointer(w);
     if (!pw || !pw->inputState) return;
 
+    int i = -1;
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        pw->inputState->mouse_buttons[0] = (action != GLFW_RELEASE);
+        i = InputMouse_LEFT;
     } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        pw->inputState->mouse_buttons[1] = (action != GLFW_RELEASE);
+        i = InputMouse_RIGHT;
+    } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+        i = InputMouse_MIDDLE;
+    } else if (button == GLFW_MOUSE_BUTTON_X1) {
+        i = InputMouse_X1;
+    } else if (button == GLFW_MOUSE_BUTTON_X2) {
+        i = InputMouse_X2;
+    }
+
+    if (i == -1) return;
+
+    if (action == GLFW_PRESS) {
+        if (!pw->inputState->mouse_down[i]) {
+            pw->inputState->mouse_clicked[i] = true; // first down edge
+        }
+        pw->inputState->mouse_down[i] = true;
+    } else if (action == GLFW_RELEASE) {
+        pw->inputState->mouse_down[i] = false;
+        pw->inputState->mouse_released[i] = true; // release edge
     }
 }
 
@@ -303,6 +322,9 @@ void window_process(EseWindow *window, EseInputState *out_input_state) {
         memset(pw->inputState->keys_released, 0, sizeof(pw->inputState->keys_released));
         pw->inputState->mouse_scroll_dx = 0;
         pw->inputState->mouse_scroll_dy = 0;
+        memset(pw->inputState->mouse_down, 0, sizeof(pw->inputState->mouse_down));
+        memset(pw->inputState->mouse_clicked, 0, sizeof(pw->inputState->mouse_clicked));
+        memset(pw->inputState->mouse_released, 0, sizeof(pw->inputState->mouse_released));
 
         // copy prefix of input state like macOS code
         size_t prefix = offsetof(EseInputState, state);
@@ -325,6 +347,8 @@ void window_process(EseWindow *window, EseInputState *out_input_state) {
     memset(pw->inputState->keys_released, 0, sizeof(pw->inputState->keys_released));
     pw->inputState->mouse_scroll_dx = 0;
     pw->inputState->mouse_scroll_dy = 0;
+    memset(pw->inputState->mouse_clicked, 0, sizeof(pw->inputState->mouse_clicked));
+    memset(pw->inputState->mouse_released, 0, sizeof(pw->inputState->mouse_released));
 
     // Handle window close
     window->should_close = glfwWindowShouldClose(pw->glfw_window);

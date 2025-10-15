@@ -2,6 +2,7 @@
 #define ESE_RAY_H
 
 #include <stdbool.h>
+#include "vendor/json/cJSON.h"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -250,5 +251,35 @@ void ese_ray_get_point_at_distance(const EseRay *ray, float distance, float *out
  * @param ray Pointer to the EseRay object to normalize
  */
 void ese_ray_normalize(EseRay *ray);
+
+/**
+ * @brief Serializes an EseRay to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the ray with type "RAY"
+ *          and x, y, dx, dy coordinates. Only serializes the
+ *          coordinate and direction data, not Lua-related fields.
+ *
+ * @param ray Pointer to the EseRay object to serialize
+ * @return cJSON object representing the ray, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_ray_serialize(const EseRay *ray);
+
+/**
+ * @brief Deserializes an EseRay from a cJSON object.
+ *
+ * @details Creates a new EseRay from a cJSON object with type "RAY"
+ *          and x, y, dx, dy coordinates. The ray is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_ray_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for ray creation
+ * @param data cJSON object containing ray data
+ * @return Pointer to newly created EseRay object, or NULL on failure
+ *
+ * @warning The returned EseRay must be freed with ese_ray_destroy() to prevent memory leaks
+ */
+EseRay *ese_ray_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_RAY_H

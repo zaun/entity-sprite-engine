@@ -21,6 +21,8 @@
 #include "core/pubsub.h"
 #include "utility/double_linked_list.h"
 #include "graphics/font.h"
+#include "graphics/gui.h"
+#include "graphics/gui_lua.h"
 #include "utility/log.h"
 #include "utility/array.h"
 #include "utility/hashmap.h"
@@ -52,6 +54,10 @@ EseEngine *engine_create(const char *startup_script) {
     engine->collision_resolver = collision_resolver_create();
 
     engine->lua_engine = lua_engine_create();
+
+    // Initialize GUI Lua functions after GUI is created
+    engine->gui = ese_gui_create(engine->lua_engine);
+    ese_gui_lua_init(engine->lua_engine);
 
     // Add lookups
     lua_engine_add_registry_key(engine->lua_engine->runtime, ENGINE_KEY, engine);
@@ -121,7 +127,8 @@ EseEngine *engine_create(const char *startup_script) {
 void engine_destroy(EseEngine *engine) {
     log_assert("ENGINE", engine, "engine_destroy called with NULL engine");
 
-    draw_list_free(engine->draw_list);
+    ese_gui_destroy(engine->gui);
+    draw_list_destroy(engine->draw_list);
     render_list_destroy(engine->render_list_a);
     render_list_destroy(engine->render_list_b);
 
@@ -161,6 +168,11 @@ void engine_destroy(EseEngine *engine) {
     lua_engine_destroy(engine->lua_engine);
 
     memory_manager.free(engine);
+}
+
+EseGui *engine_get_gui(EseEngine *engine) {
+    log_assert("ENGINE", engine, "engine_get_gui called with NULL engine");
+    return engine->gui;
 }
 
 void engine_add_entity(EseEngine *engine, EseEntity *entity) {
@@ -257,7 +269,9 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     memcpy(engine->input_state->keys_down, state->keys_down, sizeof(state->keys_down));
     memcpy(engine->input_state->keys_pressed, state->keys_pressed, sizeof(state->keys_pressed));
     memcpy(engine->input_state->keys_released, state->keys_released, sizeof(state->keys_released));
-    memcpy(engine->input_state->mouse_buttons, state->mouse_buttons, sizeof(state->mouse_buttons));
+    memcpy(engine->input_state->mouse_down, state->mouse_down, sizeof(state->mouse_down));
+    memcpy(engine->input_state->mouse_clicked, state->mouse_clicked, sizeof(state->mouse_clicked));
+    memcpy(engine->input_state->mouse_released, state->mouse_released, sizeof(state->mouse_released));
 
     engine->input_state->mouse_x = state->mouse_x;
     engine->input_state->mouse_y = state->mouse_y;
@@ -395,6 +409,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
 	dlist_iter_free(entity_iter);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_draw");
+
+    // draw the gui
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    ese_gui_process(engine->gui, engine->draw_list);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_gui_draw");
 
     // Draw the console
     profile_start(PROFILE_ENG_UPDATE_SECTION);

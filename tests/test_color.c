@@ -18,6 +18,8 @@
 #include "../src/types/color.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -39,6 +41,10 @@ static void test_ese_color_lua_integration(void);
 static void test_ese_color_lua_init(void);
 static void test_ese_color_lua_push(void);
 static void test_ese_color_lua_get(void);
+static void test_ese_color_serialization(void);
+static void test_ese_color_lua_to_json(void);
+static void test_ese_color_lua_from_json(void);
+static void test_ese_color_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -119,6 +125,10 @@ int main(void) {
     RUN_TEST(test_ese_color_lua_init);
     RUN_TEST(test_ese_color_lua_push);
     RUN_TEST(test_ese_color_lua_get);
+    RUN_TEST(test_ese_color_serialization);
+    RUN_TEST(test_ese_color_lua_to_json);
+    RUN_TEST(test_ese_color_lua_from_json);
+    RUN_TEST(test_ese_color_json_round_trip);
 
     RUN_TEST(test_ese_color_lua_new);
     RUN_TEST(test_ese_color_lua_white);
@@ -722,4 +732,155 @@ static void test_ese_color_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for color serialization/deserialization functionality
+*/
+static void test_ese_color_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test color
+    EseColor *original = ese_color_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_color_set_r(original, 0.5f);
+    ese_color_set_g(original, 0.25f);
+    ese_color_set_b(original, 0.75f);
+    ese_color_set_a(original, 0.8f);
+
+    // Test serialization
+    cJSON *json = ese_color_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("COLOR", type_item->valuestring);
+
+    cJSON *r_item = cJSON_GetObjectItem(json, "r");
+    TEST_ASSERT_NOT_NULL(r_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(r_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.5, r_item->valuedouble);
+
+    cJSON *g_item = cJSON_GetObjectItem(json, "g");
+    TEST_ASSERT_NOT_NULL(g_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(g_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.25, g_item->valuedouble);
+
+    cJSON *b_item = cJSON_GetObjectItem(json, "b");
+    TEST_ASSERT_NOT_NULL(b_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(b_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.75, b_item->valuedouble);
+
+    cJSON *a_item = cJSON_GetObjectItem(json, "a");
+    TEST_ASSERT_NOT_NULL(a_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(a_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.8, a_item->valuedouble);
+
+    // Test deserialization
+    EseColor *deserialized = ese_color_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all components match
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_color_get_r(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.25f, ese_color_get_g(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.75f, ese_color_get_b(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.8f, ese_color_get_a(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_color_destroy(original);
+    ese_color_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Color:toJSON Lua instance method
+*/
+static void test_ese_color_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local c = Color.new(0.5, 0.25, 0.75, 0.8) "
+                       "local json = c:toJSON() "
+                       "if json == nil or json == '' then error('toJSON should return non-empty string') end "
+                       "if not string.find(json, '\"type\":\"COLOR\"') then error('toJSON should return valid JSON') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in color toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Color:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Color.fromJSON Lua static method
+*/
+static void test_ese_color_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local json_str = '{\\\"type\\\":\\\"COLOR\\\",\\\"r\\\":0.5,\\\"g\\\":0.25,\\\"b\\\":0.75,\\\"a\\\":0.8}' "
+                       "local c = Color.fromJSON(json_str) "
+                       "if c == nil then error('Color.fromJSON should return a color') end "
+                       "if math.abs(c.r - 0.5) > 0.001 then error('Color fromJSON should set correct r') end "
+                       "if math.abs(c.g - 0.25) > 0.001 then error('Color fromJSON should set correct g') end "
+                       "if math.abs(c.b - 0.75) > 0.001 then error('Color fromJSON should set correct b') end "
+                       "if math.abs(c.a - 0.8) > 0.001 then error('Color fromJSON should set correct a') end ";
+
+    int resultA = luaL_dostring(engine->runtime, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in color fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "Color.fromJSON should work with valid JSON");
+
+    const char *testB = "local c = Color.fromJSON('invalid json')";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(engine->runtime, testB), "Color.fromJSON should fail with invalid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Color JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_color_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_color_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local original = Color.new(0.5, 0.25, 0.75, 0.8) "
+                       "local json = original:toJSON() "
+                       "local restored = Color.fromJSON(json) "
+                       "if not restored then error('Color.fromJSON should return a color') end "
+                       "if math.abs(restored.r - original.r) > 0.001 then error('Round-trip should preserve r') end "
+                       "if math.abs(restored.g - original.g) > 0.001 then error('Round-trip should preserve g') end "
+                       "if math.abs(restored.b - original.b) > 0.001 then error('Round-trip should preserve b') end "
+                       "if math.abs(restored.a - original.a) > 0.001 then error('Round-trip should preserve a') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in color round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Color JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }

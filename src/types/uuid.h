@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "vendor/json/cJSON.h"
 
 #define UUID_PROXY_META "UUIDProxyMeta"
 
@@ -192,5 +193,34 @@ void ese_uuid_generate_new(EseUUID *uuid);
  * @return Hash value as uint64_t
  */
 uint64_t ese_uuid_hash(const EseUUID* uuid);
+
+/**
+ * @brief Serializes an EseUUID to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the uuid with type "UUID"
+ *          and value string. Only serializes the UUID string data,
+ *          not Lua-related fields.
+ *
+ * @param uuid Pointer to the EseUUID object to serialize
+ * @return cJSON object representing the uuid, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_uuid_serialize(const EseUUID *uuid);
+
+/**
+ * @brief Deserializes an EseUUID from a cJSON object.
+ *
+ * @details Creates a new EseUUID from a cJSON object with type "UUID"
+ *          and value string. The uuid is created with the specified engine
+ *          and must be explicitly referenced with ese_uuid_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for uuid creation
+ * @param data cJSON object containing uuid data
+ * @return Pointer to newly created EseUUID object, or NULL on failure
+ *
+ * @warning The returned EseUUID must be freed with ese_uuid_destroy() to prevent memory leaks
+ */
+EseUUID *ese_uuid_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_UUID_H

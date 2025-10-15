@@ -2,6 +2,7 @@
 #define ESE_ARC_H
 
 #include <stdbool.h>
+#include "vendor/json/cJSON.h"
 
 // Forward declarations
 typedef struct lua_State lua_State;
@@ -10,24 +11,119 @@ typedef struct EseRect EseRect;
 
 /**
  * @brief Represents an arc with floating-point center, radius, and angle range.
- * 
+ *
  * @details This structure stores an arc defined by center point, radius, and start/end angles.
  */
-typedef struct EseArc {
-    float x;           /** The x-coordinate of the arc's center */
-    float y;           /** The y-coordinate of the arc's center */
-    float radius;      /** The radius of the arc */
-    float start_angle; /** The start angle of the arc in radians */
-    float end_angle;   /** The end angle of the arc in radians */
-
-    lua_State *state;  /** Lua State this EseArc belongs to */
-    int lua_ref;       /** Lua registry reference to its own proxy table */
-    int lua_ref_count; /** Number of times this arc has been referenced in C */
-} EseArc;
+typedef struct EseArc EseArc;
 
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
+
+// Property accessors
+/**
+ * @brief Gets the x-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The x-coordinate of the arc's center
+ */
+float ese_arc_get_x(const EseArc *arc);
+
+/**
+ * @brief Sets the x-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @param x The new x-coordinate value
+ */
+void ese_arc_set_x(EseArc *arc, float x);
+
+/**
+ * @brief Gets the y-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The y-coordinate of the arc's center
+ */
+float ese_arc_get_y(const EseArc *arc);
+
+/**
+ * @brief Sets the y-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @param y The new y-coordinate value
+ */
+void ese_arc_set_y(EseArc *arc, float y);
+
+/**
+ * @brief Gets the radius of the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The radius of the arc
+ */
+float ese_arc_get_radius(const EseArc *arc);
+
+/**
+ * @brief Sets the radius of the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @param radius The new radius value
+ */
+void ese_arc_set_radius(EseArc *arc, float radius);
+
+/**
+ * @brief Gets the start angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The start angle of the arc in radians
+ */
+float ese_arc_get_start_angle(const EseArc *arc);
+
+/**
+ * @brief Sets the start angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @param start_angle The new start angle value in radians
+ */
+void ese_arc_set_start_angle(EseArc *arc, float start_angle);
+
+/**
+ * @brief Gets the end angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The end angle of the arc in radians
+ */
+float ese_arc_get_end_angle(const EseArc *arc);
+
+/**
+ * @brief Sets the end angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @param end_angle The new end angle value in radians
+ */
+void ese_arc_set_end_angle(EseArc *arc, float end_angle);
+
+/**
+ * @brief Gets the Lua state associated with the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua state associated with the arc
+ */
+lua_State *ese_arc_get_state(const EseArc *arc);
+
+/**
+ * @brief Gets the Lua registry reference for the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua registry reference for the arc
+ */
+int ese_arc_get_lua_ref(const EseArc *arc);
+
+/**
+ * @brief Gets the Lua reference count for the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua reference count for the arc
+ */
+int ese_arc_get_lua_ref_count(const EseArc *arc);
 
 // Core lifecycle
 /**
@@ -174,5 +270,35 @@ bool ese_arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x, fl
  * @return true if arc intersects rectangle, false otherwise
  */
 bool ese_arc_intersects_rect(const EseArc *arc, const EseRect *rect);
+
+/**
+ * @brief Serializes an EseArc to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the arc with type "ARC"
+ *          and x, y, radius, start_angle, end_angle coordinates. Only serializes the
+ *          geometric data, not Lua-related fields.
+ *
+ * @param arc Pointer to the EseArc object to serialize
+ * @return cJSON object representing the arc, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_arc_serialize(const EseArc *arc);
+
+/**
+ * @brief Deserializes an EseArc from a cJSON object.
+ *
+ * @details Creates a new EseArc from a cJSON object with type "ARC"
+ *          and x, y, radius, start_angle, end_angle coordinates. The arc is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_arc_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for arc creation
+ * @param data cJSON object containing arc data
+ * @return Pointer to newly created EseArc object, or NULL on failure
+ *
+ * @warning The returned EseArc must be freed with ese_arc_destroy() to prevent memory leaks
+ */
+EseArc *ese_arc_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_ARC_H

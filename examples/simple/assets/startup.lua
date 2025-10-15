@@ -103,6 +103,11 @@ function STARTUP:startup()
     STARTUP:makeskull()
     STARTUP:makeskull()
 
+    if asset_load_script("gui.lua") then
+        local gui = Entity.new()
+        gui.components.add(EntityComponentLua.new("gui.lua"))
+    end
+
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 end

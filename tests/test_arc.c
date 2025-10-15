@@ -19,6 +19,8 @@
 #include "../src/types/rect.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
+#include "../src/scripting/lua_engine.h"
+#include "../src/vendor/json/cJSON.h"
 
 /**
 * C API Test Functions Declarations
@@ -43,6 +45,10 @@ static void test_ese_arc_lua_integration(void);
 static void test_ese_arc_lua_init(void);
 static void test_ese_arc_lua_push(void);
 static void test_ese_arc_lua_get(void);
+static void test_ese_arc_serialization(void);
+static void test_ese_arc_lua_to_json(void);
+static void test_ese_arc_lua_from_json(void);
+static void test_ese_arc_json_round_trip(void);
 
 /**
 * Lua API Test Functions Declarations
@@ -124,6 +130,10 @@ int main(void) {
     RUN_TEST(test_ese_arc_lua_init);
     RUN_TEST(test_ese_arc_lua_push);
     RUN_TEST(test_ese_arc_lua_get);
+    RUN_TEST(test_ese_arc_serialization);
+    RUN_TEST(test_ese_arc_lua_to_json);
+    RUN_TEST(test_ese_arc_lua_from_json);
+    RUN_TEST(test_ese_arc_json_round_trip);
 
     RUN_TEST(test_ese_arc_lua_new);
     RUN_TEST(test_ese_arc_lua_zero);
@@ -149,7 +159,8 @@ int main(void) {
 */
 
 static void test_ese_arc_sizeof(void) {
-    TEST_ASSERT_GREATER_THAN_INT_MESSAGE(0, sizeof(EseArc), "Arc size should be > 0");
+    // Sizeof test removed since EseArc is now opaque
+    TEST_PASS();
 }
 
 static void test_ese_arc_create_requires_engine(void) {
@@ -160,14 +171,14 @@ static void test_ese_arc_create(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(arc, "Arc should be created");
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, arc->x);
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, arc->y);
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.0f, arc->radius);
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, arc->start_angle);
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 2.0f * M_PI, arc->end_angle);
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, arc->state, "Arc should have correct Lua state");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, arc->lua_ref_count, "New arc should have ref count 0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, arc->lua_ref, "New arc should have LUA_NOREF value");
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_arc_get_x(arc));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_arc_get_y(arc));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.0f, ese_arc_get_radius(arc));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, ese_arc_get_start_angle(arc));
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 2.0f * M_PI, ese_arc_get_end_angle(arc));
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_arc_get_state(arc), "Arc should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_arc_get_lua_ref_count(arc), "New arc should have ref count 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_arc_get_lua_ref(arc), "New arc should have LUA_NOREF value");
 
     ese_arc_destroy(arc);
 }
@@ -175,14 +186,14 @@ static void test_ese_arc_create(void) {
 static void test_ese_arc_x(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->x = 10.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, arc->x);
+    ese_arc_set_x(arc, 10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_arc_get_x(arc));
 
-    arc->x = -10.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, arc->x);
+    ese_arc_set_x(arc, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_arc_get_x(arc));
 
-    arc->x = 0.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, arc->x);
+    ese_arc_set_x(arc, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_arc_get_x(arc));
 
     ese_arc_destroy(arc);
 }
@@ -190,14 +201,14 @@ static void test_ese_arc_x(void) {
 static void test_ese_arc_y(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->y = 20.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, arc->y);
+    ese_arc_set_y(arc, 20.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_arc_get_y(arc));
 
-    arc->y = -10.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, arc->y);
+    ese_arc_set_y(arc, -10.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -10.0f, ese_arc_get_y(arc));
 
-    arc->y = 0.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, arc->y);
+    ese_arc_set_y(arc, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_arc_get_y(arc));
 
     ese_arc_destroy(arc);
 }
@@ -205,14 +216,14 @@ static void test_ese_arc_y(void) {
 static void test_ese_arc_radius(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->radius = 5.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, arc->radius);
+    ese_arc_set_radius(arc, 5.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_arc_get_radius(arc));
 
-    arc->radius = 0.5f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, arc->radius);
+    ese_arc_set_radius(arc, 0.5f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, ese_arc_get_radius(arc));
 
-    arc->radius = 1.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, arc->radius);
+    ese_arc_set_radius(arc, 1.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, ese_arc_get_radius(arc));
 
     ese_arc_destroy(arc);
 }
@@ -220,14 +231,14 @@ static void test_ese_arc_radius(void) {
 static void test_ese_arc_start_angle(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->start_angle = M_PI / 4.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, arc->start_angle);
+    ese_arc_set_start_angle(arc, M_PI / 4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, ese_arc_get_start_angle(arc));
 
-    arc->start_angle = -M_PI / 2.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, -M_PI / 2.0f, arc->start_angle);
+    ese_arc_set_start_angle(arc, -M_PI / 2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -M_PI / 2.0f, ese_arc_get_start_angle(arc));
 
-    arc->start_angle = 0.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, arc->start_angle);
+    ese_arc_set_start_angle(arc, 0.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_arc_get_start_angle(arc));
 
     ese_arc_destroy(arc);
 }
@@ -235,14 +246,14 @@ static void test_ese_arc_start_angle(void) {
 static void test_ese_arc_end_angle(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->end_angle = 3.0f * M_PI / 4.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f * M_PI / 4.0f, arc->end_angle);
+    ese_arc_set_end_angle(arc, 3.0f * M_PI / 4.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f * M_PI / 4.0f, ese_arc_get_end_angle(arc));
 
-    arc->end_angle = -M_PI / 2.0f;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, -M_PI / 2.0f, arc->end_angle);
+    ese_arc_set_end_angle(arc, -M_PI / 2.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -M_PI / 2.0f, ese_arc_get_end_angle(arc));
 
-    arc->end_angle = 2.0f * M_PI;
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0f * M_PI, arc->end_angle);
+    ese_arc_set_end_angle(arc, 2.0f * M_PI);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0f * M_PI, ese_arc_get_end_angle(arc));
 
     ese_arc_destroy(arc);
 }
@@ -251,10 +262,10 @@ static void test_ese_arc_ref(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
     ese_arc_ref(arc);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, arc->lua_ref_count, "Ref count should be 1");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_arc_get_lua_ref_count(arc), "Ref count should be 1");
 
     ese_arc_unref(arc);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, arc->lua_ref_count, "Ref count should be 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_arc_get_lua_ref_count(arc), "Ref count should be 0");
 
     ese_arc_destroy(arc);
 }
@@ -268,21 +279,21 @@ static void test_ese_arc_copy_requires_engine(void) {
 static void test_ese_arc_copy(void) {
     EseArc *arc = ese_arc_create(g_engine);
     ese_arc_ref(arc);
-    arc->x = 10.0f;
-    arc->y = 20.0f;
-    arc->radius = 5.0f;
-    arc->start_angle = M_PI / 4.0f;
-    arc->end_angle = 3.0f * M_PI / 4.0f;
+    ese_arc_set_x(arc, 10.0f);
+    ese_arc_set_y(arc, 20.0f);
+    ese_arc_set_radius(arc, 5.0f);
+    ese_arc_set_start_angle(arc, M_PI / 4.0f);
+    ese_arc_set_end_angle(arc, 3.0f * M_PI / 4.0f);
     EseArc *copy = ese_arc_copy(arc);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, copy->state, "Copy should have correct Lua state");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, copy->lua_ref_count, "Copy should have ref count 0");
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, copy->x);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, copy->y);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, copy->radius);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, copy->start_angle);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f * M_PI / 4.0f, copy->end_angle);
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_arc_get_state(copy), "Copy should have correct Lua state");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_arc_get_lua_ref_count(copy), "Copy should have ref count 0");
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_arc_get_x(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_arc_get_y(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_arc_get_radius(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI / 4.0f, ese_arc_get_start_angle(copy));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.0f * M_PI / 4.0f, ese_arc_get_end_angle(copy));
 
     ese_arc_unref(arc);
     ese_arc_destroy(arc);
@@ -292,11 +303,11 @@ static void test_ese_arc_copy(void) {
 static void test_ese_arc_contains_point(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->x = 0.0f;
-    arc->y = 0.0f;
-    arc->radius = 2.0f;
-    arc->start_angle = 0.0f;
-    arc->end_angle = 2.0f * M_PI;
+    ese_arc_set_x(arc, 0.0f);
+    ese_arc_set_y(arc, 0.0f);
+    ese_arc_set_radius(arc, 2.0f);
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, 2.0f * M_PI);
 
     TEST_ASSERT_TRUE_MESSAGE(ese_arc_contains_point(arc, 2.0f, 0.0f, 0.1f), "Point on arc should be contained");
     TEST_ASSERT_TRUE_MESSAGE(ese_arc_contains_point(arc, 0.0f, 2.0f, 0.1f), "Point on arc should be contained");
@@ -304,8 +315,8 @@ static void test_ese_arc_contains_point(void) {
     TEST_ASSERT_FALSE_MESSAGE(ese_arc_contains_point(arc, 1.0f, 1.0f, 0.1f), "Point inside circle but not on arc should not be contained");
 
     // Test partial arc
-    arc->start_angle = 0.0f;
-    arc->end_angle = M_PI / 2.0f; // 90 degrees
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, M_PI / 2.0f); // 90 degrees
     TEST_ASSERT_TRUE_MESSAGE(ese_arc_contains_point(arc, 2.0f, 0.0f, 0.1f), "Point on start of arc should be contained");
     TEST_ASSERT_TRUE_MESSAGE(ese_arc_contains_point(arc, 0.0f, 2.0f, 0.1f), "Point on end of arc should be contained");
     TEST_ASSERT_FALSE_MESSAGE(ese_arc_contains_point(arc, -2.0f, 0.0f, 0.1f), "Point on opposite side should not be contained");
@@ -316,17 +327,17 @@ static void test_ese_arc_contains_point(void) {
 static void test_ese_arc_get_length(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->radius = 2.0f;
-    arc->start_angle = 0.0f;
-    arc->end_angle = 2.0f * M_PI;
+    ese_arc_set_radius(arc, 2.0f);
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, 2.0f * M_PI);
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0f * M_PI * 2.0f, ese_arc_get_length(arc));
 
-    arc->start_angle = 0.0f;
-    arc->end_angle = M_PI; // 180 degrees
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, M_PI); // 180 degrees
     TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI * 2.0f, ese_arc_get_length(arc));
 
-    arc->start_angle = 0.0f;
-    arc->end_angle = M_PI / 2.0f; // 90 degrees
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, M_PI / 2.0f); // 90 degrees
     TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI * 2.0f / 2.0f, ese_arc_get_length(arc));
 
     ese_arc_destroy(arc);
@@ -335,11 +346,11 @@ static void test_ese_arc_get_length(void) {
 static void test_ese_arc_get_point_at_angle(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
-    arc->x = 0.0f;
-    arc->y = 0.0f;
-    arc->radius = 2.0f;
-    arc->start_angle = 0.0f;
-    arc->end_angle = 2.0f * M_PI;
+    ese_arc_set_x(arc, 0.0f);
+    ese_arc_set_y(arc, 0.0f);
+    ese_arc_set_radius(arc, 2.0f);
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, 2.0f * M_PI);
     
     float point_x, point_y;
     bool result = ese_arc_get_point_at_angle(arc, M_PI / 2.0f, &point_x, &point_y);
@@ -358,8 +369,8 @@ static void test_ese_arc_get_point_at_angle(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, point_y);
 
     // Test partial arc
-    arc->start_angle = 0.0f;
-    arc->end_angle = M_PI / 2.0f;
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, M_PI / 2.0f);
     result = ese_arc_get_point_at_angle(arc, M_PI, &point_x, &point_y);
     TEST_ASSERT_FALSE_MESSAGE(result, "Should return false for angle outside arc range");
 
@@ -370,11 +381,11 @@ static void test_ese_arc_intersects_rect(void) {
     EseArc *arc = ese_arc_create(g_engine);
     EseRect *rect = ese_rect_create(g_engine);
 
-    arc->x = 0.0f;
-    arc->y = 0.0f;
-    arc->radius = 2.0f;
-    arc->start_angle = 0.0f;
-    arc->end_angle = 2.0f * M_PI;
+    ese_arc_set_x(arc, 0.0f);
+    ese_arc_set_y(arc, 0.0f);
+    ese_arc_set_radius(arc, 2.0f);
+    ese_arc_set_start_angle(arc, 0.0f);
+    ese_arc_set_end_angle(arc, 2.0f * M_PI);
     
     ese_rect_set_x(rect, 1.0f);
     ese_rect_set_y(rect, 1.0f);
@@ -382,8 +393,8 @@ static void test_ese_arc_intersects_rect(void) {
     ese_rect_set_height(rect, 2.0f);
     
     TEST_ASSERT_TRUE_MESSAGE(ese_arc_intersects_rect(arc, rect), "Arc should intersect with rectangle");
-    
-    arc->x = 10.0f; // Move arc away from rectangle
+
+    ese_arc_set_x(arc, 10.0f); // Move arc away from rectangle
     TEST_ASSERT_FALSE_MESSAGE(ese_arc_intersects_rect(arc, rect), "Arc should not intersect with rectangle when far away");
     
     ese_arc_destroy(arc);
@@ -394,7 +405,7 @@ static void test_ese_arc_watcher_system(void) {
     EseArc *arc = ese_arc_create(g_engine);
 
     mock_reset();
-    arc->x = 25.0f;
+    ese_arc_set_x(arc, 25.0f);
     TEST_ASSERT_FALSE_MESSAGE(watcher_called, "Watcher should not be called before adding");
 
     void *test_userdata = (void*)0x12345678;
@@ -403,7 +414,7 @@ static void test_ese_arc_watcher_system(void) {
     // TEST_ASSERT_TRUE_MESSAGE(add_result, "Should successfully add watcher");
 
     mock_reset();
-    arc->x = 50.0f;
+    ese_arc_set_x(arc, 50.0f);
     // TEST_ASSERT_TRUE_MESSAGE(watcher_called, "Watcher should be called when x changes");
 
     ese_arc_destroy(arc);
@@ -413,22 +424,22 @@ static void test_ese_arc_lua_integration(void) {
     EseLuaEngine *engine = create_test_engine();
     EseArc *arc = ese_arc_create(engine);
     
-    lua_State *before_state = arc->state;
+    lua_State *before_state = ese_arc_get_state(arc);
     TEST_ASSERT_NOT_NULL_MESSAGE(before_state, "Arc should have a valid Lua state");
     TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, before_state, "Arc state should match engine runtime");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, arc->lua_ref, "Arc should have no Lua reference initially");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_arc_get_lua_ref(arc), "Arc should have no Lua reference initially");
 
     ese_arc_ref(arc);
-    lua_State *after_ref_state = arc->state;
+    lua_State *after_ref_state = ese_arc_get_state(arc);
     TEST_ASSERT_NOT_NULL_MESSAGE(after_ref_state, "Arc should have a valid Lua state");
     TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Arc state should match engine runtime");
-    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, arc->lua_ref, "Arc should have a valid Lua reference after ref");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_arc_get_lua_ref(arc), "Arc should have a valid Lua reference after ref");
 
     ese_arc_unref(arc);
-    lua_State *after_unref_state = arc->state;
+    lua_State *after_unref_state = ese_arc_get_state(arc);
     TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Arc should have a valid Lua state");
     TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Arc state should match engine runtime");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, arc->lua_ref, "Arc should have no Lua reference after unref");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_NOREF, ese_arc_get_lua_ref(arc), "Arc should have no Lua reference after unref");
 
     ese_arc_destroy(arc);
     lua_engine_destroy(engine);
@@ -501,11 +512,11 @@ static void test_ese_arc_lua_new(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testA), "testA Lua code should execute without error");
     EseArc *extracted_arc = ese_arc_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_arc, "Extracted arc should not be NULL");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->x, "Extracted arc should have x=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->y, "Extracted arc should have y=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, extracted_arc->radius, "Extracted arc should have radius=1");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->start_angle, "Extracted arc should have start_angle=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(2.0f * M_PI, extracted_arc->end_angle, "Extracted arc should have end_angle=2π");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_x(extracted_arc), "Extracted arc should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_y(extracted_arc), "Extracted arc should have y=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, ese_arc_get_radius(extracted_arc), "Extracted arc should have radius=1");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_start_angle(extracted_arc), "Extracted arc should have start_angle=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(2.0f * M_PI, ese_arc_get_end_angle(extracted_arc), "Extracted arc should have end_angle=2π");
     ese_arc_destroy(extracted_arc);
 
     const char *testB = "return Arc.new(10)\n";
@@ -524,11 +535,11 @@ static void test_ese_arc_lua_new(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testF), "testF Lua code should execute without error");
     extracted_arc = ese_arc_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_arc, "Extracted arc should not be NULL");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, extracted_arc->x, "Extracted arc should have x=10");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, extracted_arc->y, "Extracted arc should have y=10");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(5.0f, extracted_arc->radius, "Extracted arc should have radius=5");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->start_angle, "Extracted arc should have start_angle=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(3.14159f, extracted_arc->end_angle, "Extracted arc should have end_angle=3.14159");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_arc_get_x(extracted_arc), "Extracted arc should have x=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(10.0f, ese_arc_get_y(extracted_arc), "Extracted arc should have y=10");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(5.0f, ese_arc_get_radius(extracted_arc), "Extracted arc should have radius=5");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_start_angle(extracted_arc), "Extracted arc should have start_angle=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(3.14159f, ese_arc_get_end_angle(extracted_arc), "Extracted arc should have end_angle=3.14159");
     ese_arc_destroy(extracted_arc);
 }
 
@@ -546,11 +557,11 @@ static void test_ese_arc_lua_zero(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, testC), "testC Lua code should execute without error");
     EseArc *extracted_arc = ese_arc_lua_get(L, -1);
     TEST_ASSERT_NOT_NULL_MESSAGE(extracted_arc, "Extracted arc should not be NULL");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->x, "Extracted arc should have x=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->y, "Extracted arc should have y=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, extracted_arc->radius, "Extracted arc should have radius=1");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, extracted_arc->start_angle, "Extracted arc should have start_angle=0");
-    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(2.0f * M_PI, extracted_arc->end_angle, "Extracted arc should have end_angle=2π");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_x(extracted_arc), "Extracted arc should have x=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_y(extracted_arc), "Extracted arc should have y=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(1.0f, ese_arc_get_radius(extracted_arc), "Extracted arc should have radius=1");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, ese_arc_get_start_angle(extracted_arc), "Extracted arc should have start_angle=0");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(2.0f * M_PI, ese_arc_get_end_angle(extracted_arc), "Extracted arc should have end_angle=2π");
     ese_arc_destroy(extracted_arc);
 }
 
@@ -799,4 +810,172 @@ static void test_ese_arc_lua_gc(void) {
     int result = (int)lua_tonumber(L, -1);
     TEST_ASSERT_EQUAL_INT_MESSAGE(42, result, "Lua should return correct value after GC");
     lua_pop(L, 1);
+}
+
+/**
+* Tests for arc serialization/deserialization functionality
+*/
+static void test_ese_arc_serialization(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    // Create a test arc
+    EseArc *original = ese_arc_create(engine);
+    TEST_ASSERT_NOT_NULL(original);
+
+    ese_arc_set_x(original, 10.5f);
+    ese_arc_set_y(original, 20.7f);
+    ese_arc_set_radius(original, 5.0f);
+    ese_arc_set_start_angle(original, 0.0f);
+    ese_arc_set_end_angle(original, M_PI); // π radians (180 degrees)
+
+    // Test serialization
+    cJSON *json = ese_arc_serialize(original);
+    TEST_ASSERT_NOT_NULL(json);
+
+    // Verify JSON structure
+    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+    TEST_ASSERT_NOT_NULL(type_item);
+    TEST_ASSERT_TRUE(cJSON_IsString(type_item));
+    TEST_ASSERT_EQUAL_STRING("ARC", type_item->valuestring);
+
+    cJSON *x_item = cJSON_GetObjectItem(json, "x");
+    TEST_ASSERT_NOT_NULL(x_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(x_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 10.5, x_item->valuedouble);
+
+    cJSON *y_item = cJSON_GetObjectItem(json, "y");
+    TEST_ASSERT_NOT_NULL(y_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(y_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 20.7, y_item->valuedouble);
+
+    cJSON *radius_item = cJSON_GetObjectItem(json, "radius");
+    TEST_ASSERT_NOT_NULL(radius_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(radius_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 5.0, radius_item->valuedouble);
+
+    cJSON *start_angle_item = cJSON_GetObjectItem(json, "start_angle");
+    TEST_ASSERT_NOT_NULL(start_angle_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(start_angle_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.0, start_angle_item->valuedouble);
+
+    cJSON *end_angle_item = cJSON_GetObjectItem(json, "end_angle");
+    TEST_ASSERT_NOT_NULL(end_angle_item);
+    TEST_ASSERT_TRUE(cJSON_IsNumber(end_angle_item));
+    TEST_ASSERT_FLOAT_WITHIN(0.001, M_PI, end_angle_item->valuedouble);
+
+    // Test deserialization
+    EseArc *deserialized = ese_arc_deserialize(engine, json);
+    TEST_ASSERT_NOT_NULL(deserialized);
+
+    // Verify all properties match
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.5f, ese_arc_get_x(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.7f, ese_arc_get_y(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.0f, ese_arc_get_radius(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, ese_arc_get_start_angle(deserialized));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, M_PI, ese_arc_get_end_angle(deserialized));
+
+    // Clean up
+    cJSON_Delete(json);
+    ese_arc_destroy(original);
+    ese_arc_destroy(deserialized);
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Arc:toJSON Lua instance method
+*/
+static void test_ese_arc_lua_to_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_arc_lua_init(engine);
+
+    // Set engine in Lua registry so fromJSON can retrieve it
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local a = Arc.new(10.5, 20.7, 5.0, 0.0, 3.14159) "
+                       "local json = a:toJSON() "
+                       "if json == nil or json == '' then error('toJSON should return non-empty string') end "
+                       "if not string.find(json, '\"type\":\"ARC\"') then error('toJSON should return valid JSON') end "
+                       "if not string.find(json, '\"x\":10.5') then error('toJSON should contain correct x') end "
+                       "if not string.find(json, '\"y\":20.7') then error('toJSON should contain correct y') end "
+                       "if not string.find(json, '\"radius\":5') then error('toJSON should contain correct radius') end "
+                       "if not string.find(json, '\"start_angle\":0') then error('toJSON should contain correct start_angle') end "
+                       "if not string.find(json, '\"end_angle\":3.14') then error('toJSON should contain correct end_angle') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in arc toJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Arc:toJSON should create valid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Arc.fromJSON Lua static method
+*/
+static void test_ese_arc_lua_from_json(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_arc_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local json_str = '{\\\"type\\\":\\\"ARC\\\",\\\"x\\\":10.5,\\\"y\\\":20.7,\\\"radius\\\":5.0,\\\"start_angle\\\":0.0,\\\"end_angle\\\":3.14159}' "
+                       "local a = Arc.fromJSON(json_str) "
+                       "if a == nil then error('Arc.fromJSON should return an arc') end "
+                       "if math.abs(a.x - 10.5) > 0.001 then error('Arc fromJSON should set correct x') end "
+                       "if math.abs(a.y - 20.7) > 0.001 then error('Arc fromJSON should set correct y') end "
+                       "if math.abs(a.radius - 5.0) > 0.001 then error('Arc fromJSON should set correct radius') end "
+                       "if math.abs(a.start_angle - 0.0) > 0.001 then error('Arc fromJSON should set correct start_angle') end "
+                       "if math.abs(a.end_angle - 3.14159) > 0.001 then error('Arc fromJSON should set correct end_angle') end ";
+
+    int resultA = luaL_dostring(engine->runtime, testA);
+    if (resultA != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in arc fromJSON test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, resultA, "Arc.fromJSON should work with valid JSON");
+
+    // Invalid JSON should error
+    const char *testB = "local a = Arc.fromJSON('invalid json')";
+    TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(engine->runtime, testB), "Arc.fromJSON should fail with invalid JSON");
+
+    lua_engine_destroy(engine);
+}
+
+/**
+* Test Arc JSON round-trip (toJSON -> fromJSON)
+*/
+static void test_ese_arc_json_round_trip(void) {
+    EseLuaEngine *engine = lua_engine_create();
+    TEST_ASSERT_NOT_NULL(engine);
+
+    ese_arc_lua_init(engine);
+    lua_engine_add_registry_key(engine->runtime, LUA_ENGINE_KEY, engine);
+
+    const char *testA = "local original = Arc.new(10.5, 20.7, 5.0, 0.0, 3.14159) "
+                       "local json = original:toJSON() "
+                       "local restored = Arc.fromJSON(json) "
+                       "if not restored then error('Arc.fromJSON should return an arc') end "
+                       "if math.abs(restored.x - original.x) > 0.001 then error('Round-trip should preserve x') end "
+                       "if math.abs(restored.y - original.y) > 0.001 then error('Round-trip should preserve y') end "
+                       "if math.abs(restored.radius - original.radius) > 0.001 then error('Round-trip should preserve radius') end "
+                       "if math.abs(restored.start_angle - original.start_angle) > 0.001 then error('Round-trip should preserve start_angle') end "
+                       "if math.abs(restored.end_angle - original.end_angle) > 0.001 then error('Round-trip should preserve end_angle') end ";
+
+    int result = luaL_dostring(engine->runtime, testA);
+    if (result != LUA_OK) {
+        const char *error_msg = lua_tostring(engine->runtime, -1);
+        printf("ERROR in arc round-trip test: %s\n", error_msg ? error_msg : "unknown error");
+        lua_pop(engine->runtime, 1);
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, "Arc JSON round-trip should work correctly");
+
+    lua_engine_destroy(engine);
 }

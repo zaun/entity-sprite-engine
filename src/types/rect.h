@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "vendor/json/cJSON.h"
 
 #define RECT_PROXY_META "RectProxyMeta"
 
@@ -314,5 +315,35 @@ bool ese_rect_intersects(const EseRect *rect1, const EseRect *rect2);
  * @return The area of the rectangle (width × height)
  */
 float ese_rect_area(const EseRect *rect);
+
+/**
+ * @brief Serializes an EseRect to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the rect with type "RECT"
+ *          and x, y, width, height, rotation coordinates. Only serializes the
+ *          coordinate and dimension data, not Lua-related fields.
+ *
+ * @param rect Pointer to the EseRect object to serialize
+ * @return cJSON object representing the rect, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_rect_serialize(const EseRect *rect);
+
+/**
+ * @brief Deserializes an EseRect from a cJSON object.
+ *
+ * @details Creates a new EseRect from a cJSON object with type "RECT"
+ *          and x, y, width, height, rotation coordinates. The rect is created
+ *          with the specified engine and must be explicitly referenced with
+ *          ese_rect_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for rect creation
+ * @param data cJSON object containing rect data
+ * @return Pointer to newly created EseRect object, or NULL on failure
+ *
+ * @warning The returned EseRect must be freed with ese_rect_destroy() to prevent memory leaks
+ */
+EseRect *ese_rect_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_RECT_H

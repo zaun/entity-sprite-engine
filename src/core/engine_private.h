@@ -19,6 +19,7 @@
 #include "core/engine.h"
 #include "core/pubsub.h"
 #include "entity/entity.h"
+#include "graphics/gui.h"
 #include "scripting/lua_engine.h"
 
 typedef struct EseDrawList EseDrawList;
@@ -53,6 +54,8 @@ struct EseEngine {
 
     int startup_ref;                    /** Reference to the startup script in the Lua registry */
     bool draw_console;                  /** Whether to draw the console */
+
+    EseGui *gui;                        /** Pointer to the engine's GUI */
 
     bool isRunning;
 

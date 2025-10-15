@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "vendor/json/cJSON.h"
 
 #define POINT_PROXY_META "PointProxyMeta"
 
@@ -245,5 +246,34 @@ float ese_point_distance(const EsePoint *point1, const EsePoint *point2);
  * @return The squared Euclidean distance between the two points
  */
 float ese_point_distance_squared(const EsePoint *point1, const EsePoint *point2);
+
+/**
+ * @brief Serializes an EsePoint to a cJSON object.
+ *
+ * @details Creates a cJSON object representing the point with type "POINT"
+ *          and x, y coordinates. Only serializes the coordinate data, not
+ *          Lua-related fields.
+ *
+ * @param point Pointer to the EsePoint object to serialize
+ * @return cJSON object representing the point, or NULL on failure
+ *
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
+ */
+cJSON *ese_point_serialize(const EsePoint *point);
+
+/**
+ * @brief Deserializes an EsePoint from a cJSON object.
+ *
+ * @details Creates a new EsePoint from a cJSON object with type "POINT"
+ *          and x, y coordinates. The point is created with the specified engine
+ *          and must be explicitly referenced with ese_point_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for point creation
+ * @param data cJSON object containing point data
+ * @return Pointer to newly created EsePoint object, or NULL on failure
+ *
+ * @warning The returned EsePoint must be freed with ese_point_destroy() to prevent memory leaks
+ */
+EsePoint *ese_point_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_POINT_H

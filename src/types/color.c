@@ -8,6 +8,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/color.h"
+#include "vendor/json/cJSON.h"
 
 // The actual EseColor struct definition (private to this file)
 typedef struct EseColor {
@@ -54,6 +55,8 @@ static int _ese_color_lua_blue(lua_State *L);
 // Lua utility methods
 static int _ese_color_lua_set_hex(lua_State *L);
 static int _ese_color_lua_set_byte(lua_State *L);
+static int _ese_color_lua_to_json(lua_State *L);
+static int _ese_color_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -174,6 +177,10 @@ static int _ese_color_lua_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "set_byte") == 0) {
         lua_pushcfunction(L, _ese_color_lua_set_byte);
+        profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_to_json);
         profile_stop(PROFILE_LUA_COLOR_INDEX, "ese_color_lua_index (method)");
         return 1;
     }
@@ -577,6 +584,65 @@ static int _ese_color_lua_set_byte(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua instance method for converting EseColor to JSON string
+ */
+static int _ese_color_lua_to_json(lua_State *L) {
+    EseColor *color = ese_color_lua_get(L, 1);
+    if (!color) {
+        return luaL_error(L, "Color:toJSON() called on invalid color");
+    }
+
+    cJSON *json = ese_color_serialize(color);
+    if (!json) {
+        return luaL_error(L, "Color:toJSON() failed to serialize color");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "Color:toJSON() failed to convert to string");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+/**
+ * @brief Lua static method for creating EseColor from JSON string
+ */
+static int _ese_color_lua_from_json(lua_State *L) {
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "Color.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "Color.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("COLOR", "Color.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        return luaL_error(L, "Color.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "Color.fromJSON: no engine available");
+    }
+
+    EseColor *color = ese_color_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!color) {
+        return luaL_error(L, "Color.fromJSON: failed to deserialize color");
+    }
+
+    ese_color_lua_push(color);
+    return 1;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -793,6 +859,8 @@ void ese_color_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "green");
         lua_pushcfunction(engine->runtime, _ese_color_lua_blue);
         lua_setfield(engine->runtime, -2, "blue");
+        lua_pushcfunction(engine->runtime, _ese_color_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Color");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing color table
@@ -951,4 +1019,131 @@ void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *
 
 size_t ese_color_sizeof(void) {
     return sizeof(EseColor);
+}
+
+/**
+ * @brief Serializes an EseColor to a cJSON object.
+ *
+ * Creates a cJSON object representing the color with type "COLOR"
+ * and r, g, b, a components. Only serializes the
+ * color data, not Lua-related fields.
+ *
+ * @param color Pointer to the EseColor object to serialize
+ * @return cJSON object representing the color, or NULL on failure
+ */
+cJSON *ese_color_serialize(const EseColor *color) {
+    log_assert("COLOR", color, "ese_color_serialize called with NULL color");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("COLOR", "Failed to create cJSON object for color serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("COLOR");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("COLOR", "Failed to add type field to color serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add red component
+    cJSON *r = cJSON_CreateNumber((double)color->r);
+    if (!r || !cJSON_AddItemToObject(json, "r", r)) {
+        log_error("COLOR", "Failed to add r field to color serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add green component
+    cJSON *g = cJSON_CreateNumber((double)color->g);
+    if (!g || !cJSON_AddItemToObject(json, "g", g)) {
+        log_error("COLOR", "Failed to add g field to color serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add blue component
+    cJSON *b = cJSON_CreateNumber((double)color->b);
+    if (!b || !cJSON_AddItemToObject(json, "b", b)) {
+        log_error("COLOR", "Failed to add b field to color serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add alpha component
+    cJSON *a = cJSON_CreateNumber((double)color->a);
+    if (!a || !cJSON_AddItemToObject(json, "a", a)) {
+        log_error("COLOR", "Failed to add a field to color serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseColor from a cJSON object.
+ *
+ * Creates a new EseColor from a cJSON object with type "COLOR"
+ * and r, g, b, a components. The color is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_color_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for color creation
+ * @param data cJSON object containing color data
+ * @return Pointer to newly created EseColor object, or NULL on failure
+ */
+EseColor *ese_color_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("COLOR", data, "ese_color_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("COLOR", "Color deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "COLOR") != 0) {
+        log_error("COLOR", "Color deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get red component
+    cJSON *r_item = cJSON_GetObjectItem(data, "r");
+    if (!r_item || !cJSON_IsNumber(r_item)) {
+        log_error("COLOR", "Color deserialization failed: invalid or missing r field");
+        return NULL;
+    }
+
+    // Get green component
+    cJSON *g_item = cJSON_GetObjectItem(data, "g");
+    if (!g_item || !cJSON_IsNumber(g_item)) {
+        log_error("COLOR", "Color deserialization failed: invalid or missing g field");
+        return NULL;
+    }
+
+    // Get blue component
+    cJSON *b_item = cJSON_GetObjectItem(data, "b");
+    if (!b_item || !cJSON_IsNumber(b_item)) {
+        log_error("COLOR", "Color deserialization failed: invalid or missing b field");
+        return NULL;
+    }
+
+    // Get alpha component
+    cJSON *a_item = cJSON_GetObjectItem(data, "a");
+    if (!a_item || !cJSON_IsNumber(a_item)) {
+        log_error("COLOR", "Color deserialization failed: invalid or missing a field");
+        return NULL;
+    }
+
+    // Create new color
+    EseColor *color = ese_color_create(engine);
+    ese_color_set_r(color, (float)r_item->valuedouble);
+    ese_color_set_g(color, (float)g_item->valuedouble);
+    ese_color_set_b(color, (float)b_item->valuedouble);
+    ese_color_set_a(color, (float)a_item->valuedouble);
+
+    return color;
 }

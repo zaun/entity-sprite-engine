@@ -6,10 +6,32 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/types.h"
+#include "vendor/json/cJSON.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// ========================================
+// STRUCT DEFINITION
+// ========================================
+
+/**
+ * @brief Represents an arc with floating-point center, radius, and angle range.
+ *
+ * @details This structure stores an arc defined by center point, radius, and start/end angles.
+ */
+struct EseArc {
+    float x;           /** The x-coordinate of the arc's center */
+    float y;           /** The y-coordinate of the arc's center */
+    float radius;      /** The radius of the arc */
+    float start_angle; /** The start angle of the arc in radians */
+    float end_angle;   /** The end angle of the arc in radians */
+
+    lua_State *state;  /** Lua State this EseArc belongs to */
+    int lua_ref;       /** Lua registry reference to its own proxy table */
+    int lua_ref_count; /** Number of times this arc has been referenced in C */
+};
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
@@ -33,6 +55,8 @@ static int _ese_arc_lua_contains_point(lua_State *L);
 static int _ese_arc_lua_intersects_rect(lua_State *L);
 static int _ese_arc_lua_get_length(lua_State *L);
 static int _ese_arc_lua_get_point_at_angle(lua_State *L);
+static int _ese_arc_lua_to_json(lua_State *L);
+static int _ese_arc_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -147,6 +171,11 @@ static int _ese_arc_lua_index(lua_State *L) {
     } else if (strcmp(key, "get_point_at_angle") == 0) {
         lua_pushlightuserdata(L, arc);
         lua_pushcclosure(L, _ese_arc_lua_get_point_at_angle, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_to_json, 1);
         profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
         return 1;
     }
@@ -464,6 +493,211 @@ static int _ese_arc_lua_get_point_at_angle(lua_State *L) {
     }
 }
 
+/**
+ * @brief Lua instance method for converting EseArc to JSON string
+ *
+ * Converts an EseArc to a JSON string representation. This function is called when
+ * Lua code executes `arc:toJSON()`. It serializes the arc's fields to JSON and
+ * returns the string.
+ */
+static int _ese_arc_lua_to_json(lua_State *L) {
+    EseArc *arc = ese_arc_lua_get(L, 1);
+    if (!arc) {
+        return luaL_error(L, "Arc:toJSON() called on invalid arc");
+    }
+
+    cJSON *json = ese_arc_serialize(arc);
+    if (!json) {
+        return luaL_error(L, "Arc:toJSON() failed to serialize arc");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "Arc:toJSON() failed to convert to string");
+    }
+
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+/**
+ * @brief Lua static method for creating EseArc from JSON string
+ *
+ * Creates a new EseArc from a JSON string. Called as `Arc.fromJSON(json_string)`.
+ */
+static int _ese_arc_lua_from_json(lua_State *L) {
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "Arc.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "Arc.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("ARC", "Arc.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        return luaL_error(L, "Arc.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "Arc.fromJSON: no engine available");
+    }
+
+    EseArc *arc = ese_arc_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!arc) {
+        return luaL_error(L, "Arc.fromJSON: failed to deserialize arc");
+    }
+
+    ese_arc_lua_push(arc);
+    return 1;
+}
+
+// ========================================
+// ACCESSOR FUNCTIONS
+// ========================================
+
+/**
+ * @brief Gets the x-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The x-coordinate of the arc's center
+ */
+float ese_arc_get_x(const EseArc *arc) {
+    return arc->x;
+}
+
+/**
+ * @brief Sets the x-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @param x The new x-coordinate value
+ */
+void ese_arc_set_x(EseArc *arc, float x) {
+    log_assert("ARC", arc != NULL, "ese_arc_set_x: arc cannot be NULL");
+    arc->x = x;
+}
+
+/**
+ * @brief Gets the y-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The y-coordinate of the arc's center
+ */
+float ese_arc_get_y(const EseArc *arc) {
+    return arc->y;
+}
+
+/**
+ * @brief Sets the y-coordinate of the arc's center
+ *
+ * @param arc Pointer to the EseArc object
+ * @param y The new y-coordinate value
+ */
+void ese_arc_set_y(EseArc *arc, float y) {
+    log_assert("ARC", arc != NULL, "ese_arc_set_y: arc cannot be NULL");
+    arc->y = y;
+}
+
+/**
+ * @brief Gets the radius of the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The radius of the arc
+ */
+float ese_arc_get_radius(const EseArc *arc) {
+    return arc->radius;
+}
+
+/**
+ * @brief Sets the radius of the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @param radius The new radius value
+ */
+void ese_arc_set_radius(EseArc *arc, float radius) {
+    log_assert("ARC", arc != NULL, "ese_arc_set_radius: arc cannot be NULL");
+    arc->radius = radius;
+}
+
+/**
+ * @brief Gets the start angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The start angle of the arc in radians
+ */
+float ese_arc_get_start_angle(const EseArc *arc) {
+    return arc->start_angle;
+}
+
+/**
+ * @brief Sets the start angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @param start_angle The new start angle value in radians
+ */
+void ese_arc_set_start_angle(EseArc *arc, float start_angle) {
+    log_assert("ARC", arc != NULL, "ese_arc_set_start_angle: arc cannot be NULL");
+    arc->start_angle = start_angle;
+}
+
+/**
+ * @brief Gets the end angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The end angle of the arc in radians
+ */
+float ese_arc_get_end_angle(const EseArc *arc) {
+    return arc->end_angle;
+}
+
+/**
+ * @brief Sets the end angle of the arc in radians
+ *
+ * @param arc Pointer to the EseArc object
+ * @param end_angle The new end angle value in radians
+ */
+void ese_arc_set_end_angle(EseArc *arc, float end_angle) {
+    log_assert("ARC", arc != NULL, "ese_arc_set_end_angle: arc cannot be NULL");
+    arc->end_angle = end_angle;
+}
+
+/**
+ * @brief Gets the Lua state associated with the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua state associated with the arc
+ */
+lua_State *ese_arc_get_state(const EseArc *arc) {
+    return arc->state;
+}
+
+/**
+ * @brief Gets the Lua registry reference for the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua registry reference for the arc
+ */
+int ese_arc_get_lua_ref(const EseArc *arc) {
+    return arc->lua_ref;
+}
+
+/**
+ * @brief Gets the Lua reference count for the arc
+ *
+ * @param arc Pointer to the EseArc object
+ * @return The Lua reference count for the arc
+ */
+int ese_arc_get_lua_ref_count(const EseArc *arc) {
+    return arc->lua_ref_count;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -534,6 +768,8 @@ void ese_arc_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "new");
         lua_pushcfunction(engine->runtime, _ese_arc_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
+        lua_pushcfunction(engine->runtime, _ese_arc_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Arc");
     } else {
         lua_pop(engine->runtime, 1);
@@ -698,4 +934,147 @@ bool ese_arc_intersects_rect(const EseArc *arc, const EseRect *rect) {
     
     return !(ese_arc_right < rect_left || ese_arc_left > rect_right ||
              ese_arc_bottom < rect_top || ese_arc_top > rect_bottom);
+}
+
+/**
+ * @brief Serializes an EseArc to a cJSON object.
+ *
+ * Creates a cJSON object representing the arc with type "ARC"
+ * and x, y, radius, start_angle, end_angle coordinates. Only serializes the
+ * geometric data, not Lua-related fields.
+ *
+ * @param arc Pointer to the EseArc object to serialize
+ * @return cJSON object representing the arc, or NULL on failure
+ */
+cJSON *ese_arc_serialize(const EseArc *arc) {
+    log_assert("ARC", arc, "ese_arc_serialize called with NULL arc");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ARC", "Failed to create cJSON object for arc serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("ARC");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("ARC", "Failed to add type field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add x coordinate (center)
+    cJSON *x = cJSON_CreateNumber((double)arc->x);
+    if (!x || !cJSON_AddItemToObject(json, "x", x)) {
+        log_error("ARC", "Failed to add x field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add y coordinate (center)
+    cJSON *y = cJSON_CreateNumber((double)arc->y);
+    if (!y || !cJSON_AddItemToObject(json, "y", y)) {
+        log_error("ARC", "Failed to add y field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add radius
+    cJSON *radius = cJSON_CreateNumber((double)arc->radius);
+    if (!radius || !cJSON_AddItemToObject(json, "radius", radius)) {
+        log_error("ARC", "Failed to add radius field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add start_angle
+    cJSON *start_angle = cJSON_CreateNumber((double)arc->start_angle);
+    if (!start_angle || !cJSON_AddItemToObject(json, "start_angle", start_angle)) {
+        log_error("ARC", "Failed to add start_angle field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add end_angle
+    cJSON *end_angle = cJSON_CreateNumber((double)arc->end_angle);
+    if (!end_angle || !cJSON_AddItemToObject(json, "end_angle", end_angle)) {
+        log_error("ARC", "Failed to add end_angle field to arc serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseArc from a cJSON object.
+ *
+ * Creates a new EseArc from a cJSON object with type "ARC"
+ * and x, y, radius, start_angle, end_angle coordinates. The arc is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_arc_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for arc creation
+ * @param data cJSON object containing arc data
+ * @return Pointer to newly created EseArc object, or NULL on failure
+ */
+EseArc *ese_arc_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("ARC", data, "ese_arc_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ARC", "Arc deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "ARC") != 0) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get x coordinate (center)
+    cJSON *x_item = cJSON_GetObjectItem(data, "x");
+    if (!x_item || !cJSON_IsNumber(x_item)) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing x field");
+        return NULL;
+    }
+
+    // Get y coordinate (center)
+    cJSON *y_item = cJSON_GetObjectItem(data, "y");
+    if (!y_item || !cJSON_IsNumber(y_item)) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing y field");
+        return NULL;
+    }
+
+    // Get radius
+    cJSON *radius_item = cJSON_GetObjectItem(data, "radius");
+    if (!radius_item || !cJSON_IsNumber(radius_item)) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing radius field");
+        return NULL;
+    }
+
+    // Get start_angle
+    cJSON *start_angle_item = cJSON_GetObjectItem(data, "start_angle");
+    if (!start_angle_item || !cJSON_IsNumber(start_angle_item)) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing start_angle field");
+        return NULL;
+    }
+
+    // Get end_angle
+    cJSON *end_angle_item = cJSON_GetObjectItem(data, "end_angle");
+    if (!end_angle_item || !cJSON_IsNumber(end_angle_item)) {
+        log_error("ARC", "Arc deserialization failed: invalid or missing end_angle field");
+        return NULL;
+    }
+
+    // Create new arc
+    EseArc *arc = ese_arc_create(engine);
+    ese_arc_set_x(arc, (float)x_item->valuedouble);
+    ese_arc_set_y(arc, (float)y_item->valuedouble);
+    ese_arc_set_radius(arc, (float)radius_item->valuedouble);
+    ese_arc_set_start_angle(arc, (float)start_angle_item->valuedouble);
+    ese_arc_set_end_angle(arc, (float)end_angle_item->valuedouble);
+
+    return arc;
 }

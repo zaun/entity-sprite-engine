@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <stddef.h>
 #include "core/memory_manager.h"
@@ -7,6 +8,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/point.h"
+#include "vendor/json/cJSON.h"
 
 // The actual EsePoint struct definition (private to this file)
 typedef struct EsePoint {
@@ -44,6 +46,10 @@ static int _ese_point_lua_tostring(lua_State *L);
 static int _ese_point_lua_new(lua_State *L);
 static int _ese_point_lua_zero(lua_State *L);
 static int _ese_point_lua_distance(lua_State *L);
+
+// Lua JSON methods
+static int _ese_point_lua_from_json(lua_State *L);
+static int _ese_point_lua_to_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -148,7 +154,13 @@ static int _ese_point_lua_index(lua_State *L) {
         lua_pushnumber(L, point->y);
         profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, point);
+        lua_pushcclosure(L, _ese_point_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (method)");
+        return 1;
     }
+
     profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (invalid)");
     return 0;
 }
@@ -332,6 +344,110 @@ static int _ese_point_lua_distance(lua_State *L) {
     return 1;
 }
 
+/**
+ * @brief Lua static method for creating EsePoint from JSON string
+ *
+ * Creates a new EsePoint from a JSON string. This function is called when Lua code
+ * executes `Point.fromJSON(json_string)`. It parses the JSON string, validates it
+ * contains point data, and creates a new point with the specified coordinates.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the proxy table)
+ */
+static int _ese_point_lua_from_json(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_FROM_JSON);
+
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON(string) takes 1 argument");
+    }
+
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+
+    // Parse JSON string
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("POINT", "Point.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: invalid JSON string");
+    }
+
+    // Get the current engine from Lua registry
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: no engine available");
+    }
+
+    // Use the existing deserialization function
+    EsePoint *point = ese_point_deserialize(engine, json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!point) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: failed to deserialize point");
+    }
+
+    ese_point_lua_push(point);
+
+    profile_stop(PROFILE_LUA_POINT_FROM_JSON, "point_lua_from_json");
+    return 1;
+}
+
+/**
+ * @brief Lua instance method for converting EsePoint to JSON string
+ *
+ * Converts an EsePoint to a JSON string representation. This function is called when
+ * Lua code executes `point:toJSON()`. It serializes the point's coordinates to JSON
+ * format and returns the string.
+ *
+ * @param L Lua state
+ * @return Number of values pushed onto the stack (always 1 - the JSON string)
+ */
+static int _ese_point_lua_to_json(lua_State *L) {
+    profile_start(PROFILE_LUA_POINT_TO_JSON);
+
+    EsePoint *point = ese_point_lua_get(L, 1);
+    if (!point) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() called on invalid point");
+    }
+
+    // Serialize point to JSON
+    cJSON *json = ese_point_serialize(point);
+    if (!json) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() failed to serialize point");
+    }
+
+    // Convert JSON to string
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json); // Clean up JSON object
+
+    if (!json_str) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() failed to convert to string");
+    }
+
+    // Push the JSON string onto the stack (lua_pushstring makes a copy)
+    lua_pushstring(L, json_str);
+
+    // Clean up the string (cJSON_PrintUnformatted uses malloc)
+    // Note: We free here, but lua_pushstring should have made a copy
+    free(json_str); // cJSON doesnt use the memory manager.
+
+    profile_stop(PROFILE_LUA_POINT_TO_JSON, "point_lua_to_json");
+    return 1;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -418,6 +534,8 @@ void ese_point_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "zero");
         lua_pushcfunction(engine->runtime, _ese_point_lua_distance);
         lua_setfield(engine->runtime, -2, "distance");
+        lua_pushcfunction(engine->runtime, _ese_point_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Point");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing point table
@@ -618,4 +736,98 @@ bool ese_point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback,
 
 size_t ese_point_sizeof(void) {
     return sizeof(EsePoint);
+}
+
+/**
+ * @brief Serializes an EsePoint to a cJSON object.
+ *
+ * Creates a cJSON object representing the point with type "POINT"
+ * and x, y coordinates. Only serializes the coordinate data, not
+ * Lua-related fields.
+ *
+ * @param point Pointer to the EsePoint object to serialize
+ * @return cJSON object representing the point, or NULL on failure
+ */
+cJSON *ese_point_serialize(const EsePoint *point) {
+    log_assert("POINT", point, "ese_point_serialize called with NULL point");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("POINT", "Failed to create cJSON object for point serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("POINT");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("POINT", "Failed to add type field to point serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add x coordinate
+    cJSON *x = cJSON_CreateNumber((double)point->x);
+    if (!x || !cJSON_AddItemToObject(json, "x", x)) {
+        log_error("POINT", "Failed to add x field to point serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add y coordinate
+    cJSON *y = cJSON_CreateNumber((double)point->y);
+    if (!y || !cJSON_AddItemToObject(json, "y", y)) {
+        log_error("POINT", "Failed to add y field to point serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EsePoint from a cJSON object.
+ *
+ * Creates a new EsePoint from a cJSON object with type "POINT"
+ * and x, y coordinates. The point is created with the specified engine
+ * and must be explicitly referenced with ese_point_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for point creation
+ * @param data cJSON object containing point data
+ * @return Pointer to newly created EsePoint object, or NULL on failure
+ */
+EsePoint *ese_point_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("POINT", data, "ese_point_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("POINT", "Point deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "POINT") != 0) {
+        log_error("POINT", "Point deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get x coordinate
+    cJSON *x_item = cJSON_GetObjectItem(data, "x");
+    if (!x_item || !cJSON_IsNumber(x_item)) {
+        log_error("POINT", "Point deserialization failed: invalid or missing x field");
+        return NULL;
+    }
+
+    // Get y coordinate
+    cJSON *y_item = cJSON_GetObjectItem(data, "y");
+    if (!y_item || !cJSON_IsNumber(y_item)) {
+        log_error("POINT", "Point deserialization failed: invalid or missing y field");
+        return NULL;
+    }
+
+    // Create new point
+    EsePoint *point = ese_point_create(engine);
+    ese_point_set_x(point, (float)x_item->valuedouble);
+    ese_point_set_y(point, (float)y_item->valuedouble);
+
+    return point;
 }

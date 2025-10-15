@@ -11,6 +11,8 @@
 #define DRAW_LIST_INITIAL_CAPACITY 256
 #define TEXTURE_ID_MAX_LEN 256
 #define POLYLINE_MAX_POINTS 1024
+#define MESH_MAX_VERTS 4096
+#define MESH_MAX_INDICES 8192
 
 /**
  * @brief Color data for draw list objects.
@@ -79,6 +81,16 @@ typedef struct EseDrawListRect {
     int h;                                /** Height of the rectangle in pixels */
 } EseDrawListRect;
 
+typedef struct EseDrawListMesh {
+    EseDrawListVertex verts[MESH_MAX_VERTS];
+    size_t vert_count;
+    uint32_t indices[MESH_MAX_INDICES];
+    size_t idx_count;
+    char texture_id[TEXTURE_ID_MAX_LEN];
+    /* scissor rect stored for convenience; renderer can also use object->x/y/w/h */
+    float scissor_x, scissor_y, scissor_w, scissor_h;
+} EseDrawListMesh;
+
 
 /**
  * @brief Represents a drawable object in the render list.
@@ -94,6 +106,7 @@ struct EseDrawListObject {
         EseDrawListTexture texture;       /** Texture data for DL_TEXTURE type */
         EseDrawListRect rect;             /** Rectangle data for DL_RECT type */
         EseDrawListPolyLine polyline;     /** Polyline data for DL_POLYLINE type */
+        EseDrawListMesh mesh;             /** Mesh data for DL_MESH type */
     } data;                               /** Union containing type-specific data */
 
     // Where to draw
@@ -158,8 +171,8 @@ EseDrawList* draw_list_create(void) {
     return draw_list;
 }
 
-void draw_list_free(EseDrawList *draw_list) {
-    log_assert("RENDER_LIST", draw_list, "draw_list_free called with NULL draw_list");
+void draw_list_destroy(EseDrawList *draw_list) {
+    log_assert("RENDER_LIST", draw_list, "draw_list_destroy called with NULL draw_list");
 
     for (size_t i = 0; i < draw_list->objects_capacity; ++i) {
         memory_manager.free(draw_list->objects[i]);
@@ -605,4 +618,59 @@ void draw_list_object_get_rotated_aabb(const EseDrawListObject* object, float *m
     if (miny) *miny = min_y;
     if (maxx) *maxx = max_x;
     if (maxy) *maxy = max_y;
+}
+
+void draw_list_object_set_mesh(
+    EseDrawListObject* object,
+    EseDrawListVertex* verts, size_t vert_count,
+    uint32_t* indices, size_t idx_count,
+    const char* texture_id,
+    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_mesh called with NULL object");
+    log_assert("RENDER_LIST", verts, "draw_list_object_set_mesh called with NULL verts");
+    log_assert("RENDER_LIST", indices, "draw_list_object_set_mesh called with NULL indices");
+    log_assert("RENDER_LIST", texture_id, "draw_list_object_set_mesh called with NULL texture_id");
+    log_assert("RENDER_LIST", vert_count <= MESH_MAX_VERTS, "draw_list_object_set_mesh called with vert_count > MESH_MAX_VERTS");
+    log_assert("RENDER_LIST", idx_count <= MESH_MAX_INDICES, "draw_list_object_set_mesh called with idx_count > MESH_MAX_INDICES");
+
+    object->type = DL_MESH;
+    EseDrawListMesh* mesh_data = &object->data.mesh;
+
+    // Copy vertex data
+    memcpy(mesh_data->verts, verts, sizeof(EseDrawListVertex) * vert_count);
+    mesh_data->vert_count = vert_count;
+
+    // Copy index data
+    memcpy(mesh_data->indices, indices, sizeof(uint32_t) * idx_count);
+    mesh_data->idx_count = idx_count;
+    strncpy(mesh_data->texture_id, texture_id, TEXTURE_ID_MAX_LEN - 1);
+    mesh_data->texture_id[TEXTURE_ID_MAX_LEN - 1] = '\0';
+    mesh_data->scissor_x = scissor_x;
+    mesh_data->scissor_y = scissor_y;
+    mesh_data->scissor_w = scissor_w;
+    mesh_data->scissor_h = scissor_h;
+}
+
+void draw_list_object_get_mesh(
+    const EseDrawListObject* object,
+    const EseDrawListVertex** verts, size_t* vert_count,
+    const uint32_t** indices, size_t* idx_count,
+    const char** texture_id,
+    float* scissor_x, float* scissor_y, float* scissor_w, float* scissor_h
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_mesh called with NULL object");
+    log_assert("RENDER_LIST", object->type == DL_MESH, "draw_list_object_get_mesh called on non-mesh object");
+
+    const EseDrawListMesh* mesh_data = &object->data.mesh;
+
+    if (verts) *verts = mesh_data->verts;
+    if (vert_count) *vert_count = mesh_data->vert_count;
+    if (indices) *indices = mesh_data->indices;
+    if (idx_count) *idx_count = mesh_data->idx_count;
+    if (texture_id) *texture_id = mesh_data->texture_id;
+    if (scissor_x) *scissor_x = mesh_data->scissor_x;
+    if (scissor_y) *scissor_y = mesh_data->scissor_y;
+    if (scissor_w) *scissor_w = mesh_data->scissor_w;
+    if (scissor_h) *scissor_h = mesh_data->scissor_h;
 }

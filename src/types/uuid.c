@@ -7,6 +7,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/uuid.h"
+#include "vendor/json/cJSON.h"
 
 // ========================================
 // PRIVATE STRUCT DEFINITION
@@ -38,12 +39,14 @@ static int _ese_uuid_lua_gc(lua_State *L);
 static int _ese_uuid_lua_index(lua_State *L);
 static int _ese_uuid_lua_newindex(lua_State *L);
 static int _ese_uuid_lua_tostring(lua_State *L);
+static int _ese_uuid_lua_to_json(lua_State *L);
 
 // Lua constructors
 static int _ese_uuid_lua_new(lua_State *L);
 
 // Lua methods
 static int _ese_uuid_lua_reset_method(lua_State *L);
+static int _ese_uuid_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -126,6 +129,11 @@ static int _ese_uuid_lua_index(lua_State *L) {
         lua_pushcclosure(L, _ese_uuid_lua_reset_method, 1);
         profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, uuid);
+        lua_pushcclosure(L, _ese_uuid_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
+        return 1;
     }
     
     profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (invalid)");
@@ -175,6 +183,31 @@ static int _ese_uuid_lua_tostring(lua_State *L) {
     snprintf(buf, sizeof(buf), "UUID: %p (%s)", (void*)uuid, uuid->value);
     lua_pushstring(L, buf);
 
+    return 1;
+}
+
+/**
+ * @brief Lua instance method for converting EseUUID to JSON string
+ */
+static int _ese_uuid_lua_to_json(lua_State *L) {
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
+    if (!uuid) {
+        return luaL_error(L, "UUID:toJSON() called on invalid uuid");
+    }
+
+    cJSON *json = ese_uuid_serialize(uuid);
+    if (!json) {
+        return luaL_error(L, "UUID:toJSON() failed to serialize uuid");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "UUID:toJSON() failed to convert to string");
+    }
+
+    lua_pushstring(L, json_str);
+    free(json_str);
     return 1;
 }
 
@@ -303,6 +336,8 @@ void ese_uuid_lua_init(EseLuaEngine *engine) {
         lua_newtable(engine->runtime);
         lua_pushcfunction(engine->runtime, _ese_uuid_lua_new);
         lua_setfield(engine->runtime, -2, "new");
+        lua_pushcfunction(engine->runtime, _ese_uuid_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "UUID");
     } else {
         lua_pop(engine->runtime, 1); // Pop the existing EseUUID table
@@ -339,6 +374,41 @@ EseUUID *ese_uuid_lua_get(lua_State *L, int idx) {
     }
     
     return *ud;
+}
+
+/**
+ * @brief Lua static method for creating EseUUID from JSON string
+ */
+static int _ese_uuid_lua_from_json(lua_State *L) {
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "UUID.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "UUID.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("UUID", "UUID.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        return luaL_error(L, "UUID.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "UUID.fromJSON: no engine available");
+    }
+
+    EseUUID *uuid = ese_uuid_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!uuid) {
+        return luaL_error(L, "UUID.fromJSON: failed to deserialize uuid");
+    }
+
+    ese_uuid_lua_push(uuid);
+    return 1;
 }
 
 void ese_uuid_ref(EseUUID *uuid) {
@@ -423,6 +493,91 @@ uint64_t ese_uuid_hash(const EseUUID* uuid) {
 
 size_t ese_uuid_sizeof(void) {
     return sizeof(struct EseUUID);
+}
+
+/**
+ * @brief Serializes an EseUUID to a cJSON object.
+ *
+ * Creates a cJSON object representing the uuid with type "UUID"
+ * and value string. Only serializes the UUID string data,
+ * not Lua-related fields.
+ *
+ * @param uuid Pointer to the EseUUID object to serialize
+ * @return cJSON object representing the uuid, or NULL on failure
+ */
+cJSON *ese_uuid_serialize(const EseUUID *uuid) {
+    log_assert("UUID", uuid, "ese_uuid_serialize called with NULL uuid");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("UUID", "Failed to create cJSON object for uuid serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("UUID");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("UUID", "Failed to add type field to uuid serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add value field
+    cJSON *value = cJSON_CreateString(uuid->value);
+    if (!value || !cJSON_AddItemToObject(json, "value", value)) {
+        log_error("UUID", "Failed to add value field to uuid serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseUUID from a cJSON object.
+ *
+ * Creates a new EseUUID from a cJSON object with type "UUID"
+ * and value string. The uuid is created with the specified engine
+ * and must be explicitly referenced with ese_uuid_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for uuid creation
+ * @param data cJSON object containing uuid data
+ * @return Pointer to newly created EseUUID object, or NULL on failure
+ */
+EseUUID *ese_uuid_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("UUID", data, "ese_uuid_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("UUID", "UUID deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "UUID") != 0) {
+        log_error("UUID", "UUID deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get value field
+    cJSON *value_item = cJSON_GetObjectItem(data, "value");
+    if (!value_item || !cJSON_IsString(value_item)) {
+        log_error("UUID", "UUID deserialization failed: invalid or missing value field");
+        return NULL;
+    }
+
+    // Validate UUID format (basic check for length)
+    const char *uuid_str = value_item->valuestring;
+    if (!uuid_str || strlen(uuid_str) != 36) {
+        log_error("UUID", "UUID deserialization failed: invalid UUID format");
+        return NULL;
+    }
+
+    // Create new uuid
+    EseUUID *uuid = ese_uuid_create(engine);
+    strcpy(uuid->value, uuid_str);
+
+    return uuid;
 }
 
 const char *ese_uuid_get_value(const EseUUID *uuid) {

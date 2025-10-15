@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "core/memory_manager.h"
@@ -6,6 +7,7 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "types/vector.h"
+#include "vendor/json/cJSON.h"
 
 // ========================================
 // PRIVATE STRUCT DEFINITION
@@ -46,6 +48,8 @@ static int _ese_vector_lua_zero(lua_State *L);
 static int _ese_vector_lua_set_direction(lua_State *L);
 static int _ese_vector_lua_magnitude(lua_State *L);
 static int _ese_vector_lua_normalize(lua_State *L);
+static int _ese_vector_lua_to_json(lua_State *L);
+static int _ese_vector_lua_from_json(lua_State *L);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -141,6 +145,11 @@ static int _ese_vector_lua_index(lua_State *L) {
         lua_pushlightuserdata(L, vector);
         lua_pushcclosure(L, _ese_vector_lua_normalize, 1);
         profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, vector);
+        lua_pushcclosure(L, _ese_vector_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index (method)");
         return 1;
     }
     profile_stop(PROFILE_LUA_VECTOR_INDEX, "vector_lua_index");
@@ -381,6 +390,66 @@ static int _ese_vector_lua_normalize(lua_State *L) {
     return 0;
 }
 
+/**
+ * @brief Lua instance method for converting EseVector to JSON string
+ */
+static int _ese_vector_lua_to_json(lua_State *L) {
+    EseVector *vector = ese_vector_lua_get(L, 1);
+    if (!vector) {
+        return luaL_error(L, "Vector:toJSON() called on invalid vector");
+    }
+
+    cJSON *json = ese_vector_serialize(vector);
+    if (!json) {
+        return luaL_error(L, "Vector:toJSON() failed to serialize vector");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "Vector:toJSON() failed to convert to string");
+    }
+
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+/**
+ * @brief Lua static method for creating EseVector from JSON string
+ */
+static int _ese_vector_lua_from_json(lua_State *L) {
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "Vector.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "Vector.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("VECTOR", "Vector.fromJSON: failed to parse JSON string: %s", json_str ? json_str : "NULL");
+        return luaL_error(L, "Vector.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "Vector.fromJSON: no engine available");
+    }
+
+    EseVector *vector = ese_vector_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!vector) {
+        return luaL_error(L, "Vector.fromJSON: failed to deserialize vector");
+    }
+
+    ese_vector_lua_push(vector);
+    return 1;
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -419,6 +488,101 @@ void ese_vector_destroy(EseVector *vector) {
 
 size_t ese_vector_sizeof(void) {
     return sizeof(EseVector);
+}
+
+/**
+ * @brief Serializes an EseVector to a cJSON object.
+ *
+ * Creates a cJSON object representing the vector with type "VECTOR"
+ * and x, y components. Only serializes the
+ * vector data, not Lua-related fields.
+ *
+ * @param vector Pointer to the EseVector object to serialize
+ * @return cJSON object representing the vector, or NULL on failure
+ */
+cJSON *ese_vector_serialize(const EseVector *vector) {
+    log_assert("VECTOR", vector, "ese_vector_serialize called with NULL vector");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("VECTOR", "Failed to create cJSON object for vector serialization");
+        return NULL;
+    }
+
+    // Add type field
+    cJSON *type = cJSON_CreateString("VECTOR");
+    if (!type || !cJSON_AddItemToObject(json, "type", type)) {
+        log_error("VECTOR", "Failed to add type field to vector serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add x component
+    cJSON *x = cJSON_CreateNumber((double)vector->x);
+    if (!x || !cJSON_AddItemToObject(json, "x", x)) {
+        log_error("VECTOR", "Failed to add x field to vector serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Add y component
+    cJSON *y = cJSON_CreateNumber((double)vector->y);
+    if (!y || !cJSON_AddItemToObject(json, "y", y)) {
+        log_error("VECTOR", "Failed to add y field to vector serialization");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+/**
+ * @brief Deserializes an EseVector from a cJSON object.
+ *
+ * Creates a new EseVector from a cJSON object with type "VECTOR"
+ * and x, y components. The vector is created
+ * with the specified engine and must be explicitly referenced with
+ * ese_vector_ref() if Lua access is desired.
+ *
+ * @param engine EseLuaEngine pointer for vector creation
+ * @param data cJSON object containing vector data
+ * @return Pointer to newly created EseVector object, or NULL on failure
+ */
+EseVector *ese_vector_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("VECTOR", data, "ese_vector_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("VECTOR", "Vector deserialization failed: data is not a JSON object");
+        return NULL;
+    }
+
+    // Check type field
+    cJSON *type_item = cJSON_GetObjectItem(data, "type");
+    if (!type_item || !cJSON_IsString(type_item) || strcmp(type_item->valuestring, "VECTOR") != 0) {
+        log_error("VECTOR", "Vector deserialization failed: invalid or missing type field");
+        return NULL;
+    }
+
+    // Get x component
+    cJSON *x_item = cJSON_GetObjectItem(data, "x");
+    if (!x_item || !cJSON_IsNumber(x_item)) {
+        log_error("VECTOR", "Vector deserialization failed: invalid or missing x field");
+        return NULL;
+    }
+
+    // Get y component
+    cJSON *y_item = cJSON_GetObjectItem(data, "y");
+    if (!y_item || !cJSON_IsNumber(y_item)) {
+        log_error("VECTOR", "Vector deserialization failed: invalid or missing y field");
+        return NULL;
+    }
+
+    // Create new vector
+    EseVector *vector = ese_vector_create(engine);
+    ese_vector_set_x(vector, (float)x_item->valuedouble);
+    ese_vector_set_y(vector, (float)y_item->valuedouble);
+
+    return vector;
 }
 
 // Property access
@@ -489,6 +653,8 @@ void ese_vector_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "new");
         lua_pushcfunction(engine->runtime, _ese_vector_lua_zero);
         lua_setfield(engine->runtime, -2, "zero");
+        lua_pushcfunction(engine->runtime, _ese_vector_lua_from_json);
+        lua_setfield(engine->runtime, -2, "fromJSON");
         lua_setglobal(engine->runtime, "Vector");
     } else {
         lua_pop(engine->runtime, 1);

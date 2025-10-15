@@ -21,6 +21,10 @@ void log_init(void) {
         }
         log_enabled_categories = strdup(env);
     }
+    const char *env_verbose = getenv("LOG_VERBOSE");
+    if (env_verbose) {
+        log_verbose_en = true;
+    }
 }
 
 static int log_category_enabled(const char *category) {

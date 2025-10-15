@@ -19,8 +19,6 @@
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 
-#define MOUSE_BUTTON_COUNT 8 /** The total number of mouse buttons supported. */
-
 /**
  * @brief An enumeration of all supported keyboard and mouse input keys.
  */
@@ -70,15 +68,17 @@ typedef enum {
     InputKey_KP_DECIMAL, InputKey_KP_ENTER, InputKey_KP_PLUS, InputKey_KP_MINUS,
     InputKey_KP_MULTIPLY, InputKey_KP_DIVIDE,
 
-    // Mouse buttons
-    InputKey_MOUSE_LEFT,
-    InputKey_MOUSE_RIGHT,
-    InputKey_MOUSE_MIDDLE,
-    InputKey_MOUSE_X1,
-    InputKey_MOUSE_X2,
-
     InputKey_MAX /** The total number of keys supported. */
 } EseInputKey;
+
+typedef enum {
+    InputMouse_LEFT,
+    InputMouse_RIGHT,
+    InputMouse_MIDDLE,
+    InputMouse_X1,
+    InputMouse_X2,
+    InputMouse_MAX,
+} EseInputMouseButton;
 
 /**
  * @brief An opaque structure to hold the current state of all inputs.
@@ -158,7 +158,25 @@ bool ese_input_state_get_key_released(const EseInputState *input, EseInputKey ke
  * @param button The mouse button index (0-7).
  * @return true if the mouse button is currently held down, false otherwise.
  */
-bool ese_input_state_get_mouse_button(const EseInputState *input, int button);
+bool ese_input_state_get_mouse_down(const EseInputState *input, int button);
+
+/**
+ * @brief Gets the state of a specific mouse button (whether it was pressed this frame).
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param button The mouse button index (0-7).
+ * @return true if the mouse button was pressed this frame, false otherwise.
+ */
+bool ese_input_state_get_mouse_clicked(const EseInputState *input, int button);
+
+/**
+ * @brief Gets the state of a specific mouse button (whether it was released this frame).
+ * 
+ * @param input A pointer to the EseInputState object.
+ * @param button The mouse button index (0-7).
+ * @return true if the mouse button was released this frame, false otherwise.
+ */
+bool ese_input_state_get_mouse_released(const EseInputState *input, int button);
 
 /**
  * @brief Gets the Lua state associated with this input state.

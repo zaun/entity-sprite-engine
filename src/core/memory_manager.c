@@ -58,6 +58,7 @@ MemoryManager *g_memory_manager = NULL;
 static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL        ",
     "ENGINE         ",
+    "GUI            ",
     "ASSET          ",
     "ENTITY         ",
     "COMP_LUA       ",
@@ -246,7 +247,8 @@ static void *_mm_malloc(size_t size, MemTag tag) {
     void *ptr = aligned_alloc(16, aligned_size);
     
     if (!ptr) {
-        DEBUG_PRINTF("MALLOC: aligned_alloc failed for size %zu\n", aligned_size);
+        printf("MALLOC: aligned_alloc failed for size %zu\n", aligned_size);
+        fflush(stdout);
         _abort_with_report(manager, "Failed to allocate memory");
         return NULL; // never reached
     }
@@ -280,6 +282,8 @@ static void *_mm_calloc(size_t count, size_t size, MemTag tag) {
     if (size != 0 && count > SIZE_MAX / size) {
         MemoryManager *manager = _get_manager();
         _abort_with_report(manager, "Invalid calloc parameters");
+        printf("CALLOC: Invalid calloc parameters\n");
+        fflush(stdout);
         return NULL; // never reached
     }
     size_t total_size = count * size;

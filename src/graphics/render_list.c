@@ -575,15 +575,50 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         
         // Add fill vertices if needed
         if (fill_vertices > 0) {
-        _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
-    }
-    
-    // Add stroke vertices if needed
-    if (stroke_vertices > 0) {
-        _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
-    }
+            _tessellate_polyline_fill(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+        }
+        
+        // Add stroke vertices if needed
+        if (stroke_vertices > 0) {
+            _tessellate_polyline_stroke(obj, &v[vertex_offset], &vertex_offset, view_w, view_h);
+        }
         
         batch->vertex_count += vertex_offset;
+    } else if (draw_list_object_get_type(obj) == DL_MESH) {
+        // Handle mesh objects - use their custom vertices and indices
+        const EseDrawListVertex *mesh_verts;
+        size_t vert_count;
+        const uint32_t *mesh_indices;
+        size_t idx_count;
+
+        // Get mesh data from the draw list object using the proper getter
+        draw_list_object_get_mesh(obj, &mesh_verts, &vert_count, &mesh_indices, &idx_count, NULL, NULL, NULL, NULL, NULL);
+
+        // Ensure we have enough capacity for all mesh vertices
+        if (batch->vertex_count + vert_count > batch->vertex_capacity) {
+            size_t new_capacity = batch->vertex_capacity * 2;
+            while (batch->vertex_count + vert_count > new_capacity) new_capacity *= 2;
+            EseVertex *new_buffer = memory_manager.realloc(batch->vertex_buffer, sizeof(EseVertex) * new_capacity, MMTAG_RENDERLIST);
+            if (new_buffer) {
+                batch->vertex_buffer = new_buffer;
+                batch->vertex_capacity = new_capacity;
+            }
+        }
+
+        EseVertex *v = &batch->vertex_buffer[batch->vertex_count];
+
+        // Transform mesh vertices to NDC and copy UV coordinates
+        for (size_t i = 0; i < vert_count; ++i) {
+            float ndc_x = (2.0f * (mesh_verts[i].x / view_w)) - 1.0f;
+            float ndc_y = 1.0f - (2.0f * (mesh_verts[i].y / view_h));
+
+            v[i] = (EseVertex){
+                ndc_x, ndc_y, 0.0f,           // Position (x, y, z)
+                mesh_verts[i].u, mesh_verts[i].v  // UV coordinates (already normalized)
+            };
+        }
+
+        batch->vertex_count += vert_count;
     }
 }
 
@@ -736,6 +771,8 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
             new_batch_type = RL_TEXTURE;
         } else if (draw_list_object_get_type(obj) == DL_RECT) {
             new_batch_type = RL_COLOR;
+        } else if (draw_list_object_get_type(obj) == DL_MESH) {
+            new_batch_type = RL_TEXTURE;
         }
 
         if (!current_batch) {
@@ -775,12 +812,16 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
                 draw_list_object_get_texture(obj, &current_batch->shared_state.texture_id, NULL, NULL, NULL, NULL);
             } else if (draw_list_object_get_type(obj) == DL_RECT) {
                 current_batch->type = RL_COLOR;
-                draw_list_object_get_rect_color(obj, 
-                    &current_batch->shared_state.color.r, 
-                    &current_batch->shared_state.color.g, 
-                    &current_batch->shared_state.color.b, 
-                    &current_batch->shared_state.color.a, 
+                draw_list_object_get_rect_color(obj,
+                    &current_batch->shared_state.color.r,
+                    &current_batch->shared_state.color.g,
+                    &current_batch->shared_state.color.b,
+                    &current_batch->shared_state.color.a,
                     &current_batch->shared_state.color.filled);
+            } else if (draw_list_object_get_type(obj) == DL_MESH) {
+                current_batch->type = RL_TEXTURE;
+                // Get the texture ID from the mesh data
+                draw_list_object_get_mesh(obj, NULL, NULL, NULL, NULL, &current_batch->shared_state.texture_id, NULL, NULL, NULL, NULL);
             }
             _render_list_add_batch(render_list, current_batch);
         }
