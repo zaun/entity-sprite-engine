@@ -345,27 +345,15 @@ EseEntityComponentText *_entity_component_text_get(lua_State *L, int idx) {
 void _entity_component_text_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_text_init called with NULL engine");
 
+    // Create metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_TEXT_PROXY_META, 
+        _entity_component_text_index, 
+        _entity_component_text_newindex, 
+        _entity_component_text_gc, 
+        _entity_component_text_tostring);
+    
+    // Create global EntityComponentText table with functions and constants
     lua_State *L = engine->runtime;
-    
-    // Register EntityComponentText metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_TEXT_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentTextProxyMeta to engine");  
-        lua_pushstring(L, ENTITY_COMPONENT_TEXT_PROXY_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_text_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_text_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_text_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_text_tostring);
-        lua_setfield(L, -2, "__tostring");
-        lua_pushstring(L, "locked");
-        lua_setfield(L, -2, "__metatable");
-    }
-    lua_pop(L, 1);
-    
-    // Create global EntityComponentText table with constructor
     lua_getglobal(L, "EntityComponentText");
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);

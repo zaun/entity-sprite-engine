@@ -781,45 +781,24 @@ static int _entity_component_collider_tostring(lua_State *L) {
 void _entity_component_collider_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_collider_init called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    // Create main metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_COLLIDER_PROXY_META, 
+        _entity_component_collider_index, 
+        _entity_component_collider_newindex, 
+        _entity_component_collider_gc, 
+        _entity_component_collider_tostring);
     
-    // Register EseEntityComponentCollider metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_COLLIDER_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentColliderProxyMeta to engine");
-        lua_pushstring(L, ENTITY_COMPONENT_COLLIDER_PROXY_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_collider_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_collider_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_collider_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_collider_tostring);
-        lua_setfield(L, -2, "__tostring");
-    }
-    lua_pop(L, 1);
-    
-    // Create global EseEntityComponentCollider table with constructor
-    lua_getglobal(L, "EntityComponentCollider");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        log_debug("LUA", "Creating global EseEntityComponentCollider table");
-        lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_collider_new);
-        lua_setfield(L, -2, "new");
-        lua_setglobal(L, "EntityComponentCollider");
-    } else {
-        lua_pop(L, 1);
-    }
+    // Create global EntityComponentCollider table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_entity_component_collider_new};
+    lua_engine_new_object(engine, "EntityComponentCollider", 1, keys, functions);
 
-    if (luaL_newmetatable(engine->runtime, "ColliderRectsProxyMeta")) {
-        log_debug("LUA", "Adding entity ColliderRectsProxyMeta to engine");
-        lua_pushstring(engine->runtime, "ColliderRectsProxyMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        lua_pushcfunction(engine->runtime, _entity_component_collider_rects_rects_index);
-        lua_setfield(engine->runtime, -2, "__index");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create ColliderRectsProxyMeta metatable
+    lua_engine_new_object_meta(engine, "ColliderRectsProxyMeta", 
+        _entity_component_collider_rects_rects_index, 
+        NULL, 
+        NULL, 
+        NULL);
 }
 
 void _entity_component_collider_draw(EseEntityComponentCollider *collider, float screen_x, float screen_y, EntityDrawRectCallback rectCallback, void *callback_user_data) {

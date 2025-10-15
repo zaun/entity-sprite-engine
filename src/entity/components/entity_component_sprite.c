@@ -356,36 +356,17 @@ static int _entity_component_sprite_tostring(lua_State *L) {
 void _entity_component_sprite_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_sprite_init called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    // Create metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_SPRITE_PROXY_META, 
+        _entity_component_sprite_index, 
+        _entity_component_sprite_newindex, 
+        _entity_component_sprite_gc, 
+        _entity_component_sprite_tostring);
     
-    // Register EntityComponentSprite metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_SPRITE_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentSpriteProxyMeta to engine");
-        lua_pushstring(L, ENTITY_COMPONENT_SPRITE_PROXY_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_sprite_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_sprite_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_sprite_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_sprite_tostring);
-        lua_setfield(L, -2, "__tostring");
-    }
-    lua_pop(L, 1);
-    
-    // Create global EntityComponentSprite table with constructor
-    lua_getglobal(L, "EntityComponentSprite");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        log_debug("LUA", "Creating global EntityComponentSprite table");
-        lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_sprite_new);
-        lua_setfield(L, -2, "new");
-        lua_setglobal(L, "EntityComponentSprite");
-    } else {
-        lua_pop(L, 1);
-    }
+    // Create global EntityComponentSprite table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_entity_component_sprite_new};
+    lua_engine_new_object(engine, "EntityComponentSprite", 1, keys, functions);
 }
 
 void _entity_component_sprite_draw(EseEntityComponentSprite *component, float screen_x, float screen_y, EntityDrawTextureCallback texCallback, void *callback_user_data) {

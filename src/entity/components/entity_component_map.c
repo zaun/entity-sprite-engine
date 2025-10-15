@@ -925,42 +925,17 @@ void _entity_component_map_init(EseLuaEngine *engine)
 {
     log_assert("ENTITY_COMP", engine, "_entity_component_map_init called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    // Create metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_MAP_PROXY_META, 
+        _entity_component_map_index, 
+        _entity_component_map_newindex, 
+        _entity_component_map_gc, 
+        _entity_component_map_tostring);
 
-    // Register EntityComponentMap metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_MAP_PROXY_META))
-    {
-        log_debug("LUA", "Adding %s to engine", ENTITY_COMPONENT_MAP_PROXY_META);
-        lua_pushstring(L, ENTITY_COMPONENT_MAP_PROXY_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_map_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_map_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_map_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_map_tostring);
-        lua_setfield(L, -2, "__tostring");
-        lua_pushstring(L, "locked");
-        lua_setfield(L, -2, "__metatable");
-    }
-    lua_pop(L, 1);
-
-    // Create global EntityComponentMap table with constructor
-    lua_getglobal(L, "EntityComponentMap");
-    if (lua_isnil(L, -1))
-    {
-        lua_pop(L, 1);
-        log_debug("LUA", "Creating global EntityComponentMap table");
-        lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_map_new);
-        lua_setfield(L, -2, "new");
-        lua_setglobal(L, "EntityComponentMap");
-    }
-    else
-    {
-        lua_pop(L, 1);
-    }
+    // Create global EntityComponentMap table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_entity_component_map_new};
+    lua_engine_new_object(engine, "EntityComponentMap", 1, keys, functions);
 }
 
 bool _entity_component_map_collides_component(EseEntityComponentMap *component, EseEntityComponentCollider *collider, EseArray *out_hits) {

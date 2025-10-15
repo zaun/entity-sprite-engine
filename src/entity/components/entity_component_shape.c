@@ -768,47 +768,25 @@ static int _entity_component_shape_tostring(lua_State *L) {
 void _entity_component_shape_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_shape_init called with NULL engine");
 
-    lua_State *L = engine->runtime;
+    // Create main metatable
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_SHAPE_PROXY_META, 
+        _entity_component_shape_index, 
+        _entity_component_shape_newindex, 
+        _entity_component_shape_gc, 
+        _entity_component_shape_tostring);
     
-    // Register EntityComponentShape metatable
-    if (luaL_newmetatable(L, ENTITY_COMPONENT_SHAPE_PROXY_META)) {
-        log_debug("LUA", "Adding EntityComponentShapeProxyMeta to engine");
-        lua_pushstring(L, ENTITY_COMPONENT_SHAPE_PROXY_META);
-        lua_setfield(L, -2, "__name");
-        lua_pushcfunction(L, _entity_component_shape_index);
-        lua_setfield(L, -2, "__index");
-        lua_pushcfunction(L, _entity_component_shape_newindex);
-        lua_setfield(L, -2, "__newindex");
-        lua_pushcfunction(L, _entity_component_shape_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushcfunction(L, _entity_component_shape_tostring);
-        lua_setfield(L, -2, "__tostring");
-    }
-    lua_pop(L, 1);
-    
-    // Create global EntityComponentShape table with constructor
-    lua_getglobal(L, "EntityComponentShape");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        log_debug("LUA", "Creating global EntityComponentShape table");
-        lua_newtable(L);
-        lua_pushcfunction(L, _entity_component_shape_new);
-        lua_setfield(L, -2, "new");
-        lua_setglobal(L, "EntityComponentShape");
-    } else {
-        lua_pop(L, 1);
-    }
+    // Create global EntityComponentShape table with functions
+    const char *keys[] = {"new"};
+    lua_CFunction functions[] = {_entity_component_shape_new};
+    lua_engine_new_object(engine, "EntityComponentShape", 1, keys, functions);
 
-    // Register polylines proxy metatable
-    if (luaL_newmetatable(engine->runtime, "ShapePolylinesProxyMeta")) {
-        log_debug("LUA", "Adding ShapePolylinesProxyMeta to engine");
-        lua_pushstring(engine->runtime, "ShapePolylinesProxyMeta");
-        lua_setfield(engine->runtime, -2, "__name");
-        extern int _entity_component_shape_polylines_index(lua_State *L);
-        lua_pushcfunction(engine->runtime, _entity_component_shape_polylines_index);
-        lua_setfield(engine->runtime, -2, "__index");
-    }
-    lua_pop(engine->runtime, 1);
+    // Create ShapePolylinesProxyMeta metatable
+    extern int _entity_component_shape_polylines_index(lua_State *L);
+    lua_engine_new_object_meta(engine, "ShapePolylinesProxyMeta", 
+        _entity_component_shape_polylines_index, 
+        NULL, 
+        NULL, 
+        NULL);
 }
 
 void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x, float screen_y, EntityDrawCallbacks *callbacks, void *callback_user_data) {
