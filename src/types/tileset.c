@@ -1,13 +1,23 @@
+/**
+ * @file tileset.c
+ * @brief Implementation of tile system that maps tile IDs to weighted sprite lists
+ * @details Implements weighted random selection, Lua integration, and sprite management
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <stdio.h>
-#include "scripting/lua_engine.h"
-#include "utility/log.h"
-#include "utility/profile.h"
+
 #include "core/memory_manager.h"
 #include "graphics/sprite.h"
+#include "scripting/lua_engine.h"
 #include "types/tileset.h"
 #include "types/tileset_lua.h"
+#include "utility/log.h"
+#include "utility/profile.h"
 
 #define INITIAL_SPRITE_CAPACITY 4
 

@@ -176,7 +176,7 @@ static void test_ese_vector_ref(void) {
     ese_vector_ref(vector);
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_vector_get_lua_ref_count(vector), "Ref count should be 1");
 
-    vector_unref(vector);
+    ese_vector_unref(vector);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_vector_get_lua_ref_count(vector), "Ref count should be 0");
 
     ese_vector_destroy(vector);
@@ -199,7 +199,7 @@ static void test_ese_vector_copy(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, ese_vector_get_x(copy));
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, ese_vector_get_y(copy));
 
-    vector_unref(vector);
+    ese_vector_unref(vector);
     ese_vector_destroy(vector);
     ese_vector_destroy(copy);
 }
@@ -367,7 +367,7 @@ static void test_ese_vector_lua_integration(void) {
     TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_ref_state, "Vector state should match engine runtime");
     TEST_ASSERT_NOT_EQUAL_MESSAGE(LUA_NOREF, ese_vector_get_lua_ref(vector), "Vector should have a valid Lua reference after ref");
 
-    vector_unref(vector);
+    ese_vector_unref(vector);
     lua_State *after_unref_state = ese_vector_get_state(vector);
     TEST_ASSERT_NOT_NULL_MESSAGE(after_unref_state, "Vector should have a valid Lua state");
     TEST_ASSERT_EQUAL_PTR_MESSAGE(engine->runtime, after_unref_state, "Vector state should match engine runtime");
@@ -638,7 +638,7 @@ static void test_ese_vector_lua_gc(void) {
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    vector_unref(extracted_vector);
+    ese_vector_unref(extracted_vector);
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected >= 0, "Garbage collection should collect");
@@ -652,7 +652,7 @@ static void test_ese_vector_lua_gc(void) {
     collected = lua_gc(L, LUA_GCCOLLECT, 0);
     TEST_ASSERT_TRUE_MESSAGE(collected == 0, "Garbage collection should not collect");
 
-    vector_unref(extracted_vector);
+    ese_vector_unref(extracted_vector);
     ese_vector_destroy(extracted_vector);
 
     collected = lua_gc(L, LUA_GCCOLLECT, 0);

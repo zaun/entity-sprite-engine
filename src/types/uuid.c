@@ -1,13 +1,23 @@
+/**
+ * @file uuid.c
+ * @brief Implementation of UUID type with string representation
+ * @details Implements UUID generation, hashing, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <time.h>
-#include "scripting/lua_engine.h"
+
 #include "core/memory_manager.h"
-#include "utility/log.h"
-#include "utility/profile.h"
+#include "scripting/lua_engine.h"
 #include "types/uuid.h"
 #include "types/uuid_lua.h"
+#include "utility/log.h"
+#include "utility/profile.h"
 #include "vendor/json/cJSON.h"
 
 // ========================================
@@ -232,7 +242,7 @@ void ese_uuid_unref(EseUUID *uuid) {
 
 // Utility functions
 void ese_uuid_generate_new(EseUUID *uuid) {
-    log_assert("ENGINE", uuid, "uuid_generate called with NULL uuid");
+    log_assert("UUID", uuid, "uuid_generate called with NULL uuid");
 
     unsigned char bytes[16]; // A EseUUID is 128 bits, which is 16 bytes
 

@@ -1,16 +1,24 @@
+/**
+ * @file arc.h
+ * @brief Arc type with center, radius, and angle range
+ * @details Provides arc operations, collision detection, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_ARC_H
 #define ESE_ARC_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include "vendor/json/cJSON.h"
 
-// Constants
-#define ARC_META "ArcMeta"
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
-typedef struct EseRect EseRect;
+#define ARC_META "ArcMeta"
 
 /**
  * @brief Represents an arc with floating-point center, radius, and angle range.
@@ -18,6 +26,14 @@ typedef struct EseRect EseRect;
  * @details This structure stores an arc defined by center point, radius, and start/end angles.
  */
 typedef struct EseArc EseArc;
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EseRect EseRect;
 
 // ========================================
 // PUBLIC FUNCTIONS

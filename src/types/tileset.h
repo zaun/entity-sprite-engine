@@ -1,18 +1,25 @@
-#ifndef ESE_TILE_SET_H
-#define ESE_TILE_SET_H
+/**
+ * @file tileset.h
+ * @brief Tile system that maps tile IDs to weighted sprite lists
+ * @details Provides weighted random selection of sprites for tile mapping
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
+#ifndef ESE_TILESET_H
+#define ESE_TILESET_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
+
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
 #define TILESET_PROXY_META "TilesetProxyMeta"
 #define TILESET_META "TilesetMeta"
-
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
-typedef struct EseSprite EseSprite;
-
 
 /**
  * @brief Tile system that maps tile IDs to weighted sprite lists.
@@ -24,7 +31,17 @@ typedef struct EseSprite EseSprite;
  */
 typedef struct EseTileSet EseTileSet;
 
-/* ----------------- Lua API ----------------- */
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EseSprite EseSprite;
+
+// ========================================
+// LUA API
+// ========================================
 
 /**
  * @brief Initializes the EseTileSet userdata type in the Lua state.
@@ -88,7 +105,9 @@ void ese_tileset_ref(EseTileSet *tiles);
  */
 void ese_tileset_unref(EseTileSet *tiles);
 
-/* ----------------- C API ----------------- */
+// ========================================
+// C API
+// ========================================
 
 /**
  * @brief Creates a new EseTileSet object.
@@ -173,7 +192,9 @@ int ese_tileset_get_lua_ref_count(const EseTileSet *tiles);
  */
 uint32_t ese_tileset_get_rng_seed(const EseTileSet *tiles);
 
-/* ----------------- Sprite Management ----------------- */
+// ========================================
+// SPRITE MANAGEMENT
+// ========================================
 
 /**
  * @brief Adds a sprite with weight to a tile mapping.
@@ -236,6 +257,12 @@ size_t ese_tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
 bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id,
                                   const char *sprite_id, uint16_t new_weight);
 
+/**
+ * @brief Sets the RNG seed for the tileset
+ * 
+ * @param tiles Pointer to the EseTileSet object
+ * @param seed The new RNG seed value
+ */
 void ese_tileset_set_seed(EseTileSet *tiles, uint32_t seed);
 
 /**
@@ -257,4 +284,4 @@ void ese_tileset_set_state(EseTileSet *tiles, lua_State *state);
  */
 EseTileSet *_ese_tileset_make(void);
 
-#endif // ESE_TILE_SET_H
+#endif // ESE_TILESET_H

@@ -1,3 +1,12 @@
+/**
+ * @file rect.h
+ * @brief Rectangle type with floating-point coordinates and dimensions
+ * @details Provides rectangle operations, collision detection, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_RECT_H
 #define ESE_RECT_H
 
@@ -5,12 +14,12 @@
 #include <stddef.h>
 #include "vendor/json/cJSON.h"
 
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
+
 #define RECT_PROXY_META "RectProxyMeta"
 #define RECT_META "RectMeta"
-
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
 
 /**
  * @brief Represents a rectangle with floating-point coordinates and dimensions.
@@ -24,6 +33,13 @@ typedef struct EseRect EseRect;
  * @param userdata User-provided data passed when registering the watcher
  */
 typedef void (*EseRectWatcherCallback)(EseRect *rect, void *userdata);
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
 
 // ========================================
 // PUBLIC FUNCTIONS

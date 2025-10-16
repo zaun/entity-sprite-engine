@@ -1,3 +1,12 @@
+/**
+ * @file poly_line.h
+ * @brief Polyline type with points collection and styling
+ * @details Provides polyline operations, point management, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_POLY_LINE_H
 #define ESE_POLY_LINE_H
 
@@ -5,14 +14,12 @@
 #include <stddef.h>
 #include "vendor/json/cJSON.h"
 
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
+
 #define POLY_LINE_PROXY_META "PolyLineProxyMeta"
 #define POLY_LINE_META "PolyLineMeta"
-
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
-typedef struct EsePoint EsePoint;
-typedef struct EseColor EseColor;
 
 /**
  * @brief Enumeration for poly line types
@@ -38,6 +45,15 @@ typedef struct EsePolyLine EsePolyLine;
  * @param userdata User-provided data passed when registering the watcher
  */
 typedef void (*EsePolyLineWatcherCallback)(EsePolyLine *poly_line, void *userdata);
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EsePoint EsePoint;
+typedef struct EseColor EseColor;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -258,39 +274,7 @@ float ese_poly_line_get_point_x(const EsePolyLine *poly_line, size_t index);
 float ese_poly_line_get_point_y(const EsePolyLine *poly_line, size_t index);
 
 /**
- * @brief Sets the type of the polyline.
- * 
- * @param poly_line Pointer to the EsePolyLine object
- * @param type The new type (OPEN, CLOSED, or FILLED)
- */
-void ese_poly_line_set_type(EsePolyLine *poly_line, EsePolyLineType type);
-
-/**
- * @brief Sets the stroke width of the polyline.
- * 
- * @param poly_line Pointer to the EsePolyLine object
- * @param stroke_width The new stroke width
- */
-void ese_poly_line_set_stroke_width(EsePolyLine *poly_line, float stroke_width);
-
-/**
- * @brief Sets the stroke color of the polyline.
- * 
- * @param poly_line Pointer to the EsePolyLine object
- * @param stroke_color The new stroke color (can be NULL)
- */
-void ese_poly_line_set_stroke_color(EsePolyLine *poly_line, EseColor *stroke_color);
-
-/**
- * @brief Sets the fill color of the polyline.
- * 
- * @param poly_line Pointer to the EsePolyLine object
- * @param fill_color The new fill color (can be NULL)
- */
-void ese_poly_line_set_fill_color(EsePolyLine *poly_line, EseColor *fill_color);
-
-/**
- * @brief Sets the Lua state associated with this polyline.
+ * @brief Sets the Lua state associated with this polyline
  * 
  * @param poly_line Pointer to the EsePolyLine object
  * @param state Pointer to the Lua state

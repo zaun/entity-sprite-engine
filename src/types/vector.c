@@ -1,13 +1,23 @@
+/**
+ * @file vector.c
+ * @brief Implementation of 2D vector type with floating-point components
+ * @details Implements vector operations, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
-#include "utility/log.h"
-#include "utility/profile.h"
 #include "types/vector.h"
 #include "types/vector_lua.h"
+#include "utility/log.h"
+#include "utility/profile.h"
 #include "vendor/json/cJSON.h"
 
 // ========================================
@@ -111,7 +121,7 @@ void ese_vector_destroy(EseVector *vector) {
         // No Lua references, safe to free immediately
         memory_manager.free(vector);
     } else {
-        vector_unref(vector);
+        ese_vector_unref(vector);
         // Don't free memory here - let Lua GC handle it
         // As the script may still have a reference to it.
     }
@@ -322,7 +332,7 @@ void ese_vector_ref(EseVector *vector) {
     profile_count_add("ese_vector_ref_count");
 }
 
-void vector_unref(EseVector *vector) {
+void ese_vector_unref(EseVector *vector) {
     if (!vector) return;
     
     if (ese_vector_get_lua_ref(vector) != LUA_NOREF && ese_vector_get_lua_ref_count(vector) > 0) {

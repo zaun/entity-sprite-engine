@@ -1,5 +1,5 @@
-#ifndef ESE_CAMERA_STATE_H
-#define ESE_CAMERA_STATE_H
+#ifndef ESE_CAMERA_H
+#define ESE_CAMERA_H
 
 // Constants
 #define CAMERA_META "CameraMeta"
@@ -210,4 +210,4 @@ void ese_camera_ref(EseCamera *camera_state);
  */
 void ese_camera_unref(EseCamera *camera_state);
 
-#endif // ESE_CAMERA_STATE_H
+#endif // ESE_CAMERA_H

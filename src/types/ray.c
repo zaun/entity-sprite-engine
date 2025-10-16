@@ -1,14 +1,25 @@
-#include <string.h>
-#include <stdio.h>
+/**
+ * @file ray.c
+ * @brief Implementation of ray type with origin and direction
+ * @details Implements ray operations, collision detection, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "types/ray.h"
+#include "types/ray_lua.h"
+#include "types/rect.h"
+#include "types/types.h"
 #include "utility/log.h"
 #include "utility/profile.h"
-#include "types/types.h"
-#include "types/rect.h"
 #include "vendor/json/cJSON.h"
-#include "types/ray_lua.h"
 
 // ========================================
 // PRIVATE STRUCT DEFINITION

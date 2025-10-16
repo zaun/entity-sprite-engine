@@ -392,7 +392,7 @@ static int _ese_point_lua_to_json(lua_State *L) {
 
     // Clean up the string (cJSON_PrintUnformatted uses malloc)
     // Note: We free here, but lua_pushstring should have made a copy
-    free(json_str); // cJSON doesnt use the memory manager.
+    free(json_str); // cJSON doesn't use the memory manager
 
     profile_stop(PROFILE_LUA_POINT_TO_JSON, "point_lua_to_json");
     return 1;

@@ -1,13 +1,22 @@
+/**
+ * @file ray.h
+ * @brief Ray type with origin and direction
+ * @details Provides ray operations, collision detection, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_RAY_H
 #define ESE_RAY_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include "vendor/json/cJSON.h"
 
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
-typedef struct EseRect EseRect;
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
 #define RAY_PROXY_META "RayProxyMeta"
 #define RAY_META "RayMeta"
@@ -19,6 +28,14 @@ typedef struct EseRect EseRect;
  *          The internal structure is hidden from the public API.
  */
 typedef struct EseRay EseRay;
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EseRect EseRect;
 
 // ========================================
 // PUBLIC FUNCTIONS

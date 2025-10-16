@@ -1,16 +1,26 @@
+/**
+ * @file vector.h
+ * @brief 2D vector type with floating-point components
+ * @details Provides a 2D vector structure with x,y components and mathematical operations
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_VECTOR_H
 #define ESE_VECTOR_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include "vendor/json/cJSON.h"
+
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
 #define VECTOR_PROXY_META "VectorProxyMeta"
 #define VECTOR_META "VectorMeta"
-
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
 
 /**
  * @brief Represents a 2D vector with floating-point components.
@@ -18,6 +28,13 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @details This structure stores the x and y components of a vector in 2D space.
  */
 typedef struct EseVector EseVector;
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -211,7 +228,7 @@ void ese_vector_ref(EseVector *vector);
  * 
  * @param vector Pointer to the EseVector object to unreference
  */
-void vector_unref(EseVector *vector);
+void ese_vector_unref(EseVector *vector);
 
 // Mathematical operations
 /**

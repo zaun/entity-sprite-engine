@@ -1,17 +1,26 @@
+/**
+ * @file uuid.h
+ * @brief UUID type with string representation
+ * @details Provides UUID generation, hashing, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_UUID_H
 #define ESE_UUID_H
 
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "vendor/json/cJSON.h"
+
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
 #define UUID_PROXY_META "UUIDProxyMeta"
 #define UUID_META "UUIDMeta"
-
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
 
 /**
  * @brief Represents a EseUUID as a null-terminated string.
@@ -21,6 +30,13 @@ typedef struct EseLuaEngine EseLuaEngine;
  *          "550e8400-e29b-41d4-a716-446655440000"
  */
 typedef struct EseUUID EseUUID;
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
 
 // ========================================
 // PUBLIC FUNCTIONS

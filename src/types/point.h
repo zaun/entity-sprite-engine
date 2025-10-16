@@ -1,15 +1,25 @@
+/**
+ * @file point.h
+ * @brief 2D point type with floating-point coordinates
+ * @details Provides point operations, watcher system, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #ifndef ESE_POINT_H
 #define ESE_POINT_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include "vendor/json/cJSON.h"
 
-#define POINT_PROXY_META "PointProxyMeta"
+// ========================================
+// DEFINES AND STRUCTS
+// ========================================
 
-// Forward declarations
-typedef struct lua_State lua_State;
-typedef struct EseLuaEngine EseLuaEngine;
+#define POINT_PROXY_META "PointProxyMeta"
 
 /**
  * @brief Represents a 2D point with floating-point coordinates.
@@ -25,6 +35,13 @@ typedef struct EsePoint EsePoint;
  * @param userdata User-provided data passed when registering the watcher
  */
 typedef void (*EsePointWatcherCallback)(EsePoint *point, void *userdata);
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+typedef struct lua_State lua_State;
+typedef struct EseLuaEngine EseLuaEngine;
 
 // ========================================
 // PUBLIC FUNCTIONS

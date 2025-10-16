@@ -1,14 +1,24 @@
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+/**
+ * @file point.c
+ * @brief Implementation of 2D point type with floating-point coordinates
+ * @details Implements point operations, watcher system, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #include <math.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
-#include "utility/log.h"
-#include "utility/profile.h"
 #include "types/point.h"
 #include "types/point_lua.h"
+#include "utility/log.h"
+#include "utility/profile.h"
 #include "vendor/json/cJSON.h"
 
 // The actual EsePoint struct definition (private to this file)

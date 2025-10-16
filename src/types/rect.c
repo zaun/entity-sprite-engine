@@ -1,15 +1,25 @@
+/**
+ * @file rect.c
+ * @brief Implementation of rectangle type with floating-point coordinates and dimensions
+ * @details Implements rectangle operations, collision detection, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
-#include "types/rect.h"
 #include "types/point.h"
+#include "types/rect.h"
+#include "types/rect_lua.h"
 #include "utility/log.h"
 #include "utility/profile.h"
 #include "vendor/json/cJSON.h"
-#include "types/rect_lua.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f

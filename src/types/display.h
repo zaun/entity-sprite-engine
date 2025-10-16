@@ -7,8 +7,8 @@
  * screen dimensions, and fullscreen state. It is designed to be used in conjunction with
  * a Lua scripting environment.
  */
-#ifndef ESE_DISPLAY_STATE_H
-#define ESE_DISPLAY_STATE_H
+#ifndef ESE_DISPLAY_H
+#define ESE_DISPLAY_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -278,4 +278,4 @@ int ese_display_get_lua_ref(const EseDisplay *display);
  */
 size_t ese_display_sizeof(void);
 
-#endif // ESE_DISPLAY_STATE_H
+#endif // ESE_DISPLAY_H

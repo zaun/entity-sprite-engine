@@ -1,13 +1,23 @@
-#include <string.h>
-#include <stdio.h>
+/**
+ * @file arc.c
+ * @brief Implementation of arc type with center, radius, and angle range
+ * @details Implements arc operations, collision detection, Lua integration, and JSON serialization
+ * 
+ * @copyright Copyright (c) 2024 ESE Project
+ * @license See LICENSE.md for license information
+ */
+
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
-#include "utility/log.h"
-#include "utility/profile.h"
-#include "types/types.h"
 #include "types/arc.h"
 #include "types/arc_lua.h"
+#include "types/types.h"
+#include "utility/log.h"
+#include "utility/profile.h"
 #include "vendor/json/cJSON.h"
 
 #ifndef M_PI
