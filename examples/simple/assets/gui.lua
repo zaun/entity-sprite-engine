@@ -14,6 +14,8 @@ function ENTITY:entity_update(delta_time)
             padding_bottom = 0,
             background_color = Color.new(0, 1, 0, 1),
         })
+            GUI.open_box(100, 100, Color.new(1, 0, 0, 1))
+            GUI.close_box()
         GUI.close_flex()
     GUI.finish()
 end

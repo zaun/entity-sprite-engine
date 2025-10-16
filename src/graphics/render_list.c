@@ -46,6 +46,13 @@ static EseRenderBatch* _render_batch_create(void) {
     memset(batch, 0, sizeof(EseRenderBatch));
     batch->vertex_buffer = memory_manager.malloc(sizeof(EseVertex) * BATCH_INITIAL_CAPACITY * 4, MMTAG_RENDERLIST);
     batch->vertex_capacity = BATCH_INITIAL_CAPACITY * 4;
+    
+    // Initialize scissor to no clipping
+    batch->scissor_active = false;
+    batch->scissor_x = 0.0f;
+    batch->scissor_y = 0.0f;
+    batch->scissor_w = 0.0f;
+    batch->scissor_h = 0.0f;
 
     return batch;
 }
@@ -592,7 +599,7 @@ static void _render_batch_add_object_vertices(EseRenderBatch *batch, const EseDr
         size_t idx_count;
 
         // Get mesh data from the draw list object using the proper getter
-        draw_list_object_get_mesh(obj, &mesh_verts, &vert_count, &mesh_indices, &idx_count, NULL, NULL, NULL, NULL, NULL);
+        draw_list_object_get_mesh(obj, &mesh_verts, &vert_count, &mesh_indices, &idx_count, NULL);
 
         // Ensure we have enough capacity for all mesh vertices
         if (batch->vertex_count + vert_count > batch->vertex_capacity) {
@@ -799,6 +806,24 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
                 new_batch_needed = true;
             }
         }
+        
+        // Check scissor rectangles - objects can only be batched if they have the same scissor state
+        if (!new_batch_needed) {
+            bool obj_scissor_active;
+            float obj_scissor_x, obj_scissor_y, obj_scissor_w, obj_scissor_h;
+            
+            draw_list_object_get_scissor(obj, &obj_scissor_active, &obj_scissor_x, &obj_scissor_y, &obj_scissor_w, &obj_scissor_h);
+            
+            if (obj_scissor_active != current_batch->scissor_active) {
+                new_batch_needed = true;
+            } else if (obj_scissor_active) {
+                // Both have scissor - check if rectangles match
+                if (obj_scissor_x != current_batch->scissor_x || obj_scissor_y != current_batch->scissor_y ||
+                    obj_scissor_w != current_batch->scissor_w || obj_scissor_h != current_batch->scissor_h) {
+                    new_batch_needed = true;
+                }
+            }
+        }
 
         if (new_batch_needed) {
             // if (current_batch) {
@@ -821,8 +846,19 @@ void render_list_fill(EseRenderList *render_list, EseDrawList *draw_list) {
             } else if (draw_list_object_get_type(obj) == DL_MESH) {
                 current_batch->type = RL_TEXTURE;
                 // Get the texture ID from the mesh data
-                draw_list_object_get_mesh(obj, NULL, NULL, NULL, NULL, &current_batch->shared_state.texture_id, NULL, NULL, NULL, NULL);
+                draw_list_object_get_mesh(obj, NULL, NULL, NULL, NULL, &current_batch->shared_state.texture_id);
             }
+            
+            // Set scissor state for the new batch
+            bool obj_scissor_active;
+            float obj_scissor_x, obj_scissor_y, obj_scissor_w, obj_scissor_h;
+            draw_list_object_get_scissor(obj, &obj_scissor_active, &obj_scissor_x, &obj_scissor_y, &obj_scissor_w, &obj_scissor_h);
+            current_batch->scissor_active = obj_scissor_active;
+            current_batch->scissor_x = obj_scissor_x;
+            current_batch->scissor_y = obj_scissor_y;
+            current_batch->scissor_w = obj_scissor_w;
+            current_batch->scissor_h = obj_scissor_h;
+            
             _render_list_add_batch(render_list, current_batch);
         }
 

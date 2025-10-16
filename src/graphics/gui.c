@@ -130,6 +130,13 @@ void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int h
     layout->width = width;
     layout->height = height;
 
+    // Initialize draw scissor state
+    layout->draw_scissors_active = false;
+    layout->draw_scissors_x = 0.0f;
+    layout->draw_scissors_y = 0.0f;
+    layout->draw_scissors_w = 0.0f;
+    layout->draw_scissors_h = 0.0f;
+
     // Initialize layout stack for this frame layout
     layout->root = NULL;
 
@@ -278,7 +285,6 @@ void ese_gui_close_box(EseGui *gui) {
     // Only close a box container
     log_assert("GUI", layout->current_container != NULL, "ese_gui_close_box called with no open containers");
     log_assert("GUI", layout->current_container->widget_type == ESE_GUI_WIDGET_BOX, "ese_gui_close_box called with no open BOX containers");
-
     layout->current_container = layout->current_container->parent;
 }
 

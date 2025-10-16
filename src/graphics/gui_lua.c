@@ -107,14 +107,14 @@ static int _ese_gui_lua_begin(lua_State *L) {
         width = (int)lua_tonumber(L, 4);
         height = (int)lua_tonumber(L, 5);
     } else {
-        return luaL_error(L, "GUI.begin() takes 5 arguments (draw_order, x, y, width, height)");
+        return luaL_error(L, "GUI.start() takes 5 arguments (draw_order, x, y, width, height)");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
     if (gui->open_layout != NULL) {
-        return luaL_error(L, "GUI.begin() called while another GUI is active");
+        return luaL_error(L, "GUI.start() called while another GUI is active");
     }
     
     ese_gui_begin(gui, z_index, x, y, width, height);
@@ -127,14 +127,14 @@ static int _ese_gui_lua_end(lua_State *L) {
 
     int n_args = lua_gettop(L);
     if (n_args != 0) {
-        return luaL_error(L, "GUI.end() takes no arguments");
+        return luaL_error(L, "GUI.finish() takes no arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
     if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.end() called with no open GUI active");
+        return luaL_error(L, "GUI.finish() called with no open GUI active");
     }
 
     ese_gui_end(gui);
@@ -237,10 +237,11 @@ static int _ese_gui_lua_open_box(lua_State *L) {
 
     int n_args = lua_gettop(L);
     if (n_args != 2 && n_args != 3) {
-        if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
-            return luaL_error(L, "width and height must be numbers");
-        }
-        return luaL_error(L, "GUI.open_box(width, height[, options]) takes 2 or 3 arguments");
+        return luaL_error(L, "GUI.open_box(width, height[, background_color]) takes 2 or 3 arguments");
+    }
+
+    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
+        return luaL_error(L, "width and height must be numbers");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
@@ -250,20 +251,13 @@ static int _ese_gui_lua_open_box(lua_State *L) {
         return luaL_error(L, "GUI.open_box() called with no open GUI active");
     }
     
-
-    int width = 0;
-    int height = 0;
-    lua_getfield(L, 1, "width");
-    width = luaL_optinteger(L, -1, 0);
-    lua_getfield(L, 1, "height");
-    height = luaL_optinteger(L, -1, 0);
-
-    // Get options table
-    luaL_checktype(L, 2, LUA_TTABLE);  
+    int width = (int)lua_tonumber(L, 1);
+    int height = (int)lua_tonumber(L, 2);
 
     EseColor *background_color = NULL;
-    lua_getfield(L, 2, "background_color");
-    background_color = ese_color_lua_get(L, -1);
+    if (n_args == 3) {
+        background_color = ese_color_lua_get(L, 3);
+    }
 
     ese_gui_open_box(gui, width, height, background_color);
 

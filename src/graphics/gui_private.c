@@ -292,6 +292,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[background]) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_bg = gui->default_colors[background];
                 EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
@@ -302,6 +305,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_bg) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
 
             if (node->colors[border] != NULL) {
@@ -313,6 +319,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_border = gui->default_colors[border];
                 EseDrawListObject *border_obj = draw_list_request_object(draw_list);
@@ -323,6 +332,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
             break;
         case ESE_GUI_WIDGET_BUTTON:
@@ -335,6 +347,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[background]) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_bg = gui->default_colors[background];
                 EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
@@ -345,6 +360,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_bg) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
 
             if (node->colors[border] != NULL) {
@@ -356,6 +374,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_border = gui->default_colors[border];
                 EseDrawListObject *border_obj = draw_list_request_object(draw_list);
@@ -366,6 +387,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
 
             if (node->widget_data.button.text != NULL) {
@@ -384,6 +408,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[background]) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_bg = gui->default_colors[background];
                 EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
@@ -394,6 +421,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_bg) * 255), true);
                 draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(bg_obj, draw_order);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
 
             if (node->colors[border] != NULL) {
@@ -405,6 +435,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             } else {
                 EseColor *default_border = gui->default_colors[border];
                 EseDrawListObject *border_obj = draw_list_request_object(draw_list);
@@ -415,6 +448,9 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
 
             if (node->widget_data.image.sprite_id != NULL) {
@@ -422,10 +458,36 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                 draw_list_object_set_texture(img_obj, node->widget_data.image.sprite_id, 0.0f, 0.0f, 1.0f, 1.0f);
                 draw_list_object_set_bounds(img_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(img_obj, draw_order + 2);
+                if (session->draw_scissors_active) {
+                    draw_list_object_set_scissor(img_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
+                }
             }
             break;
     }
 
+    // Process children with clipping if this is a container
+    if (node->widget_type == ESE_GUI_WIDGET_FLEX || node->widget_type == ESE_GUI_WIDGET_BOX) {
+        // Calculate the clipping rectangle for children (accounting for padding)
+        int clip_x = node->x + node->widget_data.container.padding_left;
+        int clip_y = node->y + node->widget_data.container.padding_top;
+        int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+        int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+        
+        // Only apply clipping if the container has positive dimensions
+        if (clip_w > 0 && clip_h > 0) {
+            // Update the layout's scissor state for children
+            session->draw_scissors_active = true;
+            session->draw_scissors_x = (float)clip_x;
+            session->draw_scissors_y = (float)clip_y;
+            session->draw_scissors_w = (float)clip_w;
+            session->draw_scissors_h = (float)clip_h;
+        } else {
+            // Disable scissor if container has invalid dimensions
+            session->draw_scissors_active = false;
+        }
+    }
+
+    // Process children normally (they will inherit the layout's scissor state)
     for (size_t i = 0; i < node->children_count; i++) {
         _ese_gui_generate_draw_commands(gui, draw_list, session, node->children[i], depth + 1);
     }

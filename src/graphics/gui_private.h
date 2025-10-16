@@ -47,6 +47,10 @@ typedef struct EseGuiLayout {
 
     // Current open container in this frame
     struct EseGuiLayoutNode *current_container;
+
+    // Draw scissor state for the layout
+    bool draw_scissors_active;
+    float draw_scissors_x, draw_scissors_y, draw_scissors_w, draw_scissors_h;
 } EseGuiLayout;
 
 typedef struct EseGuiLayoutNode {

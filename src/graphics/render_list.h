@@ -51,6 +51,10 @@ typedef struct EseRenderBatch {
     EseVertex *vertex_buffer;       /** Buffer containing vertex data */
     size_t vertex_count;            /** Number of vertices currently stored */
     size_t vertex_capacity;         /** Allocated capacity for vertex buffer */
+    
+    // Scissor/clipping state for this batch
+    bool scissor_active;            /** Whether scissor clipping is enabled for this batch */
+    float scissor_x, scissor_y, scissor_w, scissor_h; /** Scissor rectangle coordinates */
 } EseRenderBatch;
 
 

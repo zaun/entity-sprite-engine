@@ -447,6 +447,20 @@ void renderer_draw(EseRenderer *renderer) {
             // defaults for optional fields
             float tint_r = 1.0f, tint_g = 1.0f, tint_b = 1.0f, tint_a = 1.0f;
             float opacity = 1.0f;
+            
+            // Handle scissor test for this batch
+            if (batch->scissor_active) {
+                glEnable(GL_SCISSOR_TEST);
+                // Convert from screen coordinates to OpenGL viewport coordinates
+                // OpenGL scissor uses bottom-left origin, so we need to flip Y
+                int scissor_x = (int)batch->scissor_x;
+                int scissor_y = (int)(renderer->view_h - batch->scissor_y - batch->scissor_h);
+                int scissor_w = (int)batch->scissor_w;
+                int scissor_h = (int)batch->scissor_h;
+                glScissor(scissor_x, scissor_y, scissor_w, scissor_h);
+            } else {
+                glDisable(GL_SCISSOR_TEST);
+            }
 
             if (batch->type == RL_TEXTURE) {
                 // Handle texture batch

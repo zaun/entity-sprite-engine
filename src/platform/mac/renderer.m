@@ -445,6 +445,28 @@ void renderer_draw(EseRenderer *renderer) {
             if (!batch) continue;
             if (batch->vertex_count == 0) continue;
 
+            // Handle scissor test for this batch
+            if (batch->scissor_active) {
+                // Convert from screen coordinates to Metal viewport coordinates
+                // Metal uses top-left origin, same as our screen coordinates
+                MTLScissorRect scissorRect = {
+                    .x = (NSUInteger)batch->scissor_x,
+                    .y = (NSUInteger)batch->scissor_y,
+                    .width = (NSUInteger)batch->scissor_w,
+                    .height = (NSUInteger)batch->scissor_h
+                };
+                [encoder setScissorRect:scissorRect];
+            } else {
+                // Disable scissor test by setting it to the full viewport
+                MTLScissorRect fullRect = {
+                    .x = 0,
+                    .y = 0,
+                    .width = (NSUInteger)renderer->view_w,
+                    .height = (NSUInteger)renderer->view_h
+                };
+                [encoder setScissorRect:fullRect];
+            }
+
             id<MTLTexture> tex = nil;
             if (batch->type == RL_TEXTURE) {
                 tex = hashmap_get(renderer->textures, batch->shared_state.texture_id);

@@ -126,17 +126,29 @@ void draw_list_object_set_mesh(
     EseDrawListObject* object,
     EseDrawListVertex* verts, size_t vert_count,
     uint32_t* indices, size_t idx_count,
-    const char* texture_id,
-    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+    const char* texture_id
 );
 
 void draw_list_object_get_mesh(
     const EseDrawListObject* object,
     const EseDrawListVertex** verts, size_t* vert_count,
     const uint32_t** indices, size_t* idx_count,
-    const char** texture_id,
+    const char** texture_id
+);
+
+// Scissor/clipping functions
+void draw_list_object_set_scissor(
+    EseDrawListObject* object,
+    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+);
+
+void draw_list_object_get_scissor(
+    const EseDrawListObject* object,
+    bool* scissor_active,
     float* scissor_x, float* scissor_y, float* scissor_w, float* scissor_h
 );
+
+void draw_list_object_clear_scissor(EseDrawListObject* object);
 
 
 #endif // ESE_DRAW_LIST_H

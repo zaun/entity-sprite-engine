@@ -87,8 +87,6 @@ typedef struct EseDrawListMesh {
     uint32_t indices[MESH_MAX_INDICES];
     size_t idx_count;
     char texture_id[TEXTURE_ID_MAX_LEN];
-    /* scissor rect stored for convenience; renderer can also use object->x/y/w/h */
-    float scissor_x, scissor_y, scissor_w, scissor_h;
 } EseDrawListMesh;
 
 
@@ -118,6 +116,10 @@ struct EseDrawListObject {
     float rot_y;                          /** The y coordinate for the rotation pivot point (normalized) */
 
     uint64_t z_index;                     /** The z-index / draw order of the object */
+    
+    // Clipping/scissor rectangle
+    bool scissor_active;                  /** Whether scissor clipping is enabled */
+    float scissor_x, scissor_y, scissor_w, scissor_h;
 };
 
 /**
@@ -151,6 +153,13 @@ static void _init_new_object(EseDrawListObject *obj) {
     obj->rot_x = 0.5f; /* default pivot at center */
     obj->rot_y = 0.5f; /* default pivot at center */
     obj->z_index = 0;
+    
+    /* Initialize scissor to no clipping */
+    obj->scissor_active = false;
+    obj->scissor_x = 0.0f;
+    obj->scissor_y = 0.0f;
+    obj->scissor_w = 0.0f;
+    obj->scissor_h = 0.0f;
 
     /* zero union data */
     memset(&obj->data, 0, sizeof(obj->data));
@@ -624,8 +633,7 @@ void draw_list_object_set_mesh(
     EseDrawListObject* object,
     EseDrawListVertex* verts, size_t vert_count,
     uint32_t* indices, size_t idx_count,
-    const char* texture_id,
-    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+    const char* texture_id
 ) {
     log_assert("RENDER_LIST", object, "draw_list_object_set_mesh called with NULL object");
     log_assert("RENDER_LIST", verts, "draw_list_object_set_mesh called with NULL verts");
@@ -646,18 +654,13 @@ void draw_list_object_set_mesh(
     mesh_data->idx_count = idx_count;
     strncpy(mesh_data->texture_id, texture_id, TEXTURE_ID_MAX_LEN - 1);
     mesh_data->texture_id[TEXTURE_ID_MAX_LEN - 1] = '\0';
-    mesh_data->scissor_x = scissor_x;
-    mesh_data->scissor_y = scissor_y;
-    mesh_data->scissor_w = scissor_w;
-    mesh_data->scissor_h = scissor_h;
 }
 
 void draw_list_object_get_mesh(
     const EseDrawListObject* object,
     const EseDrawListVertex** verts, size_t* vert_count,
     const uint32_t** indices, size_t* idx_count,
-    const char** texture_id,
-    float* scissor_x, float* scissor_y, float* scissor_w, float* scissor_h
+    const char** texture_id
 ) {
     log_assert("RENDER_LIST", object, "draw_list_object_get_mesh called with NULL object");
     log_assert("RENDER_LIST", object->type == DL_MESH, "draw_list_object_get_mesh called on non-mesh object");
@@ -669,8 +672,42 @@ void draw_list_object_get_mesh(
     if (indices) *indices = mesh_data->indices;
     if (idx_count) *idx_count = mesh_data->idx_count;
     if (texture_id) *texture_id = mesh_data->texture_id;
-    if (scissor_x) *scissor_x = mesh_data->scissor_x;
-    if (scissor_y) *scissor_y = mesh_data->scissor_y;
-    if (scissor_w) *scissor_w = mesh_data->scissor_w;
-    if (scissor_h) *scissor_h = mesh_data->scissor_h;
+}
+
+// Scissor/clipping functions
+void draw_list_object_set_scissor(
+    EseDrawListObject* object,
+    float scissor_x, float scissor_y, float scissor_w, float scissor_h
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_set_scissor called with NULL object");
+    
+    object->scissor_active = true;
+    object->scissor_x = scissor_x;
+    object->scissor_y = scissor_y;
+    object->scissor_w = scissor_w;
+    object->scissor_h = scissor_h;
+}
+
+void draw_list_object_get_scissor(
+    const EseDrawListObject* object,
+    bool* scissor_active,
+    float* scissor_x, float* scissor_y, float* scissor_w, float* scissor_h
+) {
+    log_assert("RENDER_LIST", object, "draw_list_object_get_scissor called with NULL object");
+    
+    if (scissor_active) *scissor_active = object->scissor_active;
+    if (scissor_x) *scissor_x = object->scissor_x;
+    if (scissor_y) *scissor_y = object->scissor_y;
+    if (scissor_w) *scissor_w = object->scissor_w;
+    if (scissor_h) *scissor_h = object->scissor_h;
+}
+
+void draw_list_object_clear_scissor(EseDrawListObject* object) {
+    log_assert("RENDER_LIST", object, "draw_list_object_clear_scissor called with NULL object");
+    
+    object->scissor_active = false;
+    object->scissor_x = 0.0f;
+    object->scissor_y = 0.0f;
+    object->scissor_w = 0.0f;
+    object->scissor_h = 0.0f;
 }
