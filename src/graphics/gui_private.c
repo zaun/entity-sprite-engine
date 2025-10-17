@@ -258,8 +258,8 @@ void _ese_gui_calculate_node_position(
             node->children[i]->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
             log_verbose("GUI", "%sChild 1 position: %d, %d, %d, %d", indent, node->children[i]->x, node->children[i]->y, node->children[i]->width, node->children[i]->height);
             
-            _ese_gui_process_input(gui, session, node->children[0]);
-            _ese_gui_calculate_node_position(gui, session, node->children[0], depth + 1);
+            _ese_gui_process_input(gui, session, node->children[i]);
+            _ese_gui_calculate_node_position(gui, session, node->children[i], depth + 1);
         }
             
         // Restore previous scissor state
