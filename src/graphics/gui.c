@@ -178,10 +178,6 @@ void ese_gui_open_flex(EseGui *gui, int width, int height) {
     node->parent = NULL;
     if (layout->current_container != NULL) {
         EseGuiLayoutNode *parent = layout->current_container;
-		// Enforce single-child semantics for STACK containers
-		if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
-			log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
-		}
         node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
             size_t new_cap = parent->children_capacity == 0 ? 4 : parent->children_capacity * 2;
@@ -244,10 +240,6 @@ void ese_gui_open_stack(EseGui *gui, int width, int height) {
     node->parent = NULL;
     if (layout->current_container != NULL) {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for STACK containers
-        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
-            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
-        }
         node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
             size_t new_cap = parent->children_capacity == 0 ? 4 : parent->children_capacity * 2;
@@ -306,10 +298,6 @@ void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *u
     log_assert("GUI", layout->current_container != NULL, "ese_gui_push_button called with no open container");
     {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for STACK containers
-        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
-            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
-        }
         button_node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
             size_t new_cap = parent->children_capacity == 0 ? 4 : parent->children_capacity * 2;
@@ -349,10 +337,6 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
     log_assert("GUI", layout->current_container != NULL, "ese_gui_push_image called with no open container");
     {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for STACK containers
-        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
-            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
-        }
         image_node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
             size_t new_cap = parent->children_capacity == 0 ? 4 : parent->children_capacity * 2;
