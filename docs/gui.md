@@ -27,8 +27,8 @@ These functions define individual, self-contained UI sessions within a `ui_conte
 *   **`ui_begin(ui_context_t* ctx, int x, int y, int width, int height)`:**
     *   **Purpose:** Starts a new UI frame session within the given context. Defines the absolute clipping rectangle `(x, y, width, height)` for this entire session.
     *   **Role:** Acts as the **absolute root** for this UI session. It is *not* a layout node itself.
-    *   **Behavior:** Resets the session's specific state (layout stack, interaction tracking) and establishes the clipping boundaries. It implicitly expects a single primary layout element (like `ui_open_flex` or `ui_open_box`) to follow before `ui_end` is called for this session.
-    *   **Analogy:** Similar to `ui_open_box`, but defines the entire root area for a session, not just a localized sized region.
+    *   **Behavior:** Resets the session's specific state (layout stack, interaction tracking) and establishes the clipping boundaries. It implicitly expects a single primary layout element (like `ui_open_flex` or `ui_open_stack`) to follow before `ui_end` is called for this session.
+    *   **Analogy:** Similar to `ui_open_stack`, but defines the entire root area for a session, not just a localized sized region.
 
 *   **`ui_end(ui_context_t* ctx)`:**
     *   **Purpose:** Finalizes the current UI frame session within the context.
@@ -52,13 +52,13 @@ These components define how UI elements are arranged *within* an active `ui_begi
 *   **`ui_close_flex(ui_context_t* ctx)`:**
     *   **Purpose:** Closes the current active flex container, returning to the parent layout scope.
 
-*   **`ui_open_box(ui_context_t* ctx, int width, int height)`:**
+*   **`ui_open_stack(ui_context_t* ctx, int width, int height)`:**
     *   **Purpose:** Creates a fixed-size bounding box for its *single child*.
     *   **Behavior:** Defines a specific `width` and `height`. This box is automatically centered both horizontally and vertically within the available space of its parent layout container.
     *   **Constraint:** Designed to hold only one direct child.
 
-*   **`ui_close_box(ui_context_t* ctx)`:**
-    *   **Purpose:** Closes the current `ui_open_box` scope.
+*   **`ui_close_stack(ui_context_t* ctx)`:**
+    *   **Purpose:** Closes the current `ui_open_stack` scope.
 
 ### 2.4. UI Elements (Widgets)
 
@@ -190,9 +190,9 @@ The `ui_context_t` will now maintain an internal iterator or index for its draw 
 
 ## 6. Error Handling and Constraints
 
-*   **`ui_begin` as Root:** `ui_begin` establishes the root scope. It must be followed by a primary layout node (e.g., `ui_open_flex` or `ui_open_box`) before other layout nodes or widgets are added as direct children of the session.
-*   **Single Child for `ui_open_box`:** `ui_open_box` strictly enforces a single direct child.
-*   **Layout Nesting:** `ui_close_flex` and `ui_close_box` must be called to match every `ui_open_flex` and `ui_open_box`, respectively, ensuring a properly structured layout stack.
+*   **`ui_begin` as Root:** `ui_begin` establishes the root scope. It must be followed by a primary layout node (e.g., `ui_open_flex` or `ui_open_stack`) before other layout nodes or widgets are added as direct children of the session.
+*   **Single Child for `ui_open_stack`:** `ui_open_stack` strictly enforces a single direct child.
+*   **Layout Nesting:** `ui_close_flex` and `ui_close_stack` must be called to match every `ui_open_flex` and `ui_open_stack`, respectively, ensuring a properly structured layout stack.
 *   **`ui_end` Completion:** `ui_end` requires that all opened layout scopes within its session have been closed.
 *   **Context Integrity:** Functions should validate context pointers and ensure operations occur within a valid `ui_begin`/`ui_end` session scope.
 

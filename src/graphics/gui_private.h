@@ -13,12 +13,12 @@ typedef struct EseColor EseColor;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseGuiStyle EseGuiStyle;
 
-#define BOX_AUTO -1
+#define GUI_AUTO_SIZE -1
 
 typedef enum EseGuiWidgetType {
     ESE_GUI_WIDGET_NONE,
     ESE_GUI_WIDGET_FLEX,
-    ESE_GUI_WIDGET_BOX,
+    ESE_GUI_WIDGET_STACK,
     ESE_GUI_WIDGET_BUTTON,
     ESE_GUI_WIDGET_IMAGE,
 } EseGuiWidgetType;
@@ -74,7 +74,7 @@ typedef struct EseGuiLayoutNode {
     EseGuiWidgetType widget_type;
     union {
         struct {
-            // Container-specific fields (FLEX and BOX)
+            // Container-specific fields (FLEX and STACK)
             EseGuiFlexDirection direction;
             EseGuiFlexJustify justify;
             EseGuiFlexAlignItems align_items;

@@ -1,13 +1,35 @@
 #ifndef ESE_FONT_H
 #define ESE_FONT_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
+// Forward declarations
+typedef struct EseAssetManager EseAssetManager;
+typedef struct EseRenderer EseRenderer;
+
 /**
  * @file font.h
  * 
- * @brief External declaration for the 10x20 console font bitmap data.
+ * @brief External declaration for the 10x20 console font bitmap data and font rendering functions.
  */
 
 // External declaration for the 10x20 console font
 extern unsigned char console_font_10x20[];
+
+// Forward declaration for texture callback (matches EntityDrawTextureCallback)
+typedef void (*FontDrawTextureCallback)(float screen_x, float screen_y, float screen_w, float screen_h, uint64_t z_index,
+                                       const char *texture_id, float texture_x1, float texture_y1, float texture_x2, float texture_y2,
+                                       int width, int height,
+                                       void *user_data);
+
+// Font rendering functions
+void font_draw_text(EseAssetManager *am, const char *font, const char *text,
+                    float start_x, float start_y, uint64_t draw_order,
+                    FontDrawTextureCallback texCallback, void *callback_user_data);
+
+void font_draw_text_scaled(EseAssetManager *am, const char *font, const char *text,
+                           float start_x, float start_y, uint64_t draw_order,
+                           float target_height, FontDrawTextureCallback texCallback, void *user_data);
 
 #endif // ESE_FONT_H

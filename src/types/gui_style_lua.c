@@ -121,6 +121,10 @@ static int _ese_gui_style_lua_index(lua_State *L) {
         lua_pushnumber(L, ese_gui_style_get_spacing(style));
         profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
         return 1;
+    } else if (strcmp(key, "font_size") == 0) {
+        lua_pushnumber(L, ese_gui_style_get_font_size(style));
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
     } else if (strcmp(key, "background") == 0) {
         EseColor *color = ese_gui_style_get_background(style);
         ese_color_lua_push(color);
@@ -236,6 +240,10 @@ static int _ese_gui_style_lua_newindex(lua_State *L) {
         if (lua_isnumber(L, 3)) {
             ese_gui_style_set_spacing(style, (int)lua_tointeger(L, 3));
         }
+    } else if (strcmp(key, "font_size") == 0) {
+        if (lua_isnumber(L, 3)) {
+            ese_gui_style_set_font_size(style, (int)lua_tointeger(L, 3));
+        }
     } else if (strcmp(key, "background") == 0) {
         EseColor *color = ese_color_lua_get(L, 3);
         if (color) {
@@ -303,11 +311,12 @@ static int _ese_gui_style_lua_tostring(lua_State *L) {
     }
 
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "GuiStyle: direction=%d, justify=%d, align_items=%d, spacing=%d", 
+    snprintf(buffer, sizeof(buffer), "GuiStyle: direction=%d, justify=%d, align_items=%d, spacing=%d, font_size=%d", 
              ese_gui_style_get_direction(style),
              ese_gui_style_get_justify(style),
              ese_gui_style_get_align_items(style),
-             ese_gui_style_get_spacing(style));
+             ese_gui_style_get_spacing(style),
+             ese_gui_style_get_font_size(style));
     
     lua_pushstring(L, buffer);
     return 1;
@@ -388,16 +397,8 @@ static int _ese_gui_style_lua_from_json(lua_State *L) {
         return 0;
     }
 
-    // Get the engine from the global registry
-    lua_getglobal(L, "Engine");
-    if (!lua_isuserdata(L, -1)) {
-        cJSON_Delete(json);
-        luaL_error(L, "Engine not found in global scope");
-        return 0;
-    }
-    
-    EseLuaEngine *engine = (EseLuaEngine *)lua_touserdata(L, -1);
-    lua_pop(L, 1); // Remove engine from stack
+    // Get the engine from the registry
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(source->state, LUA_ENGINE_KEY);
     
     if (!engine) {
         cJSON_Delete(json);

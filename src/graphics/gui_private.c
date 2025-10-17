@@ -1,13 +1,87 @@
 #include <stdlib.h>
 #include <string.h>
 #include "core/memory_manager.h"
+#include "core/asset_manager.h"
+#include "core/engine.h"
+#include "core/engine_private.h"
+#include "scripting/lua_engine.h"
 #include "graphics/gui_private.h"
 #include "graphics/gui.h"
 #include "graphics/draw_list.h"
+#include "graphics/font.h"
 #include "types/color.h"
 #include "types/gui_style.h"
 #include "types/input_state.h"
 #include "utility/log.h"
+
+// ========================================
+// PRIVATE FORWARD DECLARATIONS
+// ========================================
+
+// Font drawing callback for GUI text rendering
+static void _ese_gui_font_draw_callback(float screen_x, float screen_y, float screen_w, float screen_h, uint64_t z_index,
+                                       const char *texture_id, float texture_x1, float texture_y1, float texture_x2, float texture_y2,
+                                       int width, int height, void *user_data);
+
+// Structure to pass scissor information to the font callback
+typedef struct {
+    EseDrawList *draw_list;
+    bool scissor_active;
+    float scissor_x, scissor_y, scissor_w, scissor_h;
+} EseGuiFontCallbackData;
+
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
+
+/**
+ * @brief Font drawing callback for GUI text rendering
+ * 
+ * This callback is used by the font system to draw individual characters
+ * as sprites in the draw list. It handles scissor clipping to ensure text
+ * is properly clipped to the button area.
+ */
+static void _ese_gui_font_draw_callback(float screen_x, float screen_y, float screen_w, float screen_h, uint64_t z_index,
+                                       const char *texture_id, float texture_x1, float texture_y1, float texture_x2, float texture_y2,
+                                       int width, int height, void *user_data) {
+    EseGuiFontCallbackData *data = (EseGuiFontCallbackData *)user_data;
+    EseDrawList *draw_list = data->draw_list;
+    
+    log_verbose("GUI", "Font callback: char at (%.1f,%.1f) size %.1fx%.1f texture=%s", 
+                screen_x, screen_y, screen_w, screen_h, texture_id);
+    
+    // Check if the character is within the scissor bounds
+    if (data->scissor_active) {
+        float char_right = screen_x + screen_w;
+        float char_bottom = screen_y + screen_h;
+        float scissor_right = data->scissor_x + data->scissor_w;
+        float scissor_bottom = data->scissor_y + data->scissor_h;
+        
+        // Skip characters that are completely outside the scissor area
+        if (char_right < data->scissor_x || screen_x > scissor_right ||
+            char_bottom < data->scissor_y || screen_y > scissor_bottom) {
+            log_verbose("GUI", "Character clipped by scissor");
+            return;
+        }
+    }
+    
+    EseDrawListObject *text_obj = draw_list_request_object(draw_list);
+    if (text_obj == NULL) {
+        log_error("GUI", "Failed to get draw list object for text");
+        return;
+    }
+    
+    draw_list_object_set_texture(text_obj, texture_id, texture_x1, texture_y1, texture_x2, texture_y2);
+    draw_list_object_set_bounds(text_obj, (int)screen_x, (int)screen_y, (int)screen_w, (int)screen_h);
+    draw_list_object_set_z_index(text_obj, z_index);
+    
+    // Apply scissor if active
+    if (data->scissor_active) {
+        draw_list_object_set_scissor(text_obj, data->scissor_x, data->scissor_y, data->scissor_w, data->scissor_h);
+    }
+    
+    log_verbose("GUI", "Text object created successfully");
+}
 
 // Destroy a frame layout's layout tree and reset pointers
 void _ese_gui_layout_destroy(EseGuiLayout *layout) {
@@ -123,22 +197,27 @@ void _ese_gui_calculate_node_position(
         log_verbose("GUI", "%sRoot node", indent);
         node->x = session->x;
         node->y = session->y;
-        if (node->widget_type != ESE_GUI_WIDGET_BOX) {
+        if (node->widget_type != ESE_GUI_WIDGET_STACK) {
             node->width = session->width;
             node->height = session->height;
         }
     }
 
     size_t child_count = node->children_count;
-    size_t child_auto_count = 0;
+    size_t child_auto_count_width = 0;
+    size_t child_auto_count_height = 0;
     int fixed_width = 0;
     int fixed_height = 0;
     for (size_t i = 0; i < child_count; i++) {
         EseGuiLayoutNode *child = node->children[i];
-        if (child->widget_type != ESE_GUI_WIDGET_BOX) {
-            child_auto_count++;
+        if (child->width == GUI_AUTO_SIZE) {
+            child_auto_count_width++;
         } else {
             fixed_width += child->width;
+        }
+        if (child->height == GUI_AUTO_SIZE) {
+            child_auto_count_height++;
+        } else {
             fixed_height += child->height;
         }
     }
@@ -146,49 +225,49 @@ void _ese_gui_calculate_node_position(
     int start_x = node->x;
     int start_y = node->y;
 
-    if (node->widget_type == ESE_GUI_WIDGET_BOX) {
-        log_verbose("GUI", "%sBox node", indent);
-        if (node->children_count == 1) {
-            // Set up scissor state for input processing BEFORE calculating child position
-            bool previous_scissor_active = session->draw_scissors_active;
-            float previous_scissor_x = session->draw_scissors_x;
-            float previous_scissor_y = session->draw_scissors_y;
-            float previous_scissor_w = session->draw_scissors_w;
-            float previous_scissor_h = session->draw_scissors_h;
-            
-            // Calculate the clipping rectangle for children (accounting for padding)
-            int clip_x = node->x + node->widget_data.container.padding_left;
-            int clip_y = node->y + node->widget_data.container.padding_top;
-            int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
-            int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
-            
-            // Only apply clipping if the container has positive dimensions
-            if (clip_w > 0 && clip_h > 0) {
-                session->draw_scissors_active = true;
-                session->draw_scissors_x = (float)clip_x;
-                session->draw_scissors_y = (float)clip_y;
-                session->draw_scissors_w = (float)clip_w;
-                session->draw_scissors_h = (float)clip_h;
-            } else {
-                session->draw_scissors_active = false;
-            }
-            
-            node->children[0]->x = start_x + node->widget_data.container.padding_left;
-            node->children[0]->y = start_y + node->widget_data.container.padding_top;
-            node->children[0]->width = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
-            node->children[0]->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
-            log_verbose("GUI", "%sChild 1 position: %d, %d, %d, %d", indent, node->children[0]->x, node->children[0]->y, node->children[0]->width, node->children[0]->height);
+    if (node->widget_type == ESE_GUI_WIDGET_STACK) {
+        log_verbose("GUI", "%sStack node", indent);
+        // Set up scissor state for input processing BEFORE calculating child position
+        bool previous_scissor_active = session->draw_scissors_active;
+        float previous_scissor_x = session->draw_scissors_x;
+        float previous_scissor_y = session->draw_scissors_y;
+        float previous_scissor_w = session->draw_scissors_w;
+        float previous_scissor_h = session->draw_scissors_h;
+        
+        // Calculate the clipping rectangle for children (accounting for padding)
+        int clip_x = node->x + node->widget_data.container.padding_left;
+        int clip_y = node->y + node->widget_data.container.padding_top;
+        int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+        int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+        
+        // Only apply clipping if the container has positive dimensions
+        if (clip_w > 0 && clip_h > 0) {
+            session->draw_scissors_active = true;
+            session->draw_scissors_x = (float)clip_x;
+            session->draw_scissors_y = (float)clip_y;
+            session->draw_scissors_w = (float)clip_w;
+            session->draw_scissors_h = (float)clip_h;
+        } else {
+            session->draw_scissors_active = false;
+        }
+        
+        for (size_t i = 0; i < child_count; i++) {
+            node->children[i]->x = start_x + node->widget_data.container.padding_left;
+            node->children[i]->y = start_y + node->widget_data.container.padding_top;
+            node->children[i]->width = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+            node->children[i]->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+            log_verbose("GUI", "%sChild 1 position: %d, %d, %d, %d", indent, node->children[i]->x, node->children[i]->y, node->children[i]->width, node->children[i]->height);
             
             _ese_gui_process_input(gui, session, node->children[0]);
             _ese_gui_calculate_node_position(gui, session, node->children[0], depth + 1);
-            
-            // Restore previous scissor state
-            session->draw_scissors_active = previous_scissor_active;
-            session->draw_scissors_x = previous_scissor_x;
-            session->draw_scissors_y = previous_scissor_y;
-            session->draw_scissors_w = previous_scissor_w;
-            session->draw_scissors_h = previous_scissor_h;
         }
+            
+        // Restore previous scissor state
+        session->draw_scissors_active = previous_scissor_active;
+        session->draw_scissors_x = previous_scissor_x;
+        session->draw_scissors_y = previous_scissor_y;
+        session->draw_scissors_w = previous_scissor_w;
+        session->draw_scissors_h = previous_scissor_h;
     } else if (node->widget_type == ESE_GUI_WIDGET_FLEX) {
         log_verbose("GUI", "%sFlex node", indent);
         int total_spacing = 0;
@@ -201,11 +280,11 @@ void _ese_gui_calculate_node_position(
                 total_free_width = 0;
             }
             int auto_width = 0;
-            if (child_auto_count > 0) {
-                auto_width = total_free_width / child_auto_count;
+            if (child_auto_count_width > 0) {
+                auto_width = total_free_width / child_auto_count_width;
             }
 
-            log_verbose("GUI", "%sAuto child count: %zu Free width: %d, Auto width: %d", indent, child_auto_count, total_free_width, auto_width);
+            log_verbose("GUI", "%sAuto child count: %zu Free width: %d, Auto width: %d", indent, child_auto_count_width, total_free_width, auto_width);
 
             if (node->widget_data.container.justify == FLEX_JUSTIFY_START) {
                 start_x += node->widget_data.container.padding_left;
@@ -247,7 +326,7 @@ void _ese_gui_calculate_node_position(
             for (size_t i = 0; i < child_count; i++) {
                 EseGuiLayoutNode *child = node->children[i];
                 child->x = start_x;
-                if (child->widget_type != ESE_GUI_WIDGET_BOX) {
+                if (child->widget_type != ESE_GUI_WIDGET_STACK) {
                     child->width = auto_width;
                     child->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
                     if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_START) {
@@ -258,6 +337,14 @@ void _ese_gui_calculate_node_position(
                         child->y = start_y + ((child->height + node->widget_data.container.padding_bottom) / 2);
                     }
                 } else {
+                    // Handle Stack widgets with auto-sizing
+                    if (child->width == GUI_AUTO_SIZE) {
+                        child->width = auto_width;
+                    }
+                    if (child->height == GUI_AUTO_SIZE) {
+                        child->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+                    }
+                    
                     if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_START) {
                         child->y = start_y;
                     } else if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_END) {
@@ -286,20 +373,20 @@ void _ese_gui_calculate_node_position(
                 total_free_height = 0;
             }
             int auto_height = 0;
-            if (child_auto_count > 0) {
-                auto_height = total_free_height / child_auto_count;
+            if (child_auto_count_height > 0) {
+                auto_height = total_free_height / child_auto_count_height;
             }
-            log_verbose("GUI", "%sAuto child count: %zu Free height: %d, Auto height: %d", indent, child_auto_count, total_free_height, auto_height);
+            log_verbose("GUI", "%sAuto child count: %zu Free height: %d, Auto height: %d", indent, child_auto_count_height, total_free_height, auto_height);
 
-            if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_START) {
+            if (node->widget_data.container.justify == FLEX_JUSTIFY_START) {
                 start_y += node->widget_data.container.padding_top;
-                log_verbose("GUI", "%sStart align y: %d", indent, start_y);
-            } else if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_END) {
-                start_y += node->height - node->widget_data.container.padding_bottom - total_free_height + fixed_height;
-                log_verbose("GUI", "%sEnd align y: %d", indent, start_y);
-            } else if (node->widget_data.container.align_items == FLEX_ALIGN_ITEMS_CENTER) {
-                start_y += (node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom - total_free_height + fixed_height) / 2;
-                log_verbose("GUI", "%sCenter align y: %d", indent, start_y);
+                log_verbose("GUI", "%sStart justify y: %d", indent, start_y);
+            } else if (node->widget_data.container.justify == FLEX_JUSTIFY_END) {
+                start_y += node->height - node->widget_data.container.padding_bottom - total_free_height;
+                log_verbose("GUI", "%sEnd justify y: %d", indent, start_y);
+            } else if (node->widget_data.container.justify == FLEX_JUSTIFY_CENTER) {
+                start_y += node->widget_data.container.padding_top + (node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom - total_free_height) / 2;
+                log_verbose("GUI", "%sCenter justify y: %d", indent, start_y);
             }
 
             start_x += node->widget_data.container.padding_left;
@@ -331,7 +418,7 @@ void _ese_gui_calculate_node_position(
             for (size_t i = 0; i < child_count; i++) {
                 EseGuiLayoutNode *child = node->children[i];
                 child->y = start_y;
-                if (child->widget_type != ESE_GUI_WIDGET_BOX) {
+                if (child->widget_type != ESE_GUI_WIDGET_STACK) {
                     child->width = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
                     child->height = auto_height;
                     if (node->widget_data.container.justify == FLEX_JUSTIFY_START) {
@@ -396,7 +483,7 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
         case ESE_GUI_WIDGET_NONE:
             break;
         case ESE_GUI_WIDGET_FLEX:
-        case ESE_GUI_WIDGET_BOX:
+        case ESE_GUI_WIDGET_STACK:
             if (node->colors[background] != NULL) {
                 EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
                 draw_list_object_set_rect_color(bg_obj, 
@@ -455,9 +542,44 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
             }
 
             if (node->widget_data.button.text != NULL) {
-                // Note: Text rendering is not yet implemented in the draw_list API
-                // For now, we'll skip text rendering until a text API is added
-                // TODO: Implement text rendering when draw_list supports it
+                log_verbose("GUI", "Drawing button text: '%s'", node->widget_data.button.text);
+                
+                // Get font size from the current style
+                int font_size = 20; // Default font size
+                if (gui->current_style != NULL) {
+                    font_size = ese_gui_style_get_font_size(gui->current_style);
+                }
+                
+                // Calculate text position (centered in button)
+                float text_width = strlen(node->widget_data.button.text) * (font_size * 0.6f); // Approximate character width
+                float text_x = node->x + (node->width - text_width) / 2.0f;
+                float text_y = node->y + (node->height - font_size) / 2.0f;
+                
+                log_verbose("GUI", "Text position: x=%.1f, y=%.1f, size=%d", text_x, text_y, font_size);
+                
+                // Get asset manager from the engine
+                EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(gui->engine->runtime, ENGINE_KEY);
+                EseAssetManager *am = game_engine ? game_engine->asset_manager : NULL;
+                if (am != NULL) {
+                    log_verbose("GUI", "Asset manager found, drawing text");
+                    
+                    // Prepare callback data with scissor information
+                    EseGuiFontCallbackData callback_data = {
+                        .draw_list = draw_list,
+                        .scissor_active = session->draw_scissors_active,
+                        .scissor_x = session->draw_scissors_x,
+                        .scissor_y = session->draw_scissors_y,
+                        .scissor_w = session->draw_scissors_w,
+                        .scissor_h = session->draw_scissors_h
+                    };
+                    
+                    // Draw the text with clipping - try both font names
+                    font_draw_text_scaled(am, "console_font_10x20", node->widget_data.button.text,
+                                        text_x, text_y, draw_order + 2, (float)font_size,
+                                        _ese_gui_font_draw_callback, &callback_data);
+                } else {
+                    log_error("GUI", "Asset manager not found, cannot draw text");
+                }
             }
             break;
         case ESE_GUI_WIDGET_IMAGE:
@@ -502,7 +624,7 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
     }
 
     // Process children with clipping if this is a container
-    if (node->widget_type == ESE_GUI_WIDGET_FLEX || node->widget_type == ESE_GUI_WIDGET_BOX) {
+    if (node->widget_type == ESE_GUI_WIDGET_FLEX || node->widget_type == ESE_GUI_WIDGET_STACK) {
         // Calculate the clipping rectangle for children (accounting for padding)
         int clip_x = node->x + node->widget_data.container.padding_left;
         int clip_y = node->y + node->widget_data.container.padding_top;

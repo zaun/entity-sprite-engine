@@ -5,10 +5,12 @@
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
 #include "core/engine.h"
+#include "core/engine_private.h"
 #include "entity/entity_private.h"
 #include "entity/entity.h"
 #include "types/point.h"
 #include "graphics/sprite.h"
+#include "graphics/font.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component.h"
@@ -429,33 +431,15 @@ void _entity_component_text_draw(EseEntityComponentText *component, float screen
             break;
     }
 
-    // Draw each character
-    float char_x = final_x;
-    for (int i = 0; component->text[i]; i++) {
-        char c = component->text[i];
-        if (c >= 32 && c <= 126) { // Printable ASCII
-            char sprite_name[64];
-            snprintf(sprite_name, sizeof(sprite_name), "fonts:console_font_10x20_%03d", (int)c);
-            
-            // Get the sprite from asset manager
-            EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-            EseSprite *letter = engine_get_sprite(game_engine, sprite_name);
-            
-            if (letter) {
-                const char *texture_id;
-                float x1, y1, x2, y2;
-                int w, h;
-                
-                sprite_get_frame(letter, 0, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
-                texCallback(
-                    (int)char_x, (int)final_y, w, h,
-                    component->base.entity->draw_order,
-                    texture_id, x1, y1, x2, y2, w, h,
-                    callback_user_data
-                );
-            }
-        }
-        char_x += FONT_CHAR_WIDTH + FONT_SPACING;
+    // Get the asset manager from the engine
+    EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
+    EseAssetManager *asset_manager = game_engine->asset_manager;
+    
+    if (asset_manager) {
+        // Use the font drawing function
+        font_draw_text(asset_manager, "console_font_10x20", component->text,
+                                   final_x, final_y, component->base.entity->draw_order,
+                                   texCallback, callback_user_data);
     }
 }
 

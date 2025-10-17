@@ -53,10 +53,10 @@ void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int h
 void ese_gui_end(EseGui *gui);
 
 /* --- Container Management --------------------------------------------------------------------- */
-void ese_gui_open_flex(EseGui *gui);
+void ese_gui_open_flex(EseGui *gui, int width, int height);
 void ese_gui_close_flex(EseGui *gui);
-void ese_gui_open_box(EseGui *gui, int width, int height);
-void ese_gui_close_box(EseGui *gui);
+void ese_gui_open_stack(EseGui *gui, int width, int height);
+void ese_gui_close_stack(EseGui *gui);
 
 /* --- Style Management ------------------------------------------------------------------------- */
 EseGuiStyle *ese_gui_get_style(EseGui *gui);

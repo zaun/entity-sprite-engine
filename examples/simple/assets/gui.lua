@@ -10,11 +10,11 @@ function ENTITY:entity_update(delta_time)
         GUI.open_flex()
             -- Set the style for the box container
             style.background = Color.new(1, 0, 0, 1)
-            GUI.open_box(100, 30)
+            GUI.open_stack(100, GUI.STYLE.AUTO_SIZE)
                 GUI.push_button("Click me", function()
                     print("Button clicked")
                 end)
-            GUI.close_box()
+            GUI.close_stack()
         GUI.close_flex()
     GUI.finish()
 end

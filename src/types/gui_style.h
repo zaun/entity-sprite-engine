@@ -389,6 +389,22 @@ void ese_gui_style_set_spacing(EseGuiStyle *style, int spacing);
  */
 int ese_gui_style_get_spacing(const EseGuiStyle *style);
 
+/**
+ * @brief Sets the font size of the style.
+ * 
+ * @param style Pointer to the EseGuiStyle object
+ * @param font_size The font size value
+ */
+void ese_gui_style_set_font_size(EseGuiStyle *style, int font_size);
+
+/**
+ * @brief Gets the font size of the style.
+ * 
+ * @param style Pointer to the EseGuiStyle object
+ * @return The font size value
+ */
+int ese_gui_style_get_font_size(const EseGuiStyle *style);
+
 // Lua-related access
 /**
  * @brief Gets the Lua state associated with this gui style.

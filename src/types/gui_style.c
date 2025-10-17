@@ -48,6 +48,7 @@ typedef struct EseGuiStyle {
     int padding_bottom;
 
     int spacing;
+    int font_size;
 
     lua_State *state;   /** Lua State this EseGuiStyle belongs to */
     int lua_ref;        /** Lua registry reference to its own proxy table */
@@ -102,6 +103,7 @@ EseGuiStyle *_ese_gui_style_make(EseLuaEngine *engine) {
     style->padding_right = 4;
     style->padding_bottom = 4;
     style->spacing = 4;
+    style->font_size = 20;
     
     // Create default colors
     style->background = ese_color_create(engine);
@@ -250,6 +252,7 @@ EseGuiStyle *ese_gui_style_copy(const EseGuiStyle *source) {
     copy->padding_right = source->padding_right;
     copy->padding_bottom = source->padding_bottom;
     copy->spacing = source->spacing;
+    copy->font_size = source->font_size;
     
     // Copy color pointers 
     copy->background = ese_color_copy(source->background);
@@ -545,6 +548,17 @@ int ese_gui_style_get_spacing(const EseGuiStyle *style) {
     return style->spacing;
 }
 
+void ese_gui_style_set_font_size(EseGuiStyle *style, int font_size) {
+    log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+    style->font_size = font_size;
+    _ese_gui_style_notify_watchers(style);
+}
+
+int ese_gui_style_get_font_size(const EseGuiStyle *style) {
+    log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+    return style->font_size;
+}
+
 // Lua-related access
 lua_State *ese_gui_style_get_state(const EseGuiStyle *style) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
@@ -719,6 +733,7 @@ cJSON *ese_gui_style_serialize(const EseGuiStyle *style) {
     cJSON_AddNumberToObject(json, "padding_right", (double)style->padding_right);
     cJSON_AddNumberToObject(json, "padding_bottom", (double)style->padding_bottom);
     cJSON_AddNumberToObject(json, "spacing", (double)style->spacing);
+    cJSON_AddNumberToObject(json, "font_size", (double)style->font_size);
     
     // Serialize colors if they exist
     if (style->background) {
@@ -818,6 +833,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     cJSON *spacing = cJSON_GetObjectItemCaseSensitive(data, "spacing");
     if (cJSON_IsNumber(spacing)) {
         style->spacing = spacing->valueint;
+    }
+    
+    cJSON *font_size = cJSON_GetObjectItemCaseSensitive(data, "font_size");
+    if (cJSON_IsNumber(font_size)) {
+        style->font_size = font_size->valueint;
     }
     
     // Deserialize colors

@@ -143,7 +143,7 @@ void ese_gui_end(EseGui *gui) {
     gui->open_layout = NULL;
 }
 
-void ese_gui_open_flex(EseGui *gui) {
+void ese_gui_open_flex(EseGui *gui, int width, int height) {
     log_assert("GUI", gui, "ese_gui_open_flex called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_open_flex called with no open frame layout");
     log_assert("GUI", gui->current_style != NULL, "ese_gui_open_flex called with NULL current_style");
@@ -155,8 +155,8 @@ void ese_gui_open_flex(EseGui *gui) {
 
     node->x = 0;
     node->y = 0;
-    node->width = 0;
-    node->height = 0;
+    node->width = width;
+    node->height = height;
     node->is_hovered = false;
     node->is_down = false;
     _ese_gui_copy_colors_from_style(node, style);
@@ -178,9 +178,9 @@ void ese_gui_open_flex(EseGui *gui) {
     node->parent = NULL;
     if (layout->current_container != NULL) {
         EseGuiLayoutNode *parent = layout->current_container;
-		// Enforce single-child semantics for BOX containers
-		if (parent->widget_type == ESE_GUI_WIDGET_BOX) {
-			log_assert("GUI", parent->children_count == 0, "BOX containers may only have a single child");
+		// Enforce single-child semantics for STACK containers
+		if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
+			log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
 		}
         node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
@@ -209,10 +209,10 @@ void ese_gui_close_flex(EseGui *gui) {
     layout->current_container = layout->current_container->parent;
 }
 
-void ese_gui_open_box(EseGui *gui, int width, int height) {
-    log_assert("GUI", gui, "ese_gui_open_box called with NULL gui");
-    log_assert("GUI", gui->open_layout != NULL, "ese_gui_open_box called with no open frame layout");
-    log_assert("GUI", gui->current_style != NULL, "ese_gui_open_box called with NULL current_style");
+void ese_gui_open_stack(EseGui *gui, int width, int height) {
+    log_assert("GUI", gui, "ese_gui_open_stack called with NULL gui");
+    log_assert("GUI", gui->open_layout != NULL, "ese_gui_open_stack called with no open frame layout");
+    log_assert("GUI", gui->current_style != NULL, "ese_gui_open_stack called with NULL current_style");
 
     EseGuiLayout *layout = gui->open_layout;
     EseGuiStyle *style = gui->current_style;
@@ -226,7 +226,7 @@ void ese_gui_open_box(EseGui *gui, int width, int height) {
     node->is_hovered = false;
     node->is_down = false;
     _ese_gui_copy_colors_from_style(node, style);
-    node->widget_type = ESE_GUI_WIDGET_BOX;
+    node->widget_type = ESE_GUI_WIDGET_STACK;
 
     node->widget_data.container.direction = ese_gui_style_get_direction(style);
     node->widget_data.container.justify = ese_gui_style_get_justify(style);
@@ -244,9 +244,9 @@ void ese_gui_open_box(EseGui *gui, int width, int height) {
     node->parent = NULL;
     if (layout->current_container != NULL) {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for BOX containers
-        if (parent->widget_type == ESE_GUI_WIDGET_BOX) {
-            log_assert("GUI", parent->children_count == 0, "BOX containers may only have a single child");
+        // Enforce single-child semantics for STACK containers
+        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
+            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
         }
         node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
@@ -264,15 +264,15 @@ void ese_gui_open_box(EseGui *gui, int width, int height) {
     layout->current_container = node;
 }
 
-void ese_gui_close_box(EseGui *gui) {
-    log_assert("GUI", gui, "ese_gui_close_box called with NULL gui");
-    log_assert("GUI", gui->open_layout != NULL, "ese_gui_close_box called with no open frame layout");
+void ese_gui_close_stack(EseGui *gui) {
+    log_assert("GUI", gui, "ese_gui_close_stack called with NULL gui");
+    log_assert("GUI", gui->open_layout != NULL, "ese_gui_close_stack called with no open frame layout");
 
     EseGuiLayout *layout = gui->open_layout;
 
-    // Only close a box container
-    log_assert("GUI", layout->current_container != NULL, "ese_gui_close_box called with no open containers");
-    log_assert("GUI", layout->current_container->widget_type == ESE_GUI_WIDGET_BOX, "ese_gui_close_box called with no open BOX containers");
+    // Only close a STACK container
+    log_assert("GUI", layout->current_container != NULL, "ese_gui_close_stack called with no open containers");
+    log_assert("GUI", layout->current_container->widget_type == ESE_GUI_WIDGET_STACK, "ese_gui_close_stack called with no open STACK containers");
     layout->current_container = layout->current_container->parent;
 }
 
@@ -287,8 +287,8 @@ void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *u
     EseGuiLayoutNode *button_node = (EseGuiLayoutNode *)memory_manager.calloc(1, sizeof(EseGuiLayoutNode), MMTAG_GUI);
     button_node->x = 0;
     button_node->y = 0;
-    button_node->width = 0;
-    button_node->height = 0;
+    button_node->width = GUI_AUTO_SIZE;
+    button_node->height = GUI_AUTO_SIZE;
     button_node->is_hovered = false;
     button_node->is_down = false;
     _ese_gui_copy_colors_from_style(button_node, gui->current_style);
@@ -306,9 +306,9 @@ void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *u
     log_assert("GUI", layout->current_container != NULL, "ese_gui_push_button called with no open container");
     {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for BOX containers
-        if (parent->widget_type == ESE_GUI_WIDGET_BOX) {
-            log_assert("GUI", parent->children_count == 0, "BOX containers may only have a single child");
+        // Enforce single-child semantics for STACK containers
+        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
+            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
         }
         button_node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {
@@ -331,8 +331,8 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
 
     image_node->x = 0;
     image_node->y = 0;
-    image_node->width = 0;
-    image_node->height = 0;
+    image_node->width = GUI_AUTO_SIZE;
+    image_node->height = GUI_AUTO_SIZE;
     image_node->is_hovered = false;
     image_node->is_down = false;
     _ese_gui_copy_colors_from_style(image_node, gui->current_style);
@@ -349,9 +349,9 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
     log_assert("GUI", layout->current_container != NULL, "ese_gui_push_image called with no open container");
     {
         EseGuiLayoutNode *parent = layout->current_container;
-        // Enforce single-child semantics for BOX containers
-        if (parent->widget_type == ESE_GUI_WIDGET_BOX) {
-            log_assert("GUI", parent->children_count == 0, "BOX containers may only have a single child");
+        // Enforce single-child semantics for STACK containers
+        if (parent->widget_type == ESE_GUI_WIDGET_STACK) {
+            log_assert("GUI", parent->children_count == 0, "STACK containers may only have a single child");
         }
         image_node->parent = parent;
         if (parent->children_count >= parent->children_capacity) {

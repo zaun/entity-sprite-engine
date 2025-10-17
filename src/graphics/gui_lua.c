@@ -14,8 +14,8 @@ static int _ese_gui_lua_begin(lua_State *L);
 static int _ese_gui_lua_end(lua_State *L);
 static int _ese_gui_lua_open_flex(lua_State *L);
 static int _ese_gui_lua_close_flex(lua_State *L);
-static int _ese_gui_lua_open_box(lua_State *L);
-static int _ese_gui_lua_close_box(lua_State *L);
+static int _ese_gui_lua_open_stack(lua_State *L);
+static int _ese_gui_lua_close_stack(lua_State *L);
 static int _ese_gui_lua_push_button(lua_State *L);
 static int _ese_gui_lua_push_image(lua_State *L);
 static int _ese_gui_lua_get_style(lua_State *L);
@@ -29,7 +29,6 @@ typedef struct EseGuiLuaButtonCallback {
 
 static void _ese_gui_lua_button_callback_wrapper(void *userdata) {
     log_assert("GUI_LUA", userdata, "ese_gui_lua_button_callback called with NULL userdata");
-    log_debug("GUI_LUA", "Button callback wrapper called");
 
     EseGuiLuaButtonCallback *callback = (EseGuiLuaButtonCallback *)userdata;
     lua_rawgeti(callback->L, LUA_REGISTRYINDEX, callback->lua_ref);
@@ -57,10 +56,10 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "open_flex");
         lua_pushcfunction(engine->runtime, _ese_gui_lua_close_flex);
         lua_setfield(engine->runtime, -2, "close_flex");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_open_box);
-        lua_setfield(engine->runtime, -2, "open_box");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_close_box);
-        lua_setfield(engine->runtime, -2, "close_box");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_open_stack);
+        lua_setfield(engine->runtime, -2, "open_stack");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_close_stack);
+        lua_setfield(engine->runtime, -2, "close_stack");
         lua_pushcfunction(engine->runtime, _ese_gui_lua_push_button);
         lua_setfield(engine->runtime, -2, "push_button");
         lua_pushcfunction(engine->runtime, _ese_gui_lua_push_image);
@@ -70,7 +69,12 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_pushcfunction(engine->runtime, _ese_gui_lua_set_style);
         lua_setfield(engine->runtime, -2, "set_style");
 
-        // Create DIRECTION table
+        // Create STYLE table
+        lua_newtable(engine->runtime);
+        lua_pushinteger(engine->runtime, GUI_AUTO_SIZE);
+        lua_setfield(engine->runtime, -2, "AUTO_SIZE");
+
+        // Create DIRECTION table under STYLE
         lua_newtable(engine->runtime);
         lua_pushinteger(engine->runtime, FLEX_DIRECTION_ROW);
         lua_setfield(engine->runtime, -2, "ROW");
@@ -78,7 +82,7 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "COLUMN");
         lua_setfield(engine->runtime, -2, "DIRECTION");
 
-        // Create JUSTIFY table
+        // Create JUSTIFY table under STYLE
         lua_newtable(engine->runtime);
         lua_pushinteger(engine->runtime, FLEX_JUSTIFY_START);
         lua_setfield(engine->runtime, -2, "START");
@@ -88,7 +92,7 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "END");
         lua_setfield(engine->runtime, -2, "JUSTIFY");
 
-        // Create ALIGN table
+        // Create ALIGN table under STYLE
         lua_newtable(engine->runtime);
         lua_pushinteger(engine->runtime, FLEX_ALIGN_ITEMS_START);
         lua_setfield(engine->runtime, -2, "START");
@@ -98,11 +102,7 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "END");
         lua_setfield(engine->runtime, -2, "ALIGN");
 
-        // Create BOX table
-        lua_newtable(engine->runtime);
-        lua_pushinteger(engine->runtime, BOX_AUTO);
-        lua_setfield(engine->runtime, -2, "AUTO");
-        lua_setfield(engine->runtime, -2, "BOX");
+        lua_setfield(engine->runtime, -2, "STYLE");
 
         // Lock GUI table
         lua_newtable(engine->runtime);
@@ -178,8 +178,25 @@ static int _ese_gui_lua_open_flex(lua_State *L) {
     log_assert("GUI_LUA", L, "ese_gui_lua_open_flex called with NULL Lua state");
 
     int n_args = lua_gettop(L);
-    if (n_args != 0) {
-        return luaL_error(L, "open_flex() takes 0 argument");
+    if (n_args > 2 || n_args < 0) {
+        return luaL_error(L, "GUI.open_flex([width, height]) takes 0, 1, or 2 arguments");
+    }
+
+    if (n_args >= 1 && lua_type(L, 1) != LUA_TNUMBER) {
+        return luaL_error(L, "width must be a number or GUI.AUTO_SIZE");
+    }
+
+    if (n_args >= 2 && lua_type(L, 2) != LUA_TNUMBER) {
+        return luaL_error(L, "height must be a number or GUI.AUTO_SIZE");
+    }
+
+    int width = GUI_AUTO_SIZE;
+    int height = GUI_AUTO_SIZE;
+    if (n_args >= 1) {
+        width = (int)lua_tonumber(L, 1);
+    }
+    if (n_args >= 2) {
+        height = (int)lua_tonumber(L, 2);
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
@@ -190,7 +207,7 @@ static int _ese_gui_lua_open_flex(lua_State *L) {
     }
 
 
-    ese_gui_open_flex(gui);
+    ese_gui_open_flex(gui, width, height);
 
     return 0;
 }
@@ -200,7 +217,7 @@ static int _ese_gui_lua_close_flex(lua_State *L) {
 
     int n_args = lua_gettop(L);
     if (n_args != 0) {
-        return luaL_error(L, "GUI.close_flex() takes no arguments");
+        return luaL_error(L, "GUI.close_flex() takes 0 arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
@@ -215,49 +232,59 @@ static int _ese_gui_lua_close_flex(lua_State *L) {
     return 0;
 }
 
-static int _ese_gui_lua_open_box(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_open_box called with NULL Lua state");
+static int _ese_gui_lua_open_stack(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_open_stack called with NULL Lua state");
 
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
-        return luaL_error(L, "GUI.open_box(width, height) takes 2 arguments");
+    if (n_args > 2 || n_args < 0) {
+        return luaL_error(L, "GUI.open_stack([width, height]) takes 0, 1, or 2 arguments");
     }
 
-    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
-        return luaL_error(L, "width and height must be numbers");
+    if (n_args >= 1 && lua_type(L, 1) != LUA_TNUMBER) {
+        return luaL_error(L, "width must be a numbe or GUI.AUTO_SIZE");
+    }
+
+    if (n_args >= 2 && lua_type(L, 2) != LUA_TNUMBER) {
+        return luaL_error(L, "height must be a number or GUI.AUTO_SIZE");
+    }
+
+    int width = GUI_AUTO_SIZE;
+    int height = GUI_AUTO_SIZE;
+    if (n_args >= 1) {
+        width = (int)lua_tonumber(L, 1);
+    }
+    if (n_args >= 2) {
+        height = (int)lua_tonumber(L, 2);
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
     if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.open_box() called with no open GUI active");
+        return luaL_error(L, "GUI.open_stack() called with no open GUI active");
     }
     
-    int width = (int)lua_tonumber(L, 1);
-    int height = (int)lua_tonumber(L, 2);
-
-    ese_gui_open_box(gui, width, height);
+    ese_gui_open_stack(gui, width, height);
 
     return 0;
 }
 
-static int _ese_gui_lua_close_box(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_close_box called with NULL Lua state");
+static int _ese_gui_lua_close_stack(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_close_stack called with NULL Lua state");
 
     int n_args = lua_gettop(L);
     if (n_args != 0) {
-        return luaL_error(L, "GUI.close_box() takes no arguments");
+        return luaL_error(L, "GUI.close_stack() takes no arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
-    if (gui->open_layout->current_container == NULL || gui->open_layout->current_container->widget_type != ESE_GUI_WIDGET_BOX) {
-        return luaL_error(L, "GUI.close_box() called with no open BOX containers");
+    if (gui->open_layout->current_container == NULL || gui->open_layout->current_container->widget_type != ESE_GUI_WIDGET_STACK) {
+        return luaL_error(L, "GUI.close_stack() called with no open STACK containers");
     }
 
-    ese_gui_close_box(gui);
+    ese_gui_close_stack(gui);
 
     return 0;
 }
