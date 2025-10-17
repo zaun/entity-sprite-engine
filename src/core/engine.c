@@ -23,6 +23,7 @@
 #include "graphics/font.h"
 #include "graphics/gui.h"
 #include "graphics/gui_lua.h"
+#include "types/gui_style.h"
 #include "utility/log.h"
 #include "utility/array.h"
 #include "utility/hashmap.h"
@@ -83,6 +84,7 @@ EseEngine *engine_create(const char *startup_script) {
     ese_tileset_lua_init(engine->lua_engine);
     ese_vector_lua_init(engine->lua_engine);
     ese_uuid_lua_init(engine->lua_engine);
+    ese_gui_style_lua_init(engine->lua_engine);
     
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
@@ -412,6 +414,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
     // draw the gui
     profile_start(PROFILE_ENG_UPDATE_SECTION);
+    ese_gui_input(engine->gui, engine->input_state);
     ese_gui_process(engine->gui, engine->draw_list);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_gui_draw");
 

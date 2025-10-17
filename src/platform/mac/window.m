@@ -318,8 +318,10 @@ void window_process(EseWindow* window, EseInputState* out_input_state) {
             case NSEventTypeLeftMouseDragged:
             case NSEventTypeRightMouseDragged: {
                 NSPoint loc = [metalWindow->view convertPoint:[event locationInWindow] fromView:nil];
+                NSRect viewBounds = [metalWindow->view bounds];
+                // Convert from Mac coordinate system (bottom-left origin) to GUI coordinate system (top-left origin)
                 metalWindow->inputState->mouse_x = loc.x;
-                metalWindow->inputState->mouse_y = loc.y;
+                metalWindow->inputState->mouse_y = viewBounds.size.height - loc.y;
             } break;
             case NSEventTypeScrollWheel:
                 metalWindow->inputState->mouse_scroll_dx += [event scrollingDeltaX];

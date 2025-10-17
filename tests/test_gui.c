@@ -18,6 +18,7 @@
 #include "../src/graphics/gui.h"
 #include "../src/graphics/gui_private.h"
 #include "../src/graphics/draw_list.h"
+#include "../src/types/gui_style.h"
 #include "../src/types/color.h"
 #include "../src/types/input_state.h"
 #include "../src/core/memory_manager.h"
@@ -84,6 +85,24 @@ void tearDown(void) {
 */
 static EseGui *create_test_gui(void) {
     return ese_gui_create(g_engine);
+}
+
+/**
+* Helper function to set GUI style for testing
+*/
+static void set_gui_style(EseGui *gui, EseGuiFlexDirection direction, EseGuiFlexJustify justify, 
+                         EseGuiFlexAlignItems align_items, int spacing, int padding_left, 
+                         int padding_top, int padding_right, int padding_bottom, EseColor *background) {
+    EseGuiStyle *style = ese_gui_get_style(gui);
+    ese_gui_style_set_direction(style, direction);
+    ese_gui_style_set_justify(style, justify);
+    ese_gui_style_set_align_items(style, align_items);
+    ese_gui_style_set_spacing(style, spacing);
+    ese_gui_style_set_padding_left(style, padding_left);
+    ese_gui_style_set_padding_top(style, padding_top);
+    ese_gui_style_set_padding_right(style, padding_right);
+    ese_gui_style_set_padding_bottom(style, padding_bottom);
+    ese_gui_style_set_background(style, background);
 }
 
 /**
@@ -199,15 +218,18 @@ static void test_ese_gui_flex_row_boxes_justify_start_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 20, box_color2);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_box(gui, 30, 20);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -259,15 +281,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -319,16 +344,19 @@ static void test_ese_gui_flex_row_both_justify_start_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add box first
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -380,15 +408,18 @@ static void test_ese_gui_flex_row_boxes_justify_center_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 20, box_color2);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_box(gui, 30, 20);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -440,15 +471,16 @@ static void test_ese_gui_flex_row_flexes_justify_center_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -500,16 +532,17 @@ static void test_ese_gui_flex_row_both_justify_center_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add flex first
     EseColor *flex_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     // Add box second
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -561,15 +594,16 @@ static void test_ese_gui_flex_row_boxes_justify_end_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 20, box_color2);
+    ese_gui_open_box(gui, 30, 20);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -621,15 +655,16 @@ static void test_ese_gui_flex_row_flexes_justify_end_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -681,16 +716,17 @@ static void test_ese_gui_flex_row_both_justify_end_align_start(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add box first
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -742,15 +778,16 @@ static void test_ese_gui_flex_row_boxes_justify_start_align_center(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 30, box_color2);
+    ese_gui_open_box(gui, 30, 30);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -802,15 +839,16 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_center(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -862,16 +900,17 @@ static void test_ese_gui_flex_row_both_justify_start_align_center(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add box first
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -923,15 +962,16 @@ static void test_ese_gui_flex_row_boxes_justify_start_align_end(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 30, box_color2);
+    ese_gui_open_box(gui, 30, 30);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -983,15 +1023,16 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_end(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add some child containers
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     EseColor *box_color2 = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, box_color2);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -1043,16 +1084,17 @@ static void test_ese_gui_flex_row_both_justify_start_align_end(void) {
 
     // Create a flex container with row direction
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add box first
     EseColor *box_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -1104,16 +1146,17 @@ static void test_ese_gui_flex_row_boxes_justify_start_align_start_spacing(void) 
 
     // Create a flex container with row direction and spacing
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add first box
     EseColor *box1_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box1_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add second box
     EseColor *box2_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 30, box2_color);
+    ese_gui_open_box(gui, 30, 30);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -1165,16 +1208,17 @@ static void test_ese_gui_flex_row_boxes_justify_start_align_start_padding(void) 
 
     // Create a flex container with row direction and padding
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 5, 10, 10, 5, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 5, 10, 10, 5, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add first box
     EseColor *box1_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 20, 20, box1_color);
+    ese_gui_open_box(gui, 20, 20);
     ese_gui_close_box(gui);
 
     // Add second box
     EseColor *box2_color = ese_color_create(g_engine);
-    ese_gui_open_box(gui, 30, 30, box2_color);
+    ese_gui_open_box(gui, 30, 30);
     ese_gui_close_box(gui);
 
     ese_gui_close_flex(gui);
@@ -1226,16 +1270,17 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_spacing(void)
 
     // Create a flex container with row direction and spacing
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add first flex
     EseColor *flex1_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex1_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     // Add second flex
     EseColor *flex2_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex2_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -1287,16 +1332,17 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
 
     // Create a flex container with row direction and padding
     EseColor *bg_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 5, 10, 10, 5, bg_color);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 5, 10, 10, 5, bg_color);
+    ese_gui_open_flex(gui);
 
     // Add first flex
     EseColor *flex1_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex1_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     // Add second flex
     EseColor *flex2_color = ese_color_create(g_engine);
-    ese_gui_open_flex(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex2_color);
+    ese_gui_open_flex(gui);
     ese_gui_close_flex(gui);
 
     ese_gui_close_flex(gui);
@@ -1321,14 +1367,14 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     EseGuiLayoutNode *flex1_node = flex_node->children[0];
     TEST_ASSERT_EQUAL_INT_MESSAGE(5, flex1_node->x, "First flex should start at x=5 (padding left)");
     TEST_ASSERT_EQUAL_INT_MESSAGE(10, flex1_node->y, "First flex should start at y=10 (padding top)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(42, flex1_node->width, "First flex should be 42px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(40, flex1_node->width, "First flex should be 40px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(85, flex1_node->height, "First flex should be 85px tall");
 
     // Check second flex position (should be after first flex)
     EseGuiLayoutNode *flex2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(47, flex2_node->x, "Second flex should start at x=47 (5 + 42)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, flex2_node->x, "Second flex should start at x=50 (5 + 40 + 5 spacing)");
     TEST_ASSERT_EQUAL_INT_MESSAGE(10, flex2_node->y, "Second flex should start at y=10 (padding top)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(42, flex2_node->width, "Second flex should be 42px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(40, flex2_node->width, "Second flex should be 40px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(85, flex2_node->height, "Second flex should be 85px tall");
 
     ese_gui_end(gui);

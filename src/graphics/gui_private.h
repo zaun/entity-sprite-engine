@@ -11,6 +11,9 @@
 
 typedef struct EseColor EseColor;
 typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EseGuiStyle EseGuiStyle;
+
+#define BOX_AUTO -1
 
 typedef enum EseGuiWidgetType {
     ESE_GUI_WIDGET_NONE,
@@ -65,7 +68,7 @@ typedef struct EseGuiLayoutNode {
     // Common widget data
     bool is_hovered;
     bool is_down;
-    EseColor *colors[ESE_GUI_COLOR_MAX];
+    EseColor *colors[ESE_GUI_COLOR_MAX]; // we own the colors
 
     // Widget-specific data
     EseGuiWidgetType widget_type;
@@ -81,7 +84,8 @@ typedef struct EseGuiLayoutNode {
         struct {
             // Button-specific fields
             char *text;
-            void (*callback)(void);
+            void (*callback)(void *userdata);
+            void *userdata;
         } button;
         struct {
             // Image-specific fields
@@ -108,7 +112,7 @@ struct EseGui {
     size_t draw_iterator;
     bool iterator_started;
 
-    EseColor *default_colors[ESE_GUI_COLOR_MAX];
+    EseGuiStyle *current_style;
 
     EseLuaEngine *engine;
 };
@@ -116,5 +120,7 @@ struct EseGui {
 void _ese_gui_layout_destroy(EseGuiLayout *layout);
 void _ese_gui_calculate_node_position(EseGui *gui, EseGuiLayout *session, EseGuiLayoutNode *node, size_t depth);
 void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGuiLayout *session, EseGuiLayoutNode *node, size_t depth);
+void _ese_gui_copy_colors_from_style(EseGuiLayoutNode *node, EseGuiStyle *style);
+void _ese_gui_free_node_colors(EseGuiLayoutNode *node);
 
 #endif // ESE_GUI_PRIVATE_H

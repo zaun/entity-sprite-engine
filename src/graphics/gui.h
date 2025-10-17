@@ -6,6 +6,7 @@ typedef struct EseColor EseColor;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseInputState EseInputState;
 typedef struct EseDrawList EseDrawList;
+typedef struct EseGuiStyle EseGuiStyle;
 
 typedef enum EseGuiFlexDirection {
     FLEX_DIRECTION_ROW,
@@ -52,16 +53,17 @@ void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int h
 void ese_gui_end(EseGui *gui);
 
 /* --- Container Management --------------------------------------------------------------------- */
-void ese_gui_open_flex(EseGui *gui, EseGuiFlexDirection direction,
-    EseGuiFlexJustify justify, EseGuiFlexAlignItems align_items, int spacing,
-    int padding_left, int padding_top, int padding_right, int padding_bottom,
-    EseColor *background_color);
+void ese_gui_open_flex(EseGui *gui);
 void ese_gui_close_flex(EseGui *gui);
-void ese_gui_open_box(EseGui *gui, int width, int height, EseColor *background_color);
+void ese_gui_open_box(EseGui *gui, int width, int height);
 void ese_gui_close_box(EseGui *gui);
 
+/* --- Style Management ------------------------------------------------------------------------- */
+EseGuiStyle *ese_gui_get_style(EseGui *gui);
+void ese_gui_set_style(EseGui *gui, EseGuiStyle *style);
+
 /* --- Widget Management ------------------------------------------------------------------------ */
-void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void));
+void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *userdata), void *userdata);
 void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id);
 
 #endif // ESE_GUI_H

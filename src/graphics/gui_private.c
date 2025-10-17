@@ -5,6 +5,7 @@
 #include "graphics/gui.h"
 #include "graphics/draw_list.h"
 #include "types/color.h"
+#include "types/gui_style.h"
 #include "types/input_state.h"
 #include "utility/log.h"
 
@@ -31,6 +32,7 @@ void _ese_gui_layout_destroy(EseGuiLayout *layout) {
                 if (e->node->widget_type == ESE_GUI_WIDGET_IMAGE && e->node->widget_data.image.sprite_id) {
                     memory_manager.free(e->node->widget_data.image.sprite_id);
                 }
+                _ese_gui_free_node_colors(e->node);
                 if (e->node->children) memory_manager.free(e->node->children);
                 memory_manager.free(e->node);
                 top--;
@@ -42,8 +44,8 @@ void _ese_gui_layout_destroy(EseGuiLayout *layout) {
     layout->current_container = NULL;
 }
 
-// Returns true if the mouse position lies within the node's rectangle
-static bool _ese_gui_is_mouse_over(int mouse_x, int mouse_y, EseGuiLayoutNode *node) {
+// Returns true if the mouse position lies within the node's rectangle and scissor bounds
+static bool _ese_gui_is_mouse_over(int mouse_x, int mouse_y, EseGuiLayoutNode *node, EseGuiLayout *session) {
     int x0 = node->x;
     int x1 = node->x + node->width;
     if (x0 > x1) {
@@ -56,12 +58,30 @@ static bool _ese_gui_is_mouse_over(int mouse_x, int mouse_y, EseGuiLayoutNode *n
         int t = y0; y0 = y1; y1 = t;
     }
 
-    return mouse_x >= x0 && mouse_x < x1 &&
-           mouse_y >= y0 && mouse_y < y1;
+    // Check if mouse is within node bounds
+    bool within_node = mouse_x >= x0 && mouse_x < x1 &&
+                       mouse_y >= y0 && mouse_y < y1;
+    
+    if (!within_node) {
+        return false;
+    }
+    
+    // If scissor is active, also check if mouse is within scissor bounds
+    if (session->draw_scissors_active) {
+        int scissor_x0 = (int)session->draw_scissors_x;
+        int scissor_y0 = (int)session->draw_scissors_y;
+        int scissor_x1 = scissor_x0 + (int)session->draw_scissors_w;
+        int scissor_y1 = scissor_y0 + (int)session->draw_scissors_h;
+        
+        return mouse_x >= scissor_x0 && mouse_x < scissor_x1 &&
+               mouse_y >= scissor_y0 && mouse_y < scissor_y1;
+    }
+    
+    return true;
 }
 
 // Update hover/press state and trigger callbacks as needed
-static void _ese_gui_process_input(EseGui *gui, EseGuiLayoutNode *node) {
+static void _ese_gui_process_input(EseGui *gui, EseGuiLayout *session, EseGuiLayoutNode *node) {
     if (gui->input_state == NULL) {
         node->is_hovered = false;
         node->is_down = false;
@@ -71,13 +91,13 @@ static void _ese_gui_process_input(EseGui *gui, EseGuiLayoutNode *node) {
     int mouse_x = ese_input_state_get_mouse_x(gui->input_state);
     int mouse_y = ese_input_state_get_mouse_y(gui->input_state);
 
-    node->is_hovered = _ese_gui_is_mouse_over(mouse_x, mouse_y, node);
-    node->is_down = ese_input_state_get_mouse_down(gui->input_state, 0);
+    node->is_hovered = _ese_gui_is_mouse_over(mouse_x, mouse_y, node, session);
+    node->is_down = node->is_hovered && ese_input_state_get_mouse_down(gui->input_state, 0);
     bool is_clicked = ese_input_state_get_mouse_clicked(gui->input_state, 0);
 
     if (node->widget_type == ESE_GUI_WIDGET_BUTTON) {
         if (is_clicked && node->is_hovered && node->widget_data.button.callback) {
-            node->widget_data.button.callback();
+            node->widget_data.button.callback(node->widget_data.button.userdata);
         }
     }
 }
@@ -129,13 +149,45 @@ void _ese_gui_calculate_node_position(
     if (node->widget_type == ESE_GUI_WIDGET_BOX) {
         log_verbose("GUI", "%sBox node", indent);
         if (node->children_count == 1) {
+            // Set up scissor state for input processing BEFORE calculating child position
+            bool previous_scissor_active = session->draw_scissors_active;
+            float previous_scissor_x = session->draw_scissors_x;
+            float previous_scissor_y = session->draw_scissors_y;
+            float previous_scissor_w = session->draw_scissors_w;
+            float previous_scissor_h = session->draw_scissors_h;
+            
+            // Calculate the clipping rectangle for children (accounting for padding)
+            int clip_x = node->x + node->widget_data.container.padding_left;
+            int clip_y = node->y + node->widget_data.container.padding_top;
+            int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+            int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+            
+            // Only apply clipping if the container has positive dimensions
+            if (clip_w > 0 && clip_h > 0) {
+                session->draw_scissors_active = true;
+                session->draw_scissors_x = (float)clip_x;
+                session->draw_scissors_y = (float)clip_y;
+                session->draw_scissors_w = (float)clip_w;
+                session->draw_scissors_h = (float)clip_h;
+            } else {
+                session->draw_scissors_active = false;
+            }
+            
             node->children[0]->x = start_x + node->widget_data.container.padding_left;
             node->children[0]->y = start_y + node->widget_data.container.padding_top;
             node->children[0]->width = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
             node->children[0]->height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
             log_verbose("GUI", "%sChild 1 position: %d, %d, %d, %d", indent, node->children[0]->x, node->children[0]->y, node->children[0]->width, node->children[0]->height);
-            _ese_gui_process_input(gui, node->children[0]);
+            
+            _ese_gui_process_input(gui, session, node->children[0]);
             _ese_gui_calculate_node_position(gui, session, node->children[0], depth + 1);
+            
+            // Restore previous scissor state
+            session->draw_scissors_active = previous_scissor_active;
+            session->draw_scissors_x = previous_scissor_x;
+            session->draw_scissors_y = previous_scissor_y;
+            session->draw_scissors_w = previous_scissor_w;
+            session->draw_scissors_h = previous_scissor_h;
         }
     } else if (node->widget_type == ESE_GUI_WIDGET_FLEX) {
         log_verbose("GUI", "%sFlex node", indent);
@@ -168,6 +220,30 @@ void _ese_gui_calculate_node_position(
 
             start_y += node->widget_data.container.padding_top;
 
+            // Set up scissor state for input processing BEFORE processing children
+            bool previous_scissor_active = session->draw_scissors_active;
+            float previous_scissor_x = session->draw_scissors_x;
+            float previous_scissor_y = session->draw_scissors_y;
+            float previous_scissor_w = session->draw_scissors_w;
+            float previous_scissor_h = session->draw_scissors_h;
+            
+            // Calculate the clipping rectangle for children (accounting for padding)
+            int clip_x = node->x + node->widget_data.container.padding_left;
+            int clip_y = node->y + node->widget_data.container.padding_top;
+            int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+            int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+            
+            // Only apply clipping if the container has positive dimensions
+            if (clip_w > 0 && clip_h > 0) {
+                session->draw_scissors_active = true;
+                session->draw_scissors_x = (float)clip_x;
+                session->draw_scissors_y = (float)clip_y;
+                session->draw_scissors_w = (float)clip_w;
+                session->draw_scissors_h = (float)clip_h;
+            } else {
+                session->draw_scissors_active = false;
+            }
+
             for (size_t i = 0; i < child_count; i++) {
                 EseGuiLayoutNode *child = node->children[i];
                 child->x = start_x;
@@ -194,9 +270,16 @@ void _ese_gui_calculate_node_position(
                 start_x += child->width + node->widget_data.container.spacing;
 
                 log_verbose("GUI", "%sChild %zu position: %d, %d, %d, %d", indent, i + 1, child->x, child->y, child->width, child->height);
-                _ese_gui_process_input(gui, child);
+                _ese_gui_process_input(gui, session, child);
                 _ese_gui_calculate_node_position(gui, session, child, depth + 1);
             }
+            
+            // Restore previous scissor state
+            session->draw_scissors_active = previous_scissor_active;
+            session->draw_scissors_x = previous_scissor_x;
+            session->draw_scissors_y = previous_scissor_y;
+            session->draw_scissors_w = previous_scissor_w;
+            session->draw_scissors_h = previous_scissor_h;
         } else if (node->widget_data.container.direction == FLEX_DIRECTION_COLUMN) {
             int total_free_height = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom - total_spacing;
             if (total_free_height < 0) {
@@ -220,6 +303,30 @@ void _ese_gui_calculate_node_position(
             }
 
             start_x += node->widget_data.container.padding_left;
+
+            // Set up scissor state for input processing BEFORE processing children
+            bool previous_scissor_active = session->draw_scissors_active;
+            float previous_scissor_x = session->draw_scissors_x;
+            float previous_scissor_y = session->draw_scissors_y;
+            float previous_scissor_w = session->draw_scissors_w;
+            float previous_scissor_h = session->draw_scissors_h;
+            
+            // Calculate the clipping rectangle for children (accounting for padding)
+            int clip_x = node->x + node->widget_data.container.padding_left;
+            int clip_y = node->y + node->widget_data.container.padding_top;
+            int clip_w = node->width - node->widget_data.container.padding_left - node->widget_data.container.padding_right;
+            int clip_h = node->height - node->widget_data.container.padding_top - node->widget_data.container.padding_bottom;
+            
+            // Only apply clipping if the container has positive dimensions
+            if (clip_w > 0 && clip_h > 0) {
+                session->draw_scissors_active = true;
+                session->draw_scissors_x = (float)clip_x;
+                session->draw_scissors_y = (float)clip_y;
+                session->draw_scissors_w = (float)clip_w;
+                session->draw_scissors_h = (float)clip_h;
+            } else {
+                session->draw_scissors_active = false;
+            }
 
             for (size_t i = 0; i < child_count; i++) {
                 EseGuiLayoutNode *child = node->children[i];
@@ -247,9 +354,16 @@ void _ese_gui_calculate_node_position(
                 start_y += child->height + node->widget_data.container.spacing;
 
                 log_verbose("GUI", "%sChild %zu position: %d, %d, %d, %d", indent, i + 1, child->x, child->y, child->width, child->height);
-                _ese_gui_process_input(gui, child);
+                _ese_gui_process_input(gui, session, child);
                 _ese_gui_calculate_node_position(gui, session, child, depth + 1);
             }
+            
+            // Restore previous scissor state
+            session->draw_scissors_active = previous_scissor_active;
+            session->draw_scissors_x = previous_scissor_x;
+            session->draw_scissors_y = previous_scissor_y;
+            session->draw_scissors_w = previous_scissor_w;
+            session->draw_scissors_h = previous_scissor_h;
         }
     } else {
         log_verbose("GUI", "%sUnknown node type", indent);
@@ -295,19 +409,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                 if (session->draw_scissors_active) {
                     draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
                 }
-            } else {
-                EseColor *default_bg = gui->default_colors[background];
-                EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(bg_obj, 
-                    (unsigned char)(ese_color_get_r(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_g(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_b(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_a(default_bg) * 255), true);
-                draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(bg_obj, draw_order);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
             }
 
             if (node->colors[border] != NULL) {
@@ -317,19 +418,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_g(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_b(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
-                draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(border_obj, draw_order + 1);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
-            } else {
-                EseColor *default_border = gui->default_colors[border];
-                EseDrawListObject *border_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(border_obj, 
-                    (unsigned char)(ese_color_get_r(default_border) * 255), 
-                    (unsigned char)(ese_color_get_g(default_border) * 255), 
-                    (unsigned char)(ese_color_get_b(default_border) * 255), 
-                    (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
                 if (session->draw_scissors_active) {
@@ -350,19 +438,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                 if (session->draw_scissors_active) {
                     draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
                 }
-            } else {
-                EseColor *default_bg = gui->default_colors[background];
-                EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(bg_obj, 
-                    (unsigned char)(ese_color_get_r(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_g(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_b(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_a(default_bg) * 255), true);
-                draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(bg_obj, draw_order);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
             }
 
             if (node->colors[border] != NULL) {
@@ -372,19 +447,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_g(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_b(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
-                draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(border_obj, draw_order + 1);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
-            } else {
-                EseColor *default_border = gui->default_colors[border];
-                EseDrawListObject *border_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(border_obj, 
-                    (unsigned char)(ese_color_get_r(default_border) * 255), 
-                    (unsigned char)(ese_color_get_g(default_border) * 255), 
-                    (unsigned char)(ese_color_get_b(default_border) * 255), 
-                    (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
                 if (session->draw_scissors_active) {
@@ -411,19 +473,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                 if (session->draw_scissors_active) {
                     draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
                 }
-            } else {
-                EseColor *default_bg = gui->default_colors[background];
-                EseDrawListObject *bg_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(bg_obj, 
-                    (unsigned char)(ese_color_get_r(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_g(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_b(default_bg) * 255), 
-                    (unsigned char)(ese_color_get_a(default_bg) * 255), true);
-                draw_list_object_set_bounds(bg_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(bg_obj, draw_order);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(bg_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
             }
 
             if (node->colors[border] != NULL) {
@@ -433,19 +482,6 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                     (unsigned char)(ese_color_get_g(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_b(node->colors[border]) * 255), 
                     (unsigned char)(ese_color_get_a(node->colors[border]) * 255), false);
-                draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(border_obj, draw_order + 1);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(border_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
-            } else {
-                EseColor *default_border = gui->default_colors[border];
-                EseDrawListObject *border_obj = draw_list_request_object(draw_list);
-                draw_list_object_set_rect_color(border_obj, 
-                    (unsigned char)(ese_color_get_r(default_border) * 255), 
-                    (unsigned char)(ese_color_get_g(default_border) * 255), 
-                    (unsigned char)(ese_color_get_b(default_border) * 255), 
-                    (unsigned char)(ese_color_get_a(default_border) * 255), false);
                 draw_list_object_set_bounds(border_obj, node->x, node->y, node->width, node->height);
                 draw_list_object_set_z_index(border_obj, draw_order + 1);
                 if (session->draw_scissors_active) {
@@ -490,6 +526,59 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
     // Process children normally (they will inherit the layout's scissor state)
     for (size_t i = 0; i < node->children_count; i++) {
         _ese_gui_generate_draw_commands(gui, draw_list, session, node->children[i], depth + 1);
+    }
+}
+
+// Copy colors from a style to a node, creating new color objects
+void _ese_gui_copy_colors_from_style(EseGuiLayoutNode *node, EseGuiStyle *style) {
+    log_assert("GUI", node, "_ese_gui_copy_colors_from_style called with NULL node");
+    log_assert("GUI", style, "_ese_gui_copy_colors_from_style called with NULL style");
+    
+    // Initialize all colors to NULL first
+    for (size_t i = 0; i < ESE_GUI_COLOR_MAX; i++) {
+        node->colors[i] = NULL;
+    }
+    
+    // Copy background colors
+    EseColor *bg = ese_gui_style_get_background(style);
+    node->colors[ESE_GUI_COLOR_BACKGROUND] = ese_color_copy(bg);
+    
+    EseColor *bg_hovered = ese_gui_style_get_background_hovered(style);
+    node->colors[ESE_GUI_COLOR_BACKGROUND_HOVERED] = ese_color_copy(bg_hovered);
+    
+    EseColor *bg_pressed = ese_gui_style_get_background_pressed(style);
+    node->colors[ESE_GUI_COLOR_BACKGROUND_PRESSED] = ese_color_copy(bg_pressed);
+    
+    // Copy border colors
+    EseColor *border = ese_gui_style_get_border(style);
+    node->colors[ESE_GUI_COLOR_BORDER] = ese_color_copy(border);
+    
+    EseColor *border_hovered = ese_gui_style_get_border_hovered(style);
+    node->colors[ESE_GUI_COLOR_BORDER_HOVERED] = ese_color_copy(border_hovered);
+    
+    EseColor *border_pressed = ese_gui_style_get_border_pressed(style);
+    node->colors[ESE_GUI_COLOR_BORDER_PRESSED] = ese_color_copy(border_pressed);
+    
+    // Copy text colors
+    EseColor *text = ese_gui_style_get_text(style);
+    node->colors[ESE_GUI_COLOR_BUTTON_TEXT] = ese_color_copy(text);
+    
+    EseColor *text_hovered = ese_gui_style_get_text_hovered(style);
+    node->colors[ESE_GUI_COLOR_BUTTON_TEXT_HOVERED] = ese_color_copy(text_hovered);
+    
+    EseColor *text_pressed = ese_gui_style_get_text_pressed(style);
+    node->colors[ESE_GUI_COLOR_BUTTON_TEXT_PRESSED] = ese_color_copy(text_pressed);
+}
+
+// Free all colors owned by a node
+void _ese_gui_free_node_colors(EseGuiLayoutNode *node) {
+    if (node == NULL) return;
+    
+    for (size_t i = 0; i < ESE_GUI_COLOR_MAX; i++) {
+        if (node->colors[i] != NULL) {
+            ese_color_destroy(node->colors[i]);
+            node->colors[i] = NULL;
+        }
     }
 }
 

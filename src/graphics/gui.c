@@ -5,6 +5,7 @@
 #include "graphics/gui_private.h"
 #include "graphics/gui.h"
 #include "types/color.h"
+#include "types/gui_style.h"
 #include "types/input_state.h"
 #include "utility/log.h"
 #include "scripting/lua_engine.h"
@@ -30,21 +31,9 @@ EseGui *ese_gui_create(EseLuaEngine *engine) {
 
     gui->engine = engine;
 
-    // Initialize default colors
-    for (size_t i = 0; i < ESE_GUI_COLOR_MAX; i++) {
-        gui->default_colors[i] = ese_color_create(engine);
-        ese_color_ref(gui->default_colors[i]);
-    }
-
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BACKGROUND], 240, 240, 240, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BACKGROUND_HOVERED], 220, 220, 220, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BACKGROUND_PRESSED], 200, 200, 200, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BORDER], 180, 180, 180, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BORDER_HOVERED], 160, 160, 160, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BORDER_PRESSED], 140, 140, 140, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BUTTON_TEXT], 50, 50, 50, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BUTTON_TEXT_HOVERED], 30, 30, 30, 255);
-    ese_color_set_byte(gui->default_colors[ESE_GUI_COLOR_BUTTON_TEXT_PRESSED], 10, 10, 10, 255);
+    // Initialize current style with default values
+    gui->current_style = ese_gui_style_create(engine);
+    ese_gui_style_ref(gui->current_style);
 
     return gui;
 }
@@ -66,10 +55,10 @@ void ese_gui_destroy(EseGui *gui) {
         ese_input_state_destroy(gui->input_state);
     }
 
-    // Free default colors
-    for (size_t i = 0; i < ESE_GUI_COLOR_MAX; i++) {
-        ese_color_destroy(gui->default_colors[i]);
-    }
+
+    // Free current style
+    ese_gui_style_unref(gui->current_style);
+    ese_gui_style_destroy(gui->current_style);
 
     memory_manager.free(gui);
 }
@@ -154,16 +143,13 @@ void ese_gui_end(EseGui *gui) {
     gui->open_layout = NULL;
 }
 
-void ese_gui_open_flex(EseGui *gui, EseGuiFlexDirection direction,
-    EseGuiFlexJustify justify, EseGuiFlexAlignItems align_items, int spacing,
-    int padding_left, int padding_top, int padding_right, int padding_bottom,
-    EseColor *background_color
-) {
-
+void ese_gui_open_flex(EseGui *gui) {
     log_assert("GUI", gui, "ese_gui_open_flex called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_open_flex called with no open frame layout");
+    log_assert("GUI", gui->current_style != NULL, "ese_gui_open_flex called with NULL current_style");
 
     EseGuiLayout *layout = gui->open_layout;
+    EseGuiStyle *style = gui->current_style;
 
     EseGuiLayoutNode *node = (EseGuiLayoutNode *)memory_manager.calloc(1, sizeof(EseGuiLayoutNode), MMTAG_GUI);
 
@@ -173,17 +159,17 @@ void ese_gui_open_flex(EseGui *gui, EseGuiFlexDirection direction,
     node->height = 0;
     node->is_hovered = false;
     node->is_down = false;
-    node->colors[ESE_GUI_COLOR_BACKGROUND] = background_color;
+    _ese_gui_copy_colors_from_style(node, style);
     node->widget_type = ESE_GUI_WIDGET_FLEX;
 
-    node->widget_data.container.direction = direction;
-    node->widget_data.container.justify = justify;
-    node->widget_data.container.align_items = align_items;
-    node->widget_data.container.spacing = spacing;
-    node->widget_data.container.padding_left = padding_left;
-    node->widget_data.container.padding_top = padding_top;
-    node->widget_data.container.padding_right = padding_right;
-    node->widget_data.container.padding_bottom = padding_bottom;
+    node->widget_data.container.direction = ese_gui_style_get_direction(style);
+    node->widget_data.container.justify = ese_gui_style_get_justify(style);
+    node->widget_data.container.align_items = ese_gui_style_get_align_items(style);
+    node->widget_data.container.spacing = ese_gui_style_get_spacing(style);
+    node->widget_data.container.padding_left = ese_gui_style_get_padding_left(style);
+    node->widget_data.container.padding_top = ese_gui_style_get_padding_top(style);
+    node->widget_data.container.padding_right = ese_gui_style_get_padding_right(style);
+    node->widget_data.container.padding_bottom = ese_gui_style_get_padding_bottom(style);
     node->children = NULL;
     node->children_count = 0;
     node->children_capacity = 0;
@@ -223,11 +209,13 @@ void ese_gui_close_flex(EseGui *gui) {
     layout->current_container = layout->current_container->parent;
 }
 
-void ese_gui_open_box(EseGui *gui, int width, int height, EseColor *background_color) {
+void ese_gui_open_box(EseGui *gui, int width, int height) {
     log_assert("GUI", gui, "ese_gui_open_box called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_open_box called with no open frame layout");
+    log_assert("GUI", gui->current_style != NULL, "ese_gui_open_box called with NULL current_style");
 
     EseGuiLayout *layout = gui->open_layout;
+    EseGuiStyle *style = gui->current_style;
 
     EseGuiLayoutNode *node = (EseGuiLayoutNode *)memory_manager.calloc(1, sizeof(EseGuiLayoutNode), MMTAG_GUI);
 
@@ -237,17 +225,17 @@ void ese_gui_open_box(EseGui *gui, int width, int height, EseColor *background_c
     node->height = height;
     node->is_hovered = false;
     node->is_down = false;
-    node->colors[ESE_GUI_COLOR_BACKGROUND] = background_color;
+    _ese_gui_copy_colors_from_style(node, style);
     node->widget_type = ESE_GUI_WIDGET_BOX;
 
-    node->widget_data.container.direction = FLEX_DIRECTION_ROW;
-    node->widget_data.container.justify = FLEX_JUSTIFY_CENTER;
-    node->widget_data.container.align_items = FLEX_ALIGN_ITEMS_CENTER;
-    node->widget_data.container.spacing = 0;
-    node->widget_data.container.padding_left = 0;
-    node->widget_data.container.padding_top = 0;
-    node->widget_data.container.padding_right = 0;
-    node->widget_data.container.padding_bottom = 0;
+    node->widget_data.container.direction = ese_gui_style_get_direction(style);
+    node->widget_data.container.justify = ese_gui_style_get_justify(style);
+    node->widget_data.container.align_items = ese_gui_style_get_align_items(style);
+    node->widget_data.container.spacing = ese_gui_style_get_spacing(style);
+    node->widget_data.container.padding_left = ese_gui_style_get_padding_left(style);
+    node->widget_data.container.padding_top = ese_gui_style_get_padding_top(style);
+    node->widget_data.container.padding_right = ese_gui_style_get_padding_right(style);
+    node->widget_data.container.padding_bottom = ese_gui_style_get_padding_bottom(style);
     node->children = NULL;
     node->children_count = 0;
     node->children_capacity = 0;
@@ -288,7 +276,7 @@ void ese_gui_close_box(EseGui *gui) {
     layout->current_container = layout->current_container->parent;
 }
 
-void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void)) {
+void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *userdata), void *userdata) {
     log_assert("GUI", gui, "ese_gui_push_button called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_push_button called with no open frame layout");
     log_assert("GUI", text != NULL, "ese_gui_push_button called with NULL text");
@@ -303,11 +291,12 @@ void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void)) 
     button_node->height = 0;
     button_node->is_hovered = false;
     button_node->is_down = false;
-    button_node->colors[ESE_GUI_COLOR_BACKGROUND] = NULL;
+    _ese_gui_copy_colors_from_style(button_node, gui->current_style);
     button_node->widget_type = ESE_GUI_WIDGET_BUTTON;
 
     button_node->widget_data.button.text = memory_manager.strdup(text, MMTAG_GUI);
     button_node->widget_data.button.callback = callback;
+    button_node->widget_data.button.userdata = userdata;
 
     // Attach to current container
     button_node->children = NULL;
@@ -346,7 +335,7 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
     image_node->height = 0;
     image_node->is_hovered = false;
     image_node->is_down = false;
-    image_node->colors[ESE_GUI_COLOR_BACKGROUND] = NULL;
+    _ese_gui_copy_colors_from_style(image_node, gui->current_style);
     image_node->widget_type = ESE_GUI_WIDGET_IMAGE;
 
     image_node->widget_data.image.sprite_id = memory_manager.strdup(sprite_id, MMTAG_GUI);
@@ -372,4 +361,22 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
         }
         parent->children[parent->children_count++] = image_node;
     }
+}
+
+EseGuiStyle *ese_gui_get_style(EseGui *gui) {
+    log_assert("GUI", gui != NULL, "ese_gui_get_style called with NULL gui");
+    return gui->current_style;
+}
+
+void ese_gui_set_style(EseGui *gui, EseGuiStyle *style) {
+    log_assert("GUI", gui != NULL, "ese_gui_set_style called with NULL gui");
+    log_assert("GUI", style != NULL, "ese_gui_set_style called with NULL style");
+
+    // Unref the old style
+    ese_gui_style_unref(gui->current_style);
+    ese_gui_style_destroy(gui->current_style);
+
+    // Set and ref the new style
+    gui->current_style = style;
+    ese_gui_style_ref(gui->current_style);
 }

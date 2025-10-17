@@ -2,19 +2,18 @@ function ENTITY:entity_init()
 end
 
 function ENTITY:entity_update(delta_time)
+    local style = GuiStyle.new()
+    GUI.set_style(style);
+
     GUI.start(65000, 0, 0, Display.viewport.width, 35)
-        GUI.open_flex({
-            direction = GUI.DIRECTION.COLUMN,
-            justify = GUI.JUSTIFY.START,
-            align_items = GUI.ALIGN.START,
-            spacing = 0,
-            padding_left = 0,
-            padding_top = 0,
-            padding_right = 0,
-            padding_bottom = 0,
-            background_color = Color.new(0, 1, 0, 1),
-        })
-            GUI.open_box(100, 100, Color.new(1, 0, 0, 1))
+        style.background = Color.new(0, 1, 0, 1)
+        GUI.open_flex()
+            -- Set the style for the box container
+            style.background = Color.new(1, 0, 0, 1)
+            GUI.open_box(100, 30)
+                GUI.push_button("Click me", function()
+                    print("Button clicked")
+                end)
             GUI.close_box()
         GUI.close_flex()
     GUI.finish()

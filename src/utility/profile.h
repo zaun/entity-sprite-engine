@@ -187,6 +187,12 @@ extern "C" {
 // CollisionHit Lua operations
 #define PROFILE_LUA_COLLISION_HIT_INDEX         115
 
+// GuiStyle Lua operations
+#define PROFILE_LUA_GUI_STYLE_INDEX             121
+#define PROFILE_LUA_GUI_STYLE_NEWINDEX          122
+#define PROFILE_LUA_GUI_STYLE_NEW               123
+#define PROFILE_LUA_GUI_STYLE_FROM_JSON         124
+#define PROFILE_LUA_GUI_STYLE_TO_JSON           125
 
 // Entity component collision pair checks
 #define PROFILE_ENTITY_COMP_MAP_COLLIDES        116
