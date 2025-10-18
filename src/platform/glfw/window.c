@@ -200,7 +200,7 @@ static void glfw_window_close_callback(GLFWwindow *w) {
 
 EseWindow *window_create(int width, int height, const char *title) {
     if (!glfwInit()) {
-        printf("Failed to initialize GLFW\n");
+        log_error("Failed to initialize GLFW\n");
         return NULL;
     }
 

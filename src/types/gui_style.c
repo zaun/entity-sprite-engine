@@ -254,16 +254,45 @@ EseGuiStyle *ese_gui_style_copy(const EseGuiStyle *source) {
     copy->spacing = source->spacing;
     copy->font_size = source->font_size;
     
-    // Copy color pointers 
+    // remove default colors 
+    ese_color_unref(copy->background);
+    ese_color_destroy(copy->background);
+    ese_color_unref(copy->background_hovered);
+    ese_color_destroy(copy->background_hovered);
+    ese_color_unref(copy->background_pressed);
+    ese_color_destroy(copy->background_pressed);
+    ese_color_unref(copy->border);
+    ese_color_destroy(copy->border);
+    ese_color_unref(copy->border_hovered);
+    ese_color_destroy(copy->border_hovered);
+    ese_color_unref(copy->border_pressed);
+    ese_color_destroy(copy->border_pressed);
+    ese_color_unref(copy->text);
+    ese_color_destroy(copy->text);
+    ese_color_unref(copy->text_hovered);
+    ese_color_destroy(copy->text_hovered);
+    ese_color_unref(copy->text_pressed);
+    ese_color_destroy(copy->text_pressed);
+
+    // Copy colors
     copy->background = ese_color_copy(source->background);
+    ese_color_ref(copy->background);
     copy->background_hovered = ese_color_copy(source->background_hovered);
+    ese_color_ref(copy->background_hovered);
     copy->background_pressed = ese_color_copy(source->background_pressed);
+    ese_color_ref(copy->background_pressed);
     copy->border = ese_color_copy(source->border);
+    ese_color_ref(copy->border);
     copy->border_hovered = ese_color_copy(source->border_hovered);
+    ese_color_ref(copy->border_hovered);
     copy->border_pressed = ese_color_copy(source->border_pressed);
+    ese_color_ref(copy->border_pressed);
     copy->text = ese_color_copy(source->text);
+    ese_color_ref(copy->text);
     copy->text_hovered = ese_color_copy(source->text_hovered);
+    ese_color_ref(copy->text_hovered);
     copy->text_pressed = ese_color_copy(source->text_pressed);
+    ese_color_ref(copy->text_pressed);
     
     // Copy Lua state
     _ese_gui_style_set_state(copy, source->state);
@@ -285,9 +314,56 @@ void ese_gui_style_destroy(EseGuiStyle *style) {
             _ese_gui_style_set_lua_ref(style, LUA_NOREF);
             _ese_gui_style_set_lua_ref_count(style, 0);
         }
-        return;
+        // Note: do not early-return here; we still need to free owned resources
     }
     
+    // Destroy owned colors (drop Lua refs if present, then free)
+    if (style->background) {
+        ese_color_unref(style->background);
+        ese_color_destroy(style->background);
+        style->background = NULL;
+    }
+    if (style->background_hovered) {
+        ese_color_unref(style->background_hovered);
+        ese_color_destroy(style->background_hovered);
+        style->background_hovered = NULL;
+    }
+    if (style->background_pressed) {
+        ese_color_unref(style->background_pressed);
+        ese_color_destroy(style->background_pressed);
+        style->background_pressed = NULL;
+    }
+    if (style->border) {
+        ese_color_unref(style->border);
+        ese_color_destroy(style->border);
+        style->border = NULL;
+    }
+    if (style->border_hovered) {
+        ese_color_unref(style->border_hovered);
+        ese_color_destroy(style->border_hovered);
+        style->border_hovered = NULL;
+    }
+    if (style->border_pressed) {
+        ese_color_unref(style->border_pressed);
+        ese_color_destroy(style->border_pressed);
+        style->border_pressed = NULL;
+    }
+    if (style->text) {
+        ese_color_unref(style->text);
+        ese_color_destroy(style->text);
+        style->text = NULL;
+    }
+    if (style->text_hovered) {
+        ese_color_unref(style->text_hovered);
+        ese_color_destroy(style->text_hovered);
+        style->text_hovered = NULL;
+    }
+    if (style->text_pressed) {
+        ese_color_unref(style->text_pressed);
+        ese_color_destroy(style->text_pressed);
+        style->text_pressed = NULL;
+    }
+
     // Free watcher arrays
     if (style->watchers) {
         memory_manager.free(style->watchers);
@@ -611,9 +687,20 @@ bool ese_gui_style_remove_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", callback != NULL, "NULL callback parameter");
     
+    // First try exact match (callback + userdata)
     for (size_t i = 0; i < style->watcher_count; i++) {
         if (style->watchers[i] == callback && style->watcher_userdata[i] == userdata) {
-            // Move remaining watchers down
+            for (size_t j = i; j < style->watcher_count - 1; j++) {
+                style->watchers[j] = style->watchers[j + 1];
+                style->watcher_userdata[j] = style->watcher_userdata[j + 1];
+            }
+            style->watcher_count--;
+            return true;
+        }
+    }
+    // Fallback: remove by callback only if exact match not found
+    for (size_t i = 0; i < style->watcher_count; i++) {
+        if (style->watchers[i] == callback) {
             for (size_t j = i; j < style->watcher_count - 1; j++) {
                 style->watchers[j] = style->watchers[j + 1];
                 style->watcher_userdata[j] = style->watcher_userdata[j + 1];
@@ -842,6 +929,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     
     // Deserialize colors
     cJSON *background = cJSON_GetObjectItemCaseSensitive(data, "background");
+    if (style->background) {
+        ese_color_unref(style->background);
+        ese_color_destroy(style->background);
+        style->background = NULL;
+    }
     if (cJSON_IsObject(background)) {
         style->background = ese_color_deserialize(engine, background);
     } else {
@@ -851,6 +943,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *background_hovered = cJSON_GetObjectItemCaseSensitive(data, "background_hovered");
+    if (style->background_hovered) {
+        ese_color_unref(style->background_hovered);
+        ese_color_destroy(style->background_hovered);
+        style->background_hovered = NULL;
+    }
     if (cJSON_IsObject(background_hovered)) {
         style->background_hovered = ese_color_deserialize(engine, background_hovered);
     } else {
@@ -860,6 +957,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *background_pressed = cJSON_GetObjectItemCaseSensitive(data, "background_pressed");
+    if (style->background_pressed) {
+        ese_color_unref(style->background_pressed);
+        ese_color_destroy(style->background_pressed);
+        style->background_pressed = NULL;
+    }
     if (cJSON_IsObject(background_pressed)) {
         style->background_pressed = ese_color_deserialize(engine, background_pressed);
     } else {
@@ -869,6 +971,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *border = cJSON_GetObjectItemCaseSensitive(data, "border");
+    if (style->border) {
+        ese_color_unref(style->border);
+        ese_color_destroy(style->border);
+        style->border = NULL;
+    }
     if (cJSON_IsObject(border)) {
         style->border = ese_color_deserialize(engine, border);
     } else {
@@ -878,6 +985,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *border_hovered = cJSON_GetObjectItemCaseSensitive(data, "border_hovered");
+    if (style->border_hovered) {
+        ese_color_unref(style->border_hovered);
+        ese_color_destroy(style->border_hovered);
+        style->border_hovered = NULL;
+    }
     if (cJSON_IsObject(border_hovered)) {
         style->border_hovered = ese_color_deserialize(engine, border_hovered);
     } else {
@@ -887,6 +999,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *border_pressed = cJSON_GetObjectItemCaseSensitive(data, "border_pressed");
+    if (style->border_pressed) {
+        ese_color_unref(style->border_pressed);
+        ese_color_destroy(style->border_pressed);
+        style->border_pressed = NULL;
+    }
     if (cJSON_IsObject(border_pressed)) {
         style->border_pressed = ese_color_deserialize(engine, border_pressed);
     } else {
@@ -896,6 +1013,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *text = cJSON_GetObjectItemCaseSensitive(data, "text");
+    if (style->text) {
+        ese_color_unref(style->text);
+        ese_color_destroy(style->text);
+        style->text = NULL;
+    }
     if (cJSON_IsObject(text)) {
         style->text = ese_color_deserialize(engine, text);
     } else {
@@ -905,6 +1027,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *text_hovered = cJSON_GetObjectItemCaseSensitive(data, "text_hovered");
+    if (style->text_hovered) {
+        ese_color_unref(style->text_hovered);
+        ese_color_destroy(style->text_hovered);
+        style->text_hovered = NULL;
+    }
     if (cJSON_IsObject(text_hovered)) {
         style->text_hovered = ese_color_deserialize(engine, text_hovered);
     } else {
@@ -914,6 +1041,11 @@ EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data) 
     }
     
     cJSON *text_pressed = cJSON_GetObjectItemCaseSensitive(data, "text_pressed");
+    if (style->text_pressed) {
+        ese_color_unref(style->text_pressed);
+        ese_color_destroy(style->text_pressed);
+        style->text_pressed = NULL;
+    }
     if (cJSON_IsObject(text_pressed)) {
         style->text_pressed = ese_color_deserialize(engine, text_pressed);
     } else {

@@ -107,6 +107,7 @@ static void set_gui_style(EseGui *gui, EseGuiFlexDirection direction, EseGuiFlex
     ese_gui_style_set_padding_right(style, padding_right);
     ese_gui_style_set_padding_bottom(style, padding_bottom);
     ese_gui_style_set_background(style, background);
+    ese_color_destroy(background);
 }
 
 /**
@@ -231,17 +232,20 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_stack(gui, 30, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -262,18 +266,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start(void) {
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack 1 should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack 1should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack 1 should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack 1should be 20px tall");
 
     // Check second Stack position (should be next to first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->x, "Second Stack 2 should start at x=20");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack 2 should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->height, "Second Stack 2 should be 20px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->x, "Second Stack 2 should start at x=20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
     ese_gui_end(gui);
 
@@ -294,17 +298,20 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -325,18 +332,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start(void) {
 
     // Check first flex position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First flex 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First flex 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First flex 1 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First flex 1should be 100px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First flex 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First flex 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First flex 1 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First flex 1should be 100px tall");
 
     // Check second flex position (should be next to first bflexox)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second flex 2 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second flex 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second flex 2 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second flex 2 should be 100px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second flex 2 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second flex 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
     ese_gui_end(gui);
 
@@ -357,18 +364,21 @@ static void test_ese_gui_flex_row_both_justify_start_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add Stack first
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, flex_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
 
@@ -389,11 +399,11 @@ static void test_ese_gui_flex_row_both_justify_start_align_start(void) {
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second flex position (should be next to first stack )
     EseGuiLayoutNode *flex1_node = flex_node->children[1];
@@ -421,17 +431,20 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_stack(gui, 30, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -452,18 +465,18 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_start(void) {
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack 1_node->x, "First Stack 1 should start at x=25");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack 1 should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack 1should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack1_node->x, "First Stack 1 should start at x=25");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack 1 should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack 1should be 20px tall");
 
     // Check second Stack position (should be next to first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(45, stack 2_node->x, "Second Stack 2 should start at x=45");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack 2 should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->height, "Second Stack 2 should be 20px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(45, stack2_node->x, "Second Stack 2 should start at x=45");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
     ese_gui_end(gui);
 
@@ -484,15 +497,18 @@ static void test_ese_gui_flex_row_flexes_justify_center_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -513,18 +529,18 @@ static void test_ese_gui_flex_row_flexes_justify_center_align_start(void) {
 
     // Check first flex position (should be centered)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First flex 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First flex 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First flex 1 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First flex 1 should be 100px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First flex 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First flex 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First flex 1 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First flex 1 should be 100px tall");
 
     // Check second flex position (should be next to first flex)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second flex 2 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second flex 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second flex 2 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second flex 2 should be 100px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second flex 2 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second flex 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
     ese_gui_end(gui);
 
@@ -545,17 +561,19 @@ static void test_ese_gui_flex_row_both_justify_center_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add flex first
     EseColor *flex_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex_color);
 
     // Add Stack second
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
-
+    ese_color_destroy(stack_color);
     ese_gui_close_flex(gui);
 
     // Process to calculate layouts
@@ -582,11 +600,11 @@ static void test_ese_gui_flex_row_both_justify_center_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->height, "First flex should be 100px tall");
 
     // Check second Stack position (should be next to first flex)
-    EseGuiLayoutNode *stack 1_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(110, stack 1_node->x, "Second Stack should start at x=110");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "Second Stack should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "Second Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "Second Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(110, stack1_node->x, "Second Stack should start at x=110");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "Second Stack should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "Second Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "Second Stack should be 20px tall");
 
     ese_gui_end(gui);
 
@@ -607,13 +625,15 @@ static void test_ese_gui_flex_row_stacks_justify_end_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 30, 20);
     ese_gui_close_stack(gui);
 
@@ -636,18 +656,18 @@ static void test_ese_gui_flex_row_stacks_justify_end_align_start(void) {
 
     // Check first Stack position (should be at right edge due to justify end)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->x, "First Stack 1 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack 1 should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack 1 should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->x, "First Stack 1 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack 1 should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack 1 should be 20px tall");
 
     // Check second Stack position (should be next to first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(70, stack 2_node->x, "Second Stack 2 should start at x=70");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack 2 should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->height, "Second Stack 2 should be 20px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(70, stack2_node->x, "Second Stack 2 should start at x=70");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
     ese_gui_end(gui);
 
@@ -668,15 +688,18 @@ static void test_ese_gui_flex_row_flexes_justify_end_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -697,18 +720,18 @@ static void test_ese_gui_flex_row_flexes_justify_end_align_start(void) {
 
     // Check first flex position (should be at right edge due to justify end)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First flex 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First flex 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First flex 1 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First flex 1 should be 100px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First flex 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First flex 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First flex 1 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First flex 1 should be 100px tall");
 
     // Check second flex position (should be next to first flex)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second flex 2 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second flex 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second flex 2 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second flex 2 should be 100px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second flex 2 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second flex 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
     ese_gui_end(gui);
 
@@ -729,16 +752,19 @@ static void test_ese_gui_flex_row_both_justify_end_align_start(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_END, FLEX_ALIGN_ITEMS_START, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add Stack first
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
 
@@ -759,11 +785,11 @@ static void test_ese_gui_flex_row_both_justify_end_align_start(void) {
 
     // Check first Stack position (should be at right edge due to justify end)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->x, "First Stack should start at x=20");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->x, "First Stack should start at x=20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second flex position (should be next to first stack )
     EseGuiLayoutNode *flex1_node = flex_node->children[1];
@@ -791,15 +817,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_center(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 30, 30);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -820,18 +849,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_center(void) {
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack 1_node->y, "First Stack 1 should start at y=40");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack 1 should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack 1should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack1_node->y, "First Stack 1 should start at y=40");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack 1 should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack 1should be 20px tall");
 
     // Check second Stack position (should be next to first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->x, "Second Stack 2 should start at x=20");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(35, stack 2_node->y, "Second Stack 2 should start at y=35");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack 2 should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->height, "Second Stack 2 should be 30px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->x, "Second Stack 2 should start at x=20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(35, stack2_node->y, "Second Stack 2 should start at y=35");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack 2 should be 30px tall");
 
     ese_gui_end(gui);
 
@@ -852,15 +881,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_center(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -881,18 +913,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_center(void) {
 
     // Check first flex position (should be at left edge, vertically centered)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First flex 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->y, "First flex 1 should start at y=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First flex 1 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First flex 1 should be 100px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First flex 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->y, "First flex 1 should start at y=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First flex 1 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First flex 1 should be 100px tall");
 
     // Check second flex position (should be next to first flex)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second flex 2 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->y, "Second flex 2 should start at y=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second flex 2 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second flex 2 should be 100px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second flex 2 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->y, "Second flex 2 should start at y=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
     ese_gui_end(gui);
 
@@ -913,16 +945,19 @@ static void test_ese_gui_flex_row_both_justify_start_align_center(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add Stack first
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
 
@@ -943,11 +978,11 @@ static void test_ese_gui_flex_row_both_justify_start_align_center(void) {
 
     // Check first Stack position (should be at left edge, vertically centered)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack 1_node->y, "First Stack should start at y=40");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack1_node->y, "First Stack should start at y=40");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second flex position (should be next to first stack )
     EseGuiLayoutNode *flex1_node = flex_node->children[1];
@@ -975,15 +1010,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_end(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 30, 30);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -1004,18 +1042,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_end(void) {
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(80, stack 1_node->y, "First Stack 1 should start at y=80");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack 1 should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack 1should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(80, stack1_node->y, "First Stack 1 should start at y=80");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack 1 should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack 1should be 20px tall");
 
     // Check second Stack position (should be next to first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 2_node->x, "Second Stack 2 should start at x=20");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(70, stack 2_node->y, "Second Stack 2 should start at y=70");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack 2 should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->height, "Second Stack 2 should be 30px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->x, "Second Stack 2 should start at x=20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(70, stack2_node->y, "Second Stack 2 should start at y=70");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack 2 should be 30px tall");
 
     ese_gui_end(gui);
 
@@ -1036,15 +1074,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_end(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
+    EseColor *stack_color2 = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
 
@@ -1065,18 +1106,18 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_end(void) {
 
     // Check first flex position (should be at left edge, aligned to end)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First flex 1 should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First flex 1 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First flex 1 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First flex 1 should be 100px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First flex 1 should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First flex 1 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First flex 1 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First flex 1 should be 100px tall");
 
     // Check second flex position (should be next to first flex)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second flex 2 should start at x=50");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second flex 2 should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second flex 2 should be 50px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second flex 2 should be 100px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second flex 2 should start at x=50");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second flex 2 should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
     ese_gui_end(gui);
 
@@ -1097,16 +1138,19 @@ static void test_ese_gui_flex_row_both_justify_start_align_end(void) {
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_END, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add Stack first
-    EseColor *stack _color = ese_color_create(g_engine);
+    EseColor *stack_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack_color);
 
     // Add flex second
     EseColor *flex_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
 
@@ -1127,11 +1171,11 @@ static void test_ese_gui_flex_row_both_justify_start_align_end(void) {
 
     // Check first Stack position (should be at left edge, aligned to end)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(80, stack 1_node->y, "First Stack should start at y=80");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(80, stack1_node->y, "First Stack should start at y=80");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second flex position (should be next to first stack )
     EseGuiLayoutNode *flex1_node = flex_node->children[1];
@@ -1159,16 +1203,19 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_spacing(void)
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add first stack 
-    EseColor *stack 1_color = ese_color_create(g_engine);
+    EseColor *stack1_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack1_color);
 
     // Add second stack 
-    EseColor *stack 2_color = ese_color_create(g_engine);
+    EseColor *stack2_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 30, 30);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack2_color);
 
     ese_gui_close_flex(gui);
 
@@ -1189,18 +1236,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_spacing(void)
 
     // Check first Stack position (should be at left edge)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should start at x=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should start at x=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second Stack position (should be after first Stack + spacing)
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack 2_node->x, "Second Stack should start at x=25 (20 + 5 spacing)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack should start at y=0");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->height, "Second Stack should be 30px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack2_node->x, "Second Stack should start at x=25 (20 + 5 spacing)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack should start at y=0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should be 30px tall");
 
     ese_gui_end(gui);
 
@@ -1221,16 +1268,19 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_padding(void)
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 0, 5, 10, 10, 5, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add first stack 
-    EseColor *stack 1_color = ese_color_create(g_engine);
+    EseColor *stack1_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 20, 20);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack1_color);
 
     // Add second stack 
-    EseColor *stack 2_color = ese_color_create(g_engine);
+    EseColor *stack2_color = ese_color_create(g_engine);
     ese_gui_open_stack(gui, 30, 30);
     ese_gui_close_stack(gui);
+    ese_color_destroy(stack2_color);
 
     ese_gui_close_flex(gui);
 
@@ -1251,18 +1301,18 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_padding(void)
 
     // Check first Stack position (should be at padding offset)
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(5, stack 1_node->x, "First Stack should start at x=5 (padding left)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(10, stack 1_node->y, "First Stack should start at y=10 (padding top)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should be 20px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should be 20px tall");
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(5, stack1_node->x, "First Stack should start at x=5 (padding left)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(10, stack1_node->y, "First Stack should start at y=10 (padding top)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should be 20px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should be 20px tall");
 
     // Check second Stack position (should be after first stack )
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
-    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack 2_node->x, "Second Stack should start at x=25 (5 + 20)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(10, stack 2_node->y, "Second Stack should start at y=10 (padding top)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack should be 30px wide");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->height, "Second Stack should be 30px tall");
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack2_node->x, "Second Stack should start at x=25 (5 + 20)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(10, stack2_node->y, "Second Stack should start at y=10 (padding top)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should be 30px wide");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should be 30px tall");
 
     ese_gui_end(gui);
 
@@ -1283,16 +1333,19 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_spacing(void)
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add first flex
     EseColor *flex1_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex1_color);
 
     // Add second flex
     EseColor *flex2_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex2_color);
 
     ese_gui_close_flex(gui);
 
@@ -1345,16 +1398,19 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_START, FLEX_ALIGN_ITEMS_START, 5, 5, 10, 10, 5, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add first flex
     EseColor *flex1_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex1_color);
 
     // Add second flex
     EseColor *flex2_color = ese_color_create(g_engine);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_flex(gui);
+    ese_color_destroy(flex2_color);
 
     ese_gui_close_flex(gui);
 
@@ -1410,15 +1466,16 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     EseColor *bg_color = ese_color_create(g_engine);
     set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, bg_color);
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
+    ese_color_destroy(bg_color);
 
     // Add some child containers with auto width
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, GUI_AUTO_SIZE, 20);
     ese_gui_close_stack(gui);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_stack(gui, GUI_AUTO_SIZE, 30);
     ese_gui_close_stack(gui);
 
@@ -1438,20 +1495,20 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
 
     // Check that stack es have auto-calculated widths
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
     
     // Stack 1
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should be positioned at x=0 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack 1_node->y, "First Stack should be positioned at y=40 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->height, "First Stack should have fixed height 20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should be positioned at x=0 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(40, stack1_node->y, "First Stack should be positioned at y=40 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "First Stack should have fixed height 20");
 
     // Stack 2
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second Stack should be positioned at x=50 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(35, stack 2_node->y, "Second Stack should be positioned at y=35 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->height, "Second Stack should have fixed height 30");    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second Stack should be positioned at x=50 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(35, stack2_node->y, "Second Stack should be positioned at y=35 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should have fixed height 30");    
 
     ese_gui_end(gui);
 
@@ -1477,13 +1534,13 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_height
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
 
     // Add some child containers with auto width
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, 20, GUI_AUTO_SIZE);
     ese_gui_close_stack(gui);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_stack(gui, 30, GUI_AUTO_SIZE);
     ese_gui_close_stack(gui);
 
@@ -1503,20 +1560,20 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_height
 
     // Check that stack es have auto-calculated widths
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
     
     // Stack 1
-    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack 1_node->x, "First Stack should be positioned at x=25 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack should be positioned at y=40 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack 1_node->width, "First Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First Stack should have fixed height 20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(25, stack1_node->x, "First Stack should be positioned at x=25 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack should be positioned at y=40 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "First Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First Stack should have fixed height 20");
 
     // Stack 2
-    TEST_ASSERT_EQUAL_INT_MESSAGE(45, stack 2_node->x, "Second Stack should be positioned at x=45 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack should be positioned at y=35 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack 2_node->width, "Second Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second Stack should have fixed height 30");    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(45, stack2_node->x, "Second Stack should be positioned at x=45 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack should be positioned at y=35 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second Stack should have fixed height 30");    
 
     ese_gui_end(gui);
 
@@ -1542,13 +1599,13 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_both(v
     ese_gui_open_flex(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
 
     // Add some child containers with auto width
-    EseColor *stack _color = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color);
+    EseColor *stack_color = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color);
     ese_gui_open_stack(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_stack(gui);
 
-    EseColor *stack _color2 = ese_color_create(g_engine);
-    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack _color2);
+    EseColor *stack_color2 = ese_color_create(g_engine);
+    set_gui_style(gui, FLEX_DIRECTION_ROW, FLEX_JUSTIFY_CENTER, FLEX_ALIGN_ITEMS_CENTER, 0, 0, 0, 0, 0, stack_color2);
     ese_gui_open_stack(gui, GUI_AUTO_SIZE, GUI_AUTO_SIZE);
     ese_gui_close_stack(gui);
 
@@ -1568,20 +1625,20 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_both(v
 
     // Check that stack es have auto-calculated widths
     TEST_ASSERT_TRUE_MESSAGE(flex_node->children_count >= 2, "Flex should have 2 children");
-    EseGuiLayoutNode *stack 1_node = flex_node->children[0];
-    EseGuiLayoutNode *stack 2_node = flex_node->children[1];
+    EseGuiLayoutNode *stack1_node = flex_node->children[0];
+    EseGuiLayoutNode *stack2_node = flex_node->children[1];
     
     // Stack 1
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->x, "First Stack should be positioned at x=0 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 1_node->y, "First Stack should be positioned at y=40 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 1_node->width, "First Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 1_node->height, "First Stack should have fixed height 20");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->x, "First Stack should be positioned at x=0 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack1_node->y, "First Stack should be positioned at y=40 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack1_node->width, "First Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack1_node->height, "First Stack should have fixed height 20");
 
     // Stack 2
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->x, "Second Stack should be positioned at x=50 (justify center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack 2_node->y, "Second Stack should be positioned at y=35 (align center)");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack 2_node->width, "Second Stack should have auto-calculated width of 50px");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack 2_node->height, "Second Stack should have fixed height 30");    
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->x, "Second Stack should be positioned at x=50 (justify center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, stack2_node->y, "Second Stack should be positioned at y=35 (align center)");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second Stack should have fixed height 30");    
 
     ese_gui_end(gui);
 

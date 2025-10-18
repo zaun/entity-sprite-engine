@@ -16,5 +16,6 @@
 #include "types/uuid.h"
 #include "types/collision_hit.h"
 #include "types/vector.h"
+#include "types/http.h"
 
 #endif // TYPES_H

@@ -108,6 +108,11 @@ function STARTUP:startup()
         gui.components.add(EntityComponentLua.new("gui.lua"))
     end
 
+    if asset_load_script("http.lua") then
+        local http = Entity.new()
+        http.components.add(EntityComponentLua.new("http.lua"))
+    end
+
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 end

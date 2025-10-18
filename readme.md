@@ -7,18 +7,22 @@ A modern 2D game engine built with C/C++ and Lua scripting, featuring an Entity-
 ### Core Engine
 - **High Performance C/C++ Core**: Fast, lightweight engine written in C with C++ extensions for graphics
 - **Entity-Component System**: Flexible ECS architecture for modular game object design
-- **Lua Scripting**: Full Lua 5.4 integration for game logic and rapid prototyping
+- **Lua Scripting (LuaJIT)**: Fast LuaJIT integration for game logic and rapid prototyping
 - **Cross-Platform**: Native support for macOS (Metal) and Linux (OpenGL/GLFW)
 
 ### Graphics & Rendering
 - **Sprite System**: Animated sprites with frame-based animation support
-- **Shader Support**: Custom GLSL shader pipeline for advanced rendering effects
+- **Shader Support**: Custom GLSL pipeline (glslang/SPIR-V + SPIRV-Cross for Metal) for advanced effects
 - **Tilemap Rendering**: Efficient tilemap system with support for multiple map types (grid, hexagonal, isometric)
 - **Camera System**: 2D camera with viewport management
 - **Draw Lists**: Optimized rendering with z-index depth sorting
 
 ### Game Systems
 - **Collision Detection**: Rectangle-based collision system with component integration
+- **GUI System**: Style-driven GUI primitives and theming
+- **HTTP Client**: Async HTTP requests exposed to Lua
+- **Job Queue**: Asynchronous job queue for background work
+- **Audio**: Platform audio playback (CoreAudio/AudioToolbox on macOS, OpenAL on Linux)
 - **Asset Management**: Centralized asset loading for textures, sprites, maps, and scripts
 - **Input Handling**: Cross-platform input state management
 - **Memory Management**: Custom memory allocator with garbage collection for Lua
@@ -41,6 +45,8 @@ ESE uses a true ECS architecture where:
 - **SpriteComponent**: Handles visual rendering and animation
 - **ColliderComponent**: Manages collision detection and physics
 - **MapComponent**: Renders tilemaps and world geometry
+- **TextComponent**: Renders on-screen text
+- **ShapeComponent**: Renders simple shapes; includes path variant
 - **LuaComponent**: Links entities to Lua scripts for game logic
 
 ### Core Systems
@@ -54,7 +60,8 @@ ESE uses a true ECS architecture where:
 ### Prerequisites
 - CMake 3.16 or higher
 - C/C++ compiler with C99 and C++11 support
-- Lua 5.4 (included in vendor directory)
+- LuaJIT (vendored; built automatically)
+- Linux only: OpenGL, GLFW3, GLEW, OpenAL development packages
 
 ### Build Commands
 
@@ -100,6 +107,11 @@ The `examples/simple` directory contains a working demo that showcases:
 
 ```bash
 # From the build directory
+
+# macOS (app bundle)
+open examples/simple/simple_demo.app
+
+# Linux (executable)
 cd examples/simple
 ./simple_demo
 ```
@@ -184,10 +196,11 @@ The engine uses platform-specific implementations for:
 ## 📚 Documentation
 
 Detailed API documentation is available in the `docs/` directory:
-- `entity.md` - Entity and component system
-- `graphics.md` - Rendering and sprite systems
-- `scripting.md` - Lua integration
-- `platform.md` - Platform-specific features
+- `global.md` - Global engine and Lua APIs
+- `entity.md` and `entitycomponent.md` - Entity and component system
+- `display.md` and `gui.md` - Rendering/display and GUI
+- `map.md` and `mapcell.md` - Map and map cell systems
+- `point.md`, `rect.md`, `vector.md`, `ray.md`, `tileset.md`, `uuid.md` - Core types
 
 ## 🤝 Contributing
 

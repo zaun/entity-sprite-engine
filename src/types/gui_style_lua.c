@@ -398,7 +398,7 @@ static int _ese_gui_style_lua_from_json(lua_State *L) {
     }
 
     // Get the engine from the registry
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(source->state, LUA_ENGINE_KEY);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
     
     if (!engine) {
         cJSON_Delete(json);

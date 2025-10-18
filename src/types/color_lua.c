@@ -88,10 +88,8 @@ static int _ese_color_lua_index(lua_State *L) {
         lua_pushcfunction(L, _ese_color_lua_set_hex);
     } else if (strcmp(key, "set_byte") == 0) {
         lua_pushcfunction(L, _ese_color_lua_set_byte);
-    } else if (strcmp(key, "to_json") == 0) {
+    } else if (strcmp(key, "toJSON") == 0) {
         lua_pushcfunction(L, _ese_color_lua_to_json);
-    } else if (strcmp(key, "from_json") == 0) {
-        lua_pushcfunction(L, _ese_color_lua_from_json);
     } else {
         lua_pushnil(L);
     }
@@ -112,7 +110,10 @@ static int _ese_color_lua_newindex(lua_State *L) {
     EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
     EseColor *color = *ud;
     const char *key = luaL_checkstring(L, 2);
-    float value = (float)luaL_checknumber(L, 3);
+    if (lua_type(L, 3) != LUA_TNUMBER) {
+        return luaL_error(L, "Color component '%s' must be a number", key);
+    }
+    float value = (float)lua_tonumber(L, 3);
     
     if (strcmp(key, "r") == 0) {
         ese_color_set_r(color, value);
@@ -142,9 +143,15 @@ static int _ese_color_lua_tostring(lua_State *L) {
     EseColor *color = *ud;
     
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "EseColor(%.3f, %.3f, %.3f, %.3f)", 
-             ese_color_get_r(color), ese_color_get_g(color), 
-             ese_color_get_b(color), ese_color_get_a(color));
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "Color: r=%.2f g=%.2f b=%.2f a=%.2f",
+        ese_color_get_r(color),
+        ese_color_get_g(color),
+        ese_color_get_b(color),
+        ese_color_get_a(color)
+    );
     
     lua_pushstring(L, buffer);
     return 1;
@@ -165,22 +172,21 @@ static int _ese_color_lua_new(lua_State *L) {
     EseColor *color = ese_color_create(engine);
     
     int argc = lua_gettop(L);
-    if (argc >= 1) {
-        float r = (float)luaL_checknumber(L, 1);
-        ese_color_set_r(color, r);
+    if (!(argc == 3 || argc == 4)) {
+        ese_color_destroy(color);
+        return luaL_error(L, "Color.new() requires 3 or 4 numeric arguments (r, g, b[, a])");
     }
-    if (argc >= 2) {
-        float g = (float)luaL_checknumber(L, 2);
-        ese_color_set_g(color, g);
+    float r = (float)luaL_checknumber(L, 1);
+    float g = (float)luaL_checknumber(L, 2);
+    float b = (float)luaL_checknumber(L, 3);
+    float a = 1.0f;
+    if (argc == 4) {
+        a = (float)luaL_checknumber(L, 4);
     }
-    if (argc >= 3) {
-        float b = (float)luaL_checknumber(L, 3);
-        ese_color_set_b(color, b);
-    }
-    if (argc >= 4) {
-        float a = (float)luaL_checknumber(L, 4);
-        ese_color_set_a(color, a);
-    }
+    ese_color_set_r(color, r);
+    ese_color_set_g(color, g);
+    ese_color_set_b(color, b);
+    ese_color_set_a(color, a);
     
     ese_color_lua_push(color);
     return 1;
@@ -301,8 +307,10 @@ static int _ese_color_lua_set_hex(lua_State *L) {
     const char *hex_string = luaL_checkstring(L, 2);
     
     bool success = ese_color_set_hex(color, hex_string);
-    lua_pushboolean(L, success);
-    return 1;
+    if (!success) {
+        return luaL_error(L, "set_hex: invalid hex string");
+    }
+    return 0;
 }
 
 /**
@@ -342,7 +350,7 @@ static int _ese_color_lua_to_json(lua_State *L) {
     EseColor *color = *ud;
     
     cJSON *json = ese_color_serialize(color);
-    char *json_string = cJSON_Print(json);
+    char *json_string = cJSON_PrintUnformatted(json);
     lua_pushstring(L, json_string);
     free(json_string);
     cJSON_Delete(json);
@@ -401,7 +409,17 @@ void _ese_color_lua_init(EseLuaEngine *engine) {
         _ese_color_lua_tostring);
     
     // Create global Color table with functions
-    const char *keys[] = {"new", "white", "black", "red", "green", "blue", "set_hex", "set_byte", "to_json", "from_json"};
-    lua_CFunction functions[] = {_ese_color_lua_new, _ese_color_lua_white, _ese_color_lua_black, _ese_color_lua_red, _ese_color_lua_green, _ese_color_lua_blue, _ese_color_lua_set_hex, _ese_color_lua_set_byte, _ese_color_lua_to_json, _ese_color_lua_from_json};
-    lua_engine_new_object(engine, "Color", 10, keys, functions);
+    const char *keys[] = {
+        "new",
+        "white", "black", "red", "green",
+        "blue",
+        "fromJSON"
+    };
+    lua_CFunction functions[] = {
+        _ese_color_lua_new,
+        _ese_color_lua_white, _ese_color_lua_black, _ese_color_lua_red, _ese_color_lua_green,
+        _ese_color_lua_blue,
+        _ese_color_lua_from_json
+    };
+    lua_engine_new_object(engine, "Color", 7, keys, functions);
 }

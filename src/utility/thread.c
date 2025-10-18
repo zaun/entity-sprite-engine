@@ -29,6 +29,7 @@ struct EseThread_s {
     unsigned thread_id;
 #endif
     void *ret;
+    int detached; /* 0=false, 1=true */
 };
 
 struct EseMutex_s {
@@ -65,7 +66,11 @@ static void *thread_start_trampoline(void *ud) {
     StartArg *arg = (StartArg *)ud;
     void *ret = arg->fn(arg->ud);
     arg->self->ret = ret;
+    int should_free_self = arg->self->detached;
     free(arg);
+    if (should_free_self) {
+        free(arg->self);
+    }
     return ret;
 }
 
@@ -74,6 +79,7 @@ EseThread ese_thread_create(EseThreadFn fn, void *ud) {
     EseThread th = (EseThread)malloc(sizeof(struct EseThread_s));
     if (!th) return NULL;
     memset(th, 0, sizeof(*th));
+    th->detached = 0;
     typedef struct { EseThreadFn fn; void *ud; EseThread self; } StartArg;
     StartArg *arg = (StartArg*)malloc(sizeof(StartArg));
     arg->fn = fn; arg->ud = ud; arg->self = th;
@@ -97,9 +103,8 @@ void *ese_thread_join(EseThread th) {
 void ese_thread_detach(EseThread th) {
     if (!th) return;
     pthread_detach(th->tid);
-    /* keep struct allocated? We free caller's pointer responsibility.
-       For simplicity free structure here. The thread still runs detached. */
-    free(th);
+    /* Mark as detached; the trampoline will free the struct when the thread exits */
+    th->detached = 1;
 }
 
 EseThreadId ese_thread_current_id(void) { return pthread_self(); }
@@ -117,7 +122,11 @@ static unsigned __stdcall win_thread_trampoline(void *argp) {
     WinStartArg *arg = (WinStartArg*)argp;
     void *ret = arg->fn(arg->ud);
     arg->self->ret = ret;
+    int should_free_self = arg->self->detached;
     free(arg);
+    if (should_free_self) {
+        free(arg->self);
+    }
     return 0;
 }
 
@@ -126,6 +135,7 @@ EseThread ese_thread_create(EseThreadFn fn, void *ud) {
     EseThread th = (EseThread*)malloc(sizeof(struct EseThread_s));
     if (!th) return NULL;
     memset(th, 0, sizeof(*th));
+    th->detached = 0;
     WinStartArg *arg = (WinStartArg*)malloc(sizeof(WinStartArg));
     arg->fn = fn; arg->ud = ud; arg->self = th;
     unsigned thread_id;
@@ -152,7 +162,7 @@ void *ese_thread_join(EseThread th) {
 void ese_thread_detach(EseThread th) {
     if (!th) return;
     CloseHandle(th->handle);
-    free(th);
+    th->detached = 1;
 }
 
 EseThreadId ese_thread_current_id(void) { return GetCurrentThreadId(); }

@@ -194,6 +194,11 @@ extern "C" {
 #define PROFILE_LUA_GUI_STYLE_FROM_JSON         124
 #define PROFILE_LUA_GUI_STYLE_TO_JSON           125
 
+// HTTP Lua operations
+#define PROFILE_LUA_HTTP_INDEX                  126
+#define PROFILE_LUA_HTTP_NEWINDEX               127
+#define PROFILE_LUA_HTTP_NEW                    128
+
 // Entity component collision pair checks
 #define PROFILE_ENTITY_COMP_MAP_COLLIDES        116
 #define PROFILE_ENTITY_COMP_COLLIDER_COLLIDES   117

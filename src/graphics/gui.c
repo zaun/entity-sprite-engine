@@ -93,7 +93,7 @@ void ese_gui_process(EseGui *gui, EseDrawList *draw_list) {
         _ese_gui_generate_draw_commands(gui, draw_list, layout, layout->root, 0);
     }
 
-    // Step3: Reset the frame stack
+	// Step3: Reset the frame stack
     gui->layouts_count = 0;
 
     // Mark that we've finished processing this frame
@@ -139,6 +139,9 @@ void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int h
 void ese_gui_end(EseGui *gui) {
     log_assert("GUI", gui, "ese_gui_end called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_end called with no open frame layout");
+
+    // Free the layout tree for the frame that just ended to avoid leaking per-frame nodes/colors
+    _ese_gui_layout_destroy(gui->open_layout);
 
     gui->open_layout = NULL;
 }

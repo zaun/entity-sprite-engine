@@ -73,8 +73,17 @@ static EseLuaEngine *g_engine = NULL;
 * Test setup and teardown
 */
 void setUp(void) {
-    g_engine = lua_engine_create();
+    g_engine = create_test_engine();
     TEST_ASSERT_NOT_NULL_MESSAGE(g_engine, "Engine should be created");
+    ese_gui_style_lua_init(g_engine);
+
+    // Expose GuiStyle into the sandbox master so scripts can use it
+    lua_State *L = g_engine->runtime;
+    lua_getglobal(L, "GuiStyle");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "GuiStyle global should exist after init");
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    lua_engine_add_global(g_engine, "GuiStyle", ref);
+    luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 
 void tearDown(void) {
@@ -512,7 +521,7 @@ static void test_ese_gui_style_watcher_system(void) {
     g_watcher_called = false;
     g_watcher_userdata = (void*)0x12345678;
 
-    TEST_ASSERT_TRUE_MESSAGE(ese_gui_style_add_watcher(g_watcher_style, watcher_callback, &g_watcher_called), "Watcher should be added");
+    TEST_ASSERT_TRUE_MESSAGE(ese_gui_style_add_watcher(g_watcher_style, watcher_callback, g_watcher_userdata), "Watcher should be added");
 
     // Change a property to trigger watcher
     ese_gui_style_set_direction(g_watcher_style, FLEX_DIRECTION_COLUMN);
@@ -618,69 +627,63 @@ static void test_ese_gui_style_serialization(void) {
 */
 
 static void test_ese_gui_style_lua_new(void) {
-    lua_State *L = g_engine->runtime;
-    
-    // Test GuiStyle.new()
-    lua_getglobal(L, "GuiStyle");
-    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "GuiStyle should be a global table");
-    
-    lua_getfield(L, -1, "new");
-    TEST_ASSERT_TRUE_MESSAGE(lua_isfunction(L, -1), "GuiStyle.new should be a function");
-    
-    lua_call(L, 0, 1);
-    TEST_ASSERT_TRUE_MESSAGE(lua_istable(L, -1), "GuiStyle.new() should return a table");
-    
-    lua_pop(L, 2); // Pop result and GuiStyle table
+    // Script that creates a GuiStyle via Lua API and returns true if created
+    const char *script =
+        "function GS.run()\n"
+        "  local s = GuiStyle.new()\n"
+        "  return type(s) == 'table'\n"
+        "end\n";
+
+    TEST_ASSERT_TRUE_MESSAGE(lua_engine_load_script_from_string(g_engine, script, "gui_style_new", "GS"), "Failed to load script");
+    int instance_ref = lua_engine_instance_script(g_engine, "gui_style_new");
+    TEST_ASSERT_TRUE_MESSAGE(instance_ref > 0, "Failed to instance script");
+
+    EseLuaValue *result = lua_value_create_nil("result");
+    bool ok = lua_engine_run_function(g_engine, instance_ref, instance_ref, "run", 0, NULL, result);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to run script function");
+    TEST_ASSERT_TRUE_MESSAGE(lua_value_is_bool(result) && lua_value_get_bool(result), "Script should return true");
+    lua_value_destroy(result);
 }
 
 static void test_ese_gui_style_lua_properties(void) {
-    lua_State *L = g_engine->runtime;
-    
-    // Create a GuiStyle from Lua
-    lua_getglobal(L, "GuiStyle");
-    lua_getfield(L, -1, "new");
-    lua_call(L, 0, 1);
-    
-    // Test setting and getting properties
-    lua_pushstring(L, "direction");
-    lua_pushinteger(L, 1); // FLEX_DIRECTION_COLUMN
-    lua_settable(L, -3);
-    
-    lua_pushstring(L, "direction");
-    lua_gettable(L, -2);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, lua_tointeger(L, -1), "Direction should be set to 1");
-    lua_pop(L, 1);
-    
-    lua_pushstring(L, "border_width");
-    lua_pushinteger(L, 5);
-    lua_settable(L, -3);
-    
-    lua_pushstring(L, "border_width");
-    lua_gettable(L, -2);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(5, lua_tointeger(L, -1), "Border width should be set to 5");
-    lua_pop(L, 1);
-    
-    lua_pop(L, 1); // Pop GuiStyle table
+    // Script that sets/gets properties via Lua and returns boolean
+    const char *script =
+        "function GS.run()\n"
+        "  local s = GuiStyle.new()\n"
+        "  s.direction = 1\n"
+        "  s.border_width = 5\n"
+        "  return (s.direction == 1 and s.border_width == 5)\n"
+        "end\n";
+
+    TEST_ASSERT_TRUE_MESSAGE(lua_engine_load_script_from_string(g_engine, script, "gui_style_props", "GS"), "Failed to load script");
+    int instance_ref = lua_engine_instance_script(g_engine, "gui_style_props");
+    TEST_ASSERT_TRUE_MESSAGE(instance_ref > 0, "Failed to instance script");
+
+    EseLuaValue *result = lua_value_create_nil("result");
+    bool ok = lua_engine_run_function(g_engine, instance_ref, instance_ref, "run", 0, NULL, result);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to run script function");
+    TEST_ASSERT_TRUE_MESSAGE(lua_value_is_bool(result) && lua_value_get_bool(result), "Script should return true");
+    lua_value_destroy(result);
 }
 
 static void test_ese_gui_style_lua_tostring(void) {
-    lua_State *L = g_engine->runtime;
-    
-    // Create a GuiStyle from Lua
-    lua_getglobal(L, "GuiStyle");
-    lua_getfield(L, -1, "new");
-    lua_call(L, 0, 1);
-    
-    // Test __tostring
-    lua_getglobal(L, "tostring");
-    lua_pushvalue(L, -2); // Push GuiStyle table
-    lua_call(L, 1, 1);
-    
-    TEST_ASSERT_TRUE_MESSAGE(lua_isstring(L, -1), "tostring should return a string");
-    const char *str = lua_tostring(L, -1);
-    TEST_ASSERT_NOT_NULL_MESSAGE(str, "tostring result should not be NULL");
-    
-    lua_pop(L, 3); // Pop result, tostring, and GuiStyle table
+    // Script that checks tostring(s) returns a string
+    const char *script =
+        "function GS.run()\n"
+        "  local s = GuiStyle.new()\n"
+        "  local str = tostring(s)\n"
+        "  return type(str) == 'string'\n"
+        "end\n";
+
+    TEST_ASSERT_TRUE_MESSAGE(lua_engine_load_script_from_string(g_engine, script, "gui_style_tostring", "GS"), "Failed to load script");
+    int instance_ref = lua_engine_instance_script(g_engine, "gui_style_tostring");
+    TEST_ASSERT_TRUE_MESSAGE(instance_ref > 0, "Failed to instance script");
+
+    EseLuaValue *result = lua_value_create_nil("result");
+    bool ok = lua_engine_run_function(g_engine, instance_ref, instance_ref, "run", 0, NULL, result);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "Failed to run script function");
+    TEST_ASSERT_TRUE_MESSAGE(lua_value_is_bool(result) && lua_value_get_bool(result), "Script should return true");
+    lua_value_destroy(result);
 }
 
 static void test_ese_gui_style_lua_gc(void) {

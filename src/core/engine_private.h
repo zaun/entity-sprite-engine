@@ -29,6 +29,7 @@ typedef struct EseDoubleLinkedList EseDoubleLinkedList;
 typedef struct SpatialIndex SpatialIndex;
 typedef struct CollisionResolver CollisionResolver;
 typedef struct EseArray EseArray;
+typedef struct EseJobQueue EseJobQueue;
 
 struct EseEngine {
     EseRenderer *renderer;              /** Pointer to the engine's renderer */
@@ -51,6 +52,7 @@ struct EseEngine {
 
     EseConsole *console;                /** Pointer to the engine's console */
     EsePubSub *pub_sub;                 /** Pointer to the engine's pub/sub system */
+    EseJobQueue *job_queue;             /** Pointer to the engine's job queue */
 
     int startup_ref;                    /** Reference to the startup script in the Lua registry */
     bool draw_console;                  /** Whether to draw the console */

@@ -1,6 +1,10 @@
 function ENTITY:entity_init()
 end
 
+function ENTITY:button_clicked()
+    print("Button clicked")
+end
+
 function ENTITY:entity_update(delta_time)
     local style = GuiStyle.new()
     GUI.set_style(style);
@@ -11,9 +15,7 @@ function ENTITY:entity_update(delta_time)
             -- Set the style for the box container
             style.background = Color.new(1, 0, 0, 1)
             GUI.open_stack(100, GUI.STYLE.AUTO_SIZE)
-                GUI.push_button("Click me", function()
-                    print("Button clicked")
-                end)
+                GUI.push_button("Click me", ENTITY.button_clicked)
             GUI.close_stack()
         GUI.close_flex()
     GUI.finish()

@@ -23,6 +23,7 @@ typedef struct EseRect EseRect;
 typedef struct EseSprite EseSprite;
 typedef struct EseEntityComponentMap EseEntityComponentMap;
 typedef struct EseGui EseGui;
+typedef struct EseJobQueue EseJobQueue;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -236,5 +237,13 @@ void engine_pubsub_unsub(EseEngine *engine, const char *name, EseEntity *entity,
  * @return Pointer to the EseGui instance.
  */
 EseGui *engine_get_gui(EseEngine *engine);
+
+/**
+ * @brief Returns the engine's job queue instance.
+ *
+ * @param engine Pointer to the EseEngine instance.
+ * @return Pointer to the EseJobQueue managed by the engine.
+ */
+EseJobQueue *engine_get_job_queue(EseEngine *engine);
 
 #endif // ESE_ENGINE_H

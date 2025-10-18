@@ -9,7 +9,7 @@
 #include "utility/log.h"
 
 #define DEBUG_MEMORY_MANAGER 0
-#define MEMORY_TRACKING 0
+#define MEMORY_TRACKING 1
 #define MEMORY_TRACK_FREE 0
 
 #if DEBUG_MEMORY_MANAGER
@@ -95,6 +95,7 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "POLY_LINE      ",
     "PUB_SUB        ",
     "THREAD         ",
+    "HTTP           ",
     "TEMP           ",
 };
 

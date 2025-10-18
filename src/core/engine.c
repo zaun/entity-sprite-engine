@@ -24,6 +24,7 @@
 #include "graphics/gui.h"
 #include "graphics/gui_lua.h"
 #include "types/gui_style.h"
+#include "types/http.h"
 #include "utility/log.h"
 #include "utility/array.h"
 #include "utility/hashmap.h"
@@ -31,6 +32,7 @@
 #include "utility/profile.h"
 #include "types/input_state.h"
 #include "entity/components/entity_component_map.h"
+#include "utility/job_queue.h"
 
 EseEngine *engine_create(const char *startup_script) {
     log_init();
@@ -55,6 +57,9 @@ EseEngine *engine_create(const char *startup_script) {
     engine->collision_resolver = collision_resolver_create();
 
     engine->lua_engine = lua_engine_create();
+
+    // Create job queue with 2 workers by default (no per-worker init/deinit)
+    engine->job_queue = ese_job_queue_create(2, NULL, NULL);
 
     // Initialize GUI Lua functions after GUI is created
     engine->gui = ese_gui_create(engine->lua_engine);
@@ -85,6 +90,7 @@ EseEngine *engine_create(const char *startup_script) {
     ese_vector_lua_init(engine->lua_engine);
     ese_uuid_lua_init(engine->lua_engine);
     ese_gui_style_lua_init(engine->lua_engine);
+    ese_http_request_lua_init(engine->lua_engine);
     
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);
@@ -153,6 +159,10 @@ void engine_destroy(EseEngine *engine) {
     if (engine->pub_sub) {
         ese_pubsub_destroy(engine->pub_sub);
     }
+    if (engine->job_queue) {
+        ese_job_queue_destroy(engine->job_queue);
+    }
+
     ese_display_destroy(engine->display_state);
     ese_camera_destroy(engine->camera_state);
     console_destroy(engine->console);
@@ -452,6 +462,13 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_renderer");
 
+    // Process completed async job callbacks on the main thread
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    if (engine->job_queue) {
+        ese_job_queue_poll_callbacks(engine->job_queue);
+    }
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_job_queue_poll");
+
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
@@ -469,6 +486,10 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
 
     // Overall update time
     profile_stop(PROFILE_ENG_UPDATE_OVERALL, "eng_update_overall");
+}
+EseJobQueue *engine_get_job_queue(EseEngine *engine) {
+    log_assert("ENGINE", engine, "engine_get_job_queue called with NULL engine");
+    return engine->job_queue;
 }
 
 EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count) {

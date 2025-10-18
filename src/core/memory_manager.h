@@ -45,6 +45,7 @@ typedef enum {
     MMTAG_POLY_LINE,
     MMTAG_PUB_SUB,
     MMTAG_THREAD,
+    MMTAG_HTTP,
     MMTAG_TEMP,
     MMTAG_COUNT
 } MemTag;

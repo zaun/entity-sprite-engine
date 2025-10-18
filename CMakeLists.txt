@@ -139,6 +139,7 @@ endif()
 target_include_directories(entityspriteengine PUBLIC
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/vendor/lua/src"
+    "${mbedtls_SOURCE_DIR}/include"
 )
 
 # Link the engine library to the Lua static library and other system libraries.
@@ -231,6 +232,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spirv-cross)
 
+FetchContent_Declare(
+  mbedtls
+  GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
+  GIT_TAG v3.6.0
+)
+set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(mbedtls)
+
 message(STATUS "SPIRV-Cross source dir: ${spirv-cross_SOURCE_DIR}")
 
 target_include_directories(entityspriteengine PRIVATE
@@ -238,9 +248,10 @@ target_include_directories(entityspriteengine PRIVATE
   ${glslang_SOURCE_DIR}/SPIRV
   ${spirv-cross_SOURCE_DIR}
   ${spirv-tools_SOURCE_DIR}/include
+  ${mbedtls_SOURCE_DIR}/include
 )
 
-target_link_libraries(entityspriteengine PRIVATE glslang spirv-cross-c)
+target_link_libraries(entityspriteengine PRIVATE glslang spirv-cross-c mbedtls mbedx509 mbedcrypto)
 
 # Add the examples subdirectory.
 add_subdirectory(examples)
