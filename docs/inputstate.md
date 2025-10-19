@@ -63,20 +63,22 @@ Each `InputState` object has the following **read-only** properties:
 - `mouse_y` → current mouse Y coordinate in pixels (integer)  
 - `mouse_scroll_dx` → horizontal scroll delta this frame (integer)  
 - `mouse_scroll_dy` → vertical scroll delta this frame (integer)  
-- `mouse_buttons` → table of booleans, indexed by button index (0 = left, 1 = right, etc.)  
+- `mouse_down` → read-only table of booleans, indexed by button index (0=left, 1=right, 2=middle, 3=X1, 4=X2)  
+- `mouse_clicked` → read-only table of booleans, indexed by button index; true if clicked this frame  
+- `mouse_released` → read-only table of booleans, indexed by button index; true if released this frame  
 
 ### Key Constants
-- `KEY` → table of constants mapping human-readable names to key codes.  
-  Example: `InputState.KEY.A`, `InputState.KEY.SPACE`, `InputState.KEY.F1`, `InputState.KEY.MOUSE_LEFT`
+- `KEY` → table of constants mapping human-readable names to keyboard key codes.  
+  Example: `InputState.KEY.A`, `InputState.KEY.SPACE`, `InputState.KEY.F1`
 
 **Notes:**
 - **All properties are read-only** - attempting to modify any property will raise a Lua error
 - **Frame-based input tracking** - `keys_pressed` and `keys_released` are reset each frame by the engine
 - **Mouse coordinates** are in screen pixels with (0,0) at the top-left corner
 - **Scroll deltas** represent the change since the last frame (positive = up/right, negative = down/left)
-- **Key tables are read-only** - the `keys_down`, `keys_pressed`, `keys_released`, and `mouse_buttons` tables cannot be modified
+- **Key and mouse tables are read-only** - the `keys_down`, `keys_pressed`, `keys_released`, `mouse_down`, `mouse_clicked`, and `mouse_released` tables cannot be modified
 - **Mouse button indices** are 0-based (0=left, 1=right, 2=middle, 3=X1, 4=X2)
-- **Key constants** provide human-readable names for all supported keys (letters, numbers, function keys, control keys, symbols, keypad, mouse buttons)
+- **Key constants** provide human-readable names for supported keyboard keys (letters, numbers, function keys, control keys, symbols, keypad)
 
 **Example:**
 ```lua
@@ -87,8 +89,8 @@ print("Escape released this frame:", InputState.keys_released[InputState.KEY.ESC
 
 -- Mouse state
 print("Mouse position:", InputState.mouse_x, InputState.mouse_y)
-print("Left mouse button:", InputState.mouse_buttons[InputState.KEY.MOUSE_LEFT])
-print("Right mouse button:", InputState.mouse_buttons[InputState.KEY.MOUSE_RIGHT])
+print("Left mouse down:", InputState.mouse_down[0])
+print("Right mouse down:", InputState.mouse_down[1])
 
 -- Scroll wheel
 if InputState.mouse_scroll_dy > 0 then
@@ -103,11 +105,10 @@ elseif InputState.mouse_scroll_dx < 0 then
     print("Scrolled left")
 end
 
--- Key constants examples
+-- Key constants examples (keyboard only)
 print("A key code:", InputState.KEY.A)
 print("Space key code:", InputState.KEY.SPACE)
 print("F1 key code:", InputState.KEY.F1)
-print("Left mouse button code:", InputState.KEY.MOUSE_LEFT)
 ```
 
 ---
@@ -207,11 +208,11 @@ if InputState.keys_pressed[InputState.KEY.ENTER] then
 end
 
 -- Mouse interaction
-if InputState.mouse_buttons[InputState.KEY.MOUSE_LEFT] then
+if InputState.mouse_down[0] then
     print("Left mouse button held at:", mouse_x, mouse_y)
 end
 
-if InputState.mouse_buttons[InputState.KEY.MOUSE_RIGHT] then
+if InputState.mouse_down[1] then
     print("Right mouse button held at:", mouse_x, mouse_y)
 end
 
@@ -258,7 +259,7 @@ end
 
 -- Mouse button checking function
 local function is_mouse_button_held(button_index)
-    return InputState.mouse_buttons[button_index]
+    return InputState.mouse_down[button_index]
 end
 
 -- Check all mouse buttons
@@ -273,6 +274,6 @@ print("=== Input State Summary ===")
 print("Mouse position:", mouse_x, mouse_y)
 print("Scroll deltas:", InputState.mouse_scroll_dx, InputState.mouse_scroll_dy)
 print("WASD movement:", moving_forward, moving_backward, moving_left, moving_right)
-print("Left mouse:", InputState.mouse_buttons[InputState.KEY.MOUSE_LEFT])
-print("Right mouse:", InputState.mouse_buttons[InputState.KEY.MOUSE_RIGHT])
+print("Left mouse:", InputState.mouse_down[0])
+print("Right mouse:", InputState.mouse_down[1])
 ```
