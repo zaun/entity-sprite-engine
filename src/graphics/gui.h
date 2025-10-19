@@ -47,6 +47,8 @@ void ese_gui_input(EseGui *gui, EseInputState *input_state);
 // Processes all layout calculations, handles input, executes callbacks for interactive elements,
 // and queues drawing commands for the current session.
 void ese_gui_process(EseGui *gui, EseDrawList *draw_list);
+// Cleans up the GUI system after processing a frame.
+void ese_gui_cleanup(EseGui *gui);
 
 /* --- Layout Management ------------------------------------------------------------------------ */
 void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int height);

@@ -248,6 +248,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -279,8 +280,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
-    ese_gui_end(gui);
-
+    ese_gui_cleanup(gui);
     cleanup_test_gui(gui);
 }
 
@@ -314,6 +314,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -345,7 +346,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -381,6 +382,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_start(void) {
     ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -412,7 +414,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->width, "Second flex should be 100px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->height, "Second flex should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -447,6 +449,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_start(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -478,7 +481,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -511,6 +514,7 @@ static void test_ese_gui_flex_row_flexes_justify_center_align_start(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -542,7 +546,7 @@ static void test_ese_gui_flex_row_flexes_justify_center_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -575,6 +579,7 @@ static void test_ese_gui_flex_row_both_justify_center_align_start(void) {
     ese_gui_close_stack(gui);
     ese_color_destroy(stack_color);
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -606,7 +611,7 @@ static void test_ese_gui_flex_row_both_justify_center_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->width, "Second Stack should be 20px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack1_node->height, "Second Stack should be 20px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -638,6 +643,7 @@ static void test_ese_gui_flex_row_stacks_justify_end_align_start(void) {
     ese_gui_close_stack(gui);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -669,7 +675,7 @@ static void test_ese_gui_flex_row_stacks_justify_end_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(20, stack2_node->height, "Second Stack 2 should be 20px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -702,6 +708,7 @@ static void test_ese_gui_flex_row_flexes_justify_end_align_start(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -733,7 +740,7 @@ static void test_ese_gui_flex_row_flexes_justify_end_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -767,6 +774,7 @@ static void test_ese_gui_flex_row_both_justify_end_align_start(void) {
     ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -798,7 +806,7 @@ static void test_ese_gui_flex_row_both_justify_end_align_start(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->width, "Second flex should be 100px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->height, "Second flex should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -831,6 +839,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_center(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -862,7 +871,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_center(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack 2 should be 30px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -895,6 +904,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_center(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -926,7 +936,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_center(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -960,6 +970,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_center(void) {
     ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -991,7 +1002,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_center(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->width, "Second flex should be 100px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->height, "Second flex should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1024,6 +1035,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_end(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1055,7 +1067,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_end(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack 2 should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack 2 should be 30px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1088,6 +1100,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_end(void) {
     ese_color_destroy(stack_color2);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1119,7 +1132,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_end(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second flex 2 should be 50px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second flex 2 should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1153,6 +1166,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_end(void) {
     ese_color_destroy(flex_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1184,7 +1198,7 @@ static void test_ese_gui_flex_row_both_justify_start_align_end(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->width, "Second flex should be 100px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex1_node->height, "Second flex should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1218,6 +1232,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_spacing(void)
     ese_color_destroy(stack2_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1249,7 +1264,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_spacing(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should be 30px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1283,6 +1298,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_padding(void)
     ese_color_destroy(stack2_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1314,7 +1330,7 @@ static void test_ese_gui_flex_row_stacks_justify_start_align_start_padding(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should be 30px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should be 30px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1348,6 +1364,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_spacing(void)
     ese_color_destroy(flex2_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1379,7 +1396,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_spacing(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(47, flex2_node->width, "Second flex should be 47px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, flex2_node->height, "Second flex should be 100px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1413,6 +1430,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     ese_color_destroy(flex2_color);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1444,7 +1462,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(40, flex2_node->width, "Second flex should be 40px wide");
     TEST_ASSERT_EQUAL_INT_MESSAGE(85, flex2_node->height, "Second flex should be 85px tall");
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1480,6 +1498,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     ese_gui_close_stack(gui);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1510,7 +1529,7 @@ static void test_ese_gui_flex_row_flexes_justify_start_align_start_padding(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->height, "Second Stack should have fixed height 30");    
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1545,6 +1564,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_height
     ese_gui_close_stack(gui);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1575,7 +1595,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_height
     TEST_ASSERT_EQUAL_INT_MESSAGE(30, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second Stack should have fixed height 30");    
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }
@@ -1610,6 +1630,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_both(v
     ese_gui_close_stack(gui);
 
     ese_gui_close_flex(gui);
+    ese_gui_end(gui);
 
     // Process to calculate layouts
     ese_gui_process(gui, g_draw_list);
@@ -1640,7 +1661,7 @@ static void test_ese_gui_flex_row_stacks_justify_center_align_center_auto_both(v
     TEST_ASSERT_EQUAL_INT_MESSAGE(50, stack2_node->width, "Second Stack should have auto-calculated width of 50px");
     TEST_ASSERT_EQUAL_INT_MESSAGE(100, stack2_node->height, "Second Stack should have fixed height 30");    
 
-    ese_gui_end(gui);
+    ese_gui_cleanup(gui);
 
     cleanup_test_gui(gui);
 }

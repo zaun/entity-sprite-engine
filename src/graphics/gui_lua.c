@@ -28,13 +28,11 @@ typedef struct EseGuiLuaButtonCallback {
 } EseGuiLuaButtonCallback;
 
 static void _ese_gui_lua_button_callback_wrapper(void *userdata) {
-    log_assert("GUI_LUA", userdata, "ese_gui_lua_button_callback called with NULL userdata");
+    log_assert("GUI_LUA", userdata, "_ese_gui_lua_button_callback_wrapper called with NULL userdata");
 
     EseGuiLuaButtonCallback *callback = (EseGuiLuaButtonCallback *)userdata;
     lua_rawgeti(callback->L, LUA_REGISTRYINDEX, callback->lua_ref);
     lua_call(callback->L, 0, 0);
-
-    memory_manager.free(callback);
 }
 
 void ese_gui_lua_init(EseLuaEngine *engine) {

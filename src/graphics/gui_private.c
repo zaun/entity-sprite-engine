@@ -173,6 +173,10 @@ static void _ese_gui_process_input(EseGui *gui, EseGuiLayout *session, EseGuiLay
         if (is_clicked && node->is_hovered && node->widget_data.button.callback) {
             node->widget_data.button.callback(node->widget_data.button.userdata);
         }
+
+        // Free the callback userdata if it exists
+        memory_manager.free(node->widget_data.button.userdata);
+        node->widget_data.button.userdata = NULL;
     }
 }
 
@@ -703,5 +707,3 @@ void _ese_gui_free_node_colors(EseGuiLayoutNode *node) {
         }
     }
 }
-
-

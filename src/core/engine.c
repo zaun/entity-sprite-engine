@@ -426,6 +426,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     ese_gui_input(engine->gui, engine->input_state);
     ese_gui_process(engine->gui, engine->draw_list);
+    ese_gui_cleanup(engine->gui);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_gui_draw");
 
     // Draw the console
@@ -487,6 +488,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     // Overall update time
     profile_stop(PROFILE_ENG_UPDATE_OVERALL, "eng_update_overall");
 }
+
 EseJobQueue *engine_get_job_queue(EseEngine *engine) {
     log_assert("ENGINE", engine, "engine_get_job_queue called with NULL engine");
     return engine->job_queue;

@@ -1,4 +1,5 @@
 function ENTITY:entity_init()
+    print("GUI entity initialized")
 end
 
 function ENTITY:button_clicked()
