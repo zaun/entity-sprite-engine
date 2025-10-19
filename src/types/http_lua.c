@@ -263,6 +263,9 @@ static int _ese_http_request_lua_new(lua_State *L) {
     // Store the HTTP request as userdata in the table
     EseHttpRequest **ud = (EseHttpRequest **)lua_newuserdata(L, sizeof(EseHttpRequest *));
     *ud = request;
+    // Set userdata metatable so __gc runs on userdata (do not change __gc implementation)
+    luaL_setmetatable(L, HTTP_PROXY_META);
+    // Place userdata inside the proxy table field
     lua_setfield(L, -2, "__http_request");
     
     // Set metatable
@@ -273,6 +276,12 @@ static int _ese_http_request_lua_new(lua_State *L) {
     _ese_http_request_set_lua_ref(request, LUA_NOREF);
     _ese_http_request_set_lua_ref_count(request, 0);
     ese_http_request_set_state(request, L);
+    
+    // Store a registry reference to the proxy table so C can manage lifetime
+    lua_pushvalue(L, -1); // duplicate the proxy table
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    _ese_http_request_set_lua_ref(request, ref);
+    _ese_http_request_set_lua_ref_count(request, 1);
     
     return 1;
 }

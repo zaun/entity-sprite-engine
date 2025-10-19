@@ -19,6 +19,7 @@ typedef struct EseVector EseVector;
 typedef struct EseCollisionHit EseCollisionHit;
 typedef struct EsePoint EsePoint;
 typedef struct EseRect EseRect;
+typedef struct lua_State lua_State;
 
 // Forward declaration for EseLuaCFunction (defined in lua_engine.h)
 typedef EseLuaValue* (*EseLuaCFunction) (EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
@@ -40,6 +41,22 @@ typedef EseLuaValue* (*EseLuaCFunction) (EseLuaEngine *engine, size_t argc, EseL
  * @warning Large structures may require significant memory allocation.
  */
 EseLuaValue* lua_value_copy(const EseLuaValue *src);
+
+/**
+ * @brief Converts a Lua value on the stack to an EseLuaValue structure.
+ * 
+ * @details This function converts the Lua value at the specified stack index
+ *          to an EseLuaValue structure. It handles all basic Lua types including
+ *          nil, boolean, number, string, table, and userdata.
+ * 
+ * @param L Lua state pointer
+ * @param index Stack index of the Lua value to convert
+ * 
+ * @return Pointer to newly allocated EseLuaValue on success, NULL on memory allocation failure.
+ * 
+ * @warning The caller is responsible for freeing the returned EseLuaValue when done.
+ */
+ EseLuaValue *lua_value_from_stack(lua_State *L, int index);
 
 /**
  * @brief Creates a new EseLuaValue structure initialized to NIL type.

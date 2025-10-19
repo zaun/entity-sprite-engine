@@ -565,8 +565,7 @@ static void _lua_engine_convert_stack_to_luavalue(lua_State *L, int idx, EseLuaV
         lua_pushnil(L); // First key
         while (lua_next(L, abs_idx) != 0) {
             // Key is at index -2, value at index -1
-            EseLuaValue *item = lua_value_create_nil(NULL);
-            _lua_engine_convert_stack_to_luavalue(L, -1, item);
+            EseLuaValue *item = lua_value_from_stack(L, -1);
             
             // Add to table
             lua_value_push(out_result, item, false); // false = take ownership

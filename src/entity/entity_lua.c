@@ -624,60 +624,6 @@ static int _entity_lua_find_by_id(lua_State *L) {
     return 1;
 }
 
-// Function to convert a Lua value on the stack to an EseLuaValue struct in place
-static void _convert_lua_value_to_ese_lua_value_in_place(lua_State *L, int index, EseLuaValue *result) {
-    int arg_type = lua_type(L, index);
-    switch (arg_type) {
-        case LUA_TNUMBER:
-            lua_value_set_number(result, lua_tonumber(L, index));
-            break;
-        case LUA_TBOOLEAN:
-            lua_value_set_bool(result, lua_toboolean(L, index));
-            break;
-        case LUA_TSTRING: {
-            const char *str = lua_tostring(L, index);
-            lua_value_set_string(result, str);
-            break;
-        }
-        case LUA_TUSERDATA: {
-            void *udata = lua_touserdata(L, index);
-            lua_value_set_userdata(result, udata);
-            break;
-        }
-        case LUA_TTABLE: {
-            // Initialize result as a table and fill it directly to avoid shallow-copy bugs
-            lua_value_set_table(result);
-            lua_pushnil(L);
-            while (lua_next(L, index) != 0) {
-                const char *key_str = NULL;
-                int key_type = lua_type(L, -2);
-
-                if (key_type == LUA_TSTRING) {
-                    key_str = lua_tostring(L, -2);
-                } else if (key_type == LUA_TNUMBER) {
-                    char num_str[64];
-                    snprintf(num_str, sizeof(num_str), "%g", lua_tonumber(L, -2));
-                    key_str = num_str;
-                }
-
-                EseLuaValue *item_ptr = lua_value_create_nil(key_str);
-                if (item_ptr) {
-                    _convert_lua_value_to_ese_lua_value_in_place(L, -1, item_ptr);
-                    // Transfer ownership of the new item to the result table
-                    lua_value_push(result, item_ptr, false);
-                }
-                lua_pop(L, 1);
-            }
-            break;
-        }
-        default:
-            lua_value_set_nil(result);
-            break;
-    }
-}
-
-
-
 // Returns true if the function is run, false if the function is not found or run
 static int _entity_lua_dispatch(lua_State *L) {
     EseEntity *entity = (EseEntity*)lua_touserdata(L, lua_upvalueindex(1));
@@ -714,8 +660,7 @@ static int _entity_lua_dispatch(lua_State *L) {
         for (int i = 0; i < argc; ++i) {
             // The Lua arguments start after the function name
             int lua_arg_index = func_name_index + 1 + i;
-            argv[i] = lua_value_create_nil("argument");
-            _convert_lua_value_to_ese_lua_value_in_place(L, lua_arg_index, argv[i]);
+            argv[i] = lua_value_from_stack(L, lua_arg_index);
         }
     }
 
@@ -1200,8 +1145,7 @@ static int _entity_lua_publish(lua_State *L) {
     }
 
     // Convert Lua value to EseLuaValue
-    EseLuaValue *data = lua_value_create_nil("data");
-    _convert_lua_value_to_ese_lua_value_in_place(L, 2, data);
+    EseLuaValue *data = lua_value_from_stack(L, 2);
     
     // Publish
     engine_pubsub_pub(engine, event_name, data);

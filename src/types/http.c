@@ -116,6 +116,10 @@ static void _http_add_redirect_url(EseHttpRequest *request, const char *url);
 static void *_http_worker_thread(void *thread_data, void *user_data);
 static void _http_job_noop_cleanup(ese_job_id_t job_id, void *user_data, void *result);
 
+// Internal Lua ref setter forward declarations (implemented later in this file)
+void _ese_http_request_set_lua_ref(EseHttpRequest *request, int ref);
+void _ese_http_request_set_lua_ref_count(EseHttpRequest *request, int count);
+
 // ========================================
 // PRIVATE FUNCTIONS
 // ========================================
@@ -903,8 +907,11 @@ static void *_http_worker_thread(void *thread_data, void *user_data) {
             if (ssl_ret != 0) {
                 log_debug("HTTP", "SSL connection failed for %s:%s (error: %d), falling back to HTTP", request->host, request->port, ssl_ret);
                 // Fall back to HTTP by changing the port and disabling SSL
-                free(request->port);
-                request->port = strdup("80");
+                memory_manager.free(request->port);
+                request->port = (char *)memory_manager.malloc(3, MMTAG_HTTP);
+                if (request->port) {
+                    strcpy(request->port, "80");
+                }
                 request->is_https = false;
                 
                 // Try HTTP connection instead
@@ -1209,6 +1216,28 @@ static void _http_job_noop_cleanup(ese_job_id_t job_id, void *user_data, void *r
     }
 }
 
+// Cleanup that frees the HTTP request and detaches Lua proxy safely
+static void _http_job_cleanup(ese_job_id_t job_id, void *user_data, void *result) {
+    (void)job_id;
+    EseHttpRequest *request = (EseHttpRequest *)user_data;
+
+    if (result) {
+        memory_manager.free(result);
+    }
+
+    if (request) {
+        // If we created a Lua proxy ref, just unref it so Lua owns lifetime;
+        // do NOT destroy here so Lua can still read fields after done=true.
+        lua_State *L = ese_http_request_get_state(request);
+        int ref = ese_http_request_get_lua_ref(request);
+        if (L && ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, ref);
+            _ese_http_request_set_lua_ref(request, LUA_NOREF);
+            _ese_http_request_set_lua_ref_count(request, 0);
+        }
+    }
+}
+
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
@@ -1364,7 +1393,7 @@ int ese_http_request_start(EseHttpRequest *request) {
         queue,
         _http_worker_thread,
         NULL, // no main-thread callback; HTTP worker invokes user's callback directly
-        _http_job_noop_cleanup,
+        _http_job_cleanup,
         (void *)request
     );
     if (job_id == ESE_JOB_NOT_QUEUED) {
