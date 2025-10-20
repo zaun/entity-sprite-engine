@@ -22,11 +22,7 @@ static int _ese_color_lua_tostring(lua_State *L);
 
 // Lua constructors
 static int _ese_color_lua_new(lua_State *L);
-static int _ese_color_lua_white(lua_State *L);
-static int _ese_color_lua_black(lua_State *L);
-static int _ese_color_lua_red(lua_State *L);
-static int _ese_color_lua_green(lua_State *L);
-static int _ese_color_lua_blue(lua_State *L);
+static int _ese_color_from_name(lua_State *L);
 
 // Lua methods
 static int _ese_color_lua_set_hex(lua_State *L);
@@ -192,102 +188,62 @@ static int _ese_color_lua_new(lua_State *L) {
     return 1;
 }
 
-/**
- * @brief Lua constructor for white EseColor
- * 
- * Creates a new white EseColor (1, 1, 1, 1).
- * 
- * @param L Lua state
- * @return 1 (one return value)
- */
-static int _ese_color_lua_white(lua_State *L) {
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    EseColor *color = ese_color_create(engine);
-    ese_color_set_r(color, 1.0f);
-    ese_color_set_g(color, 1.0f);
-    ese_color_set_b(color, 1.0f);
-    ese_color_set_a(color, 1.0f);
-    
-    ese_color_lua_push(color);
-    return 1;
-}
+static int _ese_color_from_name(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
 
-/**
- * @brief Lua constructor for black EseColor
- * 
- * Creates a new black EseColor (0, 0, 0, 1).
- * 
- * @param L Lua state
- * @return 1 (one return value)
- */
-static int _ese_color_lua_black(lua_State *L) {
     EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    EseColor *color = ese_color_create(engine);
-    ese_color_set_r(color, 0.0f);
-    ese_color_set_g(color, 0.0f);
-    ese_color_set_b(color, 0.0f);
-    ese_color_set_a(color, 1.0f);
-    
-    ese_color_lua_push(color);
-    return 1;
-}
+    log_assert("COLOR", engine, "Color.from_name: engine is NULL");
 
-/**
- * @brief Lua constructor for red EseColor
- * 
- * Creates a new red EseColor (1, 0, 0, 1).
- * 
- * @param L Lua state
- * @return 1 (one return value)
- */
-static int _ese_color_lua_red(lua_State *L) {
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
     EseColor *color = ese_color_create(engine);
-    ese_color_set_r(color, 1.0f);
-    ese_color_set_g(color, 0.0f);
-    ese_color_set_b(color, 0.0f);
-    ese_color_set_a(color, 1.0f);
-    
-    ese_color_lua_push(color);
-    return 1;
-}
+    if (strcmp(name, "blue") == 0) {
+        ese_color_set_hex(color, "#0d6efd");
+    } else if (strcmp(name, "indigo") == 0) {
+        ese_color_set_hex(color, "#6610f2");
+    } else if (strcmp(name, "purple") == 0) {
+        ese_color_set_hex(color, "#6f42c1");
+    } else if (strcmp(name, "pink") == 0) {
+        ese_color_set_hex(color, "#d63384");
+    } else if (strcmp(name, "red") == 0) {
+        ese_color_set_hex(color, "#dc3545");
+    } else if (strcmp(name, "orange") == 0) {
+        ese_color_set_hex(color, "#fd7e14");
+    } else if (strcmp(name, "yellow") == 0) {
+        ese_color_set_hex(color, "#ffc107");
+    } else if (strcmp(name, "green") == 0) {
+        ese_color_set_hex(color, "#198754");
+    } else if (strcmp(name, "teal") == 0) {
+        ese_color_set_hex(color, "#20c997");
+    } else if (strcmp(name, "cyan") == 0) {
+        ese_color_set_hex(color, "#0dcaf0");
+    } else if (strcmp(name, "white") == 0) {
+        ese_color_set_hex(color, "#ffffff");
+    } else if (strcmp(name, "black") == 0) {
+        ese_color_set_hex(color, "#000000");
+    } else if (strcmp(name, "gray_100") == 0) {
+        ese_color_set_hex(color, "#f8f9fa");
+    } else if (strcmp(name, "gray_200") == 0) {
+        ese_color_set_hex(color, "#e9ecef");
+    } else if (strcmp(name, "gray_300") == 0) {
+        ese_color_set_hex(color, "#dee2e6");
+    } else if (strcmp(name, "gray_400") == 0) {
+        ese_color_set_hex(color, "#ced4da");
+    } else if (strcmp(name, "gray_500") == 0) {
+        ese_color_set_hex(color, "#adb5bd");
+    } else if (strcmp(name, "gray_600") == 0) {
+        ese_color_set_hex(color, "#6c757d");
+    } else if (strcmp(name, "gray_700") == 0) {
+        ese_color_set_hex(color, "#495057");
+    } else if (strcmp(name, "gray_800") == 0) {
+        ese_color_set_hex(color, "#343a40");
+    } else if (strcmp(name, "gray_900") == 0) {
+        ese_color_set_hex(color, "#212529");
+    } else if (strcmp(name, "transparent") == 0) {
+        ese_color_set_hex(color, "#00000000");
+    } else {
+        ese_color_destroy(color);
+        return luaL_error(L, "Color.from_name: invalid color name");
+    }
 
-/**
- * @brief Lua constructor for green EseColor
- * 
- * Creates a new green EseColor (0, 1, 0, 1).
- * 
- * @param L Lua state
- * @return 1 (one return value)
- */
-static int _ese_color_lua_green(lua_State *L) {
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    EseColor *color = ese_color_create(engine);
-    ese_color_set_r(color, 0.0f);
-    ese_color_set_g(color, 1.0f);
-    ese_color_set_b(color, 0.0f);
-    ese_color_set_a(color, 1.0f);
-    
-    ese_color_lua_push(color);
-    return 1;
-}
-
-/**
- * @brief Lua constructor for blue EseColor
- * 
- * Creates a new blue EseColor (0, 0, 1, 1).
- * 
- * @param L Lua state
- * @return 1 (one return value)
- */
-static int _ese_color_lua_blue(lua_State *L) {
-    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    EseColor *color = ese_color_create(engine);
-    ese_color_set_r(color, 0.0f);
-    ese_color_set_g(color, 0.0f);
-    ese_color_set_b(color, 1.0f);
-    ese_color_set_a(color, 1.0f);
-    
     ese_color_lua_push(color);
     return 1;
 }
@@ -417,8 +373,8 @@ void _ese_color_lua_init(EseLuaEngine *engine) {
     };
     lua_CFunction functions[] = {
         _ese_color_lua_new,
-        _ese_color_lua_white, _ese_color_lua_black, _ese_color_lua_red, _ese_color_lua_green,
-        _ese_color_lua_blue,
+        _ese_color_from_name, _ese_color_from_name, _ese_color_from_name, _ese_color_from_name,
+        _ese_color_from_name,
         _ese_color_lua_from_json
     };
     lua_engine_new_object(engine, "Color", 7, keys, functions);

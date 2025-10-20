@@ -9,6 +9,7 @@ typedef enum {
     MMTAG_GENERAL = 0,
     MMTAG_ENGINE,
     MMTAG_GUI,
+    MMTAG_GUI_STYLE,
     MMTAG_ASSET,
     MMTAG_ENTITY,
     MMTAG_COMP_LUA,

@@ -5,8 +5,8 @@
 #include "core/engine.h"
 #include "core/engine_private.h"
 #include "scripting/lua_engine.h"
-#include "graphics/gui_private.h"
-#include "graphics/gui.h"
+#include "graphics/gui/gui_private.h"
+#include "graphics/gui/gui.h"
 #include "graphics/draw_list.h"
 #include "graphics/font.h"
 #include "types/color.h"
@@ -615,14 +615,20 @@ void _ese_gui_generate_draw_commands(EseGui *gui, EseDrawList *draw_list, EseGui
                 }
             }
 
-            if (node->widget_data.image.sprite_id != NULL) {
-                EseDrawListObject *img_obj = draw_list_request_object(draw_list);
+            EseDrawListObject *img_obj = draw_list_request_object(draw_list);
+            if (node->widget_data.image.fit == IMAGE_FIT_COVER) {
                 draw_list_object_set_texture(img_obj, node->widget_data.image.sprite_id, 0.0f, 0.0f, 1.0f, 1.0f);
-                draw_list_object_set_bounds(img_obj, node->x, node->y, node->width, node->height);
-                draw_list_object_set_z_index(img_obj, draw_order + 2);
-                if (session->draw_scissors_active) {
-                    draw_list_object_set_scissor(img_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
-                }
+            } else if (node->widget_data.image.fit == IMAGE_FIT_CONTAIN) {
+                draw_list_object_set_texture(img_obj, node->widget_data.image.sprite_id, 0.0f, 0.0f, 1.0f, 1.0f);
+            } else if (node->widget_data.image.fit == IMAGE_FIT_FILL) {
+                draw_list_object_set_texture(img_obj, node->widget_data.image.sprite_id, 0.0f, 0.0f, 1.0f, 1.0f);
+            } else if (node->widget_data.image.fit == IMAGE_FIT_REPEAT) {
+                draw_list_object_set_texture(img_obj, node->widget_data.image.sprite_id, 0.0f, 0.0f, 1.0f, 1.0f);
+            }
+            draw_list_object_set_bounds(img_obj, node->x, node->y, node->width, node->height);
+            draw_list_object_set_z_index(img_obj, draw_order + 2);
+            if (session->draw_scissors_active) {
+                draw_list_object_set_scissor(img_obj, session->draw_scissors_x, session->draw_scissors_y, session->draw_scissors_w, session->draw_scissors_h);
             }
             break;
     }
@@ -666,33 +672,33 @@ void _ese_gui_copy_colors_from_style(EseGuiLayoutNode *node, EseGuiStyle *style)
     }
     
     // Copy background colors
-    EseColor *bg = ese_gui_style_get_background(style);
+    EseColor *bg = ese_gui_style_get_bg_light(style);
     node->colors[ESE_GUI_COLOR_BACKGROUND] = ese_color_copy(bg);
     
-    EseColor *bg_hovered = ese_gui_style_get_background_hovered(style);
+    EseColor *bg_hovered = ese_gui_style_get_bg_secondary(style);
     node->colors[ESE_GUI_COLOR_BACKGROUND_HOVERED] = ese_color_copy(bg_hovered);
     
-    EseColor *bg_pressed = ese_gui_style_get_background_pressed(style);
+    EseColor *bg_pressed = ese_gui_style_get_bg_dark(style);
     node->colors[ESE_GUI_COLOR_BACKGROUND_PRESSED] = ese_color_copy(bg_pressed);
     
     // Copy border colors
-    EseColor *border = ese_gui_style_get_border(style);
+    EseColor *border = ese_gui_style_get_border_gray_300(style);
     node->colors[ESE_GUI_COLOR_BORDER] = ese_color_copy(border);
     
-    EseColor *border_hovered = ese_gui_style_get_border_hovered(style);
+    EseColor *border_hovered = ese_gui_style_get_border_gray_200(style);
     node->colors[ESE_GUI_COLOR_BORDER_HOVERED] = ese_color_copy(border_hovered);
     
-    EseColor *border_pressed = ese_gui_style_get_border_pressed(style);
+    EseColor *border_pressed = ese_gui_style_get_border_dark(style);
     node->colors[ESE_GUI_COLOR_BORDER_PRESSED] = ese_color_copy(border_pressed);
     
     // Copy text colors
-    EseColor *text = ese_gui_style_get_text(style);
+    EseColor *text = ese_gui_style_get_text_body(style);
     node->colors[ESE_GUI_COLOR_BUTTON_TEXT] = ese_color_copy(text);
     
-    EseColor *text_hovered = ese_gui_style_get_text_hovered(style);
+    EseColor *text_hovered = ese_gui_style_get_text_dark(style);
     node->colors[ESE_GUI_COLOR_BUTTON_TEXT_HOVERED] = ese_color_copy(text_hovered);
     
-    EseColor *text_pressed = ese_gui_style_get_text_pressed(style);
+    EseColor *text_pressed = ese_gui_style_get_text_black(style);
     node->colors[ESE_GUI_COLOR_BUTTON_TEXT_PRESSED] = ese_color_copy(text_pressed);
 }
 

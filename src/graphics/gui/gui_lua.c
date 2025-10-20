@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include "core/engine.h"
 #include "core/memory_manager.h"
-#include "graphics/gui_lua.h"
-#include "graphics/gui_private.h"
-#include "graphics/gui.h"
+#include "graphics/gui/gui_lua.h"
+#include "graphics/gui/gui_private.h"
+#include "graphics/gui/gui.h"
 #include "types/gui_style.h"
 #include "types/gui_style_lua.h"
 #include "utility/log.h"
@@ -20,6 +20,7 @@ static int _ese_gui_lua_push_button(lua_State *L);
 static int _ese_gui_lua_push_image(lua_State *L);
 static int _ese_gui_lua_get_style(lua_State *L);
 static int _ese_gui_lua_set_style(lua_State *L);
+static int _ese_gui_lua_reset_style(lua_State *L);
 
 typedef struct EseGuiLuaButtonCallback {
     lua_State *L;
@@ -66,6 +67,8 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "get_style");
         lua_pushcfunction(engine->runtime, _ese_gui_lua_set_style);
         lua_setfield(engine->runtime, -2, "set_style");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_reset_style);
+        lua_setfield(engine->runtime, -2, "reset_style");
 
         // Create STYLE table
         lua_newtable(engine->runtime);
@@ -329,8 +332,8 @@ static int _ese_gui_lua_push_image(lua_State *L) {
     log_assert("GUI_LUA", L, "ese_gui_lua_push_image called with NULL Lua state");
 
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
-        return luaL_error(L, "GUI.push_image(sprite_id, fit) takes 2 arguments");
+    if (n_args > 2 || n_args < 1) {
+        return luaL_error(L, "GUI.push_image(sprite_id[, fit]) takes 1 or2 arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
@@ -339,6 +342,21 @@ static int _ese_gui_lua_push_image(lua_State *L) {
     if (gui->open_layout == NULL) {
         return luaL_error(L, "GUI.push_button() called with no open GUI active");
     }
+
+    const char *sprite_id = luaL_checkstring(L, 1);
+    if (sprite_id == NULL) {
+        return luaL_error(L, "GUI.push_image() sprite_id must be a string");
+    }
+
+    EseGuiImageFit fit = IMAGE_FIT_CONTAIN;
+    if (n_args == 2) {
+        EseLuaValue *value = lua_value_from_stack(L, 2);
+        if (value->type == LUA_VAL_NUMBER) {
+            fit = (EseGuiImageFit)value->value.number;
+        }
+    }
+
+    ese_gui_push_image(gui, fit, sprite_id);
 
     return 0;
 }
@@ -381,3 +399,18 @@ static int _ese_gui_lua_set_style(lua_State *L) {
     return 0;
 }
 
+static int _ese_gui_lua_reset_style(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_reset_style called with NULL Lua state");
+
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "GUI.reset_style() takes no arguments");
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    EseGui *gui = engine_get_gui(engine);
+
+    ese_gui_reset_style(gui);
+
+    return 0;
+}

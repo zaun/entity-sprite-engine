@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "core/memory_manager.h"
-#include "graphics/gui_lua.h"
-#include "graphics/gui_private.h"
-#include "graphics/gui.h"
+#include "graphics/gui/gui_lua.h"
+#include "graphics/gui/gui_private.h"
+#include "graphics/gui/gui.h"
 #include "types/color.h"
 #include "types/gui_style.h"
 #include "types/input_state.h"
@@ -56,6 +56,7 @@ void ese_gui_destroy(EseGui *gui) {
     }
 
     // Free current style
+    printf("ese_gui_destroy: Freeing current style\n");
     ese_gui_style_unref(gui->current_style);
     ese_gui_style_destroy(gui->current_style);
 
@@ -140,6 +141,9 @@ void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int h
 
     // currently open frame layout
     gui->open_layout = layout;
+
+    // Reset to the default style
+    // ese_gui_reset_style(gui);
 }
 
 void ese_gui_end(EseGui *gui) {
@@ -318,6 +322,7 @@ void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id) 
     log_assert("GUI", gui, "ese_gui_push_image called with NULL gui");
     log_assert("GUI", gui->open_layout != NULL, "ese_gui_push_image called with no open frame layout");
     log_assert("GUI", sprite_id != NULL, "ese_gui_push_image called with NULL sprite_id");
+    log_assert("GUI", fit < ESE_GUI_IMAGE_FIT_MAX && fit >= 0, "ese_gui_push_image called with invalid fit");
 
     EseGuiLayout *layout = gui->open_layout;
 
@@ -368,5 +373,17 @@ void ese_gui_set_style(EseGui *gui, EseGuiStyle *style) {
 
     // Set and ref the new style
     gui->current_style = style;
+    ese_gui_style_ref(gui->current_style);
+}
+
+void ese_gui_reset_style(EseGui *gui) {
+    log_assert("GUI", gui != NULL, "ese_gui_reset_style called with NULL gui");
+
+    // Unref the old style
+    ese_gui_style_unref(gui->current_style);
+    ese_gui_style_destroy(gui->current_style);
+
+    // Set and ref the new style
+    gui->current_style = ese_gui_style_create(gui->engine);
     ese_gui_style_ref(gui->current_style);
 }

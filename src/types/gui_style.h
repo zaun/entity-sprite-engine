@@ -149,149 +149,173 @@ void ese_gui_style_set_align_items(EseGuiStyle *style, EseGuiFlexAlignItems alig
  */
 EseGuiFlexAlignItems ese_gui_style_get_align_items(const EseGuiStyle *style);
 
-/**
- * @brief Sets the background color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param background Pointer to the background color to copy values from
- */
-void ese_gui_style_set_background(EseGuiStyle *style, const EseColor *background);
+// Theme/context colors
+void ese_gui_style_set_primary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_primary(const EseGuiStyle *style);
+void ese_gui_style_set_primary_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_primary_hover(const EseGuiStyle *style);
+void ese_gui_style_set_primary_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_primary_active(const EseGuiStyle *style);
+void ese_gui_style_set_secondary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_secondary(const EseGuiStyle *style);
+void ese_gui_style_set_secondary_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_secondary_hover(const EseGuiStyle *style);
+void ese_gui_style_set_secondary_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_secondary_active(const EseGuiStyle *style);
+void ese_gui_style_set_success(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_success(const EseGuiStyle *style);
+void ese_gui_style_set_success_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_success_hover(const EseGuiStyle *style);
+void ese_gui_style_set_success_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_success_active(const EseGuiStyle *style);
+void ese_gui_style_set_info(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_info(const EseGuiStyle *style);
+void ese_gui_style_set_info_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_info_hover(const EseGuiStyle *style);
+void ese_gui_style_set_info_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_info_active(const EseGuiStyle *style);
+void ese_gui_style_set_warning(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_warning(const EseGuiStyle *style);
+void ese_gui_style_set_warning_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_warning_hover(const EseGuiStyle *style);
+void ese_gui_style_set_warning_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_warning_active(const EseGuiStyle *style);
+void ese_gui_style_set_danger(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_danger(const EseGuiStyle *style);
+void ese_gui_style_set_danger_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_danger_hover(const EseGuiStyle *style);
+void ese_gui_style_set_danger_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_danger_active(const EseGuiStyle *style);
+void ese_gui_style_set_light(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_light(const EseGuiStyle *style);
+void ese_gui_style_set_light_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_light_hover(const EseGuiStyle *style);
+void ese_gui_style_set_light_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_light_active(const EseGuiStyle *style);
+void ese_gui_style_set_dark(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_dark(const EseGuiStyle *style);
+void ese_gui_style_set_dark_hover(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_dark_hover(const EseGuiStyle *style);
+void ese_gui_style_set_dark_active(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_dark_active(const EseGuiStyle *style);
 
-/**
- * @brief Gets the background color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the background color, or NULL if not set
- */
-EseColor *ese_gui_style_get_background(const EseGuiStyle *style);
+// Alerts
+void ese_gui_style_set_alert_success_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_success_bg(const EseGuiStyle *style);
+void ese_gui_style_set_alert_success_text(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_success_text(const EseGuiStyle *style);
+void ese_gui_style_set_alert_success_border(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_success_border(const EseGuiStyle *style);
+void ese_gui_style_set_alert_info_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_info_bg(const EseGuiStyle *style);
+void ese_gui_style_set_alert_info_text(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_info_text(const EseGuiStyle *style);
+void ese_gui_style_set_alert_info_border(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_info_border(const EseGuiStyle *style);
+void ese_gui_style_set_alert_warning_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_warning_bg(const EseGuiStyle *style);
+void ese_gui_style_set_alert_warning_text(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_warning_text(const EseGuiStyle *style);
+void ese_gui_style_set_alert_warning_border(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_warning_border(const EseGuiStyle *style);
+void ese_gui_style_set_alert_danger_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_danger_bg(const EseGuiStyle *style);
+void ese_gui_style_set_alert_danger_text(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_danger_text(const EseGuiStyle *style);
+void ese_gui_style_set_alert_danger_border(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_alert_danger_border(const EseGuiStyle *style);
 
-/**
- * @brief Sets the background hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param background_hovered Pointer to the background hovered color to copy values from
- */
-void ese_gui_style_set_background_hovered(EseGuiStyle *style, const EseColor *background_hovered);
+// Backgrounds
+void ese_gui_style_set_bg_primary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_primary(const EseGuiStyle *style);
+void ese_gui_style_set_bg_secondary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_secondary(const EseGuiStyle *style);
+void ese_gui_style_set_bg_success(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_success(const EseGuiStyle *style);
+void ese_gui_style_set_bg_info(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_info(const EseGuiStyle *style);
+void ese_gui_style_set_bg_warning(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_warning(const EseGuiStyle *style);
+void ese_gui_style_set_bg_danger(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_danger(const EseGuiStyle *style);
+void ese_gui_style_set_bg_light(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_light(const EseGuiStyle *style);
+void ese_gui_style_set_bg_dark(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_dark(const EseGuiStyle *style);
+void ese_gui_style_set_bg_white(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_white(const EseGuiStyle *style);
+void ese_gui_style_set_bg_transparent(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_bg_transparent(const EseGuiStyle *style);
 
-/**
- * @brief Gets the background hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the background hovered color, or NULL if not set
- */
-EseColor *ese_gui_style_get_background_hovered(const EseGuiStyle *style);
+// Text colors
+void ese_gui_style_set_text_primary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_primary(const EseGuiStyle *style);
+void ese_gui_style_set_text_secondary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_secondary(const EseGuiStyle *style);
+void ese_gui_style_set_text_success(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_success(const EseGuiStyle *style);
+void ese_gui_style_set_text_info(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_info(const EseGuiStyle *style);
+void ese_gui_style_set_text_warning(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_warning(const EseGuiStyle *style);
+void ese_gui_style_set_text_danger(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_danger(const EseGuiStyle *style);
+void ese_gui_style_set_text_light(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_light(const EseGuiStyle *style);
+void ese_gui_style_set_text_dark(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_dark(const EseGuiStyle *style);
+void ese_gui_style_set_text_body(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_body(const EseGuiStyle *style);
+void ese_gui_style_set_text_muted(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_muted(const EseGuiStyle *style);
+void ese_gui_style_set_text_white(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_white(const EseGuiStyle *style);
+void ese_gui_style_set_text_black(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_black(const EseGuiStyle *style);
+void ese_gui_style_set_text_reset(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_text_reset(const EseGuiStyle *style);
 
-/**
- * @brief Sets the background pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param background_pressed Pointer to the background pressed color to copy values from
- */
-void ese_gui_style_set_background_pressed(EseGuiStyle *style, const EseColor *background_pressed);
+// Borders
+void ese_gui_style_set_border_primary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_primary(const EseGuiStyle *style);
+void ese_gui_style_set_border_secondary(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_secondary(const EseGuiStyle *style);
+void ese_gui_style_set_border_success(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_success(const EseGuiStyle *style);
+void ese_gui_style_set_border_info(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_info(const EseGuiStyle *style);
+void ese_gui_style_set_border_warning(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_warning(const EseGuiStyle *style);
+void ese_gui_style_set_border_danger(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_danger(const EseGuiStyle *style);
+void ese_gui_style_set_border_light(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_light(const EseGuiStyle *style);
+void ese_gui_style_set_border_dark(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_dark(const EseGuiStyle *style);
+void ese_gui_style_set_border_white(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_white(const EseGuiStyle *style);
+void ese_gui_style_set_border_gray_200(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_gray_200(const EseGuiStyle *style);
+void ese_gui_style_set_border_gray_300(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_border_gray_300(const EseGuiStyle *style);
 
-/**
- * @brief Gets the background pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the background pressed color, or NULL if not set
- */
-EseColor *ese_gui_style_get_background_pressed(const EseGuiStyle *style);
+// Tooltips
+void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style);
+void ese_gui_style_set_tooltip_color(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style);
 
-/**
- * @brief Sets the border color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param border Pointer to the border color to copy values from
- */
-void ese_gui_style_set_border(EseGuiStyle *style, const EseColor *border);
-
-/**
- * @brief Gets the border color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the border color, or NULL if not set
- */
-EseColor *ese_gui_style_get_border(const EseGuiStyle *style);
-
-/**
- * @brief Sets the border hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param border_hovered Pointer to the border hovered color to copy values from
- */
-void ese_gui_style_set_border_hovered(EseGuiStyle *style, const EseColor *border_hovered);
-
-/**
- * @brief Gets the border hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the border hovered color, or NULL if not set
- */
-EseColor *ese_gui_style_get_border_hovered(const EseGuiStyle *style);
-
-/**
- * @brief Sets the border pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param border_pressed Pointer to the border pressed color to copy values from
- */
-void ese_gui_style_set_border_pressed(EseGuiStyle *style, const EseColor *border_pressed);
-
-/**
- * @brief Gets the border pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the border pressed color, or NULL if not set
- */
-EseColor *ese_gui_style_get_border_pressed(const EseGuiStyle *style);
-
-/**
- * @brief Sets the text color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param text Pointer to the text color to copy values from
- */
-void ese_gui_style_set_text(EseGuiStyle *style, const EseColor *text);
-
-/**
- * @brief Gets the text color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the text color, or NULL if not set
- */
-EseColor *ese_gui_style_get_text(const EseGuiStyle *style);
-
-/**
- * @brief Sets the text hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param text_hovered Pointer to the text hovered color to copy values from
- */
-void ese_gui_style_set_text_hovered(EseGuiStyle *style, const EseColor *text_hovered);
-
-/**
- * @brief Gets the text hovered color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the text hovered color, or NULL if not set
- */
-EseColor *ese_gui_style_get_text_hovered(const EseGuiStyle *style);
-
-/**
- * @brief Sets the text pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @param text_pressed Pointer to the text pressed color to copy values from
- */
-void ese_gui_style_set_text_pressed(EseGuiStyle *style, const EseColor *text_pressed);
-
-/**
- * @brief Gets the text pressed color of the style.
- * 
- * @param style Pointer to the EseGuiStyle object
- * @return Pointer to the text pressed color, or NULL if not set
- */
-EseColor *ese_gui_style_get_text_pressed(const EseGuiStyle *style);
+// Misc
+void ese_gui_style_set_selection_bg(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style);
+void ese_gui_style_set_selection_color(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style);
+void ese_gui_style_set_focus_ring(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style);
+void ese_gui_style_set_highlight(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style);
+void ese_gui_style_set_list_group_action(EseGuiStyle *style, const EseColor *color);
+EseColor *ese_gui_style_get_list_group_action(const EseGuiStyle *style);
 
 /**
  * @brief Sets the border width of the style.

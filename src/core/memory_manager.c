@@ -59,6 +59,7 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "GENERAL        ",
     "ENGINE         ",
     "GUI            ",
+    "GUI_STYLE      ",
     "ASSET          ",
     "ENTITY         ",
     "COMP_LUA       ",

@@ -85,7 +85,6 @@ These are the visual and interactive components of the UI. They are placed withi
         *   `IMAGE_FIT_CONTAIN`: Scales to fit within bounds, maintaining aspect ratio, potentially leaving empty space.
         *   `IMAGE_FIT_FILL`: Stretches to fill bounds, ignoring aspect ratio.
         *   `IMAGE_FIT_REPEAT`: Tiles the image within the allocated space.
-        *   `IMAGE_FIT_NONE`: Displays image at its intrinsic size (may be clipped).
     *   **Behavior:** The allocated space for the image is defined by its parent layout container. The `fit` parameter determines how the texture is rendered within that space.
 
 ## 3. Workflow and Usage Models

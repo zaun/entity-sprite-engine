@@ -20,4 +20,10 @@ function ENTITY:entity_update(delta_time)
             GUI.close_stack()
         GUI.close_flex()
     GUI.finish()
+
+    GUI.start(65000, 50, 50, 100, 100)
+        GUI.open_flex()
+            GUI.push_image("game:horse stopped north")
+        GUI.close_flex()
+    GUI.finish()
 end

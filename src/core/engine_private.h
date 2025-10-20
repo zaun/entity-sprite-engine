@@ -19,7 +19,7 @@
 #include "core/engine.h"
 #include "core/pubsub.h"
 #include "entity/entity.h"
-#include "graphics/gui.h"
+#include "graphics/gui/gui.h"
 #include "scripting/lua_engine.h"
 
 typedef struct EseDrawList EseDrawList;

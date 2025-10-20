@@ -33,7 +33,6 @@ typedef enum EseGuiImageFit {
     IMAGE_FIT_CONTAIN,
     IMAGE_FIT_FILL,
     IMAGE_FIT_REPEAT,
-    IMAGE_FIT_NONE,
     ESE_GUI_IMAGE_FIT_MAX,
 } EseGuiImageFit;
 
@@ -63,6 +62,7 @@ void ese_gui_close_stack(EseGui *gui);
 /* --- Style Management ------------------------------------------------------------------------- */
 EseGuiStyle *ese_gui_get_style(EseGui *gui);
 void ese_gui_set_style(EseGui *gui, EseGuiStyle *style);
+void ese_gui_reset_style(EseGui *gui);
 
 /* --- Widget Management ------------------------------------------------------------------------ */
 void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *userdata), void *userdata);

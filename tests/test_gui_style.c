@@ -17,7 +17,7 @@
 
 #include "../src/types/gui_style.h"
 #include "../src/types/color.h"
-#include "../src/graphics/gui.h"
+#include "../src/graphics/gui/gui.h"
 #include "../src/core/memory_manager.h"
 #include "../src/utility/log.h"
 #include "../src/vendor/json/cJSON.h"
@@ -170,11 +170,11 @@ static void test_ese_gui_style_create(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_gui_style_get_lua_ref_count(style), "New GuiStyle should have ref count 0");
 
     // Test that colors are created and have default values
-    EseColor *background = ese_gui_style_get_background(style);
+    EseColor *background = ese_gui_style_get_bg_light(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(background, "Background color should be created");
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9f, ese_color_get_r(background)); // 230/255 ≈ 0.9
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9f, ese_color_get_g(background));
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9f, ese_color_get_b(background));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9725f, ese_color_get_r(background)); // 248/255 ≈ 0.9725
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9765f, ese_color_get_g(background)); // 249/255 ≈ 0.9765
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9804f, ese_color_get_b(background)); // 250/255 ≈ 0.9804
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_a(background));
 
     ese_gui_style_destroy(style);
@@ -221,9 +221,9 @@ static void test_ese_gui_style_background(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 0, 0, 255); // Red
 
-    ese_gui_style_set_background(style, new_color);
+    ese_gui_style_set_bg_light(style, new_color);
     
-    EseColor *background = ese_gui_style_get_background(style);
+    EseColor *background = ese_gui_style_get_bg_light(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(background, "Background color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(background));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(background));
@@ -239,9 +239,9 @@ static void test_ese_gui_style_background_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 255, 0, 255); // Green
 
-    ese_gui_style_set_background_hovered(style, new_color);
+    ese_gui_style_set_bg_secondary(style, new_color);
     
-    EseColor *background_hovered = ese_gui_style_get_background_hovered(style);
+    EseColor *background_hovered = ese_gui_style_get_bg_secondary(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(background_hovered, "Background hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(background_hovered));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(background_hovered));
@@ -257,9 +257,9 @@ static void test_ese_gui_style_background_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 0, 255, 255); // Blue
 
-    ese_gui_style_set_background_pressed(style, new_color);
+    ese_gui_style_set_bg_dark(style, new_color);
     
-    EseColor *background_pressed = ese_gui_style_get_background_pressed(style);
+    EseColor *background_pressed = ese_gui_style_get_bg_dark(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(background_pressed, "Background pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(background_pressed));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(background_pressed));
@@ -275,9 +275,9 @@ static void test_ese_gui_style_border(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 255, 0, 255); // Yellow
 
-    ese_gui_style_set_border(style, new_color);
+    ese_gui_style_set_border_gray_300(style, new_color);
     
-    EseColor *border = ese_gui_style_get_border(style);
+    EseColor *border = ese_gui_style_get_border_gray_300(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(border, "Border color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(border));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(border));
@@ -293,9 +293,9 @@ static void test_ese_gui_style_border_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 0, 255, 255); // Magenta
 
-    ese_gui_style_set_border_hovered(style, new_color);
+    ese_gui_style_set_border_gray_200(style, new_color);
     
-    EseColor *border_hovered = ese_gui_style_get_border_hovered(style);
+    EseColor *border_hovered = ese_gui_style_get_border_gray_200(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(border_hovered, "Border hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(border_hovered));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(border_hovered));
@@ -311,9 +311,9 @@ static void test_ese_gui_style_border_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 255, 255, 255); // Cyan
 
-    ese_gui_style_set_border_pressed(style, new_color);
+    ese_gui_style_set_border_dark(style, new_color);
     
-    EseColor *border_pressed = ese_gui_style_get_border_pressed(style);
+    EseColor *border_pressed = ese_gui_style_get_border_dark(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(border_pressed, "Border pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(border_pressed));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(border_pressed));
@@ -329,9 +329,9 @@ static void test_ese_gui_style_text(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 128, 128, 128, 255); // Gray
 
-    ese_gui_style_set_text(style, new_color);
+    ese_gui_style_set_text_body(style, new_color);
     
-    EseColor *text = ese_gui_style_get_text(style);
+    EseColor *text = ese_gui_style_get_text_body(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(text, "Text color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, ese_color_get_r(text)); // 128/255 ≈ 0.5
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, ese_color_get_g(text));
@@ -347,9 +347,9 @@ static void test_ese_gui_style_text_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 64, 64, 64, 255); // Dark gray
 
-    ese_gui_style_set_text_hovered(style, new_color);
+    ese_gui_style_set_text_dark(style, new_color);
     
-    EseColor *text_hovered = ese_gui_style_get_text_hovered(style);
+    EseColor *text_hovered = ese_gui_style_get_text_dark(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(text_hovered, "Text hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.25f, ese_color_get_r(text_hovered)); // 64/255 ≈ 0.25
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.25f, ese_color_get_g(text_hovered));
@@ -365,9 +365,9 @@ static void test_ese_gui_style_text_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 32, 32, 32, 255); // Very dark gray
 
-    ese_gui_style_set_text_pressed(style, new_color);
+    ese_gui_style_set_text_black(style, new_color);
     
-    EseColor *text_pressed = ese_gui_style_get_text_pressed(style);
+    EseColor *text_pressed = ese_gui_style_get_text_black(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(text_pressed, "Text pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.125f, ese_color_get_r(text_pressed)); // 32/255 ≈ 0.125
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.125f, ese_color_get_g(text_pressed));
@@ -458,8 +458,8 @@ static void test_ese_gui_style_ref(void) {
     ese_gui_style_ref(style);
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_gui_style_get_lua_ref_count(style), "Ref count should be 1 after ref");
 
-    ese_gui_style_ref(style);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(2, ese_gui_style_get_lua_ref_count(style), "Ref count should be 2 after second ref");
+    ese_gui_style_unref(style);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_gui_style_get_lua_ref_count(style), "Ref count should be 0 after second ref");
 
     ese_gui_style_destroy(style);
 }
@@ -479,7 +479,7 @@ static void test_ese_gui_style_copy(void) {
 
     EseColor *test_color = ese_color_create(g_engine);
     ese_color_set_byte(test_color, 255, 0, 0, 255);
-    ese_gui_style_set_background(original, test_color);
+    ese_gui_style_set_bg_light(original, test_color);
 
     EseGuiStyle *copy = ese_gui_style_copy(original);
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
@@ -492,8 +492,8 @@ static void test_ese_gui_style_copy(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_spacing(original), ese_gui_style_get_spacing(copy), "Spacing should be copied");
 
     // Test that colors are copied (not shared)
-    EseColor *original_bg = ese_gui_style_get_background(original);
-    EseColor *copy_bg = ese_gui_style_get_background(copy);
+    EseColor *original_bg = ese_gui_style_get_bg_light(original);
+    EseColor *copy_bg = ese_gui_style_get_bg_light(copy);
     TEST_ASSERT_NOT_EQUAL_MESSAGE(original_bg, copy_bg, "Color objects should be different");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, ese_color_get_r(original_bg), ese_color_get_r(copy_bg));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, ese_color_get_g(original_bg), ese_color_get_g(copy_bg));

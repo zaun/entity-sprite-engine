@@ -15,8 +15,8 @@
 
 #include "testing.h"
 
-#include "../src/graphics/gui.h"
-#include "../src/graphics/gui_private.h"
+#include "../src/graphics/gui/gui.h"
+#include "../src/graphics/gui/gui_private.h"
 #include "../src/graphics/draw_list.h"
 #include "../src/types/gui_style.h"
 #include "../src/types/color.h"
@@ -106,7 +106,7 @@ static void set_gui_style(EseGui *gui, EseGuiFlexDirection direction, EseGuiFlex
     ese_gui_style_set_padding_top(style, padding_top);
     ese_gui_style_set_padding_right(style, padding_right);
     ese_gui_style_set_padding_bottom(style, padding_bottom);
-    ese_gui_style_set_background(style, background);
+    ese_gui_style_set_bg_light(style, background);
     ese_color_destroy(background);
 }
 

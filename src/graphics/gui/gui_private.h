@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
-#include "graphics/gui.h"
+#include "graphics/gui/gui.h"
 #include "types/types.h"
 
 #define MAX_DRAW_COMMANDS 1024
