@@ -226,7 +226,7 @@ static void test_ese_ray_ref(void) {
 }
 
 static void test_ese_ray_copy_requires_source(void) {
-    ASSERT_DEATH(ese_ray_copy(NULL), "ese_ray_copy should abort with NULL ray");
+    TEST_ASSERT_DEATH(ese_ray_copy(NULL), "ese_ray_copy should abort with NULL ray");
 }
 
 static void test_ese_ray_copy(void) {

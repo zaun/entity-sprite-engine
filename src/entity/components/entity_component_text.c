@@ -5,7 +5,6 @@
 #include "scripting/lua_engine.h"
 #include "core/asset_manager.h"
 #include "core/engine.h"
-#include "core/engine_private.h"
 #include "entity/entity_private.h"
 #include "entity/entity.h"
 #include "types/point.h"
@@ -431,16 +430,13 @@ void _entity_component_text_draw(EseEntityComponentText *component, float screen
             break;
     }
 
-    // Get the asset manager from the engine
-    EseEngine *game_engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
-    EseAssetManager *asset_manager = game_engine->asset_manager;
+    // Get engine
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(component->base.lua->runtime, ENGINE_KEY);
     
-    if (asset_manager) {
-        // Use the font drawing function
-        font_draw_text(asset_manager, "console_font_10x20", component->text,
-                                   final_x, final_y, component->base.entity->draw_order,
-                                   texCallback, callback_user_data);
-    }
+    // Use the font drawing function
+    font_draw_text(engine, "console_font_10x20", component->text,
+                    final_x, final_y, component->base.entity->draw_order,
+                    texCallback, callback_user_data);
 }
 
 EseEntityComponent *entity_component_text_create(EseLuaEngine *engine, const char *text) {

@@ -88,7 +88,7 @@ static void *_worker_thread_main(void *ud) {
                 bool is_canceled = picked->canceled;
                 ese_mutex_unlock(q->jobs_mutex);
                 if (!is_canceled && picked->fn) {
-                    picked->result = picked->fn(worker->thread_data, picked->user_data);
+                    picked->result = picked->fn(worker->thread_data, picked->user_data, &is_canceled);
                 }
                 ese_mutex_lock(q->jobs_mutex);
                 picked->state = picked->canceled ? JOB_CANCELED : JOB_COMPLETED;
@@ -155,25 +155,29 @@ void ese_job_queue_destroy(EseJobQueue *q) {
     q->shutting_down = true;
     ese_cond_broadcast(q->global_cond);
     ese_mutex_unlock(q->global_mutex);
-	// Join all workers
+
+    // Join all workers
 	for (uint32_t i = 0; i < q->num_workers; i++) {
 		if (q->workers[i].thread) {
 			ese_thread_join(q->workers[i].thread);
 		}
 	}
-	// Run deinit
+
+    // Run deinit
 	if (q->deinit_fn) {
 		for (uint32_t i = 0; i < q->num_workers; i++) {
 			q->deinit_fn(q->workers[i].id, q->workers[i].thread_data);
 		}
 	}
-	// Cancel remaining jobs in global and worker queues and move them to completed for cleanup
+
+    // Cancel remaining jobs in global and worker queues and move them to completed for cleanup
 	void *v;
 	while ((v = dlist_pop_front(q->global_queue)) != NULL) {
 		EseJob *job = (EseJob*)v;
 		job->canceled = true;
 		dlist_append(q->completed_queue, job);
 	}
+
     // No per-worker queues in this design; nothing else to drain here
 	// Cleanup completed queue without callbacks
 	while ((v = dlist_pop_front(q->completed_queue)) != NULL) {
@@ -182,9 +186,11 @@ void ese_job_queue_destroy(EseJobQueue *q) {
 		int_hashmap_remove(q->jobs_by_id, (uint64_t)job->id);
 		_free_job_value(job);
 	}
+
     // Destroy structures
 	dlist_free(q->global_queue);
 	dlist_free(q->completed_queue);
+
     // free workers array
 	memory_manager.free(q->workers);
     int_hashmap_destroy(q->jobs_by_id);
@@ -332,7 +338,7 @@ int ese_job_queue_poll_callbacks(EseJobQueue *q) {
         ese_mutex_lock(q->jobs_mutex);
         bool canceled = job->canceled;
         ese_mutex_unlock(q->jobs_mutex);
-        if (!canceled && job->callback) {
+        if (!q->shutting_down && !canceled && job->callback) {
             job->callback(job->id, job->result);
             processed++;
         }

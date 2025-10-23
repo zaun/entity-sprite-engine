@@ -131,7 +131,7 @@ static void test_lua_value_create_nil(void) {
     }
 
     // Test nil creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_nil(NULL), "lua_value_create_nil should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_nil(NULL), "lua_value_create_nil should abort with NULL name");
 }
 
 static void test_lua_value_create_bool(void) {
@@ -154,7 +154,7 @@ static void test_lua_value_create_bool(void) {
     }
 
     // Test boolean creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_bool(NULL, true), "lua_value_create_bool should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_bool(NULL, true), "lua_value_create_bool should abort with NULL name");
 }
 
 static void test_lua_value_create_number(void) {
@@ -168,7 +168,7 @@ static void test_lua_value_create_number(void) {
     }
 
     // Test number creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_number(NULL, -99.75), "lua_value_create_number should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_number(NULL, -99.75), "lua_value_create_number should abort with NULL name");
 }
 
 static void test_lua_value_create_string(void) {
@@ -182,7 +182,7 @@ static void test_lua_value_create_string(void) {
     }
 
     // Test string creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_string(NULL, "test"), "lua_value_create_string should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_string(NULL, "test"), "lua_value_create_string should abort with NULL name");
 }
 
 static void test_lua_value_create_table(void) {
@@ -195,7 +195,7 @@ static void test_lua_value_create_table(void) {
     }
 
     // Test table creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_table(NULL), "lua_value_create_table should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_table(NULL), "lua_value_create_table should abort with NULL name");
 }
 
 static void test_lua_value_create_ref(void) {
@@ -208,7 +208,7 @@ static void test_lua_value_create_ref(void) {
     }
 
     // Test reference creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_ref(NULL, 456), "lua_value_create_ref should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_ref(NULL, 456), "lua_value_create_ref should abort with NULL name");
 }
 
 static void test_lua_value_create_userdata(void) {
@@ -223,7 +223,7 @@ static void test_lua_value_create_userdata(void) {
     }
 
     // Test userdata creation with NULL name - should assert
-    ASSERT_DEATH(lua_value_create_userdata(NULL, test_data), "lua_value_create_userdata should abort with NULL name");
+    TEST_ASSERT_DEATH(lua_value_create_userdata(NULL, test_data), "lua_value_create_userdata should abort with NULL name");
 }
 
 static void test_lua_value_set_nil(void) {
@@ -510,7 +510,7 @@ static void test_lua_value_copy(void) {
     }
     
     // Test copying NULL - this should trigger log_assert
-    ASSERT_DEATH(lua_value_copy(NULL), "copying NULL should trigger log_assert");
+    TEST_ASSERT_DEATH(lua_value_copy(NULL), "copying NULL should trigger log_assert");
 }
 
 static void test_lua_value_destroy(void) {
@@ -600,20 +600,20 @@ static void test_lua_value_logging(void) {
 
 static void test_lua_value_edge_cases(void) {
     // Test setting values on NULL - these should trigger log_assert
-    ASSERT_DEATH(lua_value_set_nil(NULL), "lua_value_set_nil should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_bool(NULL, true), "lua_value_set_bool should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_number(NULL, 42.0), "lua_value_set_number should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_string(NULL, "test"), "lua_value_set_string should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_table(NULL), "lua_value_set_table should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_ref(NULL, 123), "lua_value_set_ref should abort when called with NULL");
-    ASSERT_DEATH(lua_value_set_userdata(NULL, (void*)0x12345678), "lua_value_set_userdata should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_nil(NULL), "lua_value_set_nil should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_bool(NULL, true), "lua_value_set_bool should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_number(NULL, 42.0), "lua_value_set_number should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_string(NULL, "test"), "lua_value_set_string should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_table(NULL), "lua_value_set_table should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_ref(NULL, 123), "lua_value_set_ref should abort when called with NULL");
+    TEST_ASSERT_DEATH(lua_value_set_userdata(NULL, (void*)0x12345678), "lua_value_set_userdata should abort when called with NULL");
     
     // Test pushing NULL to table
     EseLuaValue *table = lua_value_create_table("edge_test");
     TEST_ASSERT_NOT_NULL_MESSAGE(table, "Table should be created");
     
     if (table) {
-        ASSERT_DEATH(lua_value_push(table, NULL, false), "lua_value_push should abort when called with NULL item");
+        TEST_ASSERT_DEATH(lua_value_push(table, NULL, false), "lua_value_push should abort when called with NULL item");
         lua_value_destroy(table);
     }
     

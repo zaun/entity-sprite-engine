@@ -49,7 +49,7 @@ void tearDown(void) {
 // =====================
 
 void test_entity_component_text_create_null_engine(void) {
-    ASSERT_DEATH((entity_component_text_create(NULL, "hello")), "entity_component_text_create called with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_text_create(NULL, "hello")), "entity_component_text_create called with NULL engine");
 }
 
 void test_entity_component_text_create_basic(void) {
@@ -75,7 +75,7 @@ void test_entity_component_text_create_basic(void) {
 }
 
 void test_entity_component_text_copy_null_src(void) {
-    ASSERT_DEATH((_entity_component_text_copy(NULL)), "_entity_component_text_copy called with NULL src");
+    TEST_ASSERT_DEATH((_entity_component_text_copy(NULL)), "_entity_component_text_copy called with NULL src");
 }
 
 void test_entity_component_text_copy_basic(void) {
@@ -116,12 +116,12 @@ void test_entity_component_text_update_and_destroy(void) {
 }
 
 void test_entity_component_text_update_null_args(void) {
-    ASSERT_DEATH((_entity_component_text_update(NULL, test_entity, 0.0f)), "_entity_component_text_update called with NULL component");
-    ASSERT_DEATH((_entity_component_text_update((EseEntityComponentText *)0x1, NULL, 0.0f)), "_entity_component_text_update called with NULL entity");
+    TEST_ASSERT_DEATH((_entity_component_text_update(NULL, test_entity, 0.0f)), "_entity_component_text_update called with NULL component");
+    TEST_ASSERT_DEATH((_entity_component_text_update((EseEntityComponentText *)0x1, NULL, 0.0f)), "_entity_component_text_update called with NULL entity");
 }
 
 void test_entity_component_text_destroy_null(void) {
-    ASSERT_DEATH((_entity_component_text_destroy(NULL)), "_entity_component_text_destroy called with NULL src");
+    TEST_ASSERT_DEATH((_entity_component_text_destroy(NULL)), "_entity_component_text_destroy called with NULL src");
 }
 
 // =====================

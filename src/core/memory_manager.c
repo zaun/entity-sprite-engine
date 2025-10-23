@@ -6,6 +6,7 @@
 #include <execinfo.h>
 #include <stdalign.h>
 #include "core/memory_manager.h"
+#include "utility/profile.h"
 #include "utility/log.h"
 
 #define DEBUG_MEMORY_MANAGER 0
@@ -503,6 +504,7 @@ static void _mm_destroy(void) {
     _mm_report();
     
     // Free any remaining allocation tracking entries
+    profile_start(PROFILE_MEMORY_MANAGER);
     for (size_t i = 0; i < ALLOC_TABLE_SIZE; i++) {
         AllocEntry *entry = g_memory_manager->alloc_table[i];
         while (entry) {
@@ -511,7 +513,7 @@ static void _mm_destroy(void) {
             entry = next;
         }
     }
-    
+
 #if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
     // Free any remaining freed tracking entries
     for (size_t i = 0; i < ALLOC_TABLE_SIZE; i++) {
@@ -523,6 +525,8 @@ static void _mm_destroy(void) {
         }
     }
 #endif
+
+    profile_stop(PROFILE_MEMORY_MANAGER, "mm_destroy_free");
     
     free(g_memory_manager);
     g_memory_manager = NULL;

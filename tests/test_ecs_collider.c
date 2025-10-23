@@ -52,7 +52,7 @@ void test_entity_component_collider_create(void) {
 }
 
 void test_entity_component_collider_create_null_engine(void) {
-    ASSERT_DEATH((entity_component_collider_create(NULL)), "entity_component_collider_create called with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_collider_create(NULL)), "entity_component_collider_create called with NULL engine");
 }
 
 void test_entity_component_collider_draw_debug_getter_setter(void) {
@@ -73,8 +73,8 @@ void test_entity_component_collider_draw_debug_getter_setter(void) {
 }
 
 void test_entity_component_collider_draw_debug_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_get_draw_debug(NULL)), "entity_component_collider_get_draw_debug called with NULL collider");
-    ASSERT_DEATH((entity_component_collider_set_draw_debug(NULL, true)), "entity_component_collider_set_draw_debug called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_get_draw_debug(NULL)), "entity_component_collider_get_draw_debug called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_set_draw_debug(NULL, true)), "entity_component_collider_set_draw_debug called with NULL collider");
 }
 
 void test_entity_component_collider_rects_add(void) {
@@ -110,8 +110,8 @@ void test_entity_component_collider_rects_add_null_params(void) {
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     EseRect *rect = ese_rect_create(test_engine);
     
-    ASSERT_DEATH((entity_component_collider_rects_add(NULL, rect)), "entity_component_collider_rects_add called with NULL collider");
-    ASSERT_DEATH((entity_component_collider_rects_add(collider, NULL)), "entity_component_collider_rects_add called with NULL rect");
+    TEST_ASSERT_DEATH((entity_component_collider_rects_add(NULL, rect)), "entity_component_collider_rects_add called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_rects_add(collider, NULL)), "entity_component_collider_rects_add called with NULL rect");
     
     entity_component_destroy(component);
     ese_rect_destroy(rect);
@@ -141,7 +141,7 @@ void test_entity_component_collider_ref_unref(void) {
 }
 
 void test_entity_component_collider_ref_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_ref(NULL)), "entity_component_collider_ref called with NULL component");
+    TEST_ASSERT_DEATH((entity_component_collider_ref(NULL)), "entity_component_collider_ref called with NULL component");
 }
 
 void test_entity_component_collider_copy(void) {
@@ -200,7 +200,7 @@ void test_entity_component_collider_copy(void) {
 }
 
 void test_entity_component_collider_copy_null_src(void) {
-    ASSERT_DEATH((_entity_component_collider_copy(NULL)), "_entity_component_collider_copy called with NULL src");
+    TEST_ASSERT_DEATH((_entity_component_collider_copy(NULL)), "_entity_component_collider_copy called with NULL src");
 }
 
 void test_entity_component_collider_destroy(void) {
@@ -218,7 +218,7 @@ void test_entity_component_collider_destroy(void) {
 }
 
 void test_entity_component_collider_destroy_null_collider(void) {
-    ASSERT_DEATH((_entity_component_collider_destroy(NULL)), "_entity_component_collider_destroy called with NULL src");
+    TEST_ASSERT_DEATH((_entity_component_collider_destroy(NULL)), "_entity_component_collider_destroy called with NULL src");
 }
 
 void test_entity_component_collider_update_bounds(void) {
@@ -291,7 +291,7 @@ void test_entity_component_collider_update_bounds_no_rects(void) {
 }
 
 void test_entity_component_collider_update_bounds_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_update_bounds(NULL)), "entity_component_collider_update_bounds called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_update_bounds(NULL)), "entity_component_collider_update_bounds called with NULL collider");
 }
 
 void test_entity_component_collider_rect_updated(void) {
@@ -305,7 +305,7 @@ void test_entity_component_collider_rect_updated(void) {
 }
 
 void test_entity_component_collider_rect_updated_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_rect_updated(NULL)), "entity_component_collider_rect_updated called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_rect_updated(NULL)), "entity_component_collider_rect_updated called with NULL collider");
 }
 
 void test_entity_component_collider_position_changed(void) {
@@ -319,7 +319,7 @@ void test_entity_component_collider_position_changed(void) {
 }
 
 void test_entity_component_collider_position_changed_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_position_changed(NULL)), "entity_component_collider_position_changed called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_position_changed(NULL)), "entity_component_collider_position_changed called with NULL collider");
 }
 
 void test_entity_component_collider_update_world_bounds_only(void) {
@@ -364,7 +364,7 @@ void test_entity_component_collider_update_world_bounds_only_no_entity(void) {
 }
 
 void test_entity_component_collider_update_world_bounds_only_null_collider(void) {
-    ASSERT_DEATH((entity_component_collider_update_world_bounds_only(NULL)), "entity_component_collider_update_world_bounds_only called with NULL collider");
+    TEST_ASSERT_DEATH((entity_component_collider_update_world_bounds_only(NULL)), "entity_component_collider_update_world_bounds_only called with NULL collider");
 }
 
 // Lua API Tests
@@ -382,7 +382,7 @@ void test_entity_component_collider_lua_init(void) {
 }
 
 void test_entity_component_collider_lua_init_null_engine(void) {
-    ASSERT_DEATH((_entity_component_collider_init(NULL)), "_entity_component_collider_init called with NULL engine");
+    TEST_ASSERT_DEATH((_entity_component_collider_init(NULL)), "_entity_component_collider_init called with NULL engine");
 }
 
 void test_entity_component_collider_lua_new(void) {
@@ -449,7 +449,7 @@ void test_entity_component_collider_lua_get(void) {
 }
 
 void test_entity_component_collider_lua_get_null_lua_state(void) {
-    ASSERT_DEATH((_entity_component_collider_get(NULL, 1)), "_entity_component_collider_get called with NULL Lua state");
+    TEST_ASSERT_DEATH((_entity_component_collider_get(NULL, 1)), "_entity_component_collider_get called with NULL Lua state");
 }
 
 void test_entity_component_collider_lua_properties(void) {

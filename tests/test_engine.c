@@ -451,19 +451,19 @@ static void test_engine_console_functions(void) {
 
 static void test_engine_null_pointer_handling(void) {
     // Test that functions assert on NULL engine
-    ASSERT_DEATH((engine_destroy(NULL)), "engine_destroy should assert on NULL engine");
-    ASSERT_DEATH((engine_add_entity(NULL, NULL)), "engine_add_entity should assert on NULL engine");
-    ASSERT_DEATH((engine_remove_entity(NULL, NULL)), "engine_remove_entity should assert on NULL engine");
-    ASSERT_DEATH((engine_clear_entities(NULL, false)), "engine_clear_entities should assert on NULL engine");
-    ASSERT_DEATH((engine_start(NULL)), "engine_start should assert on NULL engine");
-    ASSERT_DEATH((engine_update(NULL, 0.0f, NULL)), "engine_update should assert on NULL engine");
-    ASSERT_DEATH((engine_detect_collision_rect(NULL, NULL, 0)), "engine_detect_collision_rect should assert on NULL engine");
-    ASSERT_DEATH((engine_get_sprite(NULL, NULL)), "engine_get_sprite should assert on NULL engine");
-    ASSERT_DEATH((engine_find_by_tag(NULL, NULL, 0)), "engine_find_by_tag should assert on NULL engine");
-    ASSERT_DEATH((engine_find_by_id(NULL, NULL)), "engine_find_by_id should assert on NULL engine");
-    ASSERT_DEATH((engine_get_entity_count(NULL)), "engine_get_entity_count should assert on NULL engine");
-    ASSERT_DEATH((engine_add_to_console(NULL, ESE_CONSOLE_NORMAL, NULL, NULL)), "engine_add_to_console should assert on NULL engine");
-    ASSERT_DEATH((engine_show_console(NULL, false)), "engine_show_console should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_destroy(NULL)), "engine_destroy should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_add_entity(NULL, NULL)), "engine_add_entity should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_remove_entity(NULL, NULL)), "engine_remove_entity should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_clear_entities(NULL, false)), "engine_clear_entities should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_start(NULL)), "engine_start should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_update(NULL, 0.0f, NULL)), "engine_update should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_detect_collision_rect(NULL, NULL, 0)), "engine_detect_collision_rect should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_get_sprite(NULL, NULL)), "engine_get_sprite should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_find_by_tag(NULL, NULL, 0)), "engine_find_by_tag should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_find_by_id(NULL, NULL)), "engine_find_by_id should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_get_entity_count(NULL)), "engine_get_entity_count should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_add_to_console(NULL, ESE_CONSOLE_NORMAL, NULL, NULL)), "engine_add_to_console should assert on NULL engine");
+    TEST_ASSERT_DEATH((engine_show_console(NULL, false)), "engine_show_console should assert on NULL engine");
 }
 
 static void test_engine_edge_cases(void) {

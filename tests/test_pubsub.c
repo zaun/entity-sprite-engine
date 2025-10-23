@@ -399,7 +399,7 @@ static void test_pubsub_null_handling(void) {
     EseLuaValue *data = lua_value_create_string("test", "test");
     
     // Test with NULL data - should abort in debug builds
-    ASSERT_DEATH((engine_pubsub_pub(g_engine, "test_topic", NULL)), "Should abort on NULL data");
+    TEST_ASSERT_DEATH((engine_pubsub_pub(g_engine, "test_topic", NULL)), "Should abort on NULL data");
     
     lua_value_destroy(data);
     entity_destroy(entity);

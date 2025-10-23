@@ -131,7 +131,7 @@ static void test_ese_camera_sizeof(void) {
 }
 
 static void test_ese_camera_create_requires_engine(void) {
-    ASSERT_DEATH(ese_camera_create(NULL), "ese_camera_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_camera_create(NULL), "ese_camera_create should abort with NULL engine");
 }
 
 static void test_ese_camera_create(void) {

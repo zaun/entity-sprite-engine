@@ -9,16 +9,16 @@
 #include "../src/scripting/lua_engine.h"
 
 /*
-  ASSERT_DEATH(expr, msg);
+  TEST_ASSERT_DEATH(expr, msg);
 
   Notes:
   - Message comes last to match Unity style.
   - If expr contains commas (e.g. fn(a,b)) you MUST wrap expr in parentheses:
-      ASSERT_DEATH((fn(a,b)), "message");
+      TEST_ASSERT_DEATH((fn(a,b)), "message");
   - POSIX-only (uses fork/wait/signals).
 */
 
-#define ASSERT_DEATH(expr, msg) do {                                \
+#define TEST_ASSERT_DEATH(expr, msg) do {                                \
     pid_t _pid = fork();                                            \
     TEST_ASSERT_MESSAGE(_pid != -1, "fork failed for death test");  \
     if (_pid == 0) {                                                \
@@ -38,6 +38,16 @@
             TEST_FAIL_MESSAGE(msg);                                 \
         }                                                           \
     }                                                               \
+} while (0)
+
+#define TEST_ASSERT_LUA(L, code, message) do {                           \
+    int result = luaL_dostring(L, code);                            \
+    if (result != LUA_OK) {                                         \
+        const char *error_msg = lua_tostring(L, -1);                \
+        printf("Lua error: %s\n", error_msg ? error_msg : "unknown error"); \
+        lua_pop(L, 1);                                              \
+    }                                                               \
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, result, message);         \
 } while (0)
 
 /* Helper function to create and initialize engine */

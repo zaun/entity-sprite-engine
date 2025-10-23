@@ -1,6 +1,6 @@
 // font.c
 #include "graphics/font.h"
-#include "core/asset_manager.h"
+#include "core/engine.h"
 #include "core/memory_manager.h"
 #include "graphics/sprite.h"
 #include "platform/renderer.h"
@@ -13,11 +13,11 @@
 #define FONT_CHAR_HEIGHT 20
 #define FONT_SPACING 1
 
-void font_draw_text(EseAssetManager *am, const char *font, const char *text,
+void font_draw_text(EseEngine *engine, const char *font, const char *text,
                                  float start_x, float start_y, uint64_t draw_order,
                                  FontDrawTextureCallback texCallback, void *callback_user_data)
 {
-    log_assert("FONT", am, "font_draw_text called with NULL asset manager");
+    log_assert("FONT", engine, "font_draw_text called with NULL engine");
     log_assert("FONT", font, "font_draw_text called with NULL font name");
     log_assert("FONT", text, "font_draw_text called with NULL text");
     log_assert("FONT", texCallback, "font_draw_text called with NULL callback");
@@ -35,7 +35,7 @@ void font_draw_text(EseAssetManager *am, const char *font, const char *text,
             snprintf(sprite_name, sizeof(sprite_name), "fonts:%s_%03d", font, (int)c);
             
             // Get the sprite from asset manager (same as original)
-            EseSprite *letter = asset_manager_get_sprite(am, sprite_name);
+            EseSprite *letter = engine_get_sprite(engine, sprite_name);
             
             if (letter) {
                 const char *texture_id;
@@ -55,11 +55,11 @@ void font_draw_text(EseAssetManager *am, const char *font, const char *text,
     }
 }
 
-void font_draw_text_scaled(EseAssetManager *am, const char *font, const char *text,
+void font_draw_text_scaled(EseEngine *engine, const char *font, const char *text,
                            float start_x, float start_y, uint64_t draw_order,
                            float target_height, FontDrawTextureCallback texCallback, void *user_data)
 {
-    log_assert("FONT", am, "font_draw_text_scaled called with NULL asset manager");
+    log_assert("FONT", engine, "font_draw_text_scaled called with NULL engine");
     log_assert("FONT", font, "font_draw_text_scaled called with NULL font name");
     log_assert("FONT", text, "font_draw_text_scaled called with NULL text");
     log_assert("FONT", texCallback, "font_draw_text_scaled called with NULL callback");
@@ -81,7 +81,7 @@ void font_draw_text_scaled(EseAssetManager *am, const char *font, const char *te
             snprintf(sprite_name, sizeof(sprite_name), "fonts:%s_%03d", font, (int)c);
             
             // Get the sprite from asset manager
-            EseSprite *letter = asset_manager_get_sprite(am, sprite_name);
+            EseSprite *letter = engine_get_sprite(engine, sprite_name);
             
             if (letter) {
                 const char *texture_id;

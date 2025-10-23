@@ -107,7 +107,7 @@ static void test_ese_tileset_sizeof(void) {
 }
 
 static void test_ese_tileset_create_requires_engine(void) {
-    ASSERT_DEATH(ese_tileset_create(NULL), "ese_tileset_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_tileset_create(NULL), "ese_tileset_create should abort with NULL engine");
 }
 
 static void test_ese_tileset_create(void) {
@@ -129,7 +129,7 @@ static void test_ese_tileset_create(void) {
 
 
 static void test_ese_tileset_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_tileset_copy(NULL), "ese_tileset_copy should abort with NULL tileset");
+    TEST_ASSERT_DEATH(ese_tileset_copy(NULL), "ese_tileset_copy should abort with NULL tileset");
 }
 
 static void test_ese_tileset_copy(void) {

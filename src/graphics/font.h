@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // Forward declarations
-typedef struct EseAssetManager EseAssetManager;
+typedef struct EseEngine EseEngine;
 typedef struct EseRenderer EseRenderer;
 
 /**
@@ -24,11 +24,11 @@ typedef void (*FontDrawTextureCallback)(float screen_x, float screen_y, float sc
                                        void *user_data);
 
 // Font rendering functions
-void font_draw_text(EseAssetManager *am, const char *font, const char *text,
+void font_draw_text(EseEngine *engine, const char *font, const char *text,
                     float start_x, float start_y, uint64_t draw_order,
                     FontDrawTextureCallback texCallback, void *callback_user_data);
 
-void font_draw_text_scaled(EseAssetManager *am, const char *font, const char *text,
+void font_draw_text_scaled(EseEngine *engine, const char *font, const char *text,
                            float start_x, float start_y, uint64_t draw_order,
                            float target_height, FontDrawTextureCallback texCallback, void *user_data);
 

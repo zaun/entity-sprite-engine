@@ -61,7 +61,8 @@ static void worker_deinit(ese_worker_id_t worker_id, void *thread_data) {
 }
 
 /* Job that returns user_data->value + worker_id */
-static void *job_add_worker_id(void *thread_data, void *user_data) {
+static void *job_add_worker_id(void *thread_data, void *user_data, volatile bool *canceled) {
+    (void)canceled;
     WorkerInitData *wd = (WorkerInitData *)thread_data;
     IntBox *in = (IntBox *)user_data;
     IntBox *out = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
@@ -71,8 +72,9 @@ static void *job_add_worker_id(void *thread_data, void *user_data) {
 }
 
 /* Job that blocks until JobBlocker.go is set */
-static void *job_block_until_go(void *thread_data, void *user_data) {
+static void *job_block_until_go(void *thread_data, void *user_data, volatile bool *canceled) {
     (void)thread_data;
+    (void)canceled;
     JobBlocker *blk = (JobBlocker *)user_data;
     ese_mutex_lock(blk->mutex);
     blk->started = true;
@@ -86,8 +88,9 @@ static void *job_block_until_go(void *thread_data, void *user_data) {
 }
 
 /* Simple immediate job: returns user_data->value * 2 */
-static void *job_double(void *thread_data, void *user_data) {
+static void *job_double(void *thread_data, void *user_data, volatile bool *canceled) {
     (void)thread_data;
+    (void)canceled;
     IntBox *in = (IntBox *)user_data;
     IntBox *out = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
     out->value = in ? (in->value * 2) : 0;
@@ -266,7 +269,7 @@ static void test_poll_when_empty_returns_zero(void) {
 
 /* This test attempts to trigger cancel while a worker is scanning under global lock.
  * It won't deterministically deadlock, but running repeatedly will catch lock-order bugs. */
-static void *job_yield_then_return(void *thread_data, void *user_data) {
+static void *job_yield_then_return(void *thread_data, void *user_data, volatile bool *canceled) {
     (void)thread_data; (void)user_data;
     // brief work
     return NULL;

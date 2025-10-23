@@ -183,7 +183,7 @@ static void test_ese_vector_ref(void) {
 }
 
 static void test_ese_vector_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_vector_copy(NULL), "ese_vector_copy should abort with NULL vector");
+    TEST_ASSERT_DEATH(ese_vector_copy(NULL), "ese_vector_copy should abort with NULL vector");
 }
 
 static void test_ese_vector_copy(void) {

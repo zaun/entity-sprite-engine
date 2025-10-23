@@ -159,7 +159,7 @@ static void test_ese_color_sizeof(void) {
 }
 
 static void test_ese_color_create_requires_engine(void) {
-    ASSERT_DEATH(ese_color_create(NULL), "ese_color_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_color_create(NULL), "ese_color_create should abort with NULL engine");
 }
 
 static void test_ese_color_create(void) {
@@ -249,7 +249,7 @@ static void test_ese_color_ref(void) {
 }
 
 static void test_ese_color_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_color_copy(NULL), "ese_color_copy should abort with NULL color");
+    TEST_ASSERT_DEATH(ese_color_copy(NULL), "ese_color_copy should abort with NULL color");
 }
 
 static void test_ese_color_copy(void) {

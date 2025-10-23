@@ -164,7 +164,7 @@ static void test_ese_arc_sizeof(void) {
 }
 
 static void test_ese_arc_create_requires_engine(void) {
-    ASSERT_DEATH(ese_arc_create(NULL), "ese_arc_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_arc_create(NULL), "ese_arc_create should abort with NULL engine");
 }
 
 static void test_ese_arc_create(void) {

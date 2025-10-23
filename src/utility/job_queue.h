@@ -72,7 +72,7 @@ typedef void *(*worker_thread_init_function)(ese_worker_id_t worker_id);
 // Called once for each worker thread at queue destruction, cleans up and freed thread data
 typedef void (*worker_thread_deinit_function)(ese_worker_id_t worker_id, void *thread_data);
 // Called by each worker thread to execute a job, returns result
-typedef void *(*worker_thread_job_function)(void *thread_data, void *user_data);
+typedef void *(*worker_thread_job_function)(void *thread_data, void *user_data, volatile bool *canceled);
 // Called by the main thread to invoke the callback for a completed job
 typedef void (*main_thread_job_callback)(ese_job_id_t job_id, void *result);
 // Called by the main thread to cleanup a completed job's data

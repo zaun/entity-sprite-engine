@@ -76,7 +76,7 @@ void tearDown(void) {
 
 // C API Tests
 void test_entity_component_lua_create_null_engine(void) {
-    ASSERT_DEATH((entity_component_lua_create(NULL, "test")), "entity_component_lua_create should abort with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_lua_create(NULL, "test")), "entity_component_lua_create should abort with NULL engine");
 }
 
 void test_entity_component_lua_create_basic(void) {
@@ -103,7 +103,7 @@ void test_entity_component_lua_create_null_script(void) {
 }
 
 void test_entity_component_lua_ref_null_component(void) {
-    ASSERT_DEATH((entity_component_lua_ref(NULL)), "entity_component_lua_ref should abort with NULL component");
+    TEST_ASSERT_DEATH((entity_component_lua_ref(NULL)), "entity_component_lua_ref should abort with NULL component");
 }
 
 void test_entity_component_lua_ref_basic(void) {
@@ -126,7 +126,7 @@ void test_entity_component_lua_ref_basic(void) {
 }
 
 void test_entity_component_lua_unref_null_component(void) {
-    ASSERT_DEATH((entity_component_lua_unref(NULL)), "entity_component_lua_unref should abort with NULL component");
+    TEST_ASSERT_DEATH((entity_component_lua_unref(NULL)), "entity_component_lua_unref should abort with NULL component");
 }
 
 void test_entity_component_lua_unref_basic(void) {
@@ -151,14 +151,14 @@ void test_entity_component_lua_unref_basic(void) {
 }
 
 void test_entity_component_lua_run_null_component(void) {
-    ASSERT_DEATH((entity_component_lua_run(NULL, test_entity, "test", 0, NULL)), "entity_component_lua_run should abort with NULL component");
+    TEST_ASSERT_DEATH((entity_component_lua_run(NULL, test_entity, "test", 0, NULL)), "entity_component_lua_run should abort with NULL component");
 }
 
 void test_entity_component_lua_run_null_entity(void) {
     EseEntityComponent *component = entity_component_lua_create(test_engine, "test_script");
     EseEntityComponentLua *lua_comp = (EseEntityComponentLua *)component->data;
     
-    ASSERT_DEATH((entity_component_lua_run(lua_comp, NULL, "test", 0, NULL)), "entity_component_lua_run should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_component_lua_run(lua_comp, NULL, "test", 0, NULL)), "entity_component_lua_run should abort with NULL entity");
     
     entity_component_destroy(component);
 }

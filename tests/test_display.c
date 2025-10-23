@@ -336,7 +336,7 @@ static void test_ese_display_ref(void) {
 }
 
 static void test_ese_display_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_display_copy(NULL), "ese_display_copy should abort with NULL display");
+    TEST_ASSERT_DEATH(ese_display_copy(NULL), "ese_display_copy should abort with NULL display");
 }
 
 static void test_ese_display_copy(void) {

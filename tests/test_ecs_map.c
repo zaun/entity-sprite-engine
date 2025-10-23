@@ -50,7 +50,7 @@ void test_entity_component_map_create(void) {
 }
 
 void test_entity_component_map_create_null_engine(void) {
-    ASSERT_DEATH((entity_component_map_create(NULL)), "entity_component_map_create called with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_map_create(NULL)), "entity_component_map_create called with NULL engine");
 }
 
 void test_entity_component_map_ref_unref(void) {

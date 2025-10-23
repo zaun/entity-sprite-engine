@@ -337,7 +337,7 @@ static void test_ese_point_ref(void) {
 }
 
 static void test_ese_point_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_point_copy(NULL), "ese_point_copy should abort with NULL point");
+    TEST_ASSERT_DEATH(ese_point_copy(NULL), "ese_point_copy should abort with NULL point");
 }
 
 static void test_ese_point_copy(void) {

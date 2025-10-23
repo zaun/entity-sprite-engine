@@ -108,7 +108,7 @@ int main(void) {
 */
 
 static void test_collision_hit_create_requires_engine(void) {
-    ASSERT_DEATH((ese_collision_hit_create(NULL)), "ese_collision_hit_create should abort with NULL engine");
+    TEST_ASSERT_DEATH((ese_collision_hit_create(NULL)), "ese_collision_hit_create should abort with NULL engine");
 }
 
 static void test_collision_hit_create_defaults(void) {
@@ -122,7 +122,7 @@ static void test_collision_hit_create_defaults(void) {
     TEST_ASSERT_NULL_MESSAGE(ese_collision_hit_get_rect(hit), "Default rect should be NULL for COLLIDER kind");
 
     // get_map on COLLIDER kind should abort
-    ASSERT_DEATH((ese_collision_hit_get_map(hit)), "ese_collision_hit_get_map should abort for COLLIDER kind");
+    TEST_ASSERT_DEATH((ese_collision_hit_get_map(hit)), "ese_collision_hit_get_map should abort for COLLIDER kind");
 
     ese_collision_hit_destroy(hit);
 }
@@ -187,11 +187,11 @@ static void test_collision_hit_map_set_get_and_kind_switch(void) {
     TEST_ASSERT_EQUAL_PTR_MESSAGE(map, ese_collision_hit_get_map(hit), "Map getter should return value set");
 
     // Setting rect in MAP kind should abort (argument value doesn't matter)
-    ASSERT_DEATH((ese_collision_hit_set_rect(hit, NULL)), "ese_collision_hit_set_rect should abort for MAP kind");
+    TEST_ASSERT_DEATH((ese_collision_hit_set_rect(hit, NULL)), "ese_collision_hit_set_rect should abort for MAP kind");
 
     // Switching back to COLLIDER should clear map-side data (access should abort)
     ese_collision_hit_set_kind(hit, COLLISION_KIND_COLLIDER);
-    ASSERT_DEATH((ese_collision_hit_get_map(hit)), "ese_collision_hit_get_map should abort after switching to COLLIDER");
+    TEST_ASSERT_DEATH((ese_collision_hit_get_map(hit)), "ese_collision_hit_get_map should abort after switching to COLLIDER");
 
     ese_map_destroy(map);
     ese_collision_hit_destroy(hit);
@@ -201,11 +201,11 @@ static void test_collision_hit_invalid_access_asserts(void) {
     EseCollisionHit *hit = ese_collision_hit_create(g_engine);
 
     // In COLLIDER kind, get_map should abort (already tested), and set_map should abort
-    ASSERT_DEATH((ese_collision_hit_set_map(hit, NULL)), "ese_collision_hit_set_map should abort for COLLIDER kind");
+    TEST_ASSERT_DEATH((ese_collision_hit_set_map(hit, NULL)), "ese_collision_hit_set_map should abort for COLLIDER kind");
 
     // Switch to MAP and ensure rect accessors assert
     ese_collision_hit_set_kind(hit, COLLISION_KIND_MAP);
-    ASSERT_DEATH((ese_collision_hit_get_rect(hit)), "ese_collision_hit_get_rect should abort for MAP kind");
+    TEST_ASSERT_DEATH((ese_collision_hit_get_rect(hit)), "ese_collision_hit_get_rect should abort for MAP kind");
 
     ese_collision_hit_destroy(hit);
 }

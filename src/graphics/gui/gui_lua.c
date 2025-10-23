@@ -3,6 +3,11 @@
 #include "core/memory_manager.h"
 #include "graphics/gui/gui_lua.h"
 #include "graphics/gui/gui_private.h"
+#include "graphics/gui/gui_widget.h"
+#include "graphics/gui/gui_widget_flex.h"
+#include "graphics/gui/gui_widget_stack.h"
+#include "graphics/gui/gui_widget_button.h"
+#include "graphics/gui/gui_widget_image.h"
 #include "graphics/gui/gui.h"
 #include "types/gui_style.h"
 #include "types/gui_style_lua.h"
@@ -12,15 +17,12 @@
 // Private functions
 static int _ese_gui_lua_begin(lua_State *L);
 static int _ese_gui_lua_end(lua_State *L);
-static int _ese_gui_lua_open_flex(lua_State *L);
-static int _ese_gui_lua_close_flex(lua_State *L);
-static int _ese_gui_lua_open_stack(lua_State *L);
-static int _ese_gui_lua_close_stack(lua_State *L);
-static int _ese_gui_lua_push_button(lua_State *L);
-static int _ese_gui_lua_push_image(lua_State *L);
-static int _ese_gui_lua_get_style(lua_State *L);
-static int _ese_gui_lua_set_style(lua_State *L);
-static int _ese_gui_lua_reset_style(lua_State *L);
+// Widget-specific Lua is registered by each widget vtable via _ese_widget_register
+static int _ese_gui_lua_get_default_style(lua_State *L);
+static int _ese_gui_lua_set_default_style(lua_State *L);
+static int _ese_gui_lua_reset_default_style(lua_State *L);
+static int _ese_gui_lua_push_variant(lua_State *L);
+static int _ese_gui_lua_pop_variant(lua_State *L);
 
 typedef struct EseGuiLuaButtonCallback {
     lua_State *L;
@@ -41,7 +43,7 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
     
     log_debug("GUI_LUA", "Initializing GUI Lua bindings");
     
-    // Create global GUI table with constructor
+    // Create global GUI table with session begin/end; widgets register their own functions
     lua_getglobal(engine->runtime, "GUI");
     if (lua_isnil(engine->runtime, -1)) {
         lua_pop(engine->runtime, 1);
@@ -51,59 +53,22 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
         lua_setfield(engine->runtime, -2, "start");
         lua_pushcfunction(engine->runtime, _ese_gui_lua_end);
         lua_setfield(engine->runtime, -2, "finish"); // end is a reserved keyword
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_open_flex);
-        lua_setfield(engine->runtime, -2, "open_flex");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_close_flex);
-        lua_setfield(engine->runtime, -2, "close_flex");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_open_stack);
-        lua_setfield(engine->runtime, -2, "open_stack");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_close_stack);
-        lua_setfield(engine->runtime, -2, "close_stack");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_push_button);
-        lua_setfield(engine->runtime, -2, "push_button");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_push_image);
-        lua_setfield(engine->runtime, -2, "push_image");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_get_style);
-        lua_setfield(engine->runtime, -2, "get_style");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_set_style);
-        lua_setfield(engine->runtime, -2, "set_style");
-        lua_pushcfunction(engine->runtime, _ese_gui_lua_reset_style);
-        lua_setfield(engine->runtime, -2, "reset_style");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_get_default_style);
+        lua_setfield(engine->runtime, -2, "get_default_style");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_set_default_style);
+        lua_setfield(engine->runtime, -2, "set_default_style");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_reset_default_style);
+        lua_setfield(engine->runtime, -2, "reset_default_style");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_push_variant);
+        lua_setfield(engine->runtime, -2, "push_variant");
+        lua_pushcfunction(engine->runtime, _ese_gui_lua_pop_variant);
+        lua_setfield(engine->runtime, -2, "pop_variant");
 
-        // Create STYLE table
-        lua_newtable(engine->runtime);
+        // Create STYLE table and constants baseline, attach to GUI
+        lua_newtable(engine->runtime);                 // GUI.STYLE
         lua_pushinteger(engine->runtime, GUI_AUTO_SIZE);
         lua_setfield(engine->runtime, -2, "AUTO_SIZE");
-
-        // Create DIRECTION table under STYLE
-        lua_newtable(engine->runtime);
-        lua_pushinteger(engine->runtime, FLEX_DIRECTION_ROW);
-        lua_setfield(engine->runtime, -2, "ROW");
-        lua_pushinteger(engine->runtime, FLEX_DIRECTION_COLUMN);
-        lua_setfield(engine->runtime, -2, "COLUMN");
-        lua_setfield(engine->runtime, -2, "DIRECTION");
-
-        // Create JUSTIFY table under STYLE
-        lua_newtable(engine->runtime);
-        lua_pushinteger(engine->runtime, FLEX_JUSTIFY_START);
-        lua_setfield(engine->runtime, -2, "START");
-        lua_pushinteger(engine->runtime, FLEX_JUSTIFY_CENTER);
-        lua_setfield(engine->runtime, -2, "CENTER");
-        lua_pushinteger(engine->runtime, FLEX_JUSTIFY_END);
-        lua_setfield(engine->runtime, -2, "END");
-        lua_setfield(engine->runtime, -2, "JUSTIFY");
-
-        // Create ALIGN table under STYLE
-        lua_newtable(engine->runtime);
-        lua_pushinteger(engine->runtime, FLEX_ALIGN_ITEMS_START);
-        lua_setfield(engine->runtime, -2, "START");
-        lua_pushinteger(engine->runtime, FLEX_ALIGN_ITEMS_CENTER);
-        lua_setfield(engine->runtime, -2, "CENTER");
-        lua_pushinteger(engine->runtime, FLEX_ALIGN_ITEMS_END);
-        lua_setfield(engine->runtime, -2, "END");
-        lua_setfield(engine->runtime, -2, "ALIGN");
-
-        lua_setfield(engine->runtime, -2, "STYLE");
+        lua_setfield(engine->runtime, -2, "STYLE");    // Attach STYLE table to GUI
 
         // Lock GUI table
         lua_newtable(engine->runtime);
@@ -113,9 +78,14 @@ void ese_gui_lua_init(EseLuaEngine *engine) {
 
         lua_setglobal(engine->runtime, "GUI");
         log_debug("GUI_LUA", "GUI table created and set globally");
+
+        // Register all widgets' Lua bindings
+        _ese_widget_register(engine);
     } else {
         lua_pop(engine->runtime, 1);
         log_debug("GUI_LUA", "GUI table already exists");
+        // Ensure widgets are registered even if GUI existed
+        _ese_widget_register(engine);
     }
 }
 
@@ -150,7 +120,41 @@ static int _ese_gui_lua_begin(lua_State *L) {
         return luaL_error(L, "GUI.start() called while another GUI is active");
     }
     
-    ese_gui_begin(gui, z_index, x, y, width, height);
+    // Check if we need to grow the frame stack
+    if (gui->layouts_count >= gui->layouts_capacity) {
+        // For now, just log an error - in a real implementation we'd grow the array
+        log_error("GUI", "ese_gui_begin called with no capacity to grow frame stack");
+        return 0;
+    }
+
+    // Create new frame layout
+    EseGuiLayout *layout = &gui->layouts[gui->layouts_count++];
+    layout->z_index = z_index;
+    layout->x = x;
+    layout->y = y;
+    layout->width = width;
+    layout->height = height;
+
+    // Initialize draw scissor state
+    layout->draw_scissors_active = false;
+    layout->draw_scissors_x = 0.0f;
+    layout->draw_scissors_y = 0.0f;
+    layout->draw_scissors_w = 0.0f;
+    layout->draw_scissors_h = 0.0f;
+
+    // Initialize widget tree for this layout
+    layout->root = NULL;
+    layout->current_widget = NULL;
+
+    // Initialize variant stack with DEFAULT
+    layout->variant_stack_count = 0;
+    layout->variant_stack[layout->variant_stack_count++] = GUI_STYLE_VARIANT_DEFAULT;
+
+    // currently open frame layout
+    gui->open_layout = layout;
+
+    // Reset to the default style
+    // ese_gui_reset_default_style(gui);
 
     return 0;
 }
@@ -170,247 +174,114 @@ static int _ese_gui_lua_end(lua_State *L) {
         return luaL_error(L, "GUI.finish() called with no open GUI active");
     }
 
-    ese_gui_end(gui);
+    gui->open_layout = NULL;
 
     return 0;
 }
 
-static int _ese_gui_lua_open_flex(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_open_flex called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args > 2 || n_args < 0) {
-        return luaL_error(L, "GUI.open_flex([width, height]) takes 0, 1, or 2 arguments");
-    }
-
-    if (n_args >= 1 && lua_type(L, 1) != LUA_TNUMBER) {
-        return luaL_error(L, "width must be a number or GUI.AUTO_SIZE");
-    }
-
-    if (n_args >= 2 && lua_type(L, 2) != LUA_TNUMBER) {
-        return luaL_error(L, "height must be a number or GUI.AUTO_SIZE");
-    }
-
-    int width = GUI_AUTO_SIZE;
-    int height = GUI_AUTO_SIZE;
-    if (n_args >= 1) {
-        width = (int)lua_tonumber(L, 1);
-    }
-    if (n_args >= 2) {
-        height = (int)lua_tonumber(L, 2);
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.open_flex() called with no open GUI active");
-    }
-
-
-    ese_gui_open_flex(gui, width, height);
-
-    return 0;
-}
-
-static int _ese_gui_lua_close_flex(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_close_flex called with NULL Lua state");
+static int _ese_gui_lua_get_default_style(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_get_default_style called with NULL Lua state");
 
     int n_args = lua_gettop(L);
     if (n_args != 0) {
-        return luaL_error(L, "GUI.close_flex() takes 0 arguments");
+        return luaL_error(L, "GUI.get_default_style() takes no arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
-    if (gui->open_layout->current_container == NULL || gui->open_layout->current_container->widget_type != ESE_GUI_WIDGET_FLEX) {
-        return luaL_error(L, "GUI.close_flex() called with no open FLEX containers");
-    }
-
-    ese_gui_close_flex(gui);
-
-    return 0;
-}
-
-static int _ese_gui_lua_open_stack(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_open_stack called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args > 2 || n_args < 0) {
-        return luaL_error(L, "GUI.open_stack([width, height]) takes 0, 1, or 2 arguments");
-    }
-
-    if (n_args >= 1 && lua_type(L, 1) != LUA_TNUMBER) {
-        return luaL_error(L, "width must be a numbe or GUI.AUTO_SIZE");
-    }
-
-    if (n_args >= 2 && lua_type(L, 2) != LUA_TNUMBER) {
-        return luaL_error(L, "height must be a number or GUI.AUTO_SIZE");
-    }
-
-    int width = GUI_AUTO_SIZE;
-    int height = GUI_AUTO_SIZE;
-    if (n_args >= 1) {
-        width = (int)lua_tonumber(L, 1);
-    }
-    if (n_args >= 2) {
-        height = (int)lua_tonumber(L, 2);
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.open_stack() called with no open GUI active");
-    }
-    
-    ese_gui_open_stack(gui, width, height);
-
-    return 0;
-}
-
-static int _ese_gui_lua_close_stack(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_close_stack called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args != 0) {
-        return luaL_error(L, "GUI.close_stack() takes no arguments");
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    if (gui->open_layout->current_container == NULL || gui->open_layout->current_container->widget_type != ESE_GUI_WIDGET_STACK) {
-        return luaL_error(L, "GUI.close_stack() called with no open STACK containers");
-    }
-
-    ese_gui_close_stack(gui);
-
-    return 0;
-}
-
-static int _ese_gui_lua_push_button(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_push_button called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args != 2 && n_args != 3) {
-        return luaL_error(L, "GUI.push_button(text, callback[, userdata]) takes 2 or 3 arguments");
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.push_button() called with no open GUI active");
-    }
-
-    const char *text = luaL_checkstring(L, 1);
-    if (!lua_isfunction(L, 2)) {
-        return luaL_error(L, "GUI.push_button() callback must be a function");
-    }
-
-    void *userdata = NULL;
-    if (n_args == 3) {
-        userdata = lua_touserdata(L, 3);
-    }
-
-    // Push the function onto the stack so we can create a reference to it
-    lua_pushvalue(L, 2);  // Push the function from argument 2 onto the stack
-
-    EseGuiLuaButtonCallback *callback = (EseGuiLuaButtonCallback *)memory_manager.calloc(1, sizeof(EseGuiLuaButtonCallback), MMTAG_GUI);
-    callback->L = L;
-    callback->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    callback->userdata = userdata;
-
-    ese_gui_push_button(gui, text, _ese_gui_lua_button_callback_wrapper, callback);
-
-    return 0;
-}
-
-static int _ese_gui_lua_push_image(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_push_image called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args > 2 || n_args < 1) {
-        return luaL_error(L, "GUI.push_image(sprite_id[, fit]) takes 1 or2 arguments");
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    if (gui->open_layout == NULL) {
-        return luaL_error(L, "GUI.push_button() called with no open GUI active");
-    }
-
-    const char *sprite_id = luaL_checkstring(L, 1);
-    if (sprite_id == NULL) {
-        return luaL_error(L, "GUI.push_image() sprite_id must be a string");
-    }
-
-    EseGuiImageFit fit = IMAGE_FIT_CONTAIN;
-    if (n_args == 2) {
-        EseLuaValue *value = lua_value_from_stack(L, 2);
-        if (value->type == LUA_VAL_NUMBER) {
-            fit = (EseGuiImageFit)value->value.number;
-        }
-    }
-
-    ese_gui_push_image(gui, fit, sprite_id);
-
-    return 0;
-}
-
-static int _ese_gui_lua_get_style(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_get_style called with NULL Lua state");
-
-    int n_args = lua_gettop(L);
-    if (n_args != 0) {
-        return luaL_error(L, "GUI.get_style() takes no arguments");
-    }
-
-    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
-    EseGui *gui = engine_get_gui(engine);
-
-    EseGuiStyle *style = ese_gui_get_style(gui);
+    EseGuiStyle *style = ese_gui_get_default_style(gui);
     ese_gui_style_lua_push(style);
 
     return 1;
 }
 
-static int _ese_gui_lua_set_style(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_set_style called with NULL Lua state");
+static int _ese_gui_lua_set_default_style(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_set_default_style called with NULL Lua state");
 
     int n_args = lua_gettop(L);
     if (n_args != 1) {
-        return luaL_error(L, "GUI.set_style(style) takes 1 argument");
+        return luaL_error(L, "GUI.set_default_style(style) takes 1 argument");
     }
 
     EseGuiStyle *style = ese_gui_style_lua_get(L, 1);
     if (!style) {
-        return luaL_error(L, "GUI.set_style() requires a valid GuiStyle object");
+        return luaL_error(L, "GUI.set_default_style() requires a valid GuiStyle object");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
-    ese_gui_set_style(gui, style);
+    ese_gui_set_default_style(gui, style);
 
     return 0;
 }
 
-static int _ese_gui_lua_reset_style(lua_State *L) {
-    log_assert("GUI_LUA", L, "ese_gui_lua_reset_style called with NULL Lua state");
+static int _ese_gui_lua_reset_default_style(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_reset_default_style called with NULL Lua state");
 
     int n_args = lua_gettop(L);
     if (n_args != 0) {
-        return luaL_error(L, "GUI.reset_style() takes no arguments");
+        return luaL_error(L, "GUI.reset_default_style() takes no arguments");
     }
 
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
     EseGui *gui = engine_get_gui(engine);
 
-    ese_gui_reset_style(gui);
+    ese_gui_reset_default_style(gui);
+
+    return 0;
+}
+
+static int _ese_gui_lua_push_variant(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_push_variant called with NULL Lua state");
+
+    int n_args = lua_gettop(L);
+    if (n_args != 1) {
+        return luaL_error(L, "GUI.push_variant(variant) takes 1 argument");
+    }
+
+    if (!lua_isnumber(L, 1)) {
+        return luaL_error(L, "GUI.push_variant() requires a variant constant (number)");
+    }
+
+    int variant = (int)lua_tonumber(L, 1);
+    if (variant < GUI_STYLE_VARIANT_DEFAULT || variant >= GUI_STYLE_VARIANT_MAX) {
+        return luaL_error(L, "GUI.push_variant() invalid variant value");
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    EseGui *gui = engine_get_gui(engine);
+
+    if (gui->open_layout == NULL) {
+        return luaL_error(L, "GUI.push_variant() called with no open GUI");
+    }
+
+    ese_gui_push_variant(gui, (EseGuiStyleVariant)variant);
+
+    return 0;
+}
+
+static int _ese_gui_lua_pop_variant(lua_State *L) {
+    log_assert("GUI_LUA", L, "ese_gui_lua_pop_variant called with NULL Lua state");
+
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "GUI.pop_variant() takes no arguments");
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    EseGui *gui = engine_get_gui(engine);
+
+    if (gui->open_layout == NULL) {
+        return luaL_error(L, "GUI.pop_variant() called with no open GUI");
+    }
+
+    if (gui->open_layout->variant_stack_count <= 1) {
+        return luaL_error(L, "GUI.pop_variant() called with only default variant on stack");
+    }
+
+    ese_gui_pop_variant(gui);
 
     return 0;
 }

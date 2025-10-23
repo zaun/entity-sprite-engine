@@ -64,7 +64,7 @@ int main(void) {
 
 static void test_log_assert_aborts_on_false(void) {
     // Test that log_assert aborts when condition is false
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "this should abort"),
         "log_assert should abort when condition is false"
     );
@@ -72,7 +72,7 @@ static void test_log_assert_aborts_on_false(void) {
 
 static void test_log_assert_passes_on_true(void) {
     // Test that log_assert does NOT abort when condition is true
-    // This should pass (no abort) - we can't use ASSERT_DEATH for this
+    // This should pass (no abort) - we can't use TEST_ASSERT_DEATH for this
     // since we expect it NOT to abort
     log_assert("TEST", true, "this should not abort");
     // If we reach this point, the test passed
@@ -81,22 +81,22 @@ static void test_log_assert_passes_on_true(void) {
 
 static void test_log_assert_categories(void) {
     // Test with different categories - all should abort
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("MEMORY", false, "invalid pointer"),
         "log_assert should abort with MEMORY category"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("GRAPHICS", false, "texture not found"),
         "log_assert should abort with GRAPHICS category"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("LUA_ENGINE", false, "invalid lua state"),
         "log_assert should abort with LUA_ENGINE category"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("ENTITY", false, "entity not found"),
         "log_assert should abort with ENTITY category"
     );
@@ -104,22 +104,22 @@ static void test_log_assert_categories(void) {
 
 static void test_log_assert_message_formatting(void) {
     // Test different message formats
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "simple message"),
         "log_assert should abort with simple message"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "message with %s", "formatting"),
         "log_assert should abort with formatted message"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "message with number %d", 42),
         "log_assert should abort with number formatting"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "message with float %.2f", 3.14159),
         "log_assert should abort with float formatting"
     );
@@ -127,23 +127,23 @@ static void test_log_assert_message_formatting(void) {
 
 static void test_log_assert_edge_cases(void) {
     // Test edge cases
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("", false, "empty category"),
         "log_assert should abort with empty category"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, ""),
         "log_assert should abort with empty message"
     );
     
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "very long message that might test buffer limits and formatting capabilities of the logging system"),
         "log_assert should abort with long message"
     );
     
     // Test with special characters
-    ASSERT_DEATH(
+    TEST_ASSERT_DEATH(
         log_assert("TEST", false, "message with special chars: !@#$%%^&*()"),
         "log_assert should abort with special characters"
     );

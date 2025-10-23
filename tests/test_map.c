@@ -195,7 +195,7 @@ static void test_ese_map_sizeof(void) {
 }
 
 static void test_ese_map_create_requires_engine(void) {
-    ASSERT_DEATH(ese_map_create(NULL, 10, 10, MAP_TYPE_GRID, false), "ese_map_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_map_create(NULL, 10, 10, MAP_TYPE_GRID, false), "ese_map_create should abort with NULL engine");
 }
 
 static void test_ese_map_create(void) {
@@ -331,7 +331,7 @@ static void test_ese_map_ref(void) {
 }
 
 static void test_ese_map_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_map_create(NULL, 10, 10, MAP_TYPE_GRID, false), "ese_map_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_map_create(NULL, 10, 10, MAP_TYPE_GRID, false), "ese_map_create should abort with NULL engine");
 }
 
 static void test_ese_map_get_cell(void) {

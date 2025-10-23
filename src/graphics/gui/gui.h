@@ -1,40 +1,16 @@
 #ifndef ESE_GUI_H
 #define ESE_GUI_H
 
+#include "graphics/gui/gui_widget_image.h" // for EseGuiImageFit
+
 typedef struct EseGui EseGui;
 typedef struct EseColor EseColor;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseInputState EseInputState;
 typedef struct EseDrawList EseDrawList;
 typedef struct EseGuiStyle EseGuiStyle;
+typedef enum EseGuiStyleVariant EseGuiStyleVariant;
 
-typedef enum EseGuiFlexDirection {
-    FLEX_DIRECTION_ROW,
-    FLEX_DIRECTION_COLUMN,
-    ESE_GUI_FLEX_DIRECTION_MAX,
-} EseGuiFlexDirection;
-
-typedef enum EseGuiFlexJustify {
-    FLEX_JUSTIFY_START,
-    FLEX_JUSTIFY_CENTER,
-    FLEX_JUSTIFY_END,
-    ESE_GUI_FLEX_JUSTIFY_MAX,
-} EseGuiFlexJustify;
-
-typedef enum EseGuiFlexAlignItems {
-    FLEX_ALIGN_ITEMS_START,
-    FLEX_ALIGN_ITEMS_CENTER,
-    FLEX_ALIGN_ITEMS_END,
-    ESE_GUI_FLEX_ALIGN_ITEMS_MAX,
-} EseGuiFlexAlignItems;
-
-typedef enum EseGuiImageFit {
-    IMAGE_FIT_COVER,
-    IMAGE_FIT_CONTAIN,
-    IMAGE_FIT_FILL,
-    IMAGE_FIT_REPEAT,
-    ESE_GUI_IMAGE_FIT_MAX,
-} EseGuiImageFit;
 
 /* --- Context management ---------------------------------------------------------------------- */
 EseGui *ese_gui_create(EseLuaEngine *engine);
@@ -49,23 +25,14 @@ void ese_gui_process(EseGui *gui, EseDrawList *draw_list);
 // Cleans up the GUI system after processing a frame.
 void ese_gui_cleanup(EseGui *gui);
 
-/* --- Layout Management ------------------------------------------------------------------------ */
-void ese_gui_begin(EseGui *gui, uint64_t z_index, int x, int y, int width, int height);
-void ese_gui_end(EseGui *gui);
-
-/* --- Container Management --------------------------------------------------------------------- */
-void ese_gui_open_flex(EseGui *gui, int width, int height);
-void ese_gui_close_flex(EseGui *gui);
-void ese_gui_open_stack(EseGui *gui, int width, int height);
-void ese_gui_close_stack(EseGui *gui);
-
 /* --- Style Management ------------------------------------------------------------------------- */
-EseGuiStyle *ese_gui_get_style(EseGui *gui);
-void ese_gui_set_style(EseGui *gui, EseGuiStyle *style);
-void ese_gui_reset_style(EseGui *gui);
+EseGuiStyle *ese_gui_get_default_style(EseGui *gui);
+void ese_gui_set_default_style(EseGui *gui, EseGuiStyle *style);
+void ese_gui_reset_default_style(EseGui *gui);
 
-/* --- Widget Management ------------------------------------------------------------------------ */
-void ese_gui_push_button(EseGui *gui, const char* text, void (*callback)(void *userdata), void *userdata);
-void ese_gui_push_image(EseGui *gui, EseGuiImageFit fit, const char *sprite_id);
+/* --- Variant Management ----------------------------------------------------------------------- */
+EseGuiStyleVariant ese_gui_get_top_variant(EseGui *gui);
+void ese_gui_push_variant(EseGui *gui, EseGuiStyleVariant variant);
+void ese_gui_pop_variant(EseGui *gui);
 
 #endif // ESE_GUI_H

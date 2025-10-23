@@ -164,7 +164,7 @@ static void test_ese_poly_line_sizeof(void) {
 }
 
 static void test_ese_poly_line_create_requires_engine(void) {
-    ASSERT_DEATH(ese_poly_line_create(NULL), "ese_poly_line_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_poly_line_create(NULL), "ese_poly_line_create should abort with NULL engine");
 }
 
 static void test_ese_poly_line_create(void) {
@@ -253,7 +253,7 @@ static void test_ese_poly_line_ref(void) {
 }
 
 static void test_ese_poly_line_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_poly_line_copy(NULL), "ese_poly_line_copy should abort with NULL polyline");
+    TEST_ASSERT_DEATH(ese_poly_line_copy(NULL), "ese_poly_line_copy should abort with NULL polyline");
 }
 
 static void test_ese_poly_line_copy(void) {

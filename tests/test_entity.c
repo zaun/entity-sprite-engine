@@ -450,43 +450,43 @@ static void test_entity_null_pointer_aborts() {
     EseEntity *entity = entity_create(test_engine);
         
     // Test that creation functions abort with NULL pointers
-    ASSERT_DEATH((entity_create(NULL)), "entity_create should abort with NULL engine");
-    ASSERT_DEATH((entity_copy(NULL)), "entity_copy should abort with NULL entity");
-    ASSERT_DEATH((entity_destroy(NULL)), "entity_destroy should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_create(NULL)), "entity_create should abort with NULL engine");
+    TEST_ASSERT_DEATH((entity_copy(NULL)), "entity_copy should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_destroy(NULL)), "entity_destroy should abort with NULL entity");
     
     // Test that update functions abort with NULL pointers
-    ASSERT_DEATH((entity_update(NULL, 0.016f)), "entity_update should abort with NULL entity");
-    ASSERT_DEATH((entity_run_function_with_args(NULL, "test", 0, NULL)), "entity_run_function_with_args should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_update(NULL, 0.016f)), "entity_update should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_run_function_with_args(NULL, "test", 0, NULL)), "entity_run_function_with_args should abort with NULL entity");
     
     // Test that draw function aborts with NULL pointers
-    ASSERT_DEATH((entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL entity");
-    ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL callbacks");
+    TEST_ASSERT_DEATH((entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL callbacks");
     EntityDrawCallbacks null_callbacks = {0};
-    ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &null_callbacks, NULL)), "entity_draw should abort with NULL callbacks");
+    TEST_ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &null_callbacks, NULL)), "entity_draw should abort with NULL callbacks");
     
     // Test that component management functions abort with NULL pointers
-    ASSERT_DEATH((entity_component_add(NULL, NULL)), "entity_component_add should abort with NULL entity");
-    ASSERT_DEATH((entity_component_add(entity, NULL)), "entity_component_add should abort with NULL component");
-    ASSERT_DEATH((entity_component_remove(NULL, "test")), "entity_component_remove should abort with NULL entity");
-    ASSERT_DEATH((entity_component_remove(entity, NULL)), "entity_component_remove should abort with NULL id");
+    TEST_ASSERT_DEATH((entity_component_add(NULL, NULL)), "entity_component_add should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_component_add(entity, NULL)), "entity_component_add should abort with NULL component");
+    TEST_ASSERT_DEATH((entity_component_remove(NULL, "test")), "entity_component_remove should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_component_remove(entity, NULL)), "entity_component_remove should abort with NULL id");
     
     // Test that property functions abort with NULL pointers
-    ASSERT_DEATH((entity_add_prop(NULL, NULL)), "entity_add_prop should abort with NULL entity");
-    ASSERT_DEATH((entity_add_prop(entity, NULL)), "entity_add_prop should abort with NULL value");
+    TEST_ASSERT_DEATH((entity_add_prop(NULL, NULL)), "entity_add_prop should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_add_prop(entity, NULL)), "entity_add_prop should abort with NULL value");
     
     // Test that tag functions abort with NULL pointers
-    ASSERT_DEATH((entity_add_tag(NULL, "test")), "entity_add_tag should abort with NULL entity");
-    ASSERT_DEATH((entity_add_tag(entity, NULL)), "entity_add_tag should abort with NULL tag");
-    ASSERT_DEATH((entity_remove_tag(NULL, "test")), "entity_remove_tag should abort with NULL entity");
-    ASSERT_DEATH((entity_remove_tag(entity, NULL)), "entity_remove_tag should abort with NULL tag");
-    ASSERT_DEATH((entity_has_tag(NULL, "test")), "entity_has_tag should abort with NULL entity");
-    ASSERT_DEATH((entity_has_tag(entity, NULL)), "entity_has_tag should abort with NULL tag");
+    TEST_ASSERT_DEATH((entity_add_tag(NULL, "test")), "entity_add_tag should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_add_tag(entity, NULL)), "entity_add_tag should abort with NULL tag");
+    TEST_ASSERT_DEATH((entity_remove_tag(NULL, "test")), "entity_remove_tag should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_remove_tag(entity, NULL)), "entity_remove_tag should abort with NULL tag");
+    TEST_ASSERT_DEATH((entity_has_tag(NULL, "test")), "entity_has_tag should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_has_tag(entity, NULL)), "entity_has_tag should abort with NULL tag");
     
     // Test that collision bounds function aborts with NULL pointer
-    ASSERT_DEATH((entity_get_collision_bounds(NULL, false)), "entity_get_collision_bounds should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_get_collision_bounds(NULL, false)), "entity_get_collision_bounds should abort with NULL entity");
     
     // Test that Lua reference function aborts with NULL pointer
-    ASSERT_DEATH((entity_get_lua_ref(NULL)), "entity_get_lua_ref should abort with NULL entity");
+    TEST_ASSERT_DEATH((entity_get_lua_ref(NULL)), "entity_get_lua_ref should abort with NULL entity");
     
     entity_destroy(entity);
     

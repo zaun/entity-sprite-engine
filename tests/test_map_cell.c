@@ -105,7 +105,7 @@ static void test_ese_map_cell_sizeof(void) {
 }
 
 static void test_ese_map_cell_create_requires_engine(void) {
-    ASSERT_DEATH(ese_map_cell_create(NULL, NULL), "ese_map_cell_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_map_cell_create(NULL, NULL), "ese_map_cell_create should abort with NULL engine");
 }
 
 static void test_ese_map_cell_create(void) {
@@ -124,7 +124,7 @@ static void test_ese_map_cell_create(void) {
 }
 
 static void test_ese_map_cell_copy_requires_source(void) {
-    ASSERT_DEATH(ese_map_cell_copy(NULL), "ese_map_cell_copy should abort with NULL source");
+    TEST_ASSERT_DEATH(ese_map_cell_copy(NULL), "ese_map_cell_copy should abort with NULL source");
 }
 
 static void test_ese_map_cell_copy(void) {

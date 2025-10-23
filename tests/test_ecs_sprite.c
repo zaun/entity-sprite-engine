@@ -41,7 +41,7 @@ void tearDown(void) {
 // =========================
 
 void test_entity_component_sprite_create_null_engine(void) {
-    ASSERT_DEATH((entity_component_sprite_create(NULL, NULL)), "entity_component_sprite_create called with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_sprite_create(NULL, NULL)), "entity_component_sprite_create called with NULL engine");
 }
 
 void test_entity_component_sprite_create_basic(void) {

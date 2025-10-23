@@ -146,7 +146,7 @@ Each `tests/test_<module>.c` should follow this structure (sections optional if 
 
 1. Includes
    - System headers as needed
-   - `"testing.h"` (provides `ASSERT_DEATH` and `create_test_engine`)
+   - `"testing.h"` (provides `TEST_ASSERT_DEATH` and `create_test_engine`)
    - The module headers under test and any required project headers
 2. Forward declarations for test functions
    - Group into "C API" and "Lua API" declarations for readability
@@ -211,9 +211,9 @@ void tearDown(void) {
 
 - Use Unity assertions (`TEST_ASSERT_*`) consistently; prefer `TEST_ASSERT_FLOAT_WITHIN` for
   float comparisons and `TEST_ASSERT_EQUAL_PTR` for pointers.
-- For API contracts that abort on invalid input, use `ASSERT_DEATH(expr, msg)` from
+- For API contracts that abort on invalid input, use `TEST_ASSERT_DEATH(expr, msg)` from
   `testing.h`.
-  - If `expr` contains commas, wrap it in parentheses: `ASSERT_DEATH((fn(a, b)), "msg")`.
+  - If `expr` contains commas, wrap it in parentheses: `TEST_ASSERT_DEATH((fn(a, b)), "msg")`.
   - This macro is POSIX-only (uses `fork`/`wait`/signals) and is suitable for CI on macOS
     and Linux.
 

@@ -162,7 +162,7 @@ static void test_ese_uuid_ref(void) {
 }
 
 static void test_ese_uuid_copy_requires_source(void) {
-    ASSERT_DEATH(ese_uuid_copy(NULL), "ese_uuid_copy should abort with NULL UUID");
+    TEST_ASSERT_DEATH(ese_uuid_copy(NULL), "ese_uuid_copy should abort with NULL UUID");
 }
 
 static void test_ese_uuid_copy(void) {

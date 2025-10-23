@@ -42,6 +42,7 @@
 #include "types/http.h"
 #include "scripting/lua_engine.h"
 #include "core/engine.h"
+#include "platform/time.h"
 
 // ========================================
 // PRIVATE STRUCT DEFINITION
@@ -101,9 +102,6 @@ static int _http_recv_all_with_timeout(int fd, long timeout_ms, uint8_t **out_ra
 static int _http_parse_status_and_headers(const uint8_t *raw, size_t raw_len, int *status_out, char **headers_out, size_t *hdr_len_out);
 
 // SSL/TLS helpers
-static int _http_ssl_connect(EseHttpRequest *request);
-static int _http_ssl_send(EseHttpRequest *request, const void *buf, size_t len);
-static int _http_ssl_recv(EseHttpRequest *request, void *buf, size_t len);
 static void _http_ssl_cleanup(EseHttpRequest *request);
 
 // Redirect handling
@@ -113,7 +111,7 @@ static bool _http_should_follow_redirect(EseHttpRequest *request, int status_cod
 static void _http_add_redirect_url(EseHttpRequest *request, const char *url);
 
 // Threading / Job Queue
-static void *_http_worker_thread(void *thread_data, void *user_data);
+static void *_http_worker_thread(void *thread_data, void *user_data, volatile bool *canceled);
 static void _http_job_noop_cleanup(ese_job_id_t job_id, void *user_data, void *result);
 
 // Internal Lua ref setter forward declarations (implemented later in this file)
@@ -307,101 +305,101 @@ static bool _http_parse_redirect_url(EseHttpRequest *request, const char *locati
  * @return Socket file descriptor on success, -1 on error
  */
 static int _http_connect_with_timeout(const char *host, const char *port, long timeout_ms, int *out_errno) {
-    struct addrinfo hints;
-    struct addrinfo *res = NULL;
+    // struct addrinfo hints;
+    // struct addrinfo *res = NULL;
     int sfd = -1;
-    int gai_err = 0;
+    // int gai_err = 0;
     
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    // memset(&hints, 0, sizeof(hints));
+    // hints.ai_family = AF_UNSPEC;
+    // hints.ai_socktype = SOCK_STREAM;
     
-    if ((gai_err = getaddrinfo(host, port, &hints, &res)) != 0) {
-        if (out_errno) {
-            *out_errno = EINVAL;
-        }
-        return -1;
-    }
+    // if ((gai_err = getaddrinfo(host, port, &hints, &res)) != 0) {
+    //     if (out_errno) {
+    //         *out_errno = EINVAL;
+    //     }
+    //     return -1;
+    // }
     
-    struct addrinfo *rp;
-    for (rp = res; rp != NULL; rp = rp->ai_next) {
-        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (sfd < 0) {
-            continue;
-        }
+    // struct addrinfo *rp;
+    // for (rp = res; rp != NULL; rp = rp->ai_next) {
+    //     sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+    //     if (sfd < 0) {
+    //         continue;
+    //     }
         
-        // Non-blocking connect with select timeout
-        int flags = fcntl(sfd, F_GETFL, 0);
-        if (flags < 0) {
-            close(sfd);
-            sfd = -1;
-            continue;
-        }
+    //     // Non-blocking connect with select timeout
+    //     int flags = fcntl(sfd, F_GETFL, 0);
+    //     if (flags < 0) {
+    //         close(sfd);
+    //         sfd = -1;
+    //         continue;
+    //     }
         
-        if (fcntl(sfd, F_SETFL, flags | O_NONBLOCK) < 0) {
-            close(sfd);
-            sfd = -1;
-            continue;
-        }
+    //     if (fcntl(sfd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    //         close(sfd);
+    //         sfd = -1;
+    //         continue;
+    //     }
         
-        int rc = connect(sfd, rp->ai_addr, rp->ai_addrlen);
-        if (rc == 0) {
-            // Connected immediately, restore blocking
-            fcntl(sfd, F_SETFL, flags);
-            break;
-        } else if (errno != EINPROGRESS) {
-            close(sfd);
-            sfd = -1;
-            continue;
-        }
+    //     int rc = connect(sfd, rp->ai_addr, rp->ai_addrlen);
+    //     if (rc == 0) {
+    //         // Connected immediately, restore blocking
+    //         fcntl(sfd, F_SETFL, flags);
+    //         break;
+    //     } else if (errno != EINPROGRESS) {
+    //         close(sfd);
+    //         sfd = -1;
+    //         continue;
+    //     }
         
-        // Wait for socket writable or error
-        fd_set wfds;
-        FD_ZERO(&wfds);
-        FD_SET(sfd, &wfds);
+    //     // Wait for socket writable or error
+    //     fd_set wfds;
+    //     FD_ZERO(&wfds);
+    //     FD_SET(sfd, &wfds);
         
-        struct timeval tv;
-        struct timeval *tvp = NULL;
-        if (timeout_ms > 0) {
-            tv.tv_sec = timeout_ms / 1000;
-            tv.tv_usec = (timeout_ms % 1000) * 1000;
-            tvp = &tv;
-        }
+    //     struct timeval tv;
+    //     struct timeval *tvp = NULL;
+    //     if (timeout_ms > 0) {
+    //         tv.tv_sec = timeout_ms / 1000;
+    //         tv.tv_usec = (timeout_ms % 1000) * 1000;
+    //         tvp = &tv;
+    //     }
         
-        int s = select(sfd + 1, NULL, &wfds, NULL, tvp);
-        if (s > 0 && FD_ISSET(sfd, &wfds)) {
-            int soerr = 0;
-            socklen_t len = sizeof(soerr);
-            if (getsockopt(sfd, SOL_SOCKET, SO_ERROR, &soerr, &len) < 0) {
-                close(sfd);
-                sfd = -1;
-                continue;
-            }
+    //     int s = select(sfd + 1, NULL, &wfds, NULL, tvp);
+    //     if (s > 0 && FD_ISSET(sfd, &wfds)) {
+    //         int soerr = 0;
+    //         socklen_t len = sizeof(soerr);
+    //         if (getsockopt(sfd, SOL_SOCKET, SO_ERROR, &soerr, &len) < 0) {
+    //             close(sfd);
+    //             sfd = -1;
+    //             continue;
+    //         }
             
-            if (soerr == 0) {
-                // Success, restore blocking
-                fcntl(sfd, F_SETFL, flags);
-                break;
-            } else {
-                close(sfd);
-                sfd = -1;
-                if (out_errno) {
-                    *out_errno = soerr;
-                }
-                continue;
-            }
-        } else {
-            // Timeout or select error
-            close(sfd);
-            sfd = -1;
-            if (out_errno) {
-                *out_errno = (s == 0 ? ETIMEDOUT : errno);
-            }
-            continue;
-        }
-    }
+    //         if (soerr == 0) {
+    //             // Success, restore blocking
+    //             fcntl(sfd, F_SETFL, flags);
+    //             break;
+    //         } else {
+    //             close(sfd);
+    //             sfd = -1;
+    //             if (out_errno) {
+    //                 *out_errno = soerr;
+    //             }
+    //             continue;
+    //         }
+    //     } else {
+    //         // Timeout or select error
+    //         close(sfd);
+    //         sfd = -1;
+    //         if (out_errno) {
+    //             *out_errno = (s == 0 ? ETIMEDOUT : errno);
+    //         }
+    //         continue;
+    //     }
+    // }
     
-    freeaddrinfo(res);
+    // freeaddrinfo(res);
     return sfd;
 }
 
@@ -564,143 +562,7 @@ static int _http_parse_status_and_headers(const uint8_t *raw, size_t raw_len, in
     return 0;
 }
 
-// SSL/TLS helpers
-/**
- * @brief Establishes an SSL/TLS connection using mbedTLS.
- * 
- * @details Initializes mbedTLS contexts, sets up SSL configuration,
- * and performs the SSL handshake.
- * 
- * @param request The HTTP request with SSL contexts initialized
- * @return 0 on success, negative mbedTLS error code on failure
- */
-static int _http_ssl_connect(EseHttpRequest *request) {
-    int ret;
-    char port_str[6];
-    
-    // Convert port to string
-    snprintf(port_str, sizeof(port_str), "%s", request->port);
-    
-    // Initialize the RNG and the session data
-    mbedtls_entropy_init(&request->entropy);
-    if ((ret = mbedtls_ctr_drbg_seed(&request->ctr_drbg, mbedtls_entropy_func, &request->entropy,
-                                     (const unsigned char *)"ese_http_client", 15)) != 0) {
-        log_debug("HTTP", "mbedtls_ctr_drbg_seed returned %d", ret);
-        return ret;
-    }
-    
-    // Initialize the SSL context
-    mbedtls_ssl_init(&request->ssl);
-    mbedtls_ssl_config_init(&request->conf);
-    
-    // Load defaults
-    if ((ret = mbedtls_ssl_config_defaults(&request->conf,
-                                          MBEDTLS_SSL_IS_CLIENT,
-                                          MBEDTLS_SSL_TRANSPORT_STREAM,
-                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-        log_debug("HTTP", "mbedtls_ssl_config_defaults returned %d", ret);
-        return ret;
-    }
-    
-    // Set the RNG callback
-    mbedtls_ssl_conf_rng(&request->conf, mbedtls_ctr_drbg_random, &request->ctr_drbg);
-    
-    // Set auth mode to none for testing (in production, use MBEDTLS_SSL_VERIFY_REQUIRED)
-    mbedtls_ssl_conf_authmode(&request->conf, MBEDTLS_SSL_VERIFY_NONE);
-    
-    // Set TLS version to 1.2 for better compatibility
-    mbedtls_ssl_conf_min_version(&request->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
-    mbedtls_ssl_conf_max_version(&request->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
-    
-    // Enable session tickets for better compatibility
-    mbedtls_ssl_conf_session_tickets(&request->conf, MBEDTLS_SSL_SESSION_TICKETS_ENABLED);
-    
-    // Set renegotiation to prevent issues
-    mbedtls_ssl_conf_renegotiation(&request->conf, MBEDTLS_SSL_RENEGOTIATION_DISABLED);
-    
-    // Use default cipher suites for better compatibility
-    // mbedTLS will negotiate the best available cipher suite
-    
-    // Set hostname for SNI
-    if ((ret = mbedtls_ssl_set_hostname(&request->ssl, request->host)) != 0) {
-        log_debug("HTTP", "mbedtls_ssl_set_hostname returned %d", ret);
-        return ret;
-    }
-    
-    // Set up the SSL context
-    if ((ret = mbedtls_ssl_setup(&request->ssl, &request->conf)) != 0) {
-        log_debug("HTTP", "mbedtls_ssl_setup returned %d", ret);
-        return ret;
-    }
-    
-    // Connect to the server
-    log_debug("HTTP", "Connecting to %s:%s", request->host, port_str);
-    if ((ret = mbedtls_net_connect(&request->server_fd, request->host, port_str,
-                                   MBEDTLS_NET_PROTO_TCP)) != 0) {
-        char error_buf[256];
-        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-        log_debug("HTTP", "mbedtls_net_connect returned %d: %s", ret, error_buf);
-        return ret;
-    }
-    log_debug("HTTP", "TCP connection established");
-    
-    // Set the underlying I/O callbacks
-    mbedtls_ssl_set_bio(&request->ssl, &request->server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
-    
-    // Perform the SSL/TLS handshake
-    while ((ret = mbedtls_ssl_handshake(&request->ssl)) != 0) {
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            char error_buf[256];
-            mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-            log_debug("HTTP", "mbedtls_ssl_handshake returned %d: %s", ret, error_buf);
-            return ret;
-        }
-    }
-    
-    // Verify the server certificate
-    uint32_t flags = mbedtls_ssl_get_verify_result(&request->ssl);
-    if (flags != 0) {
-        char vrfy_buf[512];
-        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
-        log_debug("HTTP", "Certificate verification failed: %s", vrfy_buf);
-        // Note: We continue anyway for now, but in production you might want to fail
-    }
-    
-    log_verbose("HTTP", "SSL/TLS connection established successfully");
-    return 0;
-}
 
-/**
- * @brief Sends data over the SSL/TLS connection.
- * 
- * @param request The HTTP request with active SSL context
- * @param buf Data to send
- * @param len Length of data to send
- * @return Number of bytes sent, or negative mbedTLS error code
- */
-static int _http_ssl_send(EseHttpRequest *request, const void *buf, size_t len) {
-    int ret = mbedtls_ssl_write(&request->ssl, (const unsigned char *)buf, len);
-    if (ret < 0) {
-        log_debug("HTTP", "mbedtls_ssl_write returned %d", ret);
-    }
-    return ret;
-}
-
-/**
- * @brief Receives data from the SSL/TLS connection.
- * 
- * @param request The HTTP request with active SSL context
- * @param buf Buffer to receive data
- * @param len Maximum length to receive
- * @return Number of bytes received, or negative mbedTLS error code
- */
-static int _http_ssl_recv(EseHttpRequest *request, void *buf, size_t len) {
-    int ret = mbedtls_ssl_read(&request->ssl, (unsigned char *)buf, len);
-    if (ret < 0 && ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-        log_debug("HTTP", "mbedtls_ssl_read returned %d", ret);
-    }
-    return ret;
-}
 
 /**
  * @brief Cleans up SSL/TLS resources.
@@ -869,342 +731,596 @@ static void _http_add_redirect_url(EseHttpRequest *request, const char *url) {
  * @param arg Pointer to EseHttpRequest structure
  * @return NULL (thread return value)
  */
-static void *_http_worker_thread(void *thread_data, void *user_data) {
+static void *_http_worker_thread(void *thread_data, void *user_data, volatile bool *canceled) {
     (void)thread_data;
     EseHttpRequest *request = (EseHttpRequest *)user_data;
+
+    log_debug("HTTP", "Worker thread started for URL: %s", request->url);
+
     int status_code = -1;
     char *headers = NULL;
     uint8_t *raw = NULL;
     size_t raw_len = 0;
     char *body_cstr = NULL;
+
+    bool timeout = false;
+    bool error = false;
+
+    uint64_t state = 0;
+    uint64_t prev_time = 0;
     
-    log_debug("HTTP", "Worker thread started for URL: %s", request->url);
-    
+    // Connection state variables
+    int sfd = -1;
+    struct addrinfo hints;
+    struct addrinfo *addrinfo_res = NULL;
+    struct addrinfo *addrinfo_current = NULL;
+    int socket_flags = 0;
+    size_t raw_capacity = 0;
+
     // Add the initial URL to redirect history
     _http_add_redirect_url(request, request->url);
-    
-    while (true) {
-        // Clean up previous iteration
-        if (headers) {
-            memory_manager.free(headers);
-            headers = NULL;
-        }
-        if (raw) {
-            memory_manager.free(raw);
-            raw = NULL;
-        }
-        if (body_cstr) {
-            memory_manager.free(body_cstr);
-            body_cstr = NULL;
-        }
-        
-        int sock_errno = 0;
-        int sfd = -1;
-        
-        if (request->is_https) {
-            // Use mbedTLS for HTTPS
-            int ssl_ret = _http_ssl_connect(request);
-            if (ssl_ret != 0) {
-                log_debug("HTTP", "SSL connection failed for %s:%s (error: %d), falling back to HTTP", request->host, request->port, ssl_ret);
-                // Fall back to HTTP by changing the port and disabling SSL
-                memory_manager.free(request->port);
-                request->port = (char *)memory_manager.malloc(3, MMTAG_HTTP);
-                if (request->port) {
-                    strcpy(request->port, "80");
-                }
-                request->is_https = false;
-                
-                // Try HTTP connection instead
-                sfd = _http_connect_with_timeout(request->host, request->port, request->timeout_ms, &sock_errno);
-                if (sfd < 0) {
-                    log_debug("HTTP", "HTTP fallback also failed for %s:%s (errno: %d)", request->host, request->port, sock_errno);
-                    request->status_code = -1;
-                    request->done = true;
-                    if (request->callback) {
-                        request->callback(-1, "", NULL, 0, "", request->user_data);
-                    }
-                    return NULL;
-                }
-                log_verbose("HTTP", "HTTP fallback connected to %s:%s", request->host, request->port);
-            } else {
-                log_verbose("HTTP", "SSL/TLS connected to %s:%s", request->host, request->port);
-            }
-        } else {
-            // Use regular socket for HTTP
-            sfd = _http_connect_with_timeout(request->host, request->port, request->timeout_ms, &sock_errno);
-            if (sfd < 0) {
-                // Connect failed
-                log_debug("HTTP", "Connection failed for %s:%s (errno: %d)", request->host, request->port, sock_errno);
-                request->status_code = -1;
-                request->done = true;
-                if (request->callback) {
-                    request->callback(-1, "", NULL, 0, "", request->user_data);
-                }
-                return NULL;
-            }
-            log_verbose("HTTP", "Connected to %s:%s", request->host, request->port);
-        }
-        
-        // Set send timeout as well if requested (only for HTTP)
-        if (!request->is_https && request->timeout_ms > 0) {
-            struct timeval tv;
-            tv.tv_sec = request->timeout_ms / 1000;
-            tv.tv_usec = (request->timeout_ms % 1000) * 1000;
-            setsockopt(sfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        }
-        
-        // Prepare request
-        char reqbuf[4096];
-        int n = snprintf(reqbuf, sizeof(reqbuf),
-                         "GET %s HTTP/1.1\r\n"
-                         "Host: %s\r\n"
-                         "Connection: close\r\n"
-                         "User-Agent: Entity-Sprite-Engine/1.0\r\n"
-                         "\r\n",
-                         request->path ? request->path : "/", 
-                         request->host ? request->host : "");
-        
-        if (n < 0 || (size_t)n >= sizeof(reqbuf)) {
-            if (!request->is_https) {
-                close(sfd);
-            }
-            request->status_code = -1;
-            request->done = true;
-            if (request->callback) {
-                request->callback(-1, "", NULL, 0, "", request->user_data);
-            }
-            return NULL;
-        }
-        
-        ssize_t w;
-        if (request->is_https) {
-            w = _http_ssl_send(request, reqbuf, (size_t)n);
-        } else {
-            w = write(sfd, reqbuf, (size_t)n);
-        }
-        
-        if (w < 0) {
-            if (!request->is_https) {
-                close(sfd);
-            }
-            request->status_code = -1;
-            request->done = true;
-            if (request->callback) {
-                request->callback(-1, "", NULL, 0, "", request->user_data);
-            }
-            return NULL;
-        }
-        
-        // Receive
-        if (request->is_https) {
-            // Use SSL/TLS receive
-            const size_t chunk = 4096;
-            uint8_t *buf = (uint8_t *)memory_manager.malloc(chunk, MMTAG_HTTP);
-            if (!buf) {
-                request->status_code = -1;
-                request->done = true;
-                if (request->callback) {
-                    request->callback(-1, "", NULL, 0, "", request->user_data);
-                }
-                return NULL;
-            }
-            
-            size_t cap = chunk;
-            size_t len = 0;
-            
-            while (1) {
-                if (len + 1 >= cap) {
-                    size_t ncap = cap * 2;
-                    uint8_t *nb = (uint8_t *)memory_manager.realloc(buf, ncap, MMTAG_HTTP);
-                    if (!nb) {
-                        memory_manager.free(buf);
-                        request->status_code = -1;
-                        request->done = true;
-                        if (request->callback) {
-                            request->callback(-1, "", NULL, 0, "", request->user_data);
-                        }
-                        return NULL;
-                    }
-                    buf = nb;
-                    cap = ncap;
-                }
-                
-                int r = _http_ssl_recv(request, buf + len, cap - len - 1);
-                if (r > 0) {
-                    len += (size_t)r;
-                    continue;
-                } else if (r == 0) {
-                    break;
-                } else if (r == MBEDTLS_ERR_SSL_WANT_READ || r == MBEDTLS_ERR_SSL_WANT_WRITE) {
-                    continue;
-                } else if (r == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-                    // Server closed the connection gracefully - this is normal
-                    break;
-                } else {
-                    char error_buf[256];
-                    mbedtls_strerror(r, error_buf, sizeof(error_buf));
-                    log_debug("HTTP", "SSL read error: %d (%s)", r, error_buf);
-                    // Assign buf to raw so it gets freed properly
-                    raw = buf;
-                    raw_len = 0;
-                    request->status_code = -1;
-                    request->done = true;
-                    if (request->callback) {
-                        request->callback(-1, "", NULL, 0, "", request->user_data);
-                    }
-                    return NULL;
-                }
-            }
-            
-            // Final NUL for safety when treating as string
-            if (len + 1 > cap) {
-                uint8_t *nb = (uint8_t *)memory_manager.realloc(buf, len + 1, MMTAG_HTTP);
-                if (!nb) {
-                    memory_manager.free(buf);
-                    request->status_code = -1;
-                    request->done = true;
-                    if (request->callback) {
-                        request->callback(-1, "", NULL, 0, "", request->user_data);
-                    }
-                    return NULL;
-                }
-                buf = nb;
-                cap = len + 1;
-            }
-            
-            buf[len] = 0;
-            raw = buf;
-            raw_len = len;
-            // Note: raw now points to buf, so we need to free raw at the end
-        } else {
-            // Use regular socket receive
-            if (_http_recv_all_with_timeout(sfd, request->timeout_ms, &raw, &raw_len) != 0) {
-                close(sfd);
-                if (raw) {
-                    memory_manager.free(raw);
-                }
-                request->status_code = -1;
-                request->done = true;
-                if (request->callback) {
-                    request->callback(-1, "", NULL, 0, "", request->user_data);
-                }
-                return NULL;
-            }
-            close(sfd);
-        }
-        
-        // Parse status and headers
-        if (_http_parse_status_and_headers(raw, raw_len, &status_code, &headers, NULL) != 0) {
-            // Parsing failed; still deliver raw
-            request->status_code = -1;
-            request->done = true;
-            if (request->callback) {
-                request->callback(-1, "", raw, raw_len, (const char *)(raw ? (const char *)raw : ""), request->user_data);
-            }
-            if (headers) {
-                memory_manager.free(headers);
-            }
-            if (raw) {
-                memory_manager.free(raw);
-            }
-            return NULL;
-        }
-        
-        // Check if this is a redirect
-        if (_http_should_follow_redirect(request, status_code)) {
-            char *location = _http_extract_location_header(headers);
-            if (location) {
-                log_debug("HTTP", "Following redirect %d to: %s", request->redirect_count, location);
-                
-                // Check for redirect loop
-                bool is_loop = false;
-                for (int i = 0; i < request->redirect_count; i++) {
-                    if (request->redirect_urls[i] && strcmp(request->redirect_urls[i], location) == 0) {
-                        log_debug("HTTP", "Redirect loop detected at: %s", location);
-                        is_loop = true;
+
+    while (!*canceled && !timeout && !error) {
+        switch (state) {
+            case 0: {
+                // SSL Setup
+                if (request->is_https) {
+                    char port_str[6];
+                    int ret;
+                    
+                    // Convert port to string
+                    snprintf(port_str, sizeof(port_str), "%s", request->port);
+                    
+                    // Initialize the RNG and the session data
+                    mbedtls_entropy_init(&request->entropy);
+                    if ((ret = mbedtls_ctr_drbg_seed(&request->ctr_drbg, mbedtls_entropy_func, &request->entropy,
+                                                     (const unsigned char *)"ese_http_client", 15)) != 0) {
+                        log_debug("HTTP", "mbedtls_ctr_drbg_seed returned %d", ret);
+                        error = true;
                         break;
                     }
-                }
-                
-                if (is_loop) {
-                    memory_manager.free(location);
-                    request->status_code = status_code;
-                    request->headers = headers;
-                    request->body = (char *)memory_manager.malloc(1, MMTAG_HTTP);
-                    if (request->body) {
-                        request->body[0] = '\0';
+                    
+                    // Initialize the SSL context
+                    mbedtls_ssl_init(&request->ssl);
+                    mbedtls_ssl_config_init(&request->conf);
+                    
+                    // Load defaults
+                    if ((ret = mbedtls_ssl_config_defaults(&request->conf,
+                                                          MBEDTLS_SSL_IS_CLIENT,
+                                                          MBEDTLS_SSL_TRANSPORT_STREAM,
+                                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
+                        log_debug("HTTP", "mbedtls_ssl_config_defaults returned %d", ret);
+                        error = true;
+                        break;
                     }
-                    request->done = true;
-                    if (request->callback) {
-                        request->callback(status_code, headers ? headers : "", raw, raw_len, "", request->user_data);
+                    
+                    // Set the RNG callback
+                    mbedtls_ssl_conf_rng(&request->conf, mbedtls_ctr_drbg_random, &request->ctr_drbg);
+                    
+                    // Set auth mode to none for testing (in production, use MBEDTLS_SSL_VERIFY_REQUIRED)
+                    mbedtls_ssl_conf_authmode(&request->conf, MBEDTLS_SSL_VERIFY_NONE);
+                    
+                    // Set TLS version to 1.2 for better compatibility
+                    mbedtls_ssl_conf_min_version(&request->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+                    mbedtls_ssl_conf_max_version(&request->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+                    
+                    // Enable session tickets for better compatibility
+                    mbedtls_ssl_conf_session_tickets(&request->conf, MBEDTLS_SSL_SESSION_TICKETS_ENABLED);
+                    
+                    // Set renegotiation to prevent issues
+                    mbedtls_ssl_conf_renegotiation(&request->conf, MBEDTLS_SSL_RENEGOTIATION_DISABLED);
+                    
+                    // Use default cipher suites for better compatibility
+                    // mbedTLS will negotiate the best available cipher suite
+                    
+                    // Set hostname for SNI
+                    if ((ret = mbedtls_ssl_set_hostname(&request->ssl, request->host)) != 0) {
+                        log_debug("HTTP", "mbedtls_ssl_set_hostname returned %d", ret);
+                        error = true;
+                        break;
                     }
-                    if (raw) {
-                        memory_manager.free(raw);
+                    
+                    // Set up the SSL context
+                    if ((ret = mbedtls_ssl_setup(&request->ssl, &request->conf)) != 0) {
+                        log_debug("HTTP", "mbedtls_ssl_setup returned %d", ret);
+                        error = true;
+                        break;
                     }
-                    return NULL;
-                }
-                
-                // Parse the redirect URL and update the request
-                if (_http_parse_redirect_url(request, location)) {
-                    _http_add_redirect_url(request, location);
-                    memory_manager.free(location);
-                    continue; // Follow the redirect
+                    
+                    // Connect to the server
+                    log_debug("HTTP", "Connecting to %s:%s", request->host, port_str);
+                    if ((ret = mbedtls_net_connect(&request->server_fd, request->host, port_str,
+                                                   MBEDTLS_NET_PROTO_TCP)) != 0) {
+                        char error_buf[256];
+                        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+                        log_debug("HTTP", "mbedtls_net_connect returned %d: %s", ret, error_buf);
+                        error = true;
+                        break;
+                    }
+                    log_debug("HTTP", "TCP connection established");
+                    
+                    // Set the underlying I/O callbacks
+                    mbedtls_ssl_set_bio(&request->ssl, &request->server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+                    
+                    state = 1;
+                    prev_time = time_now();
+                    
+                    log_verbose("HTTP", "SSL/TLS connection established successfully");
                 } else {
-                    log_debug("HTTP", "Failed to parse redirect URL: %s", location);
-                    memory_manager.free(location);
-                    // Fall through to return the redirect response
+                    state = 2;
                 }
-            } else {
-                log_debug("HTTP", "Redirect status %d but no Location header", status_code);
-                // Fall through to return the redirect response
+                break;
+            }
+            case 1: {
+                // Wait for SSL handshake to complete
+                int ret = mbedtls_ssl_handshake(&request->ssl);
+
+                // Perform the SSL/TLS handshake
+                if (ret == 0) {
+                    // Handshake completed successfully
+                    // Verify the server certificate
+                    uint32_t flags = mbedtls_ssl_get_verify_result(&request->ssl);
+                    if (flags != 0) {
+                        char vrfy_buf[512];
+                        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
+                        log_debug("HTTP", "Certificate verification failed: %s", vrfy_buf);
+                        error = true;
+                        break;
+                    }
+                    
+                    log_verbose("HTTP", "SSL/TLS handshake completed successfully");
+                    state = 5; // Move to send request5
+                } else if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+                    char error_buf[256];
+                    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+                    log_debug("HTTP", "mbedtls_ssl_handshake returned %d: %s", ret, error_buf);
+                    error = true;
+                    break;
+                }
+                
+                // Check timeout (convert nanoseconds to milliseconds)
+                if ((time_now() - prev_time) / 1000000 >= (uint64_t)request->timeout_ms) {
+                    log_debug("HTTP", "SSL handshake timeout");
+                    timeout = true;
+                }
+                break;
+            }
+            case 2: {
+                // Initiate connection (DNS lookup and start non-blocking connect)
+                memset(&hints, 0, sizeof(hints));
+                hints.ai_family = AF_UNSPEC;
+                hints.ai_socktype = SOCK_STREAM;
+                
+                int gai_err = getaddrinfo(request->host, request->port, &hints, &addrinfo_res);
+                if (gai_err != 0) {
+                    log_debug("HTTP", "getaddrinfo failed for %s:%s", request->host, request->port);
+                    error = true;
+                    break;
+                }
+                
+                addrinfo_current = addrinfo_res;
+                prev_time = time_now();
+                state = 3;
+                break;
+            }
+            case 3: {
+                // Try to connect to next address
+                if (!addrinfo_current) {
+                    // No more addresses to try
+                    log_debug("HTTP", "Connection failed for all addresses");
+                    if (addrinfo_res) {
+                        freeaddrinfo(addrinfo_res);
+                        addrinfo_res = NULL;
+                    }
+                    error = true;
+                    break;
+                }
+                
+                // Create socket
+                sfd = socket(addrinfo_current->ai_family, addrinfo_current->ai_socktype, addrinfo_current->ai_protocol);
+                if (sfd < 0) {
+                    log_debug("HTTP", "socket() failed, trying next address");
+                    addrinfo_current = addrinfo_current->ai_next;
+                    break;
+                }
+                
+                // Set non-blocking
+                socket_flags = fcntl(sfd, F_GETFL, 0);
+                if (socket_flags < 0) {
+                    close(sfd);
+                    sfd = -1;
+                    addrinfo_current = addrinfo_current->ai_next;
+                    break;
+                }
+                
+                if (fcntl(sfd, F_SETFL, socket_flags | O_NONBLOCK) < 0) {
+                    close(sfd);
+                    sfd = -1;
+                    addrinfo_current = addrinfo_current->ai_next;
+                    break;
+                }
+                
+                // Start connection
+                int rc = connect(sfd, addrinfo_current->ai_addr, addrinfo_current->ai_addrlen);
+                if (rc == 0) {
+                    // Connected immediately, restore blocking
+                    fcntl(sfd, F_SETFL, socket_flags);
+                    log_verbose("HTTP", "Connected to %s:%s", request->host, request->port);
+                    freeaddrinfo(addrinfo_res);
+                    addrinfo_res = NULL;
+                    state = 5; // Move to send request
+                    break;
+                } else if (errno != EINPROGRESS) {
+                    // Connection failed immediately
+                    close(sfd);
+                    sfd = -1;
+                    addrinfo_current = addrinfo_current->ai_next;
+                    break;
+                }
+                
+                // Connection in progress, move to wait for completion
+                state = 4;
+                break;
+            }
+            case 4: {
+                // Wait for connection to complete
+                fd_set wfds;
+                FD_ZERO(&wfds);
+                FD_SET(sfd, &wfds);
+                
+                struct timeval tv;
+                tv.tv_sec = 0;
+                tv.tv_usec = 1000; // 1ms poll
+                
+                int s = select(sfd + 1, NULL, &wfds, NULL, &tv);
+                if (s > 0 && FD_ISSET(sfd, &wfds)) {
+                    // Socket is writable, check for errors
+                    int soerr = 0;
+                    socklen_t len = sizeof(soerr);
+                    if (getsockopt(sfd, SOL_SOCKET, SO_ERROR, &soerr, &len) < 0) {
+                        close(sfd);
+                        sfd = -1;
+                        addrinfo_current = addrinfo_current->ai_next;
+                        state = 3; // Try next address
+                        break;
+                    }
+                    
+                    if (soerr == 0) {
+                        // Success, restore blocking
+                        fcntl(sfd, F_SETFL, socket_flags);
+                        log_verbose("HTTP", "Connected to %s:%s", request->host, request->port);
+                        freeaddrinfo(addrinfo_res);
+                        addrinfo_res = NULL;
+                        state = 5; // Move to send request
+                        break;
+                    } else {
+                        // Connection failed
+                        close(sfd);
+                        sfd = -1;
+                        addrinfo_current = addrinfo_current->ai_next;
+                        state = 3; // Try next address
+                        break;
+                    }
+                } else if (s < 0) {
+                    // Select error
+                    close(sfd);
+                    sfd = -1;
+                    addrinfo_current = addrinfo_current->ai_next;
+                    state = 3; // Try next address
+                    break;
+                }
+                // s == 0 means poll timeout, continue waiting
+                
+                // Check overall timeout (convert nanoseconds to milliseconds)
+                if ((time_now() - prev_time) / 1000000 >= (uint64_t)request->timeout_ms) {
+                    log_debug("HTTP", "Connection timeout");
+                    if (sfd >= 0) {
+                        close(sfd);
+                        sfd = -1;
+                    }
+                    if (addrinfo_res) {
+                        freeaddrinfo(addrinfo_res);
+                        addrinfo_res = NULL;
+                    }
+                    timeout = true;
+                }
+                break;
+            }
+            case 5: {
+                // Send the request
+                char reqbuf[4096];
+                int n = snprintf(reqbuf, sizeof(reqbuf),
+                                 "GET %s HTTP/1.1\r\n"
+                                 "Host: %s\r\n"
+                                 "Connection: close\r\n"
+                                 "User-Agent: Entity-Sprite-Engine/1.0\r\n"
+                                 "\r\n",
+                                 request->path ? request->path : "/", 
+                                 request->host ? request->host : "");
+                
+                if (n < 0 || (size_t)n >= sizeof(reqbuf)) {
+                    log_debug("HTTP", "Failed to format request");
+                    error = true;
+                    break;
+                }
+                
+                ssize_t w;
+                if (request->is_https) {
+                    w = mbedtls_ssl_write(&request->ssl, (const unsigned char *)reqbuf, (size_t)n);
+                } else {
+                    w = write(sfd, reqbuf, (size_t)n);
+                }
+                
+                if (w < 0) {
+                    log_debug("HTTP", "Failed to send request");
+                    error = true;
+                    break;
+                }
+                
+                log_verbose("HTTP", "Request sent successfully");
+                
+                // Allocate initial buffer for response
+                const size_t chunk = 4096;
+                raw = (uint8_t *)memory_manager.malloc(chunk, MMTAG_HTTP);
+                if (!raw) {
+                    error = true;
+                    break;
+                }
+                raw_len = 0;
+                raw_capacity = chunk;
+                
+                // Move to receive state
+                prev_time = time_now();
+                state = 6;
+                break;
+            }
+            case 6: {
+                // Receive data from the server
+                const size_t chunk = 4096;
+                
+                // Ensure buffer has space
+                if (raw_len + chunk + 1 >= raw_capacity) {
+                    size_t new_cap = (raw_len + chunk + 1) * 2;
+                    uint8_t *new_buf = (uint8_t *)memory_manager.realloc(raw, new_cap, MMTAG_HTTP);
+                    if (!new_buf) {
+                        error = true;
+                        break;
+                    }
+                    raw = new_buf;
+                    raw_capacity = new_cap;
+                }
+                
+                ssize_t r;
+                if (request->is_https) {
+                    r = mbedtls_ssl_read(&request->ssl, raw + raw_len, chunk);
+                    
+                    if (r > 0) {
+                        raw_len += (size_t)r;
+                    } else if (r == 0 || r == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+                        // Connection closed, move to parse
+                        raw[raw_len] = 0; // NUL terminate
+                        log_verbose("HTTP", "Response received (%zu bytes)", raw_len);
+                        state = 7;
+                        break;
+                    } else if (r == MBEDTLS_ERR_SSL_WANT_READ || r == MBEDTLS_ERR_SSL_WANT_WRITE) {
+                        // Would block, continue
+                    } else {
+                        char error_buf[256];
+                        mbedtls_strerror(r, error_buf, sizeof(error_buf));
+                        log_debug("HTTP", "SSL read error: %d (%s)", r, error_buf);
+                        error = true;
+                        break;
+                    }
+                } else {
+                    // Set non-blocking for regular socket
+                    int flags = fcntl(sfd, F_GETFL, 0);
+                    fcntl(sfd, F_SETFL, flags | O_NONBLOCK);
+                    
+                    r = recv(sfd, raw + raw_len, chunk, 0);
+                    
+                    if (r > 0) {
+                        raw_len += (size_t)r;
+                    } else if (r == 0) {
+                        // Connection closed, move to parse
+                        raw[raw_len] = 0; // NUL terminate
+                        log_verbose("HTTP", "Response received (%zu bytes)", raw_len);
+                        state = 7;
+                        break;
+                    } else {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            // Would block, continue
+                        } else if (errno == EINTR) {
+                            // Interrupted, retry
+                        } else {
+                            log_debug("HTTP", "Socket read error: %d", errno);
+                            error = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Check timeout (convert nanoseconds to milliseconds)
+                if ((time_now() - prev_time) / 1000000 >= (uint64_t)request->timeout_ms) {
+                    log_debug("HTTP", "Response timeout");
+                    timeout = true;
+                }
+                break;
+            }
+            case 7: {
+                // Parse the response
+                size_t hdr_len = 0;
+                if (_http_parse_status_and_headers(raw, raw_len, &status_code, &headers, &hdr_len) != 0) {
+                    log_debug("HTTP", "Failed to parse response");
+                    error = true;
+                    break;
+                }
+                
+                log_verbose("HTTP", "Parsed response - status: %d", status_code);
+                
+                // Check if this is a redirect
+                if (_http_should_follow_redirect(request, status_code)) {
+                    char *location = _http_extract_location_header(headers);
+                    if (location) {
+                        log_debug("HTTP", "Following redirect %d to: %s", request->redirect_count, location);
+                        
+                        // Check for redirect loop
+                        bool is_loop = false;
+                        for (int i = 0; i < request->redirect_count; i++) {
+                            if (request->redirect_urls[i] && strcmp(request->redirect_urls[i], location) == 0) {
+                                log_debug("HTTP", "Redirect loop detected at: %s", location);
+                                is_loop = true;
+                                break;
+                            }
+                        }
+                        
+                        if (is_loop) {
+                            memory_manager.free(location);
+                            // Treat as final response
+                            state = 8;
+                            break;
+                        }
+                        
+                        // Parse the redirect URL and update the request
+                        if (_http_parse_redirect_url(request, location)) {
+                            _http_add_redirect_url(request, location);
+                            memory_manager.free(location);
+                            
+                            // Clean up current response data
+                            if (headers) {
+                                memory_manager.free(headers);
+                                headers = NULL;
+                            }
+                            if (raw) {
+                                memory_manager.free(raw);
+                                raw = NULL;
+                            }
+                            raw_len = 0;
+                            raw_capacity = 0;
+                            
+                            // Close current connection
+                            if (sfd >= 0) {
+                                close(sfd);
+                                sfd = -1;
+                            }
+                            if (addrinfo_res) {
+                                freeaddrinfo(addrinfo_res);
+                                addrinfo_res = NULL;
+                            }
+                            addrinfo_current = NULL;
+                            
+                            // Restart from connection state
+                            if (request->is_https) {
+                                state = 0; // SSL setup
+                            } else {
+                                state = 2; // Regular connection
+                            }
+                            break;
+                        } else {
+                            log_debug("HTTP", "Failed to parse redirect URL: %s", location);
+                            memory_manager.free(location);
+                            // Fall through to return the redirect response
+                        }
+                    } else {
+                        log_debug("HTTP", "Redirect status %d but no Location header", status_code);
+                        // Fall through to return the redirect response
+                    }
+                }
+                
+                // Not a redirect or redirect handling failed - process as final response
+                // Find body start: locate "\r\n\r\n"
+                const char *raw_s = (const char *)raw;
+                const char *hdr_term = strstr(raw_s, "\r\n\r\n");
+                if (hdr_term) {
+                    const uint8_t *body_ptr = (const uint8_t *)(hdr_term + 4);
+                    size_t body_len = raw_len - (size_t)(body_ptr - raw);
+                    size_t cstr_len = body_len + 1;
+                    body_cstr = (char *)memory_manager.malloc(cstr_len, MMTAG_HTTP);
+                    if (body_cstr) {
+                        memcpy(body_cstr, body_ptr, body_len);
+                        body_cstr[body_len] = '\0';
+                    } else {
+                        // Fallback: empty string
+                        body_cstr = (char *)memory_manager.malloc(1, MMTAG_HTTP);
+                        if (body_cstr) {
+                            body_cstr[0] = '\0';
+                        }
+                    }
+                } else {
+                    body_cstr = (char *)memory_manager.malloc(1, MMTAG_HTTP);
+                    if (body_cstr) {
+                        body_cstr[0] = '\0';
+                    }
+                }
+                
+                // Move to finalize
+                state = 8;
+                break;
+            }
+            case 8: {
+                // Store results in request
+                request->status_code = status_code;
+                request->headers = headers;
+                request->body = body_cstr;
+                request->done = true;
+                
+                log_debug("HTTP", "HTTP request completed with status %d for URL: %s", status_code, request->url);
+                log_verbose("HTTP", "Response body length: %zu bytes", body_cstr ? strlen(body_cstr) : 0);
+                
+                // Invoke callback if set
+                if (request->callback) {
+                    log_verbose("HTTP", "Invoking callback for completed request");
+                    request->callback(status_code, headers ? headers : "", raw, raw_len, body_cstr ? body_cstr : "", request->user_data);
+                }
+                
+                // Move to final cleanup
+                state = 9;
+                break;
+            }
+            case 9: {
+                // Clean up and return the result
+                // Note: We don't free headers and body_cstr here as they're stored in the request
+                // The raw buffer is returned to the caller
+                if (sfd >= 0) {
+                    close(sfd);
+                    sfd = -1;
+                }
+                if (addrinfo_res) {
+                    freeaddrinfo(addrinfo_res);
+                    addrinfo_res = NULL;
+                }
+                
+                log_debug("HTTP", "Worker thread completed successfully");
+                return raw;
             }
         }
-        
-        // Not a redirect or redirect handling failed - process as final response
-        break;
     }
-    
-    // Find body start: locate "\r\n\r\n"
-    const char *raw_s = (const char *)raw;
-    const char *hdr_term = strstr(raw_s, "\r\n\r\n");
-    if (hdr_term) {
-        const uint8_t *body_ptr = (const uint8_t *)(hdr_term + 4);
-        size_t body_len = raw_len - (size_t)(body_ptr - raw);
-        size_t cstr_len = body_len + 1;
-        body_cstr = (char *)memory_manager.malloc(cstr_len, MMTAG_HTTP);
-        if (body_cstr) {
-            memcpy(body_cstr, body_ptr, body_len);
-            body_cstr[body_len] = '\0';
-        } else {
-            // Fallback: empty string
-            body_cstr = (char *)memory_manager.malloc(1, MMTAG_HTTP);
-            if (body_cstr) {
-                body_cstr[0] = '\0';
-            }
-        }
-    } else {
-        body_cstr = (char *)memory_manager.malloc(1, MMTAG_HTTP);
-        if (body_cstr) {
-            body_cstr[0] = '\0';
-        }
+
+    // Job was canceled or error occurred
+    // Cleanup and return NULL
+    log_debug("HTTP", "Worker thread completed with error or cancellation");
+    if (sfd >= 0) {
+        close(sfd);
     }
-    
-    // Store results in request
-    request->status_code = status_code;
-    request->headers = headers;
-    request->body = body_cstr;
-    request->done = true;
-    
-    log_debug("HTTP", "HTTP request completed with status %d for URL: %s", status_code, request->url);
-    log_verbose("HTTP", "Response body length: %zu bytes", body_cstr ? strlen(body_cstr) : 0);
-    
-    if (request->callback) {
-        log_verbose("HTTP", "Invoking callback for completed request");
-        request->callback(status_code, headers ? headers : "", raw, raw_len, body_cstr ? body_cstr : "", request->user_data);
+    if (addrinfo_res) {
+        freeaddrinfo(addrinfo_res);
     }
-    
-    // Note: We no longer free raw here when running under job queue; the job returns it
-    return raw;
+    if (addrinfo_current) {
+        freeaddrinfo(addrinfo_current);
+    }
+    if (headers) {
+        memory_manager.free(headers);
+        headers = NULL;
+    }
+    if (raw) {
+        memory_manager.free(raw);
+        raw = NULL;
+    }
+    if (body_cstr) {
+        memory_manager.free(body_cstr);
+        body_cstr = NULL;
+    }
+
+    return NULL;
 }
 
 // Job queue cleanup: free raw buffer returned by worker (if any)
@@ -1459,7 +1575,7 @@ EseHttpRequest *_ese_http_request_make(void) {
     request->host = NULL;
     request->path = NULL;
     request->port = NULL;
-    request->timeout_ms = 0;
+    request->timeout_ms = 10 * 1000; // 10 seconds default timeout
     request->callback = NULL;
     request->user_data = NULL;
     request->status_code = -1;
@@ -1484,3 +1600,4 @@ EseHttpRequest *_ese_http_request_make(void) {
     
     return request;
 }
+

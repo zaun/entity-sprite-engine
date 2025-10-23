@@ -210,6 +210,8 @@ extern "C" {
 // Entity component dispatch profiling
 #define PROFILE_ENTITY_COMPONENT_DISPATCH       120
 
+// Memory manager profiling
+#define PROFILE_MEMORY_MANAGER                  129
 
 #ifdef ESE_PROFILE_ENABLED
 

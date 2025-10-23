@@ -26,6 +26,10 @@ static int _ese_gui_style_lua_index(lua_State *L);
 static int _ese_gui_style_lua_newindex(lua_State *L);
 static int _ese_gui_style_lua_tostring(lua_State *L);
 
+// Color property proxy metamethods
+static int _ese_gui_style_color_proxy_index(lua_State *L);
+static int _ese_gui_style_color_proxy_newindex(lua_State *L);
+
 // Lua constructors
 static int _ese_gui_style_lua_new(lua_State *L);
 
@@ -60,11 +64,120 @@ static int _ese_gui_style_lua_gc(lua_State *L) {
         // so we can free it.
         // If lua_ref != LUA_NOREF, this style was referenced from C and should not be freed.
         if (ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
-            printf("ese_gui_style_lua_gc: No Lua references, safe to free immediately\n");
             ese_gui_style_destroy(style);
         }
     }
 
+    return 0;
+}
+
+/**
+ * @brief Creates a color property proxy table for indexed access by variant
+ * 
+ * @param L Lua state
+ * @param style Pointer to the EseGuiStyle object
+ * @param getter_func Pointer to the getter function
+ * @param setter_func Pointer to the setter function
+ */
+static void _ese_gui_style_create_color_proxy(
+    lua_State *L,
+    EseGuiStyle *style,
+    EseColor *(*getter_func)(const EseGuiStyle *, EseGuiStyleVariant),
+    void (*setter_func)(EseGuiStyle *, EseGuiStyleVariant, const EseColor *)
+) {
+    // Create a new table for this color property
+    lua_newtable(L);
+    
+    // Create metatable for color property proxy
+    lua_newtable(L);
+    
+    // Set __index metamethod
+    lua_pushlightuserdata(L, style);
+    lua_pushlightuserdata(L, (void *)getter_func);
+    lua_pushcclosure(L, _ese_gui_style_color_proxy_index, 2);
+    lua_setfield(L, -2, "__index");
+    
+    // Set __newindex metamethod
+    lua_pushlightuserdata(L, style);
+    lua_pushlightuserdata(L, (void *)setter_func);
+    lua_pushcclosure(L, _ese_gui_style_color_proxy_newindex, 2);
+    lua_setfield(L, -2, "__newindex");
+    
+    // Set the metatable on the table
+    lua_setmetatable(L, -2);
+}
+
+/**
+ * @brief __index metamethod for color property proxy
+ * 
+ * @param L Lua state
+ * @return 1 (the color value)
+ */
+static int _ese_gui_style_color_proxy_index(lua_State *L) {
+    // Get style and getter from upvalues
+    EseGuiStyle *style = (EseGuiStyle *)lua_touserdata(L, lua_upvalueindex(1));
+    EseColor *(*getter)(const EseGuiStyle *, EseGuiStyleVariant) = 
+        (EseColor *(*)(const EseGuiStyle *, EseGuiStyleVariant))lua_touserdata(L, lua_upvalueindex(2));
+    
+    if (!style || !getter) {
+        return luaL_error(L, "Invalid color property proxy");
+    }
+    
+    // Get variant from index
+    if (!lua_isnumber(L, 2)) {
+        return luaL_error(L, "Color property index must be a variant number");
+    }
+    
+    int variant = lua_tointeger(L, 2);
+    if (variant < 0 || variant >= GUI_STYLE_VARIANT_MAX) {
+        return luaL_error(L, "Invalid variant: %d", variant);
+    }
+    
+    // Call getter and push result
+    EseColor *color = getter(style, variant);
+    if (color) {
+        ese_color_lua_push(color);
+        return 1;
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief __newindex metamethod for color property proxy
+ * 
+ * @param L Lua state
+ * @return 0
+ */
+static int _ese_gui_style_color_proxy_newindex(lua_State *L) {
+    // Get style and setter from upvalues
+    EseGuiStyle *style = (EseGuiStyle *)lua_touserdata(L, lua_upvalueindex(1));
+    void (*setter)(EseGuiStyle *, EseGuiStyleVariant, const EseColor *) = 
+        (void (*)(EseGuiStyle *, EseGuiStyleVariant, const EseColor *))lua_touserdata(L, lua_upvalueindex(2));
+    
+    if (!style || !setter) {
+        return luaL_error(L, "Invalid color property proxy");
+    }
+    
+    // Get variant from index
+    if (!lua_isnumber(L, 2)) {
+        return luaL_error(L, "Color property index must be a variant number");
+    }
+    
+    int variant = lua_tointeger(L, 2);
+    if (variant < 0 || variant >= GUI_STYLE_VARIANT_MAX) {
+        return luaL_error(L, "Invalid variant: %d", variant);
+    }
+    
+    // Get color value
+    EseColor *color = ese_color_lua_get(L, 3);
+    if (!color) {
+        return luaL_error(L, "Value must be a Color");
+    }
+    
+    // Call setter
+    setter(style, variant, color);
+    
     return 0;
 }
 
@@ -85,21 +198,9 @@ static int _ese_gui_style_lua_index(lua_State *L) {
 		profile_cancel(PROFILE_LUA_GUI_STYLE_INDEX);
 		return 0;
 	}
-
+        
 	// Numeric properties
-	if (strcmp(key, "direction") == 0) {
-		lua_pushnumber(L, ese_gui_style_get_direction(style));
-		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
-		return 1;
-	} else if (strcmp(key, "justify") == 0) {
-		lua_pushnumber(L, ese_gui_style_get_justify(style));
-		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
-		return 1;
-	} else if (strcmp(key, "align_items") == 0) {
-		lua_pushnumber(L, ese_gui_style_get_align_items(style));
-		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
-		return 1;
-	} else if (strcmp(key, "border_width") == 0) {
+	if (strcmp(key, "border_width") == 0) {
 		lua_pushnumber(L, ese_gui_style_get_border_width(style));
 		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
 		return 1;
@@ -119,104 +220,97 @@ static int _ese_gui_style_lua_index(lua_State *L) {
 		lua_pushnumber(L, ese_gui_style_get_padding_bottom(style));
 		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
 		return 1;
-	} else if (strcmp(key, "spacing") == 0) {
-		lua_pushnumber(L, ese_gui_style_get_spacing(style));
-		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
-		return 1;
 	} else if (strcmp(key, "font_size") == 0) {
 		lua_pushnumber(L, ese_gui_style_get_font_size(style));
 		profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
 		return 1;
-	}
 
-	// Theme/context colors
-	if (strcmp(key, "primary") == 0) { ese_color_lua_push(ese_gui_style_get_primary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "primary_hover") == 0) { ese_color_lua_push(ese_gui_style_get_primary_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "primary_active") == 0) { ese_color_lua_push(ese_gui_style_get_primary_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "secondary") == 0) { ese_color_lua_push(ese_gui_style_get_secondary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "secondary_hover") == 0) { ese_color_lua_push(ese_gui_style_get_secondary_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "secondary_active") == 0) { ese_color_lua_push(ese_gui_style_get_secondary_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "success") == 0) { ese_color_lua_push(ese_gui_style_get_success(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "success_hover") == 0) { ese_color_lua_push(ese_gui_style_get_success_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "success_active") == 0) { ese_color_lua_push(ese_gui_style_get_success_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "info") == 0) { ese_color_lua_push(ese_gui_style_get_info(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "info_hover") == 0) { ese_color_lua_push(ese_gui_style_get_info_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "info_active") == 0) { ese_color_lua_push(ese_gui_style_get_info_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "warning") == 0) { ese_color_lua_push(ese_gui_style_get_warning(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "warning_hover") == 0) { ese_color_lua_push(ese_gui_style_get_warning_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "warning_active") == 0) { ese_color_lua_push(ese_gui_style_get_warning_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "danger") == 0) { ese_color_lua_push(ese_gui_style_get_danger(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "danger_hover") == 0) { ese_color_lua_push(ese_gui_style_get_danger_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "danger_active") == 0) { ese_color_lua_push(ese_gui_style_get_danger_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "light") == 0) { ese_color_lua_push(ese_gui_style_get_light(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "light_hover") == 0) { ese_color_lua_push(ese_gui_style_get_light_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "light_active") == 0) { ese_color_lua_push(ese_gui_style_get_light_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "dark") == 0) { ese_color_lua_push(ese_gui_style_get_dark(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "dark_hover") == 0) { ese_color_lua_push(ese_gui_style_get_dark_hover(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "dark_active") == 0) { ese_color_lua_push(ese_gui_style_get_dark_active(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-
-	// Alerts
-	if (strcmp(key, "alert_success_bg") == 0) { ese_color_lua_push(ese_gui_style_get_alert_success_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_success_text") == 0) { ese_color_lua_push(ese_gui_style_get_alert_success_text(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_success_border") == 0) { ese_color_lua_push(ese_gui_style_get_alert_success_border(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_info_bg") == 0) { ese_color_lua_push(ese_gui_style_get_alert_info_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_info_text") == 0) { ese_color_lua_push(ese_gui_style_get_alert_info_text(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_info_border") == 0) { ese_color_lua_push(ese_gui_style_get_alert_info_border(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_warning_bg") == 0) { ese_color_lua_push(ese_gui_style_get_alert_warning_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_warning_text") == 0) { ese_color_lua_push(ese_gui_style_get_alert_warning_text(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_warning_border") == 0) { ese_color_lua_push(ese_gui_style_get_alert_warning_border(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_danger_bg") == 0) { ese_color_lua_push(ese_gui_style_get_alert_danger_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_danger_text") == 0) { ese_color_lua_push(ese_gui_style_get_alert_danger_text(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "alert_danger_border") == 0) { ese_color_lua_push(ese_gui_style_get_alert_danger_border(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-
-	// Backgrounds
-	if (strcmp(key, "bg_primary") == 0) { ese_color_lua_push(ese_gui_style_get_bg_primary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_secondary") == 0) { ese_color_lua_push(ese_gui_style_get_bg_secondary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_success") == 0) { ese_color_lua_push(ese_gui_style_get_bg_success(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_info") == 0) { ese_color_lua_push(ese_gui_style_get_bg_info(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_warning") == 0) { ese_color_lua_push(ese_gui_style_get_bg_warning(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_danger") == 0) { ese_color_lua_push(ese_gui_style_get_bg_danger(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_light") == 0) { ese_color_lua_push(ese_gui_style_get_bg_light(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_dark") == 0) { ese_color_lua_push(ese_gui_style_get_bg_dark(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_white") == 0) { ese_color_lua_push(ese_gui_style_get_bg_white(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "bg_transparent") == 0) { ese_color_lua_push(ese_gui_style_get_bg_transparent(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-
-	// Text colors
-	if (strcmp(key, "text_primary") == 0) { ese_color_lua_push(ese_gui_style_get_text_primary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_secondary") == 0) { ese_color_lua_push(ese_gui_style_get_text_secondary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_success") == 0) { ese_color_lua_push(ese_gui_style_get_text_success(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_info") == 0) { ese_color_lua_push(ese_gui_style_get_text_info(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_warning") == 0) { ese_color_lua_push(ese_gui_style_get_text_warning(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_danger") == 0) { ese_color_lua_push(ese_gui_style_get_text_danger(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_light") == 0) { ese_color_lua_push(ese_gui_style_get_text_light(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_dark") == 0) { ese_color_lua_push(ese_gui_style_get_text_dark(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_body") == 0) { ese_color_lua_push(ese_gui_style_get_text_body(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_muted") == 0) { ese_color_lua_push(ese_gui_style_get_text_muted(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_white") == 0) { ese_color_lua_push(ese_gui_style_get_text_white(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_black") == 0) { ese_color_lua_push(ese_gui_style_get_text_black(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "text_reset") == 0) { ese_color_lua_push(ese_gui_style_get_text_reset(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-
-	// Borders
-	if (strcmp(key, "border_primary") == 0) { ese_color_lua_push(ese_gui_style_get_border_primary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_secondary") == 0) { ese_color_lua_push(ese_gui_style_get_border_secondary(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_success") == 0) { ese_color_lua_push(ese_gui_style_get_border_success(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_info") == 0) { ese_color_lua_push(ese_gui_style_get_border_info(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_warning") == 0) { ese_color_lua_push(ese_gui_style_get_border_warning(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_danger") == 0) { ese_color_lua_push(ese_gui_style_get_border_danger(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_light") == 0) { ese_color_lua_push(ese_gui_style_get_border_light(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_dark") == 0) { ese_color_lua_push(ese_gui_style_get_border_dark(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_white") == 0) { ese_color_lua_push(ese_gui_style_get_border_white(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_gray_200") == 0) { ese_color_lua_push(ese_gui_style_get_border_gray_200(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "border_gray_300") == 0) { ese_color_lua_push(ese_gui_style_get_border_gray_300(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-
-	// Tooltips and misc
-	if (strcmp(key, "tooltip_bg") == 0) { ese_color_lua_push(ese_gui_style_get_tooltip_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "tooltip_color") == 0) { ese_color_lua_push(ese_gui_style_get_tooltip_color(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "selection_bg") == 0) { ese_color_lua_push(ese_gui_style_get_selection_bg(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "selection_color") == 0) { ese_color_lua_push(ese_gui_style_get_selection_color(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "focus_ring") == 0) { ese_color_lua_push(ese_gui_style_get_focus_ring(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "highlight") == 0) { ese_color_lua_push(ese_gui_style_get_highlight(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
-	if (strcmp(key, "list_group_action") == 0) { ese_color_lua_push(ese_gui_style_get_list_group_action(style)); profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)"); return 1; }
+	// Theme/context colors - return indexable tables
+    } else if (strcmp(key, "color") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_color, ese_gui_style_set_color);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "color_hover") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_color_hover, ese_gui_style_set_color_hover);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "color_active") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_color_active, ese_gui_style_set_color_active);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "alert_background") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_alert_bg, ese_gui_style_set_alert_bg);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "alert_text") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_alert_text, ese_gui_style_set_alert_text);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "alert_border") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_alert_border, ese_gui_style_set_alert_border);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "background") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_bg, ese_gui_style_set_bg);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "background_hover") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_bg_hover, ese_gui_style_set_bg_hover);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "background_active") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_bg_active, ese_gui_style_set_bg_active);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "text") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_text, ese_gui_style_set_text);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "text_hover") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_text_hover, ese_gui_style_set_text_hover);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "text_active") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_text_active, ese_gui_style_set_text_active);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "border") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_border, ese_gui_style_set_border);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "border_hover") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_border_hover, ese_gui_style_set_border_hover);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "border_active") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_border_active, ese_gui_style_set_border_active);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "tooltip_background") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_tooltip_bg, ese_gui_style_set_tooltip_bg);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "tooltip_color") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_tooltip_color, ese_gui_style_set_tooltip_color);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "selection_background") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_selection_bg, ese_gui_style_set_selection_bg);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "selection_color") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_selection_color, ese_gui_style_set_selection_color);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "focus_ring") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_focus_ring, ese_gui_style_set_focus_ring);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "highlight") == 0) {
+        _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_highlight, ese_gui_style_set_highlight);
+        profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
+        return 1;
+    }
 
 	// Methods
 	if (strcmp(key, "toJSON") == 0) {
@@ -254,19 +348,9 @@ static int _ese_gui_style_lua_newindex(lua_State *L) {
         return 0;
     }
 
-    if (strcmp(key, "direction") == 0) {
-        if (lua_isnumber(L, 3)) {
-            ese_gui_style_set_direction(style, (EseGuiFlexDirection)lua_tointeger(L, 3));
-        }
-    } else if (strcmp(key, "justify") == 0) {
-        if (lua_isnumber(L, 3)) {
-            ese_gui_style_set_justify(style, (EseGuiFlexJustify)lua_tointeger(L, 3));
-        }
-    } else if (strcmp(key, "align_items") == 0) {
-        if (lua_isnumber(L, 3)) {
-            ese_gui_style_set_align_items(style, (EseGuiFlexAlignItems)lua_tointeger(L, 3));
-        }
-    } else if (strcmp(key, "border_width") == 0) {
+    // Border width
+    if (strcmp(key, "border_width") == 0) {
+
         if (lua_isnumber(L, 3)) {
             ese_gui_style_set_border_width(style, (int)lua_tointeger(L, 3));
         }
@@ -286,102 +370,12 @@ static int _ese_gui_style_lua_newindex(lua_State *L) {
         if (lua_isnumber(L, 3)) {
             ese_gui_style_set_padding_bottom(style, (int)lua_tointeger(L, 3));
         }
-    } else if (strcmp(key, "spacing") == 0) {
-        if (lua_isnumber(L, 3)) {
-            ese_gui_style_set_spacing(style, (int)lua_tointeger(L, 3));
-        }
     } else if (strcmp(key, "font_size") == 0) {
         if (lua_isnumber(L, 3)) {
             ese_gui_style_set_font_size(style, (int)lua_tointeger(L, 3));
         }
-    // Theme/context setters
-    } else if (strcmp(key, "primary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_primary(style, c);
-    } else if (strcmp(key, "primary_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_primary_hover(style, c);
-    } else if (strcmp(key, "primary_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_primary_active(style, c);
-    } else if (strcmp(key, "secondary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_secondary(style, c);
-    } else if (strcmp(key, "secondary_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_secondary_hover(style, c);
-    } else if (strcmp(key, "secondary_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_secondary_active(style, c);
-    } else if (strcmp(key, "success") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_success(style, c);
-    } else if (strcmp(key, "success_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_success_hover(style, c);
-    } else if (strcmp(key, "success_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_success_active(style, c);
-    } else if (strcmp(key, "info") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_info(style, c);
-    } else if (strcmp(key, "info_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_info_hover(style, c);
-    } else if (strcmp(key, "info_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_info_active(style, c);
-    } else if (strcmp(key, "warning") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_warning(style, c);
-    } else if (strcmp(key, "warning_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_warning_hover(style, c);
-    } else if (strcmp(key, "warning_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_warning_active(style, c);
-    } else if (strcmp(key, "danger") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_danger(style, c);
-    } else if (strcmp(key, "danger_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_danger_hover(style, c);
-    } else if (strcmp(key, "danger_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_danger_active(style, c);
-    } else if (strcmp(key, "light") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_light(style, c);
-    } else if (strcmp(key, "light_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_light_hover(style, c);
-    } else if (strcmp(key, "light_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_light_active(style, c);
-    } else if (strcmp(key, "dark") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_dark(style, c);
-    } else if (strcmp(key, "dark_hover") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_dark_hover(style, c);
-    } else if (strcmp(key, "dark_active") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_dark_active(style, c);
 
-    // Alerts
-    } else if (strcmp(key, "alert_success_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_success_bg(style, c);
-    } else if (strcmp(key, "alert_success_text") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_success_text(style, c);
-    } else if (strcmp(key, "alert_success_border") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_success_border(style, c);
-    } else if (strcmp(key, "alert_info_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_info_bg(style, c);
-    } else if (strcmp(key, "alert_info_text") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_info_text(style, c);
-    } else if (strcmp(key, "alert_info_border") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_info_border(style, c);
-    } else if (strcmp(key, "alert_warning_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_warning_bg(style, c);
-    } else if (strcmp(key, "alert_warning_text") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_warning_text(style, c);
-    } else if (strcmp(key, "alert_warning_border") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_warning_border(style, c);
-    } else if (strcmp(key, "alert_danger_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_danger_bg(style, c);
-    } else if (strcmp(key, "alert_danger_text") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_danger_text(style, c);
-    } else if (strcmp(key, "alert_danger_border") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_alert_danger_border(style, c);
-
-    // Backgrounds
-    } else if (strcmp(key, "bg_primary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_primary(style, c);
-    } else if (strcmp(key, "bg_secondary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_secondary(style, c);
-    } else if (strcmp(key, "bg_success") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_success(style, c);
-    } else if (strcmp(key, "bg_info") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_info(style, c);
-    } else if (strcmp(key, "bg_warning") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_warning(style, c);
-    } else if (strcmp(key, "bg_danger") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_danger(style, c);
-    } else if (strcmp(key, "bg_light") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_light(style, c);
-    } else if (strcmp(key, "bg_dark") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_dark(style, c);
-    } else if (strcmp(key, "bg_white") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_white(style, c);
-    } else if (strcmp(key, "bg_transparent") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_bg_transparent(style, c);
-
-    // Text colors
-    } else if (strcmp(key, "text_primary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_primary(style, c);
-    } else if (strcmp(key, "text_secondary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_secondary(style, c);
-    } else if (strcmp(key, "text_success") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_success(style, c);
-    } else if (strcmp(key, "text_info") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_info(style, c);
-    } else if (strcmp(key, "text_warning") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_warning(style, c);
-    } else if (strcmp(key, "text_danger") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_danger(style, c);
-    } else if (strcmp(key, "text_light") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_light(style, c);
-    } else if (strcmp(key, "text_dark") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_dark(style, c);
-    } else if (strcmp(key, "text_body") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_body(style, c);
-    } else if (strcmp(key, "text_muted") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_muted(style, c);
-    } else if (strcmp(key, "text_white") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_white(style, c);
-    } else if (strcmp(key, "text_black") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_black(style, c);
-    } else if (strcmp(key, "text_reset") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_text_reset(style, c);
-
-    // Borders
-    } else if (strcmp(key, "border_primary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_primary(style, c);
-    } else if (strcmp(key, "border_secondary") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_secondary(style, c);
-    } else if (strcmp(key, "border_success") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_success(style, c);
-    } else if (strcmp(key, "border_info") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_info(style, c);
-    } else if (strcmp(key, "border_warning") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_warning(style, c);
-    } else if (strcmp(key, "border_danger") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_danger(style, c);
-    } else if (strcmp(key, "border_light") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_light(style, c);
-    } else if (strcmp(key, "border_dark") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_dark(style, c);
-    } else if (strcmp(key, "border_white") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_white(style, c);
-    } else if (strcmp(key, "border_gray_200") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_gray_200(style, c);
-    } else if (strcmp(key, "border_gray_300") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_border_gray_300(style, c);
-
-    // Tooltips and misc
-    } else if (strcmp(key, "tooltip_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_tooltip_bg(style, c);
-    } else if (strcmp(key, "tooltip_color") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_tooltip_color(style, c);
-    } else if (strcmp(key, "selection_bg") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_selection_bg(style, c);
-    } else if (strcmp(key, "selection_color") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_selection_color(style, c);
-    } else if (strcmp(key, "focus_ring") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_focus_ring(style, c);
-    } else if (strcmp(key, "highlight") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_highlight(style, c);
-    } else if (strcmp(key, "list_group_action") == 0) { EseColor *c = ese_color_lua_get(L, 3); if (c) ese_gui_style_set_list_group_action(style, c);
+    // Color properties are handled by their proxy tables
     }
 
     profile_stop(PROFILE_LUA_GUI_STYLE_NEWINDEX, "gui_style_lua_newindex");
@@ -404,11 +398,8 @@ static int _ese_gui_style_lua_tostring(lua_State *L) {
     }
 
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "GuiStyle: direction=%d, justify=%d, align_items=%d, spacing=%d, font_size=%d", 
-             ese_gui_style_get_direction(style),
-             ese_gui_style_get_justify(style),
-             ese_gui_style_get_align_items(style),
-             ese_gui_style_get_spacing(style),
+    snprintf(buffer, sizeof(buffer), "GuiStyle: border_width=%d, font_size=%d", 
+             ese_gui_style_get_border_width(style),
              ese_gui_style_get_font_size(style));
     
     lua_pushstring(L, buffer);
@@ -516,6 +507,8 @@ static int _ese_gui_style_lua_from_json(lua_State *L) {
 // ========================================
 
 void _ese_gui_style_lua_init(EseLuaEngine *engine) {
+    lua_State *L = engine->runtime;
+    
     // Create metatable
     lua_engine_new_object_meta(engine, GUI_STYLE_PROXY_META, 
         _ese_gui_style_lua_index, 
@@ -527,4 +520,31 @@ void _ese_gui_style_lua_init(EseLuaEngine *engine) {
     const char *keys[] = {"new", "fromJSON"};
     lua_CFunction functions[] = {_ese_gui_style_lua_new, _ese_gui_style_lua_from_json};
     lua_engine_new_object(engine, "GuiStyle", 2, keys, functions);
+    
+    // Add VARIANT table to GuiStyle
+    lua_getglobal(L, "GuiStyle");
+    lua_newtable(L);  // Create VARIANT table
+    // GUI_STYLE_VARIANT_DEFAULT is not a valid variant, so we don't include it
+    lua_pushinteger(L, GUI_STYLE_VARIANT_PRIMARY);
+    lua_setfield(L, -2, "PRIMARY");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_SECONDARY);
+    lua_setfield(L, -2, "SECONDARY");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_SUCCESS);
+    lua_setfield(L, -2, "SUCCESS");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_INFO);
+    lua_setfield(L, -2, "INFO");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_WARNING);
+    lua_setfield(L, -2, "WARNING");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_DANGER);
+    lua_setfield(L, -2, "DANGER");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_LIGHT);
+    lua_setfield(L, -2, "LIGHT");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_DARK);
+    lua_setfield(L, -2, "DARK");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_WHITE);
+    lua_setfield(L, -2, "WHITE");
+    lua_pushinteger(L, GUI_STYLE_VARIANT_TRANSPARENT);
+    lua_setfield(L, -2, "TRANSPARENT");
+    lua_setfield(L, -2, "VARIANT");  // Set GuiStyle.VARIANT = VARIANT table
+    lua_pop(L, 1);  // Pop GuiStyle table
 }

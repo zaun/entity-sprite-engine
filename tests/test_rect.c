@@ -162,7 +162,7 @@ static void test_ese_rect_sizeof(void) {
 }
 
 static void test_ese_rect_create_requires_engine(void) {
-    ASSERT_DEATH(ese_rect_create(NULL), "ese_rect_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_rect_create(NULL), "ese_rect_create should abort with NULL engine");
 }
 
 static void test_ese_rect_create(void) {
@@ -268,7 +268,7 @@ static void test_ese_rect_ref(void) {
 }
 
 static void test_ese_rect_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_rect_copy(NULL), "ese_rect_copy should abort with NULL rect");
+    TEST_ASSERT_DEATH(ese_rect_copy(NULL), "ese_rect_copy should abort with NULL rect");
 }
 
 static void test_ese_rect_copy(void) {

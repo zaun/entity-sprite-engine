@@ -328,7 +328,7 @@ static void test_ese_input_state_ref(void) {
 }
 
 static void test_ese_input_state_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_input_state_copy(NULL), "ese_input_state_copy should abort with NULL input");
+    TEST_ASSERT_DEATH(ese_input_state_copy(NULL), "ese_input_state_copy should abort with NULL input");
 }
 
 static void test_ese_input_state_copy(void) {

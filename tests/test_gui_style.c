@@ -28,9 +28,6 @@
 static void test_ese_gui_style_sizeof(void);
 static void test_ese_gui_style_create_requires_engine(void);
 static void test_ese_gui_style_create(void);
-static void test_ese_gui_style_direction(void);
-static void test_ese_gui_style_justify(void);
-static void test_ese_gui_style_align_items(void);
 static void test_ese_gui_style_background(void);
 static void test_ese_gui_style_background_hovered(void);
 static void test_ese_gui_style_background_pressed(void);
@@ -45,7 +42,6 @@ static void test_ese_gui_style_padding_left(void);
 static void test_ese_gui_style_padding_top(void);
 static void test_ese_gui_style_padding_right(void);
 static void test_ese_gui_style_padding_bottom(void);
-static void test_ese_gui_style_spacing(void);
 static void test_ese_gui_style_ref(void);
 static void test_ese_gui_style_copy_requires_engine(void);
 static void test_ese_gui_style_copy(void);
@@ -104,9 +100,6 @@ int main(void) {
     RUN_TEST(test_ese_gui_style_sizeof);
     RUN_TEST(test_ese_gui_style_create_requires_engine);
     RUN_TEST(test_ese_gui_style_create);
-    RUN_TEST(test_ese_gui_style_direction);
-    RUN_TEST(test_ese_gui_style_justify);
-    RUN_TEST(test_ese_gui_style_align_items);
     RUN_TEST(test_ese_gui_style_background);
     RUN_TEST(test_ese_gui_style_background_hovered);
     RUN_TEST(test_ese_gui_style_background_pressed);
@@ -121,7 +114,6 @@ int main(void) {
     RUN_TEST(test_ese_gui_style_padding_top);
     RUN_TEST(test_ese_gui_style_padding_right);
     RUN_TEST(test_ese_gui_style_padding_bottom);
-    RUN_TEST(test_ese_gui_style_spacing);
     RUN_TEST(test_ese_gui_style_ref);
     RUN_TEST(test_ese_gui_style_copy_requires_engine);
     RUN_TEST(test_ese_gui_style_copy);
@@ -150,27 +142,23 @@ static void test_ese_gui_style_sizeof(void) {
 }
 
 static void test_ese_gui_style_create_requires_engine(void) {
-    ASSERT_DEATH(ese_gui_style_create(NULL), "ese_gui_style_create should abort with NULL engine");
+    TEST_ASSERT_DEATH(ese_gui_style_create(NULL), "ese_gui_style_create should abort with NULL engine");
 }
 
 static void test_ese_gui_style_create(void) {
     EseGuiStyle *style = ese_gui_style_create(g_engine);
 
     TEST_ASSERT_NOT_NULL_MESSAGE(style, "GuiStyle should be created");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_DIRECTION_ROW, ese_gui_style_get_direction(style), "Default direction should be ROW");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_JUSTIFY_START, ese_gui_style_get_justify(style), "Default justify should be START");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_ALIGN_ITEMS_START, ese_gui_style_get_align_items(style), "Default align_items should be START");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, ese_gui_style_get_border_width(style), "Default border_width should be 1");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(GUI_STYLE_BORDER_WIDTH_WIDGET_DEFAULT, ese_gui_style_get_border_width(style), "Default border_width should be 1");
     TEST_ASSERT_EQUAL_INT_MESSAGE(4, ese_gui_style_get_padding_left(style), "Default padding_left should be 4");
     TEST_ASSERT_EQUAL_INT_MESSAGE(4, ese_gui_style_get_padding_top(style), "Default padding_top should be 4");
     TEST_ASSERT_EQUAL_INT_MESSAGE(4, ese_gui_style_get_padding_right(style), "Default padding_right should be 4");
     TEST_ASSERT_EQUAL_INT_MESSAGE(4, ese_gui_style_get_padding_bottom(style), "Default padding_bottom should be 4");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(4, ese_gui_style_get_spacing(style), "Default spacing should be 4");
     TEST_ASSERT_EQUAL_PTR_MESSAGE(g_engine->runtime, ese_gui_style_get_state(style), "GuiStyle should have correct Lua state");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_gui_style_get_lua_ref_count(style), "New GuiStyle should have ref count 0");
 
     // Test that colors are created and have default values
-    EseColor *background = ese_gui_style_get_bg_light(style);
+    EseColor *background = ese_gui_style_get_bg(style, GUI_STYLE_VARIANT_LIGHT);
     TEST_ASSERT_NOT_NULL_MESSAGE(background, "Background color should be created");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9725f, ese_color_get_r(background)); // 248/255 ≈ 0.9725
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.9765f, ese_color_get_g(background)); // 249/255 ≈ 0.9765
@@ -180,50 +168,14 @@ static void test_ese_gui_style_create(void) {
     ese_gui_style_destroy(style);
 }
 
-static void test_ese_gui_style_direction(void) {
-    EseGuiStyle *style = ese_gui_style_create(g_engine);
-
-    ese_gui_style_set_direction(style, FLEX_DIRECTION_COLUMN);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_DIRECTION_COLUMN, ese_gui_style_get_direction(style), "Direction should be set to COLUMN");
-
-    ese_gui_style_set_direction(style, FLEX_DIRECTION_ROW);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_DIRECTION_ROW, ese_gui_style_get_direction(style), "Direction should be set to ROW");
-
-    ese_gui_style_destroy(style);
-}
-
-static void test_ese_gui_style_justify(void) {
-    EseGuiStyle *style = ese_gui_style_create(g_engine);
-
-    ese_gui_style_set_justify(style, FLEX_JUSTIFY_CENTER);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_JUSTIFY_CENTER, ese_gui_style_get_justify(style), "Justify should be set to CENTER");
-
-    ese_gui_style_set_justify(style, FLEX_JUSTIFY_END);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_JUSTIFY_END, ese_gui_style_get_justify(style), "Justify should be set to END");
-
-    ese_gui_style_destroy(style);
-}
-
-static void test_ese_gui_style_align_items(void) {
-    EseGuiStyle *style = ese_gui_style_create(g_engine);
-
-    ese_gui_style_set_align_items(style, FLEX_ALIGN_ITEMS_CENTER);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_ALIGN_ITEMS_CENTER, ese_gui_style_get_align_items(style), "Align items should be set to CENTER");
-
-    ese_gui_style_set_align_items(style, FLEX_ALIGN_ITEMS_END);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(FLEX_ALIGN_ITEMS_END, ese_gui_style_get_align_items(style), "Align items should be set to END");
-
-    ese_gui_style_destroy(style);
-}
-
 static void test_ese_gui_style_background(void) {
     EseGuiStyle *style = ese_gui_style_create(g_engine);
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 0, 0, 255); // Red
 
-    ese_gui_style_set_bg_light(style, new_color);
+    ese_gui_style_set_bg(style, GUI_STYLE_VARIANT_LIGHT, new_color);
     
-    EseColor *background = ese_gui_style_get_bg_light(style);
+    EseColor *background = ese_gui_style_get_bg(style, GUI_STYLE_VARIANT_LIGHT);
     TEST_ASSERT_NOT_NULL_MESSAGE(background, "Background color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(background));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(background));
@@ -239,9 +191,9 @@ static void test_ese_gui_style_background_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 255, 0, 255); // Green
 
-    ese_gui_style_set_bg_secondary(style, new_color);
+    ese_gui_style_set_bg(style, GUI_STYLE_VARIANT_SECONDARY, new_color);
     
-    EseColor *background_hovered = ese_gui_style_get_bg_secondary(style);
+    EseColor *background_hovered = ese_gui_style_get_bg(style, GUI_STYLE_VARIANT_SECONDARY);
     TEST_ASSERT_NOT_NULL_MESSAGE(background_hovered, "Background hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(background_hovered));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(background_hovered));
@@ -257,9 +209,9 @@ static void test_ese_gui_style_background_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 0, 255, 255); // Blue
 
-    ese_gui_style_set_bg_dark(style, new_color);
+    ese_gui_style_set_bg(style, GUI_STYLE_VARIANT_DARK, new_color);
     
-    EseColor *background_pressed = ese_gui_style_get_bg_dark(style);
+    EseColor *background_pressed = ese_gui_style_get_bg(style, GUI_STYLE_VARIANT_DARK);
     TEST_ASSERT_NOT_NULL_MESSAGE(background_pressed, "Background pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(background_pressed));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(background_pressed));
@@ -275,9 +227,9 @@ static void test_ese_gui_style_border(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 255, 0, 255); // Yellow
 
-    ese_gui_style_set_border_gray_300(style, new_color);
+    ese_gui_style_set_border(style, GUI_STYLE_VARIANT_PRIMARY, new_color);
     
-    EseColor *border = ese_gui_style_get_border_gray_300(style);
+    EseColor *border = ese_gui_style_get_border(style, GUI_STYLE_VARIANT_PRIMARY);
     TEST_ASSERT_NOT_NULL_MESSAGE(border, "Border color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(border));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(border));
@@ -293,9 +245,9 @@ static void test_ese_gui_style_border_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 255, 0, 255, 255); // Magenta
 
-    ese_gui_style_set_border_gray_200(style, new_color);
+    ese_gui_style_set_border(style, GUI_STYLE_VARIANT_SECONDARY, new_color);
     
-    EseColor *border_hovered = ese_gui_style_get_border_gray_200(style);
+    EseColor *border_hovered = ese_gui_style_get_border(style, GUI_STYLE_VARIANT_SECONDARY);
     TEST_ASSERT_NOT_NULL_MESSAGE(border_hovered, "Border hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_r(border_hovered));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_g(border_hovered));
@@ -311,9 +263,9 @@ static void test_ese_gui_style_border_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 0, 255, 255, 255); // Cyan
 
-    ese_gui_style_set_border_dark(style, new_color);
+    ese_gui_style_set_border(style, GUI_STYLE_VARIANT_DARK, new_color);
     
-    EseColor *border_pressed = ese_gui_style_get_border_dark(style);
+    EseColor *border_pressed = ese_gui_style_get_border(style, GUI_STYLE_VARIANT_DARK);
     TEST_ASSERT_NOT_NULL_MESSAGE(border_pressed, "Border pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ese_color_get_r(border_pressed));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, ese_color_get_g(border_pressed));
@@ -329,9 +281,9 @@ static void test_ese_gui_style_text(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 128, 128, 128, 255); // Gray
 
-    ese_gui_style_set_text_body(style, new_color);
+    ese_gui_style_set_text(style, GUI_STYLE_VARIANT_DEFAULT, new_color);
     
-    EseColor *text = ese_gui_style_get_text_body(style);
+    EseColor *text = ese_gui_style_get_text(style, GUI_STYLE_VARIANT_DEFAULT);
     TEST_ASSERT_NOT_NULL_MESSAGE(text, "Text color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, ese_color_get_r(text)); // 128/255 ≈ 0.5
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, ese_color_get_g(text));
@@ -347,9 +299,9 @@ static void test_ese_gui_style_text_hovered(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 64, 64, 64, 255); // Dark gray
 
-    ese_gui_style_set_text_dark(style, new_color);
+    ese_gui_style_set_text(style, GUI_STYLE_VARIANT_DARK, new_color);
     
-    EseColor *text_hovered = ese_gui_style_get_text_dark(style);
+    EseColor *text_hovered = ese_gui_style_get_text(style, GUI_STYLE_VARIANT_DARK);
     TEST_ASSERT_NOT_NULL_MESSAGE(text_hovered, "Text hovered color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.25f, ese_color_get_r(text_hovered)); // 64/255 ≈ 0.25
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.25f, ese_color_get_g(text_hovered));
@@ -365,9 +317,9 @@ static void test_ese_gui_style_text_pressed(void) {
     EseColor *new_color = ese_color_create(g_engine);
     ese_color_set_byte(new_color, 32, 32, 32, 255); // Very dark gray
 
-    ese_gui_style_set_text_black(style, new_color);
+    ese_gui_style_set_text(style, GUI_STYLE_VARIANT_WHITE, new_color);
     
-    EseColor *text_pressed = ese_gui_style_get_text_black(style);
+    EseColor *text_pressed = ese_gui_style_get_text(style, GUI_STYLE_VARIANT_WHITE);
     TEST_ASSERT_NOT_NULL_MESSAGE(text_pressed, "Text pressed color should exist");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.125f, ese_color_get_r(text_pressed)); // 32/255 ≈ 0.125
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.125f, ese_color_get_g(text_pressed));
@@ -438,18 +390,6 @@ static void test_ese_gui_style_padding_bottom(void) {
     ese_gui_style_destroy(style);
 }
 
-static void test_ese_gui_style_spacing(void) {
-    EseGuiStyle *style = ese_gui_style_create(g_engine);
-
-    ese_gui_style_set_spacing(style, 8);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(8, ese_gui_style_get_spacing(style), "Spacing should be set to 8");
-
-    ese_gui_style_set_spacing(style, 0);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ese_gui_style_get_spacing(style), "Spacing should be set to 0");
-
-    ese_gui_style_destroy(style);
-}
-
 static void test_ese_gui_style_ref(void) {
     EseGuiStyle *style = ese_gui_style_create(g_engine);
 
@@ -465,35 +405,27 @@ static void test_ese_gui_style_ref(void) {
 }
 
 static void test_ese_gui_style_copy_requires_engine(void) {
-    ASSERT_DEATH(ese_gui_style_copy(NULL), "ese_gui_style_copy should abort with NULL source");
+    TEST_ASSERT_DEATH(ese_gui_style_copy(NULL), "ese_gui_style_copy should abort with NULL source");
 }
 
 static void test_ese_gui_style_copy(void) {
     EseGuiStyle *original = ese_gui_style_create(g_engine);
-    ese_gui_style_set_direction(original, FLEX_DIRECTION_COLUMN);
-    ese_gui_style_set_justify(original, FLEX_JUSTIFY_CENTER);
-    ese_gui_style_set_align_items(original, FLEX_ALIGN_ITEMS_CENTER);
     ese_gui_style_set_border_width(original, 3);
     ese_gui_style_set_padding_left(original, 10);
-    ese_gui_style_set_spacing(original, 8);
 
     EseColor *test_color = ese_color_create(g_engine);
     ese_color_set_byte(test_color, 255, 0, 0, 255);
-    ese_gui_style_set_bg_light(original, test_color);
+    ese_gui_style_set_bg(original, GUI_STYLE_VARIANT_LIGHT, test_color);
 
     EseGuiStyle *copy = ese_gui_style_copy(original);
     TEST_ASSERT_NOT_NULL_MESSAGE(copy, "Copy should be created");
     TEST_ASSERT_NOT_EQUAL_MESSAGE(original, copy, "Copy should be different object");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_direction(original), ese_gui_style_get_direction(copy), "Direction should be copied");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_justify(original), ese_gui_style_get_justify(copy), "Justify should be copied");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_align_items(original), ese_gui_style_get_align_items(copy), "Align items should be copied");
     TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_border_width(original), ese_gui_style_get_border_width(copy), "Border width should be copied");
     TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_padding_left(original), ese_gui_style_get_padding_left(copy), "Padding left should be copied");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_spacing(original), ese_gui_style_get_spacing(copy), "Spacing should be copied");
 
     // Test that colors are copied (not shared)
-    EseColor *original_bg = ese_gui_style_get_bg_light(original);
-    EseColor *copy_bg = ese_gui_style_get_bg_light(copy);
+    EseColor *original_bg = ese_gui_style_get_bg(original, GUI_STYLE_VARIANT_LIGHT);
+    EseColor *copy_bg = ese_gui_style_get_bg(copy, GUI_STYLE_VARIANT_LIGHT);
     TEST_ASSERT_NOT_EQUAL_MESSAGE(original_bg, copy_bg, "Color objects should be different");
     TEST_ASSERT_FLOAT_WITHIN(0.01f, ese_color_get_r(original_bg), ese_color_get_r(copy_bg));
     TEST_ASSERT_FLOAT_WITHIN(0.01f, ese_color_get_g(original_bg), ese_color_get_g(copy_bg));
@@ -524,7 +456,7 @@ static void test_ese_gui_style_watcher_system(void) {
     TEST_ASSERT_TRUE_MESSAGE(ese_gui_style_add_watcher(g_watcher_style, watcher_callback, g_watcher_userdata), "Watcher should be added");
 
     // Change a property to trigger watcher
-    ese_gui_style_set_direction(g_watcher_style, FLEX_DIRECTION_COLUMN);
+    ese_gui_style_set_border_width(g_watcher_style, 5);
     TEST_ASSERT_TRUE_MESSAGE(g_watcher_called, "Watcher should be called on property change");
 
     g_watcher_called = false;
@@ -534,7 +466,7 @@ static void test_ese_gui_style_watcher_system(void) {
     TEST_ASSERT_TRUE_MESSAGE(ese_gui_style_remove_watcher(g_watcher_style, watcher_callback, &g_watcher_called), "Watcher should be removed");
 
     g_watcher_called = false;
-    ese_gui_style_set_direction(g_watcher_style, FLEX_DIRECTION_ROW);
+    ese_gui_style_set_border_width(g_watcher_style, 3);
     TEST_ASSERT_FALSE_MESSAGE(g_watcher_called, "Watcher should not be called after removal");
 
     ese_gui_style_destroy(g_watcher_style);
@@ -561,7 +493,10 @@ static void test_ese_gui_style_lua_integration(void) {
 static void test_ese_gui_style_lua_init(void) {
     // Test that Lua initialization doesn't crash
     ese_gui_style_lua_init(g_engine);
-    TEST_PASS_MESSAGE("Lua init should complete without error");
+    
+    lua_getglobal(g_engine->runtime, "GuiStyle");
+    TEST_ASSERT_TRUE_MESSAGE(lua_istable(g_engine->runtime, -1), "GuiStyle should be in the global table");
+    lua_pop(g_engine->runtime, 1);
 }
 
 static void test_ese_gui_style_lua_push(void) {
@@ -599,11 +534,9 @@ static void test_ese_gui_style_lua_get(void) {
 
 static void test_ese_gui_style_serialization(void) {
     EseGuiStyle *style = ese_gui_style_create(g_engine);
-    ese_gui_style_set_direction(style, FLEX_DIRECTION_COLUMN);
-    ese_gui_style_set_justify(style, FLEX_JUSTIFY_CENTER);
     ese_gui_style_set_border_width(style, 3);
+    ese_gui_style_set_font_size(style, 14);
     ese_gui_style_set_padding_left(style, 10);
-    ese_gui_style_set_spacing(style, 8);
 
     cJSON *json = ese_gui_style_serialize(style);
     TEST_ASSERT_NOT_NULL_MESSAGE(json, "Serialization should produce JSON");
@@ -611,11 +544,9 @@ static void test_ese_gui_style_serialization(void) {
     // Test deserialization
     EseGuiStyle *deserialized = ese_gui_style_deserialize(g_engine, json);
     TEST_ASSERT_NOT_NULL_MESSAGE(deserialized, "Deserialization should create style");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_direction(style), ese_gui_style_get_direction(deserialized), "Direction should be preserved");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_justify(style), ese_gui_style_get_justify(deserialized), "Justify should be preserved");
     TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_border_width(style), ese_gui_style_get_border_width(deserialized), "Border width should be preserved");
     TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_padding_left(style), ese_gui_style_get_padding_left(deserialized), "Padding left should be preserved");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_spacing(style), ese_gui_style_get_spacing(deserialized), "Spacing should be preserved");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ese_gui_style_get_font_size(style), ese_gui_style_get_font_size(deserialized), "Font size should be preserved");
 
     cJSON_Delete(json);
     ese_gui_style_destroy(style);
@@ -650,9 +581,9 @@ static void test_ese_gui_style_lua_properties(void) {
     const char *script =
         "function GS.run()\n"
         "  local s = GuiStyle.new()\n"
-        "  s.direction = 1\n"
+        "  s.font_size = 1\n"
         "  s.border_width = 5\n"
-        "  return (s.direction == 1 and s.border_width == 5)\n"
+        "  return (s.font_size == 1 and s.border_width == 5)\n"
         "end\n";
 
     TEST_ASSERT_TRUE_MESSAGE(lua_engine_load_script_from_string(g_engine, script, "gui_style_props", "GS"), "Failed to load script");
