@@ -1,7 +1,8 @@
 #ifndef ESE_COLLISION_HIT_H
 #define ESE_COLLISION_HIT_H
 
-/* --- Forward Declarations --------------------------------------------------------------------- */
+/* --- Forward Declarations
+ * --------------------------------------------------------------------- */
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseEntity EseEntity;
@@ -9,26 +10,30 @@ typedef struct EseRect EseRect;
 typedef struct EseMap EseMap;
 typedef struct EseLuaValue EseLuaValue;
 
-/* --- Macros ----------------------------------------------------------------------------------- */
+/* --- Macros
+ * -----------------------------------------------------------------------------------
+ */
 #define COLLISION_HIT_META "CollisionHitMeta"
 
-/* --- Public Types ----------------------------------------------------------------------------- */
+/* --- Public Types
+ * -----------------------------------------------------------------------------
+ */
 /**
  * @brief Identifies the source/type of a collision hit.
  */
 typedef enum EseCollisionKind {
-    COLLISION_KIND_COLLIDER = 1, /**< Collider-to-collider hit */
-    COLLISION_KIND_MAP = 2       /**< Collider-to-map hit */
+  COLLISION_KIND_COLLIDER = 1, /**< Collider-to-collider hit */
+  COLLISION_KIND_MAP = 2       /**< Collider-to-map hit */
 } EseCollisionKind;
 
 /**
  * @brief State of the collision within the frame timeline.
  */
 typedef enum EseCollisionState {
-    COLLISION_STATE_NONE = 0,  /**< Not colliding */
-    COLLISION_STATE_ENTER = 1, /**< Began colliding this frame */
-    COLLISION_STATE_STAY = 2,  /**< Continued colliding this frame */
-    COLLISION_STATE_LEAVE = 3  /**< Stopped colliding this frame */
+  COLLISION_STATE_NONE = 0,  /**< Not colliding */
+  COLLISION_STATE_ENTER = 1, /**< Began colliding this frame */
+  COLLISION_STATE_STAY = 2,  /**< Continued colliding this frame */
+  COLLISION_STATE_LEAVE = 3  /**< Stopped colliding this frame */
 } EseCollisionState;
 
 /**
@@ -36,12 +41,14 @@ typedef enum EseCollisionState {
  */
 typedef struct EseCollisionHit EseCollisionHit; // Opaque
 
-/* --- Lua API ---------------------------------------------------------------------------------- */
+/* --- Lua API
+ * ----------------------------------------------------------------------------------
+ */
 /**
  * @brief Registers the `EseCollisionHit` metatable and its constants in Lua.
  *
- * Creates the `CollisionHitMeta` metatable and sets the global `EseCollisionHit` table
- * containing `TYPE` and `STATE` constant tables.
+ * Creates the `CollisionHitMeta` metatable and sets the global
+ * `EseCollisionHit` table containing `TYPE` and `STATE` constant tables.
  */
 void ese_collision_hit_lua_init(EseLuaEngine *engine);
 
@@ -65,7 +72,9 @@ void ese_collision_hit_ref(EseCollisionHit *hit);
  */
 void ese_collision_hit_unref(EseCollisionHit *hit);
 
-/* --- C API ------------------------------------------------------------------------------------ */
+/* --- C API
+ * ------------------------------------------------------------------------------------
+ */
 /**
  * @brief Creates a new `EseCollisionHit` bound to the engine's Lua state.
  */
@@ -81,7 +90,8 @@ EseCollisionHit *ese_collision_hit_copy(const EseCollisionHit *src);
  */
 void ese_collision_hit_destroy(EseCollisionHit *hit);
 
-/* --- Property Access -------------------------------------------------------------------------- */
+/* --- Property Access
+ * -------------------------------------------------------------------------- */
 /** @brief Gets the collision kind. */
 EseCollisionKind ese_collision_hit_get_kind(const EseCollisionHit *hit);
 /**
@@ -128,4 +138,3 @@ int ese_collision_hit_get_lua_ref(const EseCollisionHit *hit);
 int ese_collision_hit_get_lua_ref_count(const EseCollisionHit *hit);
 
 #endif // ESE_COLLISION_HIT_H
-

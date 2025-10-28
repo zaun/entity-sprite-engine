@@ -56,7 +56,7 @@ int main(void) {
     RUN_TEST(test_ese_audio_sound_playback);
     RUN_TEST(test_ese_audio_null_safety);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

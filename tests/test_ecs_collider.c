@@ -674,7 +674,7 @@ int main(void) {
     RUN_TEST(test_entity_component_collider_lua_tostring);
     RUN_TEST(test_entity_component_collider_lua_gc);
     
-    memory_manager.destroy();
+    memory_manager.destroy(true);
     
     return UNITY_END();
 }

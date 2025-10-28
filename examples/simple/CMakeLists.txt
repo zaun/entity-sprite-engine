@@ -37,6 +37,17 @@ if(PLATFORM STREQUAL "MAC")
         "-Wl,-rpath,@executable_path/../Frameworks"
     )
 
+    # Add debugging and sanitization flags if SANITIZE is enabled
+    if(SANITIZE)
+        target_compile_options(simple_demo PRIVATE
+            -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
+        )
+        target_link_options(simple_demo PRIVATE
+            -fsanitize=address,undefined
+        )
+        target_link_libraries(simple_demo PRIVATE glslang-default-resource-limits stdc++)
+    endif()
+
     # Always sync assets at build time so changes are picked up by `make`
     add_custom_target(simple_assets_sync ALL
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:simple_demo>/resources"
@@ -84,6 +95,17 @@ elseif(PLATFORM STREQUAL "LINUX")
 
     # Link with the engine library
     target_link_libraries(simple_demo PRIVATE entityspriteengine)
+
+    # Add debugging and sanitization flags if SANITIZE is enabled
+    if(SANITIZE)
+        target_compile_options(simple_demo PRIVATE
+            -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
+        )
+        target_link_options(simple_demo PRIVATE
+            -fsanitize=address,undefined
+        )
+        target_link_libraries(simple_demo PRIVATE glslang-default-resource-limits stdc++)
+    endif()
 
     # Always sync assets at build time so changes are picked up by `make`
     add_custom_target(simple_assets_sync ALL

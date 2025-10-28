@@ -145,7 +145,7 @@ int main(void) {
     RUN_TEST(test_ese_color_lua_tostring);
     RUN_TEST(test_ese_color_lua_gc);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

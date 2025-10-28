@@ -377,7 +377,7 @@ int main(void) {
     RUN_TEST(test_entity_component_lua_lua_collision_functions);
     RUN_TEST(test_entity_component_lua_lua_memory_management);
     
-    memory_manager.destroy();
+    memory_manager.destroy(true);
     
     return UNITY_END();
 }

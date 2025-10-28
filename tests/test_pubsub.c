@@ -107,7 +107,7 @@ int main(void) {
     RUN_TEST(test_pubsub_empty_topic);
     RUN_TEST(test_pubsub_null_handling);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

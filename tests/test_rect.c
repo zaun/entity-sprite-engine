@@ -148,7 +148,7 @@ int main(void) {
     RUN_TEST(test_ese_rect_lua_to_json);
     RUN_TEST(test_ese_rect_lua_json_round_trip);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

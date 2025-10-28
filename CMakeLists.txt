@@ -4,6 +4,9 @@ cmake_minimum_required(VERSION 3.16)
 option(FORCE_PLATFORM_LINUX "Force the use of the Linux platform" OFF)
 option(FORCE_PLATFORM_MAC "Force the use of the MacOS platform" OFF)
 
+# Sanitizer option
+option(SANITIZE "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+
 # Check for conflicting options.
 if(FORCE_PLATFORM_LINUX AND FORCE_PLATFORM_MAC)
     message(FATAL_ERROR "Cannot force both Linux and MacOS. Please choose one.")
@@ -92,6 +95,8 @@ file(GLOB ENGINE_CORE_SOURCES
     "src/graphics/**/*.cpp"
     "src/scripting/*.c"
     "src/scripting/**/*.c"
+    "src/systems/*.c"
+    "src/systems/**/*.c"
     "src/types/*.c"
     "src/types/**/*.c"
     "src/utility/*.c"
@@ -123,6 +128,17 @@ add_library(entityspriteengine STATIC ${ENGINE_SOURCES})
 
 # Set up the dependencies: the engine library build must wait for Lua to be built.
 add_dependencies(entityspriteengine build_lua)
+
+# Suppress deprecation warnings for vendor code only
+set_source_files_properties(
+    "src/vendor/json/cJSON.c"
+    PROPERTIES COMPILE_FLAGS "-Wno-deprecated-declarations"
+)
+
+# Add sanitizer flags if enabled
+if(SANITIZE)
+    message(STATUS "Sanitizer enabled: AddressSanitizer and UndefinedBehaviorSanitizer")
+endif()
 
 # Set renderer include directories.
 if(PLATFORM STREQUAL "MAC")
@@ -251,12 +267,10 @@ target_include_directories(entityspriteengine PRIVATE
   ${mbedtls_SOURCE_DIR}/include
 )
 
-target_link_libraries(entityspriteengine PRIVATE glslang spirv-cross-c mbedtls mbedx509 mbedcrypto)
+target_link_libraries(entityspriteengine PUBLIC glslang spirv-cross-c PRIVATE mbedtls mbedx509 mbedcrypto)
 
 # Add the examples subdirectory.
 add_subdirectory(examples)
 
 # Add the tests subdirectory.
 add_subdirectory(tests)
-
-

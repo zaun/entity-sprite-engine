@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_ese_map_lua_gc);
     RUN_TEST(test_ese_map_watchers);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

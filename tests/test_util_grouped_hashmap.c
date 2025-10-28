@@ -100,7 +100,7 @@ int main(void) {
     RUN_TEST(test_grouped_hashmap_iterator_traversal);
     RUN_TEST(test_grouped_hashmap_iter_nulls_are_safe);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

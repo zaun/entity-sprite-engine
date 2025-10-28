@@ -95,7 +95,7 @@ int main(void) {
     RUN_TEST(test_hashmap_get_unknown_key_returns_null);
     RUN_TEST(test_hashmap_iter_handles_empty_and_progression);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

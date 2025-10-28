@@ -94,18 +94,6 @@ void test_entity_component_sprite_ref_unref(void) {
     entity_component_destroy(component);
 }
 
-void test_entity_component_sprite_update_no_sprite(void) {
-    EseEntityComponent *component = entity_component_sprite_create(test_engine, NULL);
-    EseEntityComponentSprite *sprite = (EseEntityComponentSprite *)component->data;
-
-    // Should reset frame/time when sprite is NULL
-    _entity_component_sprite_update(sprite, test_entity, 0.5f);
-    TEST_ASSERT_EQUAL_UINT32(0, (unsigned int)sprite->current_frame);
-    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, sprite->sprite_ellapse_time);
-
-    entity_component_destroy(component);
-}
-
 // =========================
 // Lua API Tests
 // =========================
@@ -198,7 +186,6 @@ int main(void) {
     RUN_TEST(test_entity_component_sprite_create_basic);
     RUN_TEST(test_entity_component_sprite_copy);
     RUN_TEST(test_entity_component_sprite_ref_unref);
-    RUN_TEST(test_entity_component_sprite_update_no_sprite);
 
     // Lua API Tests
     RUN_TEST(test_entity_component_sprite_lua_init);
@@ -208,7 +195,7 @@ int main(void) {
     RUN_TEST(test_entity_component_sprite_lua_tostring);
     RUN_TEST(test_entity_component_sprite_lua_gc);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
     return UNITY_END();
 }
 

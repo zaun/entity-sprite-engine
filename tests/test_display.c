@@ -107,7 +107,7 @@ int main(void) {
     RUN_TEST(test_ese_display_lua_viewport_height);
     RUN_TEST(test_ese_display_lua_tostring);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

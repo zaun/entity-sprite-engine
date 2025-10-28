@@ -37,6 +37,17 @@ if(PLATFORM STREQUAL "MAC")
         "-Wl,-rpath,@executable_path/../Frameworks"
     )
 
+    # Add debugging and sanitization flags if SANITIZE is enabled
+    if(SANITIZE)
+        target_compile_options(breakout PRIVATE
+            -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
+        )
+        target_link_options(breakout PRIVATE
+            -fsanitize=address,undefined
+        )
+        target_link_libraries(breakout PRIVATE glslang-default-resource-limits stdc++)
+    endif()
+
     # Copy assets to macOS bundle Resources directory
     add_custom_command(
         TARGET breakout POST_BUILD
@@ -66,6 +77,17 @@ elseif(PLATFORM STREQUAL "LINUX")
 
     # Link with the engine library
     target_link_libraries(breakout PRIVATE entityspriteengine)
+
+    # Add debugging and sanitization flags if SANITIZE is enabled
+    if(SANITIZE)
+        target_compile_options(breakout PRIVATE
+            -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
+        )
+        target_link_options(breakout PRIVATE
+            -fsanitize=address,undefined
+        )
+        target_link_libraries(breakout PRIVATE glslang-default-resource-limits stdc++)
+    endif()
 
     # Copy assets to a resources directory next to the executable
     add_custom_command(

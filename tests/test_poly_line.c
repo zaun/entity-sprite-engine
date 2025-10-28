@@ -150,7 +150,7 @@ int main(void) {
     RUN_TEST(test_ese_poly_line_lua_tostring);
     RUN_TEST(test_ese_poly_line_lua_gc);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

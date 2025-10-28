@@ -752,6 +752,6 @@ int main(void) {
     RUN_TEST(test_entity_data_in_init_lua_created);
     RUN_TEST(test_entity_colon_syntax_preprocessor);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
     return UNITY_END();
 }

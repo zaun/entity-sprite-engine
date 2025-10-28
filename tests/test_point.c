@@ -265,7 +265,7 @@ int main(void) {
     RUN_TEST(test_ese_point_lua_json_round_trip);
     RUN_TEST(test_ese_point_serialization);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

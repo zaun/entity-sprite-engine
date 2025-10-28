@@ -142,7 +142,7 @@ int main(void) {
     // RUN_TEST(test_ese_gui_flex_row_stacks_justify_center_align_center_auto_height);
     // RUN_TEST(test_ese_gui_flex_row_stacks_justify_center_align_center_auto_both);
 
-    // memory_manager.destroy();
+    // memory_manager.destroy(true);
 
     return UNITY_END();
 }

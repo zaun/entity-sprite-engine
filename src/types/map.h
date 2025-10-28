@@ -8,7 +8,8 @@
 #define MAP_PROXY_META "MapProxyMeta"
 #define MAP_META "MapMeta"
 
-/* --- Forward declarations --------------------------------------------------------------------- */
+/* --- Forward declarations
+ * --------------------------------------------------------------------- */
 
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngine EseLuaEngine;
@@ -28,13 +29,15 @@ typedef void (*EseMapWatcherCallback)(EseMap *map, void *userdata);
  * @brief Map type enumeration for different coordinate systems.
  */
 typedef enum {
-    MAP_TYPE_GRID = 0,          /** Standard grid/square tiles */
-    MAP_TYPE_HEX_POINT_UP,      /** Hexagonal tiles with point facing up */
-    MAP_TYPE_HEX_FLAT_UP,       /** Hexagonal tiles with flat side facing up */
-    MAP_TYPE_ISO                /** Isometric tiles */
+  MAP_TYPE_GRID = 0,     /** Standard grid/square tiles */
+  MAP_TYPE_HEX_POINT_UP, /** Hexagonal tiles with point facing up */
+  MAP_TYPE_HEX_FLAT_UP,  /** Hexagonal tiles with flat side facing up */
+  MAP_TYPE_ISO           /** Isometric tiles */
 } EseMapType;
 
-/* --- Lua API ---------------------------------------------------------------------------------- */
+/* --- Lua API
+ * ----------------------------------------------------------------------------------
+ */
 
 /**
  * @brief Initializes the EseMap userdata type in the Lua state.
@@ -99,7 +102,9 @@ void ese_map_ref(EseMap *map);
  */
 void ese_map_unref(EseMap *map);
 
-/* --- C API ------------------------------------------------------------------------------------ */
+/* --- C API
+ * ------------------------------------------------------------------------------------
+ */
 
 /**
  * @brief Creates a new EseMap object with specified dimensions.
@@ -122,7 +127,7 @@ void ese_map_unref(EseMap *map);
  * @warning The returned EseMap must be freed with ese_map_destroy().
  */
 EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
-                   EseMapType type, bool c_only);
+                       EseMapType type, bool c_only);
 
 /**
  * @brief Destroys an EseMap object and frees its memory.
@@ -137,7 +142,9 @@ EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
  */
 void ese_map_destroy(EseMap *map);
 
-/* --- Map Operations --------------------------------------------------------------------------- */
+/* --- Map Operations
+ * ---------------------------------------------------------------------------
+ */
 
 /**
  * @brief Gets a map cell at the specified coordinates.
@@ -246,7 +253,7 @@ size_t ese_map_get_layer_count(EseMap *map);
 
 /**
  * @brief Gets the Lua state associated with this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return Pointer to the Lua state, or NULL if none
  */
@@ -254,7 +261,7 @@ lua_State *ese_map_get_state(const EseMap *map);
 
 /**
  * @brief Gets the Lua registry reference for this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return The Lua registry reference value
  */
@@ -262,7 +269,7 @@ int ese_map_get_lua_ref(const EseMap *map);
 
 /**
  * @brief Gets the Lua reference count for this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return The current reference count
  */
@@ -270,7 +277,7 @@ int ese_map_get_lua_ref_count(const EseMap *map);
 
 /**
  * @brief Gets the engine associated with this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return Pointer to the EseLuaEngine, or NULL if none
  */
@@ -278,7 +285,7 @@ EseLuaEngine *ese_map_get_engine(const EseMap *map);
 
 /**
  * @brief Gets the title of the map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return The title string, or NULL if none
  */
@@ -286,7 +293,7 @@ const char *ese_map_get_title(const EseMap *map);
 
 /**
  * @brief Gets the author of the map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return The author string, or NULL if none
  */
@@ -294,7 +301,7 @@ const char *ese_map_get_author(const EseMap *map);
 
 /**
  * @brief Gets the version of the map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @return The version number
  */
@@ -302,7 +309,7 @@ int ese_map_get_version(const EseMap *map);
 
 /**
  * @brief Sets the type of the map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param type The new map type
  */
@@ -310,7 +317,7 @@ void ese_map_set_type(EseMap *map, EseMapType type);
 
 /**
  * @brief Sets the engine associated with this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param engine Pointer to the EseLuaEngine
  */
@@ -318,7 +325,7 @@ void ese_map_set_engine(EseMap *map, EseLuaEngine *engine);
 
 /**
  * @brief Sets the Lua state associated with this map.
- * 
+ *
  * @param map Pointer to the EseMap object
  * @param state Pointer to the Lua state
  */
@@ -326,7 +333,7 @@ void ese_map_set_state(EseMap *map, lua_State *state);
 
 /**
  * @brief Internal function to create a new map (used by Lua constructor).
- * 
+ *
  * @param width Width of the map
  * @param height Height of the map
  * @param type Type of the map
@@ -335,8 +342,9 @@ void ese_map_set_state(EseMap *map, lua_State *state);
 EseMap *_ese_map_make(uint32_t width, uint32_t height, EseMapType type);
 
 /**
- * @brief Internal function to allocate the cells array (used by Lua constructor).
- * 
+ * @brief Internal function to allocate the cells array (used by Lua
+ * constructor).
+ *
  * @param map Pointer to the EseMap object
  * @return true if successful, false otherwise
  */
@@ -344,7 +352,7 @@ bool _allocate_cells_array(EseMap *map);
 
 /**
  * @brief Internal function to notify watchers (used by Lua functions).
- * 
+ *
  * @param map Pointer to the EseMap object
  */
 void _ese_map_notify_watchers(EseMap *map);
@@ -357,7 +365,8 @@ void _ese_map_notify_watchers(EseMap *map);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
+bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback,
+                         void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -367,9 +376,11 @@ bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *user
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
+bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback,
+                            void *userdata);
 
-/* --- Map Type Conversion ---------------------------------------------------------------------- */
+/* --- Map Type Conversion
+ * ---------------------------------------------------------------------- */
 
 /**
  * @brief Converts map type enum to string representation.

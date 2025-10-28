@@ -4,17 +4,17 @@
  *
  */
 
- #ifndef ESE_HELPERS_H
- #define ESE_HELPERS_H
- 
- #include <stdint.h>
- #include <stddef.h>
- #include <string.h>
+#ifndef ESE_HELPERS_H
+#define ESE_HELPERS_H
 
- #ifdef __cplusplus
- extern "C" {
- #endif
- 
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Computes a fast 64-bit hash for a memory buffer.
  *
@@ -24,23 +24,29 @@
  * @param size Number of bytes to hash from the buffer.
  * @return 64-bit hash value for the provided data.
  */
- uint64_t ese_helper_hash(void *data, size_t size);
- 
+uint64_t ese_helper_hash(void *data, size_t size);
+
 /**
  * @brief Splits a string by a colon into a group and a name.
  *
- * @note `out_group` and `out_name` caller is responsible for freeing this memory.
- * @note `out_group` and `out_name` are never NULL;
- *       defaults to "default" and "" if no group or name is provided or input is invalid.
+ * @note `gbuf` and `nbuf` are guaranteed to be null terminated.
+ * @note `gbuf` defaults to "default" if no group is provided or input is
+ * invalid.
+ * @note `nbuf` defaults to "" if no name is provided or input is invalid.
  *
- * @param input The constant string to split.
- * @param out_group A pointer to a char* where the group string will be stored.
- * @param out_name A pointer to a char* where the name string will be stored.
+ * @param in The constant string to split.
+ * @param gbuf A pointer to a char* where the group string will be stored. Must
+ * be at least gsz bytes long.
+ * @param gsz The size of the group buffer.
+ * @param nbuf A pointer to a char* where the name string will be stored. Must
+ * be at least nsz bytes long.
+ * @param nsz The size of the name buffer.
  */
- void ese_helper_split(const char *input, char **out_group, char **out_name);
+void ese_helper_split(const char *in, char *gbuf, size_t gsz, char *nbuf,
+                      size_t nsz);
 
- #ifdef __cplusplus
- }
- #endif
- 
- #endif /* ESE_HELPERS_H */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ESE_HELPERS_H */

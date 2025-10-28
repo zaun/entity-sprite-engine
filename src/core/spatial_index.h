@@ -1,8 +1,8 @@
 #ifndef ESE_SPATIAL_INDEX_H
 #define ESE_SPATIAL_INDEX_H
 
-#include <stddef.h>
 #include "utility/array.h"
+#include <stddef.h>
 
 // Forward declarations to avoid pulling heavy headers into the public API
 typedef struct EseEntity EseEntity;
@@ -12,8 +12,8 @@ typedef struct SpatialIndex SpatialIndex;
 
 // Canonical, unordered pair of entities produced by the spatial phase
 typedef struct SpatialPair {
-	EseEntity *a;
-	EseEntity *b;
+  EseEntity *a;
+  EseEntity *b;
 } SpatialPair;
 
 // Lifecycle
@@ -28,9 +28,8 @@ void spatial_index_insert(SpatialIndex *index, EseEntity *entity);
 void spatial_index_auto_tune(SpatialIndex *index);
 
 // Generate canonical, deduplicated unordered pairs (SpatialPair*)
-// The returned EseArray is owned by the index and must not be freed by the caller.
+// The returned EseArray is owned by the index and must not be freed by the
+// caller.
 EseArray *spatial_index_get_pairs(SpatialIndex *index);
 
 #endif // ESE_SPATIAL_INDEX_H
-
-

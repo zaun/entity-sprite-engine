@@ -98,7 +98,7 @@ int main(void) {
     RUN_TEST(test_collision_hit_lua_tostring);
     RUN_TEST(test_collision_hit_lua_gc_with_ref);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

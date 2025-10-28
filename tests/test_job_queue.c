@@ -61,18 +61,19 @@ static void worker_deinit(ese_worker_id_t worker_id, void *thread_data) {
 }
 
 /* Job that returns user_data->value + worker_id */
-static void *job_add_worker_id(void *thread_data, void *user_data, volatile bool *canceled) {
+static JobResult job_add_worker_id(void *thread_data, const void *user_data, volatile bool *canceled) {
     (void)canceled;
     WorkerInitData *wd = (WorkerInitData *)thread_data;
     IntBox *in = (IntBox *)user_data;
     IntBox *out = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
     int wid = wd ? (int)wd->worker_id : 0;
     out->value = (in ? in->value : 0) + wid;
-    return out;
+    JobResult res = { .result = out, .size = sizeof(IntBox) };
+    return res;
 }
 
 /* Job that blocks until JobBlocker.go is set */
-static void *job_block_until_go(void *thread_data, void *user_data, volatile bool *canceled) {
+static JobResult job_block_until_go(void *thread_data, const void *user_data, volatile bool *canceled) {
     (void)thread_data;
     (void)canceled;
     JobBlocker *blk = (JobBlocker *)user_data;
@@ -84,21 +85,24 @@ static void *job_block_until_go(void *thread_data, void *user_data, volatile boo
     ese_mutex_unlock(blk->mutex);
     IntBox *out = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
     out->value = 12345;
-    return out;
+    JobResult res = { .result = out, .size = sizeof(IntBox) };
+    return res;
 }
 
 /* Simple immediate job: returns user_data->value * 2 */
-static void *job_double(void *thread_data, void *user_data, volatile bool *canceled) {
+static JobResult job_double(void *thread_data, const void *user_data, volatile bool *canceled) {
     (void)thread_data;
     (void)canceled;
     IntBox *in = (IntBox *)user_data;
     IntBox *out = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
     out->value = in ? (in->value * 2) : 0;
-    return out;
+    JobResult res = { .result = out, .size = sizeof(IntBox) };
+    return res;
 }
 
-static void main_callback(ese_job_id_t job_id, void *result) {
+static void main_callback(ese_job_id_t job_id, void *user_data, void *result) {
     (void)job_id;
+    (void)user_data;
     IntBox *out = (IntBox *)result;
     g_callback_count++;
     g_last_callback_result = out ? out->value : -111111;
@@ -174,7 +178,7 @@ int main(void) {
     RUN_TEST(test_cancel_lock_order_no_deadlock);
     RUN_TEST(test_thread_detach_no_use_after_free);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }
@@ -210,8 +214,8 @@ static void test_invalid_worker_id_and_null_callback_cleanup(void) {
     int rc = ese_job_queue_wait_for_completion(q, id, 500);
     TEST_ASSERT_EQUAL_INT(ESE_JOB_COMPLETED, rc);
     /* poll should remove job and call cleanup; callback_count remains unchanged */
-    int polled = ese_job_queue_poll_callbacks(q);
-    TEST_ASSERT_EQUAL_INT(0, polled);
+    bool has_more = ese_job_queue_process(q);
+    TEST_ASSERT_FALSE(has_more);
     TEST_ASSERT_EQUAL_INT(0, g_callback_count);
     TEST_ASSERT_EQUAL_INT(1, g_cleanup_count);
 
@@ -254,7 +258,7 @@ static void test_poll_when_empty_returns_zero(void) {
     reset_globals();
     EseJobQueue *q = ese_job_queue_create(1, worker_init, worker_deinit);
     /* Immediately empty */
-    TEST_ASSERT_EQUAL_INT(0, ese_job_queue_poll_callbacks(q));
+    TEST_ASSERT_FALSE(ese_job_queue_process(q));
     /* Queue and complete one to ensure poll works normally */
     IntBox *in = (IntBox *)memory_manager.malloc(sizeof(IntBox), MMTAG_TEMP);
     in->value = 5;
@@ -262,17 +266,18 @@ static void test_poll_when_empty_returns_zero(void) {
     TEST_ASSERT_TRUE(id > 0);
     int rc = ese_job_queue_wait_for_completion(q, id, 500);
     TEST_ASSERT_EQUAL_INT(ESE_JOB_COMPLETED, rc);
-    TEST_ASSERT_EQUAL_INT(1, ese_job_queue_poll_callbacks(q));
+    ese_job_queue_process(q);
     TEST_ASSERT_EQUAL_INT(1, g_cleanup_count);
     ese_job_queue_destroy(q);
 }
 
 /* This test attempts to trigger cancel while a worker is scanning under global lock.
  * It won't deterministically deadlock, but running repeatedly will catch lock-order bugs. */
-static void *job_yield_then_return(void *thread_data, void *user_data, volatile bool *canceled) {
+static JobResult job_yield_then_return(void *thread_data, const void *user_data, volatile bool *canceled) {
     (void)thread_data; (void)user_data;
     // brief work
-    return NULL;
+    JobResult res = { .result = NULL, .size = 0 };
+    return res;
 }
 
 static void test_cancel_lock_order_no_deadlock(void) {
@@ -315,10 +320,10 @@ static void test_thread_detach_no_use_after_free(void) {
 }
 
 static void drain_callbacks(EseJobQueue *q) {
-    /* poll until no more callbacks processed in a pass */
+    /* poll until no more to process */
     for (int i = 0; i < 100; i++) {
-        int n = ese_job_queue_poll_callbacks(q);
-        if (n == 0) break;
+        bool has_more = ese_job_queue_process(q);
+        if (!has_more) break;
     }
 }
 
@@ -342,7 +347,8 @@ static void test_push_any_and_poll_callbacks(void) {
 
     /* Poll until all 5 callbacks observed or retries exhausted */
     for (int tries = 0; tries < 200 && g_callback_count < 5; tries++) {
-        ese_job_queue_poll_callbacks(q);
+        bool has_more = ese_job_queue_process(q);
+        if (!has_more) break;
     }
 
     TEST_ASSERT_EQUAL_INT(5, g_callback_count);

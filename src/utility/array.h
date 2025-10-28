@@ -1,8 +1,8 @@
 #ifndef ESE_ARRAY_H
 #define ESE_ARRAY_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 // Forward declarations
 typedef struct EseArray EseArray;
@@ -44,9 +44,12 @@ bool array_insert(EseArray *array, size_t index, void *element);
 bool array_remove_at(EseArray *array, size_t index);
 
 // Find the first element that matches the predicate
-void *array_find(const EseArray *array, bool (*predicate)(void *element, void *user_data), void *user_data);
+void *array_find(const EseArray *array,
+                 bool (*predicate)(void *element, void *user_data),
+                 void *user_data);
 
 // Sort the array using the provided comparison function
-void array_sort(EseArray *array, int (*compare_fn)(const void *a, const void *b));
+void array_sort(EseArray *array,
+                int (*compare_fn)(const void *a, const void *b));
 
 #endif // ESE_ARRAY_H

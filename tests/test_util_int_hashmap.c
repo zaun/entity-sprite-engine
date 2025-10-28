@@ -81,7 +81,7 @@ int main(void) {
     RUN_TEST(test_int_hashmap_keys_zero_and_uint64_max);
     RUN_TEST(test_int_hashmap_set_on_null_map_is_noop);
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
 
     return UNITY_END();
 }

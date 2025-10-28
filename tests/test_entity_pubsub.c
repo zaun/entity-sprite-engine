@@ -180,7 +180,7 @@ int main() {
         g_engine = NULL;
     }
 
-    memory_manager.destroy();
+    memory_manager.destroy(true);
     
     return result;
 }
