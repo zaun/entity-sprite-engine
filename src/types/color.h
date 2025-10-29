@@ -188,8 +188,7 @@ int ese_color_get_lua_ref_count(const EseColor *color);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback,
-                           void *userdata);
+bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -203,8 +202,7 @@ bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback,
-                              void *userdata);
+bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
@@ -299,8 +297,8 @@ bool ese_color_set_hex(EseColor *color, const char *hex_string);
  * @param b Blue component (0-255)
  * @param a Alpha component (0-255)
  */
-void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g,
-                        unsigned char b, unsigned char a);
+void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b,
+                        unsigned char a);
 
 /**
  * @brief Gets the color as byte values (0-255).
@@ -313,8 +311,8 @@ void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g,
  * @param b Pointer to store blue component (0-255)
  * @param a Pointer to store alpha component (0-255)
  */
-void ese_color_get_byte(const EseColor *color, unsigned char *r,
-                        unsigned char *g, unsigned char *b, unsigned char *a);
+void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b,
+                        unsigned char *a);
 
 /**
  * @brief Serializes an EseColor to a cJSON object.

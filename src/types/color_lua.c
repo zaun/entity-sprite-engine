@@ -45,17 +45,17 @@ static int _ese_color_lua_from_json(lua_State *L);
  * @return 0 (no return values)
  */
 static int _ese_color_lua_gc(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  if (ud && *ud) {
-    EseColor *color = *ud;
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    if (ud && *ud) {
+        EseColor *color = *ud;
 
-    // Only destroy if no C-side references
-    if (ese_color_get_lua_ref_count(color) == 0) {
-      ese_color_destroy(color);
+        // Only destroy if no C-side references
+        if (ese_color_get_lua_ref_count(color) == 0) {
+            ese_color_destroy(color);
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 /**
@@ -68,29 +68,29 @@ static int _ese_color_lua_gc(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_index(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
-  const char *key = luaL_checkstring(L, 2);
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
+    const char *key = luaL_checkstring(L, 2);
 
-  if (strcmp(key, "r") == 0) {
-    lua_pushnumber(L, ese_color_get_r(color));
-  } else if (strcmp(key, "g") == 0) {
-    lua_pushnumber(L, ese_color_get_g(color));
-  } else if (strcmp(key, "b") == 0) {
-    lua_pushnumber(L, ese_color_get_b(color));
-  } else if (strcmp(key, "a") == 0) {
-    lua_pushnumber(L, ese_color_get_a(color));
-  } else if (strcmp(key, "set_hex") == 0) {
-    lua_pushcfunction(L, _ese_color_lua_set_hex);
-  } else if (strcmp(key, "set_byte") == 0) {
-    lua_pushcfunction(L, _ese_color_lua_set_byte);
-  } else if (strcmp(key, "toJSON") == 0) {
-    lua_pushcfunction(L, _ese_color_lua_to_json);
-  } else {
-    lua_pushnil(L);
-  }
+    if (strcmp(key, "r") == 0) {
+        lua_pushnumber(L, ese_color_get_r(color));
+    } else if (strcmp(key, "g") == 0) {
+        lua_pushnumber(L, ese_color_get_g(color));
+    } else if (strcmp(key, "b") == 0) {
+        lua_pushnumber(L, ese_color_get_b(color));
+    } else if (strcmp(key, "a") == 0) {
+        lua_pushnumber(L, ese_color_get_a(color));
+    } else if (strcmp(key, "set_hex") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_set_hex);
+    } else if (strcmp(key, "set_byte") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_set_byte);
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _ese_color_lua_to_json);
+    } else {
+        lua_pushnil(L);
+    }
 
-  return 1;
+    return 1;
 }
 
 /**
@@ -103,27 +103,27 @@ static int _ese_color_lua_index(lua_State *L) {
  * @return 0 (no return values)
  */
 static int _ese_color_lua_newindex(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
-  const char *key = luaL_checkstring(L, 2);
-  if (lua_type(L, 3) != LUA_TNUMBER) {
-    return luaL_error(L, "Color component '%s' must be a number", key);
-  }
-  float value = (float)lua_tonumber(L, 3);
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
+    const char *key = luaL_checkstring(L, 2);
+    if (lua_type(L, 3) != LUA_TNUMBER) {
+        return luaL_error(L, "Color component '%s' must be a number", key);
+    }
+    float value = (float)lua_tonumber(L, 3);
 
-  if (strcmp(key, "r") == 0) {
-    ese_color_set_r(color, value);
-  } else if (strcmp(key, "g") == 0) {
-    ese_color_set_g(color, value);
-  } else if (strcmp(key, "b") == 0) {
-    ese_color_set_b(color, value);
-  } else if (strcmp(key, "a") == 0) {
-    ese_color_set_a(color, value);
-  } else {
-    luaL_error(L, "Cannot set property '%s' on EseColor", key);
-  }
+    if (strcmp(key, "r") == 0) {
+        ese_color_set_r(color, value);
+    } else if (strcmp(key, "g") == 0) {
+        ese_color_set_g(color, value);
+    } else if (strcmp(key, "b") == 0) {
+        ese_color_set_b(color, value);
+    } else if (strcmp(key, "a") == 0) {
+        ese_color_set_a(color, value);
+    } else {
+        luaL_error(L, "Cannot set property '%s' on EseColor", key);
+    }
 
-  return 0;
+    return 0;
 }
 
 /**
@@ -135,16 +135,15 @@ static int _ese_color_lua_newindex(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_tostring(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
 
-  char buffer[256];
-  snprintf(buffer, sizeof(buffer), "Color: r=%.2f g=%.2f b=%.2f a=%.2f",
-           ese_color_get_r(color), ese_color_get_g(color),
-           ese_color_get_b(color), ese_color_get_a(color));
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "Color: r=%.2f g=%.2f b=%.2f a=%.2f", ese_color_get_r(color),
+             ese_color_get_g(color), ese_color_get_b(color), ese_color_get_a(color));
 
-  lua_pushstring(L, buffer);
-  return 1;
+    lua_pushstring(L, buffer);
+    return 1;
 }
 
 // Lua constructors
@@ -158,91 +157,88 @@ static int _ese_color_lua_tostring(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_new(lua_State *L) {
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  EseColor *color = ese_color_create(engine);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    EseColor *color = ese_color_create(engine);
 
-  int argc = lua_gettop(L);
-  if (!(argc == 3 || argc == 4)) {
-    ese_color_destroy(color);
-    return luaL_error(
-        L, "Color.new() requires 3 or 4 numeric arguments (r, g, b[, a])");
-  }
-  float r = (float)luaL_checknumber(L, 1);
-  float g = (float)luaL_checknumber(L, 2);
-  float b = (float)luaL_checknumber(L, 3);
-  float a = 1.0f;
-  if (argc == 4) {
-    a = (float)luaL_checknumber(L, 4);
-  }
-  ese_color_set_r(color, r);
-  ese_color_set_g(color, g);
-  ese_color_set_b(color, b);
-  ese_color_set_a(color, a);
+    int argc = lua_gettop(L);
+    if (!(argc == 3 || argc == 4)) {
+        ese_color_destroy(color);
+        return luaL_error(L, "Color.new() requires 3 or 4 numeric arguments (r, g, b[, a])");
+    }
+    float r = (float)luaL_checknumber(L, 1);
+    float g = (float)luaL_checknumber(L, 2);
+    float b = (float)luaL_checknumber(L, 3);
+    float a = 1.0f;
+    if (argc == 4) {
+        a = (float)luaL_checknumber(L, 4);
+    }
+    ese_color_set_r(color, r);
+    ese_color_set_g(color, g);
+    ese_color_set_b(color, b);
+    ese_color_set_a(color, a);
 
-  ese_color_lua_push(color);
-  return 1;
+    ese_color_lua_push(color);
+    return 1;
 }
 
 static int _ese_color_from_name(lua_State *L) {
-  const char *name = luaL_checkstring(L, 1);
+    const char *name = luaL_checkstring(L, 1);
 
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  log_assert("COLOR", engine, "Color.from_name: engine is NULL");
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    log_assert("COLOR", engine, "Color.from_name: engine is NULL");
 
-  EseColor *color = ese_color_create(engine);
-  if (strcmp(name, "blue") == 0) {
-    ese_color_set_hex(color, "#0d6efd");
-  } else if (strcmp(name, "indigo") == 0) {
-    ese_color_set_hex(color, "#6610f2");
-  } else if (strcmp(name, "purple") == 0) {
-    ese_color_set_hex(color, "#6f42c1");
-  } else if (strcmp(name, "pink") == 0) {
-    ese_color_set_hex(color, "#d63384");
-  } else if (strcmp(name, "red") == 0) {
-    ese_color_set_hex(color, "#dc3545");
-  } else if (strcmp(name, "orange") == 0) {
-    ese_color_set_hex(color, "#fd7e14");
-  } else if (strcmp(name, "yellow") == 0) {
-    ese_color_set_hex(color, "#ffc107");
-  } else if (strcmp(name, "green") == 0) {
-    ese_color_set_hex(color, "#198754");
-  } else if (strcmp(name, "teal") == 0) {
-    ese_color_set_hex(color, "#20c997");
-  } else if (strcmp(name, "cyan") == 0) {
-    ese_color_set_hex(color, "#0dcaf0");
-  } else if (strcmp(name, "white") == 0) {
-    ese_color_set_hex(color, "#ffffff");
-  } else if (strcmp(name, "black") == 0) {
-    ese_color_set_hex(color, "#000000");
-  } else if (strcmp(name, "gray_100") == 0) {
-    ese_color_set_hex(color, "#f8f9fa");
-  } else if (strcmp(name, "gray_200") == 0) {
-    ese_color_set_hex(color, "#e9ecef");
-  } else if (strcmp(name, "gray_300") == 0) {
-    ese_color_set_hex(color, "#dee2e6");
-  } else if (strcmp(name, "gray_400") == 0) {
-    ese_color_set_hex(color, "#ced4da");
-  } else if (strcmp(name, "gray_500") == 0) {
-    ese_color_set_hex(color, "#adb5bd");
-  } else if (strcmp(name, "gray_600") == 0) {
-    ese_color_set_hex(color, "#6c757d");
-  } else if (strcmp(name, "gray_700") == 0) {
-    ese_color_set_hex(color, "#495057");
-  } else if (strcmp(name, "gray_800") == 0) {
-    ese_color_set_hex(color, "#343a40");
-  } else if (strcmp(name, "gray_900") == 0) {
-    ese_color_set_hex(color, "#212529");
-  } else if (strcmp(name, "transparent") == 0) {
-    ese_color_set_hex(color, "#00000000");
-  } else {
-    ese_color_destroy(color);
-    return luaL_error(L, "Color.from_name: invalid color name");
-  }
+    EseColor *color = ese_color_create(engine);
+    if (strcmp(name, "blue") == 0) {
+        ese_color_set_hex(color, "#0d6efd");
+    } else if (strcmp(name, "indigo") == 0) {
+        ese_color_set_hex(color, "#6610f2");
+    } else if (strcmp(name, "purple") == 0) {
+        ese_color_set_hex(color, "#6f42c1");
+    } else if (strcmp(name, "pink") == 0) {
+        ese_color_set_hex(color, "#d63384");
+    } else if (strcmp(name, "red") == 0) {
+        ese_color_set_hex(color, "#dc3545");
+    } else if (strcmp(name, "orange") == 0) {
+        ese_color_set_hex(color, "#fd7e14");
+    } else if (strcmp(name, "yellow") == 0) {
+        ese_color_set_hex(color, "#ffc107");
+    } else if (strcmp(name, "green") == 0) {
+        ese_color_set_hex(color, "#198754");
+    } else if (strcmp(name, "teal") == 0) {
+        ese_color_set_hex(color, "#20c997");
+    } else if (strcmp(name, "cyan") == 0) {
+        ese_color_set_hex(color, "#0dcaf0");
+    } else if (strcmp(name, "white") == 0) {
+        ese_color_set_hex(color, "#ffffff");
+    } else if (strcmp(name, "black") == 0) {
+        ese_color_set_hex(color, "#000000");
+    } else if (strcmp(name, "gray_100") == 0) {
+        ese_color_set_hex(color, "#f8f9fa");
+    } else if (strcmp(name, "gray_200") == 0) {
+        ese_color_set_hex(color, "#e9ecef");
+    } else if (strcmp(name, "gray_300") == 0) {
+        ese_color_set_hex(color, "#dee2e6");
+    } else if (strcmp(name, "gray_400") == 0) {
+        ese_color_set_hex(color, "#ced4da");
+    } else if (strcmp(name, "gray_500") == 0) {
+        ese_color_set_hex(color, "#adb5bd");
+    } else if (strcmp(name, "gray_600") == 0) {
+        ese_color_set_hex(color, "#6c757d");
+    } else if (strcmp(name, "gray_700") == 0) {
+        ese_color_set_hex(color, "#495057");
+    } else if (strcmp(name, "gray_800") == 0) {
+        ese_color_set_hex(color, "#343a40");
+    } else if (strcmp(name, "gray_900") == 0) {
+        ese_color_set_hex(color, "#212529");
+    } else if (strcmp(name, "transparent") == 0) {
+        ese_color_set_hex(color, "#00000000");
+    } else {
+        ese_color_destroy(color);
+        return luaL_error(L, "Color.from_name: invalid color name");
+    }
 
-  ese_color_lua_push(color);
-  return 1;
+    ese_color_lua_push(color);
+    return 1;
 }
 
 // Lua methods
@@ -255,15 +251,15 @@ static int _ese_color_from_name(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_set_hex(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
-  const char *hex_string = luaL_checkstring(L, 2);
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
+    const char *hex_string = luaL_checkstring(L, 2);
 
-  bool success = ese_color_set_hex(color, hex_string);
-  if (!success) {
-    return luaL_error(L, "set_hex: invalid hex string");
-  }
-  return 0;
+    bool success = ese_color_set_hex(color, hex_string);
+    if (!success) {
+        return luaL_error(L, "set_hex: invalid hex string");
+    }
+    return 0;
 }
 
 /**
@@ -275,19 +271,19 @@ static int _ese_color_lua_set_hex(lua_State *L) {
  * @return 0 (no return values)
  */
 static int _ese_color_lua_set_byte(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
-  int r = (int)luaL_checkinteger(L, 2);
-  int g = (int)luaL_checkinteger(L, 3);
-  int b = (int)luaL_checkinteger(L, 4);
-  int a = (int)luaL_optinteger(L, 5, 255);
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
+    int r = (int)luaL_checkinteger(L, 2);
+    int g = (int)luaL_checkinteger(L, 3);
+    int b = (int)luaL_checkinteger(L, 4);
+    int a = (int)luaL_optinteger(L, 5, 255);
 
-  ese_color_set_r(color, (float)r / 255.0f);
-  ese_color_set_g(color, (float)g / 255.0f);
-  ese_color_set_b(color, (float)b / 255.0f);
-  ese_color_set_a(color, (float)a / 255.0f);
+    ese_color_set_r(color, (float)r / 255.0f);
+    ese_color_set_g(color, (float)g / 255.0f);
+    ese_color_set_b(color, (float)b / 255.0f);
+    ese_color_set_a(color, (float)a / 255.0f);
 
-  return 0;
+    return 0;
 }
 
 /**
@@ -299,16 +295,16 @@ static int _ese_color_lua_set_byte(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_to_json(lua_State *L) {
-  EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
-  EseColor *color = *ud;
+    EseColor **ud = (EseColor **)luaL_checkudata(L, 1, COLOR_META);
+    EseColor *color = *ud;
 
-  cJSON *json = ese_color_serialize(color);
-  char *json_string = cJSON_PrintUnformatted(json);
-  lua_pushstring(L, json_string);
-  free(json_string);
-  cJSON_Delete(json);
+    cJSON *json = ese_color_serialize(color);
+    char *json_string = cJSON_PrintUnformatted(json);
+    lua_pushstring(L, json_string);
+    free(json_string);
+    cJSON_Delete(json);
 
-  return 1;
+    return 1;
 }
 
 /**
@@ -320,26 +316,25 @@ static int _ese_color_lua_to_json(lua_State *L) {
  * @return 1 (one return value)
  */
 static int _ese_color_lua_from_json(lua_State *L) {
-  const char *json_string = luaL_checkstring(L, 1);
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    const char *json_string = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
 
-  cJSON *json = cJSON_Parse(json_string);
-  if (!json) {
-    luaL_error(L, "Color.fromJSON: invalid JSON string");
-    return 0;
-  }
+    cJSON *json = cJSON_Parse(json_string);
+    if (!json) {
+        luaL_error(L, "Color.fromJSON: invalid JSON string");
+        return 0;
+    }
 
-  EseColor *color = ese_color_deserialize(engine, json);
-  cJSON_Delete(json);
+    EseColor *color = ese_color_deserialize(engine, json);
+    cJSON_Delete(json);
 
-  if (color) {
-    ese_color_lua_push(color);
-    return 1;
-  } else {
-    lua_pushnil(L);
-    return 1;
-  }
+    if (color) {
+        ese_color_lua_push(color);
+        return 1;
+    } else {
+        lua_pushnil(L);
+        return 1;
+    }
 }
 
 // ========================================
@@ -355,17 +350,14 @@ static int _ese_color_lua_from_json(lua_State *L) {
  * @param engine EseLuaEngine pointer where the EseColor type will be registered
  */
 void _ese_color_lua_init(EseLuaEngine *engine) {
-  // Create metatable
-  lua_engine_new_object_meta(engine, COLOR_META, _ese_color_lua_index,
-                             _ese_color_lua_newindex, _ese_color_lua_gc,
-                             _ese_color_lua_tostring);
+    // Create metatable
+    lua_engine_new_object_meta(engine, COLOR_META, _ese_color_lua_index, _ese_color_lua_newindex,
+                               _ese_color_lua_gc, _ese_color_lua_tostring);
 
-  // Create global Color table with functions
-  const char *keys[] = {"new",   "white", "black",   "red",
-                        "green", "blue",  "fromJSON"};
-  lua_CFunction functions[] = {_ese_color_lua_new,      _ese_color_from_name,
-                               _ese_color_from_name,    _ese_color_from_name,
-                               _ese_color_from_name,    _ese_color_from_name,
-                               _ese_color_lua_from_json};
-  lua_engine_new_object(engine, "Color", 7, keys, functions);
+    // Create global Color table with functions
+    const char *keys[] = {"new", "white", "black", "red", "green", "blue", "fromJSON"};
+    lua_CFunction functions[] = {
+        _ese_color_lua_new,   _ese_color_from_name, _ese_color_from_name,    _ese_color_from_name,
+        _ese_color_from_name, _ese_color_from_name, _ese_color_lua_from_json};
+    lua_engine_new_object(engine, "Color", 7, keys, functions);
 }

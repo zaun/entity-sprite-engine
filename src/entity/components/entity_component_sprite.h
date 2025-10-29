@@ -22,15 +22,14 @@ typedef struct EseSprite EseSprite;
  * looked up by name when needed for rendering.
  */
 typedef struct EseEntityComponentSprite {
-  EseEntityComponent base; /** Base component structure */
+    EseEntityComponent base; /** Base component structure */
 
-  char *sprite_name;         /** Name/ID of the sprite to display */
-  size_t current_frame;      /** Current animation frame index */
-  float sprite_ellapse_time; /** Elapsed time for frame timing control */
+    char *sprite_name;         /** Name/ID of the sprite to display */
+    size_t current_frame;      /** Current animation frame index */
+    float sprite_ellapse_time; /** Elapsed time for frame timing control */
 } EseEntityComponentSprite;
 
-EseEntityComponent *
-_entity_component_sprite_copy(const EseEntityComponentSprite *src);
+EseEntityComponent *_entity_component_sprite_copy(const EseEntityComponentSprite *src);
 
 void _entity_component_sprite_destroy(EseEntityComponentSprite *component);
 
@@ -38,12 +37,10 @@ EseEntityComponentSprite *_entity_component_sprite_get(lua_State *L, int idx);
 
 void _entity_component_sprite_init(EseLuaEngine *engine);
 
-void _entity_component_sprite_draw(EseEntityComponentSprite *component,
-                                   float screen_x, float screen_y,
-                                   EntityDrawTextureCallback texCallback,
+void _entity_component_sprite_draw(EseEntityComponentSprite *component, float screen_x,
+                                   float screen_y, EntityDrawTextureCallback texCallback,
                                    void *callback_user_data);
 
-EseEntityComponent *entity_component_sprite_create(EseLuaEngine *engine,
-                                                   const char *sprite_name);
+EseEntityComponent *entity_component_sprite_create(EseLuaEngine *engine, const char *sprite_name);
 
 #endif // ESE_ENTITY_COMPONENT_SPRITE_H

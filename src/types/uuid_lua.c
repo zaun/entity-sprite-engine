@@ -32,24 +32,24 @@ static int _ese_uuid_lua_to_json(lua_State *L);
  * @return Always returns 0 (no values pushed)
  */
 static int _ese_uuid_lua_gc(lua_State *L) {
-  // Get from userdata
-  EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, UUID_PROXY_META);
-  if (!ud) {
-    return 0; // Not our userdata
-  }
-
-  EseUUID *uuid = *ud;
-  if (uuid) {
-    // If lua_ref == LUA_NOREF, there are no more references to this uuid,
-    // so we can free it.
-    // If lua_ref != LUA_NOREF, this uuid was referenced from C and should not
-    // be freed.
-    if (ese_uuid_get_lua_ref(uuid) == LUA_NOREF) {
-      ese_uuid_destroy(uuid);
+    // Get from userdata
+    EseUUID **ud = (EseUUID **)luaL_testudata(L, 1, UUID_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
     }
-  }
 
-  return 0;
+    EseUUID *uuid = *ud;
+    if (uuid) {
+        // If lua_ref == LUA_NOREF, there are no more references to this uuid,
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this uuid was referenced from C and should
+        // not be freed.
+        if (ese_uuid_get_lua_ref(uuid) == LUA_NOREF) {
+            ese_uuid_destroy(uuid);
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -64,33 +64,33 @@ static int _ese_uuid_lua_gc(lua_State *L) {
  * properties/methods, 0 for invalid)
  */
 static int _ese_uuid_lua_index(lua_State *L) {
-  profile_start(PROFILE_LUA_UUID_INDEX);
-  EseUUID *uuid = ese_uuid_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!uuid || !key) {
-    profile_cancel(PROFILE_LUA_UUID_INDEX);
+    profile_start(PROFILE_LUA_UUID_INDEX);
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!uuid || !key) {
+        profile_cancel(PROFILE_LUA_UUID_INDEX);
+        return 0;
+    }
+
+    if (strcmp(key, "value") == 0 || strcmp(key, "string") == 0) {
+        lua_pushstring(L, ese_uuid_get_value(uuid));
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "reset") == 0) {
+        // Return a reset function for this EseUUID instance
+        lua_pushlightuserdata(L, uuid);
+        lua_pushcclosure(L, _ese_uuid_lua_reset_method, 1);
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, uuid);
+        lua_pushcclosure(L, _ese_uuid_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
+        return 1;
+    }
+
+    profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (invalid)");
     return 0;
-  }
-
-  if (strcmp(key, "value") == 0 || strcmp(key, "string") == 0) {
-    lua_pushstring(L, ese_uuid_get_value(uuid));
-    profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "reset") == 0) {
-    // Return a reset function for this EseUUID instance
-    lua_pushlightuserdata(L, uuid);
-    lua_pushcclosure(L, _ese_uuid_lua_reset_method, 1);
-    profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
-    return 1;
-  } else if (strcmp(key, "toJSON") == 0) {
-    lua_pushlightuserdata(L, uuid);
-    lua_pushcclosure(L, _ese_uuid_lua_to_json, 1);
-    profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (method)");
-    return 1;
-  }
-
-  profile_stop(PROFILE_LUA_UUID_INDEX, "uuid_lua_index (invalid)");
-  return 0;
 }
 
 /**
@@ -103,17 +103,16 @@ static int _ese_uuid_lua_index(lua_State *L) {
  * @return Never returns (always calls luaL_error)
  */
 static int _ese_uuid_lua_newindex(lua_State *L) {
-  profile_start(PROFILE_LUA_UUID_NEWINDEX);
-  EseUUID *uuid = ese_uuid_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!uuid || !key) {
-    profile_cancel(PROFILE_LUA_UUID_NEWINDEX);
-    return 0;
-  }
+    profile_start(PROFILE_LUA_UUID_NEWINDEX);
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!uuid || !key) {
+        profile_cancel(PROFILE_LUA_UUID_NEWINDEX);
+        return 0;
+    }
 
-  profile_stop(PROFILE_LUA_UUID_NEWINDEX, "uuid_lua_newindex (error)");
-  return luaL_error(L, "UUID objects are immutable - cannot set property '%s'",
-                    key);
+    profile_stop(PROFILE_LUA_UUID_NEWINDEX, "uuid_lua_newindex (error)");
+    return luaL_error(L, "UUID objects are immutable - cannot set property '%s'", key);
 }
 
 /**
@@ -126,44 +125,43 @@ static int _ese_uuid_lua_newindex(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1)
  */
 static int _ese_uuid_lua_tostring(lua_State *L) {
-  EseUUID *uuid = ese_uuid_lua_get(L, 1);
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
 
-  if (!uuid) {
-    lua_pushstring(L, "UUID: (invalid)");
+    if (!uuid) {
+        lua_pushstring(L, "UUID: (invalid)");
+        return 1;
+    }
+
+    char buf[128];
+    snprintf(buf, sizeof(buf), "UUID: %p (%s)", (void *)uuid, ese_uuid_get_value(uuid));
+    lua_pushstring(L, buf);
+
     return 1;
-  }
-
-  char buf[128];
-  snprintf(buf, sizeof(buf), "UUID: %p (%s)", (void *)uuid,
-           ese_uuid_get_value(uuid));
-  lua_pushstring(L, buf);
-
-  return 1;
 }
 
 /**
  * @brief Lua instance method for converting EseUUID to JSON string
  */
 static int _ese_uuid_lua_to_json(lua_State *L) {
-  EseUUID *uuid = ese_uuid_lua_get(L, 1);
-  if (!uuid) {
-    return luaL_error(L, "UUID:toJSON() called on invalid uuid");
-  }
+    EseUUID *uuid = ese_uuid_lua_get(L, 1);
+    if (!uuid) {
+        return luaL_error(L, "UUID:toJSON() called on invalid uuid");
+    }
 
-  cJSON *json = ese_uuid_serialize(uuid);
-  if (!json) {
-    return luaL_error(L, "UUID:toJSON() failed to serialize uuid");
-  }
+    cJSON *json = ese_uuid_serialize(uuid);
+    if (!json) {
+        return luaL_error(L, "UUID:toJSON() failed to serialize uuid");
+    }
 
-  char *json_str = cJSON_PrintUnformatted(json);
-  cJSON_Delete(json);
-  if (!json_str) {
-    return luaL_error(L, "UUID:toJSON() failed to convert to string");
-  }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "UUID:toJSON() failed to convert to string");
+    }
 
-  lua_pushstring(L, json_str);
-  free(json_str);
-  return 1;
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
 }
 
 // Lua constructors
@@ -179,35 +177,34 @@ static int _ese_uuid_lua_to_json(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_uuid_lua_new(lua_State *L) {
-  profile_start(PROFILE_LUA_UUID_NEW);
+    profile_start(PROFILE_LUA_UUID_NEW);
 
-  // Get argument count
-  int argc = lua_gettop(L);
-  if (argc != 0) {
-    profile_cancel(PROFILE_LUA_UUID_NEW);
-    return luaL_error(L, "UUID.new() takes 0 argument");
-  }
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        profile_cancel(PROFILE_LUA_UUID_NEW);
+        return luaL_error(L, "UUID.new() takes 0 argument");
+    }
 
-  // Create the uuid using the standard creation function
-  EseUUID *uuid = _ese_uuid_make();
+    // Create the uuid using the standard creation function
+    EseUUID *uuid = _ese_uuid_make();
 
-  // Set the Lua state
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (engine) {
-    ese_uuid_set_state(uuid, L);
-  }
+    // Set the Lua state
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (engine) {
+        ese_uuid_set_state(uuid, L);
+    }
 
-  // Create userdata directly
-  EseUUID **ud = (EseUUID **)lua_newuserdata(L, sizeof(EseUUID *));
-  *ud = uuid;
+    // Create userdata directly
+    EseUUID **ud = (EseUUID **)lua_newuserdata(L, sizeof(EseUUID *));
+    *ud = uuid;
 
-  // Attach metatable
-  luaL_getmetatable(L, UUID_PROXY_META);
-  lua_setmetatable(L, -2);
+    // Attach metatable
+    luaL_getmetatable(L, UUID_PROXY_META);
+    lua_setmetatable(L, -2);
 
-  profile_stop(PROFILE_LUA_UUID_NEW, "uuid_lua_new");
-  return 1;
+    profile_stop(PROFILE_LUA_UUID_NEW, "uuid_lua_new");
+    return 1;
 }
 
 // Lua methods
@@ -221,51 +218,50 @@ static int _ese_uuid_lua_new(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_uuid_lua_reset_method(lua_State *L) {
-  // Get the EseUUID from the closure's upvalue
-  EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
-  if (!uuid) {
-    return luaL_error(L, "Invalid EseUUID object in reset method");
-  }
+    // Get the EseUUID from the closure's upvalue
+    EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!uuid) {
+        return luaL_error(L, "Invalid EseUUID object in reset method");
+    }
 
-  ese_uuid_generate_new(uuid);
-  return 0;
+    ese_uuid_generate_new(uuid);
+    return 0;
 }
 
 /**
  * @brief Lua static method for creating EseUUID from JSON string
  */
 static int _ese_uuid_lua_from_json(lua_State *L) {
-  int argc = lua_gettop(L);
-  if (argc != 1) {
-    return luaL_error(L, "UUID.fromJSON(string) takes 1 argument");
-  }
-  if (lua_type(L, 1) != LUA_TSTRING) {
-    return luaL_error(L, "UUID.fromJSON(string) argument must be a string");
-  }
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "UUID.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "UUID.fromJSON(string) argument must be a string");
+    }
 
-  const char *json_str = lua_tostring(L, 1);
-  cJSON *json = cJSON_Parse(json_str);
-  if (!json) {
-    log_error("UUID", "UUID.fromJSON: failed to parse JSON string: %s",
-              json_str ? json_str : "NULL");
-    return luaL_error(L, "UUID.fromJSON: invalid JSON string");
-  }
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("UUID", "UUID.fromJSON: failed to parse JSON string: %s",
+                  json_str ? json_str : "NULL");
+        return luaL_error(L, "UUID.fromJSON: invalid JSON string");
+    }
 
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (!engine) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "UUID.fromJSON: no engine available");
+    }
+
+    EseUUID *uuid = ese_uuid_deserialize(engine, json);
     cJSON_Delete(json);
-    return luaL_error(L, "UUID.fromJSON: no engine available");
-  }
+    if (!uuid) {
+        return luaL_error(L, "UUID.fromJSON: failed to deserialize uuid");
+    }
 
-  EseUUID *uuid = ese_uuid_deserialize(engine, json);
-  cJSON_Delete(json);
-  if (!uuid) {
-    return luaL_error(L, "UUID.fromJSON: failed to deserialize uuid");
-  }
-
-  ese_uuid_lua_push(uuid);
-  return 1;
+    ese_uuid_lua_push(uuid);
+    return 1;
 }
 
 // ========================================
@@ -284,15 +280,14 @@ static int _ese_uuid_lua_from_json(lua_State *L) {
  * @param engine EseLuaEngine pointer where the EseUUID type will be registered
  */
 void _ese_uuid_lua_init(EseLuaEngine *engine) {
-  log_assert("UUID", engine, "_ese_uuid_lua_init called with NULL engine");
+    log_assert("UUID", engine, "_ese_uuid_lua_init called with NULL engine");
 
-  // Create metatable
-  lua_engine_new_object_meta(engine, UUID_PROXY_META, _ese_uuid_lua_index,
-                             _ese_uuid_lua_newindex, _ese_uuid_lua_gc,
-                             _ese_uuid_lua_tostring);
+    // Create metatable
+    lua_engine_new_object_meta(engine, UUID_PROXY_META, _ese_uuid_lua_index, _ese_uuid_lua_newindex,
+                               _ese_uuid_lua_gc, _ese_uuid_lua_tostring);
 
-  // Create global UUID table with functions
-  const char *keys[] = {"new", "fromJSON"};
-  lua_CFunction functions[] = {_ese_uuid_lua_new, _ese_uuid_lua_from_json};
-  lua_engine_new_object(engine, "UUID", 2, keys, functions);
+    // Create global UUID table with functions
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_ese_uuid_lua_new, _ese_uuid_lua_from_json};
+    lua_engine_new_object(engine, "UUID", 2, keys, functions);
 }

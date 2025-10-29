@@ -24,8 +24,8 @@ typedef struct EseLuaEngineInternal EseLuaEngineInternal;
  *          provides a sandboxed environment for safe script execution.
  */
 typedef struct EseLuaEngine {
-  lua_State *runtime;             /** Lua state for script execution */
-  EseLuaEngineInternal *internal; /** Internal state and configuration */
+    lua_State *runtime;             /** Lua state for script execution */
+    EseLuaEngineInternal *internal; /** Internal state and configuration */
 } EseLuaEngine;
 
 extern const char _ENGINE_SENTINEL;
@@ -102,11 +102,9 @@ void *lua_engine_get_registry_key(lua_State *L, const void *key);
  */
 void lua_engine_remove_registry_key(lua_State *L, const void *key);
 
-void lua_engine_add_function(EseLuaEngine *engine, const char *function_name,
-                             lua_CFunction func);
+void lua_engine_add_function(EseLuaEngine *engine, const char *function_name, lua_CFunction func);
 
-void lua_engine_add_global(EseLuaEngine *engine, const char *global_name,
-                           int lua_ref);
+void lua_engine_add_global(EseLuaEngine *engine, const char *global_name, int lua_ref);
 
 /**
  * @brief Loads and compiles a Lua script file into the engine's function
@@ -130,8 +128,7 @@ void lua_engine_add_global(EseLuaEngine *engine, const char *global_name,
  * issues.
  * @warning The script must return a table or loading will fail.
  */
-bool lua_engine_load_script(EseLuaEngine *engine, const char *filename,
-                            const char *module_name);
+bool lua_engine_load_script(EseLuaEngine *engine, const char *filename, const char *module_name);
 
 /**
  * @brief Loads and compiles a Lua script from a string into the engine's
@@ -152,8 +149,7 @@ bool lua_engine_load_script(EseLuaEngine *engine, const char *filename,
  *
  * @warning The script must return a table or loading will fail.
  */
-bool lua_engine_load_script_from_string(EseLuaEngine *engine,
-                                        const char *script, const char *name,
+bool lua_engine_load_script_from_string(EseLuaEngine *engine, const char *script, const char *name,
                                         const char *module_name);
 
 /**
@@ -216,9 +212,8 @@ void lua_engine_instance_remove(EseLuaEngine *engine, int instance_ref);
  * @warning If out_result is provided, the caller is responsible for freeing the
  * result.
  */
-bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref,
-                                 int self_ref, int argc, EseLuaValue *argv[],
-                                 EseLuaValue *out_result);
+bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref, int self_ref, int argc,
+                                 EseLuaValue *argv[], EseLuaValue *out_result);
 
 /**
  * @brief Executes a Lua function by name from a script instance.
@@ -245,9 +240,9 @@ bool lua_engine_run_function_ref(EseLuaEngine *engine, int function_ref,
  * @warning If out_result is provided, the caller is responsible for freeing the
  * result.
  */
-bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref,
-                             int self_ref, const char *func_name, int argc,
-                             EseLuaValue *argv, EseLuaValue *out_result);
+bool lua_engine_run_function(EseLuaEngine *engine, int instance_ref, int self_ref,
+                             const char *func_name, int argc, EseLuaValue *argv,
+                             EseLuaValue *out_result);
 
 int lua_isinteger_lj(lua_State *L, int idx);
 void *lua_getextraspace_lj(lua_State *L);
@@ -269,10 +264,8 @@ void *lua_getextraspace_lj(lua_State *L);
  *
  * @return true if the metatable was created or already existed, false on error.
  */
-bool lua_engine_new_object_meta(EseLuaEngine *engine, const char *name,
-                                lua_CFunction index_func,
-                                lua_CFunction newindex_func,
-                                lua_CFunction gc_func,
+bool lua_engine_new_object_meta(EseLuaEngine *engine, const char *name, lua_CFunction index_func,
+                                lua_CFunction newindex_func, lua_CFunction gc_func,
                                 lua_CFunction tostring_func);
 
 /**
@@ -290,7 +283,7 @@ bool lua_engine_new_object_meta(EseLuaEngine *engine, const char *name,
  *
  * @return true if the table was created or already existed, false on error.
  */
-bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count,
-                           const char *keys[], lua_CFunction functions[]);
+bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count, const char *keys[],
+                           lua_CFunction functions[]);
 
 #endif // ESE_LUA_ENGINE_H

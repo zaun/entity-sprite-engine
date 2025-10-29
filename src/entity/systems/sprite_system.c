@@ -35,9 +35,9 @@
  * efficient iteration during updates.
  */
 typedef struct {
-  EseEntityComponentSprite **sprites; /** Array of sprite component pointers */
-  size_t count;                       /** Current number of tracked sprites */
-  size_t capacity;                    /** Allocated capacity of the array */
+    EseEntityComponentSprite **sprites; /** Array of sprite component pointers */
+    size_t count;                       /** Current number of tracked sprites */
+    size_t capacity;                    /** Allocated capacity of the array */
 } SpriteSystemData;
 
 // ========================================
@@ -51,13 +51,12 @@ typedef struct {
  * @param comp Component to check
  * @return true if component type is ENTITY_COMPONENT_SPRITE
  */
-static bool sprite_sys_accepts(EseSystemManager *self,
-                               const EseEntityComponent *comp) {
-  (void)self;
-  if (!comp) {
-    return false;
-  }
-  return comp->type == ENTITY_COMPONENT_SPRITE;
+static bool sprite_sys_accepts(EseSystemManager *self, const EseEntityComponent *comp) {
+    (void)self;
+    if (!comp) {
+        return false;
+    }
+    return comp->type == ENTITY_COMPONENT_SPRITE;
 }
 
 /**
@@ -67,21 +66,19 @@ static bool sprite_sys_accepts(EseSystemManager *self,
  * @param eng Engine pointer
  * @param comp Component that was added
  */
-static void sprite_sys_on_add(EseSystemManager *self, EseEngine *eng,
-                              EseEntityComponent *comp) {
-  (void)eng;
-  SpriteSystemData *d = (SpriteSystemData *)self->data;
+static void sprite_sys_on_add(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp) {
+    (void)eng;
+    SpriteSystemData *d = (SpriteSystemData *)self->data;
 
-  // Expand array if needed
-  if (d->count == d->capacity) {
-    d->capacity = d->capacity ? d->capacity * 2 : 64;
-    d->sprites = memory_manager.realloc(
-        d->sprites, sizeof(EseEntityComponentSprite *) * d->capacity,
-        MMTAG_S_SPRITE);
-  }
+    // Expand array if needed
+    if (d->count == d->capacity) {
+        d->capacity = d->capacity ? d->capacity * 2 : 64;
+        d->sprites = memory_manager.realloc(
+            d->sprites, sizeof(EseEntityComponentSprite *) * d->capacity, MMTAG_S_SPRITE);
+    }
 
-  // Add sprite to tracking array
-  d->sprites[d->count++] = (EseEntityComponentSprite *)comp->data;
+    // Add sprite to tracking array
+    d->sprites[d->count++] = (EseEntityComponentSprite *)comp->data;
 }
 
 /**
@@ -91,19 +88,18 @@ static void sprite_sys_on_add(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  * @param comp Component that was removed
  */
-static void sprite_sys_on_remove(EseSystemManager *self, EseEngine *eng,
-                                 EseEntityComponent *comp) {
-  (void)eng;
-  SpriteSystemData *d = (SpriteSystemData *)self->data;
-  EseEntityComponentSprite *sp = (EseEntityComponentSprite *)comp->data;
+static void sprite_sys_on_remove(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp) {
+    (void)eng;
+    SpriteSystemData *d = (SpriteSystemData *)self->data;
+    EseEntityComponentSprite *sp = (EseEntityComponentSprite *)comp->data;
 
-  // Find and remove sprite from tracking array (swap with last element)
-  for (size_t i = 0; i < d->count; i++) {
-    if (d->sprites[i] == sp) {
-      d->sprites[i] = d->sprites[--d->count];
-      return;
+    // Find and remove sprite from tracking array (swap with last element)
+    for (size_t i = 0; i < d->count; i++) {
+        if (d->sprites[i] == sp) {
+            d->sprites[i] = d->sprites[--d->count];
+            return;
+        }
     }
-  }
 }
 
 /**
@@ -113,10 +109,9 @@ static void sprite_sys_on_remove(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void sprite_sys_init(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  SpriteSystemData *d =
-      memory_manager.calloc(1, sizeof(SpriteSystemData), MMTAG_S_SPRITE);
-  self->data = d;
+    (void)eng;
+    SpriteSystemData *d = memory_manager.calloc(1, sizeof(SpriteSystemData), MMTAG_S_SPRITE);
+    self->data = d;
 }
 
 /**
@@ -128,42 +123,41 @@ static void sprite_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time in seconds
  */
-static void sprite_sys_update(EseSystemManager *self, EseEngine *eng,
-                              float dt) {
-  (void)eng;
-  SpriteSystemData *d = (SpriteSystemData *)self->data;
+static void sprite_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+    (void)eng;
+    SpriteSystemData *d = (SpriteSystemData *)self->data;
 
-  for (size_t i = 0; i < d->count; i++) {
-    EseEntityComponentSprite *sp = d->sprites[i];
+    for (size_t i = 0; i < d->count; i++) {
+        EseEntityComponentSprite *sp = d->sprites[i];
 
-    // Skip sprites without a sprite name
-    if (!sp->sprite_name) {
-      sp->current_frame = 0;
-      sp->sprite_ellapse_time = 0;
-      continue;
+        // Skip sprites without a sprite name
+        if (!sp->sprite_name) {
+            sp->current_frame = 0;
+            sp->sprite_ellapse_time = 0;
+            continue;
+        }
+
+        // Look up sprite by name
+        EseSprite *sprite = engine_get_sprite(eng, sp->sprite_name);
+        if (!sprite) {
+            sp->current_frame = 0;
+            sp->sprite_ellapse_time = 0;
+            continue; // Skip if sprite not found
+        }
+
+        // Advance animation time
+        sp->sprite_ellapse_time += dt;
+        float speed = sprite_get_speed(sprite);
+
+        // Check if it's time to advance the frame
+        if (sp->sprite_ellapse_time >= speed) {
+            sp->sprite_ellapse_time = 0.0f;
+            int frame_count = sprite_get_frame_count(sprite);
+            if (frame_count > 0) {
+                sp->current_frame = (sp->current_frame + 1) % (size_t)frame_count;
+            }
+        }
     }
-
-    // Look up sprite by name
-    EseSprite *sprite = engine_get_sprite(eng, sp->sprite_name);
-    if (!sprite) {
-      sp->current_frame = 0;
-      sp->sprite_ellapse_time = 0;
-      continue; // Skip if sprite not found
-    }
-
-    // Advance animation time
-    sp->sprite_ellapse_time += dt;
-    float speed = sprite_get_speed(sprite);
-
-    // Check if it's time to advance the frame
-    if (sp->sprite_ellapse_time >= speed) {
-      sp->sprite_ellapse_time = 0.0f;
-      int frame_count = sprite_get_frame_count(sprite);
-      if (frame_count > 0) {
-        sp->current_frame = (sp->current_frame + 1) % (size_t)frame_count;
-      }
-    }
-  }
 }
 
 /**
@@ -173,26 +167,26 @@ static void sprite_sys_update(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void sprite_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  SpriteSystemData *d = (SpriteSystemData *)self->data;
-  if (d) {
-    if (d->sprites) {
-      memory_manager.free(d->sprites);
+    (void)eng;
+    SpriteSystemData *d = (SpriteSystemData *)self->data;
+    if (d) {
+        if (d->sprites) {
+            memory_manager.free(d->sprites);
+        }
+        memory_manager.free(d);
     }
-    memory_manager.free(d);
-  }
 }
 
 /**
  * @brief Virtual table for the sprite system.
  */
-static const EseSystemManagerVTable SpriteSystemVTable = {
-    .init = sprite_sys_init,
-    .update = sprite_sys_update,
-    .accepts = sprite_sys_accepts,
-    .on_component_added = sprite_sys_on_add,
-    .on_component_removed = sprite_sys_on_remove,
-    .shutdown = sprite_sys_shutdown};
+static const EseSystemManagerVTable SpriteSystemVTable = {.init = sprite_sys_init,
+                                                          .update = sprite_sys_update,
+                                                          .accepts = sprite_sys_accepts,
+                                                          .on_component_added = sprite_sys_on_add,
+                                                          .on_component_removed =
+                                                              sprite_sys_on_remove,
+                                                          .shutdown = sprite_sys_shutdown};
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -204,7 +198,7 @@ static const EseSystemManagerVTable SpriteSystemVTable = {
  * @return EseSystemManager* Created system
  */
 EseSystemManager *sprite_system_create(void) {
-  return system_manager_create(&SpriteSystemVTable, SYS_PHASE_EARLY, NULL);
+    return system_manager_create(&SpriteSystemVTable, SYS_PHASE_EARLY, NULL);
 }
 
 /**
@@ -213,8 +207,7 @@ EseSystemManager *sprite_system_create(void) {
  * @param eng Engine pointer
  */
 void engine_register_sprite_system(EseEngine *eng) {
-  log_assert("SPRITE_SYS", eng,
-             "engine_register_sprite_system called with NULL engine");
-  EseSystemManager *sys = sprite_system_create();
-  engine_add_system(eng, sys);
+    log_assert("SPRITE_SYS", eng, "engine_register_sprite_system called with NULL engine");
+    EseSystemManager *sys = sprite_system_create();
+    engine_add_system(eng, sys);
 }

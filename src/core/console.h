@@ -15,10 +15,10 @@ typedef struct EseDrawList EseDrawList;
  *          each with different visual styling and importance levels.
  */
 typedef enum {
-  ESE_CONSOLE_NORMAL, /** Standard console output line */
-  ESE_CONSOLE_INFO,   /** Informational message */
-  ESE_CONSOLE_WARN,   /** Warning message */
-  ESE_CONSOLE_ERROR   /** Error message */
+    ESE_CONSOLE_NORMAL, /** Standard console output line */
+    ESE_CONSOLE_INFO,   /** Informational message */
+    ESE_CONSOLE_WARN,   /** Warning message */
+    ESE_CONSOLE_ERROR   /** Error message */
 } EseConsoleLineType;
 
 /**
@@ -62,8 +62,8 @@ void console_destroy(EseConsole *console);
  * @param prefix The prefix for the line (max 16 characters).
  * @param message The message text to display.
  */
-void console_add_line(EseConsole *console, EseConsoleLineType type,
-                      const char *prefix, const char *message);
+void console_add_line(EseConsole *console, EseConsoleLineType type, const char *prefix,
+                      const char *message);
 
 /**
  * @brief Draws the console to the screen.
@@ -79,9 +79,8 @@ void console_add_line(EseConsole *console, EseConsoleLineType type,
  * @param rectCallback Callback function for drawing rectangles.
  * @param draw_list Pointer to the draw list.
  */
-void console_draw(EseConsole *console, EseAssetManager *manager, int view_width,
-                  int view_height, EntityDrawCallbacks *callbacks,
-                  void *user_data);
+void console_draw(EseConsole *console, EseAssetManager *manager, int view_width, int view_height,
+                  EntityDrawCallbacks *callbacks, void *user_data);
 
 /**
  * @brief Sets the number of console lines to display.

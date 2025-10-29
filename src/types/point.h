@@ -194,8 +194,7 @@ void _ese_point_make_point_notify_watchers(EsePoint *point);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_point_add_watcher(EsePoint *point, EsePointWatcherCallback callback,
-                           void *userdata);
+bool ese_point_add_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -209,8 +208,7 @@ bool ese_point_add_watcher(EsePoint *point, EsePointWatcherCallback callback,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback,
-                              void *userdata);
+bool ese_point_remove_watcher(EsePoint *point, EsePointWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
@@ -296,8 +294,7 @@ float ese_point_distance(const EsePoint *point1, const EsePoint *point2);
  * @param point2 Pointer to the second EsePoint object
  * @return The squared Euclidean distance between the two points
  */
-float ese_point_distance_squared(const EsePoint *point1,
-                                 const EsePoint *point2);
+float ese_point_distance_squared(const EsePoint *point1, const EsePoint *point2);
 
 /**
  * @brief Serializes an EsePoint to a cJSON object.

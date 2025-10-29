@@ -18,11 +18,10 @@
  * @brief Internal structure for a System instance.
  */
 struct EseSystemManager {
-  const EseSystemManagerVTable
-      *vt;              /** Virtual table defining system behavior */
-  EseSystemPhase phase; /** Execution phase for this system */
-  void *data;           /** User-defined data for system-specific state */
-  bool active;          /** Whether this system is currently active */
+    const EseSystemManagerVTable *vt; /** Virtual table defining system behavior */
+    EseSystemPhase phase;             /** Execution phase for this system */
+    void *data;                       /** User-defined data for system-specific state */
+    bool active;                      /** Whether this system is currently active */
 };
 
 #endif /* ESE_SYSTEM_MANAGER_PRIVATE_H */

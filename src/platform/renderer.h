@@ -15,14 +15,12 @@ extern "C" {
 EseRenderer *renderer_create(bool hiDPI);
 void renderer_destroy(EseRenderer *dev);
 
-bool renderer_shader_compile(EseRenderer *renderer, const char *library,
-                             const char *filename);
+bool renderer_shader_compile(EseRenderer *renderer, const char *library, const char *filename);
 bool renderer_create_pipeline_state(EseRenderer *dev, const char *vertexFunc,
                                     const char *fragmentFunc);
 
 bool renderer_load_texture(EseRenderer *renderer, const char *texture_id,
-                           const unsigned char *rgba_data, int width,
-                           int height);
+                           const unsigned char *rgba_data, int width, int height);
 
 bool renderer_set_render_list(EseRenderer *dev, EseRenderList *render_list);
 EseRenderList *renderer_get_render_list(EseRenderer *dev);

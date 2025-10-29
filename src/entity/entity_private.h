@@ -20,48 +20,47 @@
  * @brief Structure to track entity pub/sub subscriptions.
  */
 typedef struct {
-  char *topic_name;    /** Name of the subscribed topic */
-  char *function_name; /** Name of the function to call */
+    char *topic_name;    /** Name of the subscribed topic */
+    char *function_name; /** Name of the function to call */
 } EseEntitySubscription;
 
 /**
  * @brief Internal entity structure.
  */
 struct EseEntity {
-  EseUUID *id;         /** Unique entity identifier */
-  bool active;         /** Whether entity is active */
-  bool visible;        /** Whether entity is visible */
-  bool persistent;     /** Whether entity is persistent */
-  uint64_t draw_order; /** Drawing order (z-index) */
+    EseUUID *id;         /** Unique entity identifier */
+    bool active;         /** Whether entity is active */
+    bool visible;        /** Whether entity is visible */
+    bool persistent;     /** Whether entity is persistent */
+    uint64_t draw_order; /** Drawing order (z-index) */
 
-  bool destroyed; /** Whether entity is destroyed */
+    bool destroyed; /** Whether entity is destroyed */
 
-  EsePoint *position; /** EseEntity position */
+    EsePoint *position; /** EseEntity position */
 
-  EseEntityComponent **components; /** Array of components */
-  size_t component_count;          /** Number of components */
-  size_t component_capacity;       /** Capacity of component array */
+    EseEntityComponent **components; /** Array of components */
+    size_t component_count;          /** Number of components */
+    size_t component_capacity;       /** Capacity of component array */
 
-  EseHashMap *current_collisions;  /** Hashmap of current frame collisions */
-  EseHashMap *previous_collisions; /** Hashmap of previous frame collisions */
-  EseRect *collision_bounds; /** Bounds of the entity for collision detection */
-  EseRect *collision_world_bounds; /** Bounds of the entity for collision
-                                      detection in world coordinates */
+    EseHashMap *current_collisions;  /** Hashmap of current frame collisions */
+    EseHashMap *previous_collisions; /** Hashmap of previous frame collisions */
+    EseRect *collision_bounds;       /** Bounds of the entity for collision detection */
+    EseRect *collision_world_bounds; /** Bounds of the entity for collision
+                                        detection in world coordinates */
 
-  EseLuaEngine *lua; /** Lua engine reference */
-  EseDoubleLinkedList
-      *default_props;       /** Lua default props added to self.data */
-  EseLuaValue *lua_val_ref; /** A EseLuaVale self reference */
-  int lua_ref;              /** Lua registry self reference */
-  int lua_ref_count;        /** Lua registry reference count */
+    EseLuaEngine *lua;                  /** Lua engine reference */
+    EseDoubleLinkedList *default_props; /** Lua default props added to self.data */
+    EseLuaValue *lua_val_ref;           /** A EseLuaVale self reference */
+    int lua_ref;                        /** Lua registry self reference */
+    int lua_ref_count;                  /** Lua registry reference count */
 
-  // Tag system
-  char **tags;         /** Array of tag strings */
-  size_t tag_count;    /** Number of tags */
-  size_t tag_capacity; /** Capacity of tag array */
+    // Tag system
+    char **tags;         /** Array of tag strings */
+    size_t tag_count;    /** Number of tags */
+    size_t tag_capacity; /** Capacity of tag array */
 
-  // Pub/Sub tracking
-  EseArray *subscriptions; /** Array of EseEntitySubscription */
+    // Pub/Sub tracking
+    EseArray *subscriptions; /** Array of EseEntitySubscription */
 };
 
 /**

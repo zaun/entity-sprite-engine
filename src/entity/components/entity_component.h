@@ -17,8 +17,8 @@ typedef struct EseLuaEngine EseLuaEngine;
  * directly.
  */
 typedef struct {
-  int function_ref; /** Lua registry reference to the function */
-  bool exists;      /** true if function exists, false if LUA_NOREF */
+    int function_ref; /** Lua registry reference to the function */
+    bool exists;      /** true if function exists, false if LUA_NOREF */
 } CachedLuaFunction;
 
 void entity_component_lua_init(EseLuaEngine *engine);
@@ -29,19 +29,15 @@ void entity_component_destroy(EseEntityComponent *component);
 
 void entity_component_push(EseEntityComponent *component);
 
-void entity_component_update(EseEntityComponent *component, EseEntity *entity,
-                             float delta_time);
+void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time);
 
-void entity_component_detect_collision_with_component(EseEntityComponent *a,
-                                                      EseEntityComponent *b,
+void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b,
                                                       EseArray *out_hits);
 
-bool entity_component_detect_collision_rect(EseEntityComponent *a,
-                                            EseRect *rect);
+bool entity_component_detect_collision_rect(EseEntityComponent *a, EseRect *rect);
 
-void entity_component_draw(EseEntityComponent *component, float camera_x,
-                           float camera_y, float view_width, float view_height,
-                           EntityDrawCallbacks *callbacks,
+void entity_component_draw(EseEntityComponent *component, float camera_x, float camera_y,
+                           float view_width, float view_height, EntityDrawCallbacks *callbacks,
                            void *callback_user_data);
 
 /**
@@ -60,9 +56,8 @@ void entity_component_draw(EseEntityComponent *component, float camera_x,
  *
  * @return true if the function executed successfully, false otherwise.
  */
-bool entity_component_run_function(EseEntityComponent *component,
-                                   EseEntity *entity, const char *func_name,
-                                   int argc, EseLuaValue *argv[]);
+bool entity_component_run_function(EseEntityComponent *component, EseEntity *entity,
+                                   const char *func_name, int argc, EseLuaValue *argv[]);
 
 void *entity_component_get_data(EseEntityComponent *component);
 

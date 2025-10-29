@@ -28,8 +28,7 @@ void ese_pubsub_destroy(EsePubSub *pub_sub);
  * @param name The topic name to publish to.
  * @param data The EseLuaValue data to publish.
  */
-void ese_pubsub_pub(EsePubSub *pub_sub, const char *name,
-                    const EseLuaValue *data);
+void ese_pubsub_pub(EsePubSub *pub_sub, const char *name, const EseLuaValue *data);
 
 /**
  * @brief Subscribes an entity to a topic with a function name.

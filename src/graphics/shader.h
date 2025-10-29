@@ -17,8 +17,8 @@ extern "C" {
  *          size excludes the null terminator.
  */
 typedef struct ShaderBlob {
-  char *data;  /** Pointer to compiled shader data or source string */
-  size_t size; /** Size in bytes (for strings, excludes null terminator) */
+    char *data;  /** Pointer to compiled shader data or source string */
+    size_t size; /** Size in bytes (for strings, excludes null terminator) */
 } ShaderBlob;
 
 // Compile GLSL source to SPIR-V binary.

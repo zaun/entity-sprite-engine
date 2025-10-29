@@ -12,8 +12,8 @@ typedef struct SpatialIndex SpatialIndex;
 
 // Canonical, unordered pair of entities produced by the spatial phase
 typedef struct SpatialPair {
-  EseEntity *a;
-  EseEntity *b;
+    EseEntity *a;
+    EseEntity *b;
 } SpatialPair;
 
 // Lifecycle

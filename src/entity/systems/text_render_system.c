@@ -45,22 +45,19 @@
  * rendering during the LATE phase.
  */
 typedef struct {
-  EseEntityComponentText **texts; /** Array of text component pointers */
-  size_t count;                   /** Current number of tracked texts */
-  size_t capacity;                /** Allocated capacity of the array */
+    EseEntityComponentText **texts; /** Array of text component pointers */
+    size_t count;                   /** Current number of tracked texts */
+    size_t capacity;                /** Allocated capacity of the array */
 } TextRenderSystemData;
 
 // ========================================
 // PRIVATE FORWARD DECLARATIONS
 // ========================================
 
-static void _text_font_texture_callback(float screen_x, float screen_y,
-                                        float screen_w, float screen_h,
-                                        uint64_t z_index,
-                                        const char *texture_id,
-                                        float texture_x1, float texture_y1,
-                                        float texture_x2, float texture_y2,
-                                        int width, int height, void *user_data);
+static void _text_font_texture_callback(float screen_x, float screen_y, float screen_w,
+                                        float screen_h, uint64_t z_index, const char *texture_id,
+                                        float texture_x1, float texture_y1, float texture_x2,
+                                        float texture_y2, int width, int height, void *user_data);
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -73,13 +70,12 @@ static void _text_font_texture_callback(float screen_x, float screen_y,
  * @param comp Component to check
  * @return true if component type is ENTITY_COMPONENT_TEXT
  */
-static bool text_render_sys_accepts(EseSystemManager *self,
-                                    const EseEntityComponent *comp) {
-  (void)self;
-  if (!comp) {
-    return false;
-  }
-  return comp->type == ENTITY_COMPONENT_TEXT;
+static bool text_render_sys_accepts(EseSystemManager *self, const EseEntityComponent *comp) {
+    (void)self;
+    if (!comp) {
+        return false;
+    }
+    return comp->type == ENTITY_COMPONENT_TEXT;
 }
 
 /**
@@ -91,19 +87,18 @@ static bool text_render_sys_accepts(EseSystemManager *self,
  */
 static void text_render_sys_on_add(EseSystemManager *self, EseEngine *eng,
                                    EseEntityComponent *comp) {
-  (void)eng;
-  TextRenderSystemData *d = (TextRenderSystemData *)self->data;
+    (void)eng;
+    TextRenderSystemData *d = (TextRenderSystemData *)self->data;
 
-  // Expand array if needed
-  if (d->count == d->capacity) {
-    d->capacity = d->capacity ? d->capacity * 2 : 64;
-    d->texts = memory_manager.realloc(
-        d->texts, sizeof(EseEntityComponentText *) * d->capacity,
-        MMTAG_RS_TEXT);
-  }
+    // Expand array if needed
+    if (d->count == d->capacity) {
+        d->capacity = d->capacity ? d->capacity * 2 : 64;
+        d->texts = memory_manager.realloc(d->texts, sizeof(EseEntityComponentText *) * d->capacity,
+                                          MMTAG_RS_TEXT);
+    }
 
-  // Add text to tracking array
-  d->texts[d->count++] = (EseEntityComponentText *)comp->data;
+    // Add text to tracking array
+    d->texts[d->count++] = (EseEntityComponentText *)comp->data;
 }
 
 /**
@@ -115,17 +110,17 @@ static void text_render_sys_on_add(EseSystemManager *self, EseEngine *eng,
  */
 static void text_render_sys_on_remove(EseSystemManager *self, EseEngine *eng,
                                       EseEntityComponent *comp) {
-  (void)eng;
-  TextRenderSystemData *d = (TextRenderSystemData *)self->data;
-  EseEntityComponentText *tc = (EseEntityComponentText *)comp->data;
+    (void)eng;
+    TextRenderSystemData *d = (TextRenderSystemData *)self->data;
+    EseEntityComponentText *tc = (EseEntityComponentText *)comp->data;
 
-  // Find and remove text from tracking array (swap with last element)
-  for (size_t i = 0; i < d->count; i++) {
-    if (d->texts[i] == tc) {
-      d->texts[i] = d->texts[--d->count];
-      return;
+    // Find and remove text from tracking array (swap with last element)
+    for (size_t i = 0; i < d->count; i++) {
+        if (d->texts[i] == tc) {
+            d->texts[i] = d->texts[--d->count];
+            return;
+        }
     }
-  }
 }
 
 /**
@@ -135,10 +130,9 @@ static void text_render_sys_on_remove(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void text_render_sys_init(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  TextRenderSystemData *d =
-      memory_manager.calloc(1, sizeof(TextRenderSystemData), MMTAG_RS_TEXT);
-  self->data = d;
+    (void)eng;
+    TextRenderSystemData *d = memory_manager.calloc(1, sizeof(TextRenderSystemData), MMTAG_RS_TEXT);
+    self->data = d;
 }
 
 /**
@@ -151,79 +145,76 @@ static void text_render_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void text_render_sys_update(EseSystemManager *self, EseEngine *eng,
-                                   float dt) {
-  (void)dt;
-  TextRenderSystemData *d = (TextRenderSystemData *)self->data;
+static void text_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+    (void)dt;
+    TextRenderSystemData *d = (TextRenderSystemData *)self->data;
 
-  for (size_t i = 0; i < d->count; i++) {
-    EseEntityComponentText *tc = d->texts[i];
+    for (size_t i = 0; i < d->count; i++) {
+        EseEntityComponentText *tc = d->texts[i];
 
-    // Skip texts without content or inactive entities
-    if (!tc->text || strlen(tc->text) == 0 || !tc->base.entity ||
-        !tc->base.entity->active || !tc->base.entity->visible) {
-      continue;
+        // Skip texts without content or inactive entities
+        if (!tc->text || strlen(tc->text) == 0 || !tc->base.entity || !tc->base.entity->active ||
+            !tc->base.entity->visible) {
+            continue;
+        }
+
+        // Calculate text dimensions
+        int text_width = strlen(tc->text) * (FONT_CHAR_WIDTH + FONT_SPACING) - FONT_SPACING;
+        int text_height = FONT_CHAR_HEIGHT;
+
+        // Get entity world position
+        float entity_x = ese_point_get_x(tc->base.entity->position);
+        float entity_y = ese_point_get_y(tc->base.entity->position);
+
+        // Apply offset
+        float final_x = entity_x + ese_point_get_x(tc->offset);
+        float final_y = entity_y + ese_point_get_y(tc->offset);
+
+        // Apply justification (horizontal alignment)
+        switch (tc->justify) {
+        case TEXT_JUSTIFY_CENTER:
+            final_x -= text_width / 2.0f;
+            break;
+        case TEXT_JUSTIFY_RIGHT:
+            final_x -= text_width;
+            break;
+        case TEXT_JUSTIFY_LEFT:
+        default:
+            break;
+        }
+
+        // Apply alignment (vertical alignment)
+        switch (tc->align) {
+        case TEXT_ALIGN_CENTER:
+            final_y -= text_height / 2.0f;
+            break;
+        case TEXT_ALIGN_BOTTOM:
+            final_y -= text_height;
+            break;
+        case TEXT_ALIGN_TOP:
+        default:
+            break;
+        }
+
+        // Convert world coordinates to screen coordinates using camera
+        EseCamera *camera = engine_get_camera(eng);
+        EseDisplay *display = engine_get_display(eng);
+        float camera_x = ese_point_get_x(camera->position);
+        float camera_y = ese_point_get_y(camera->position);
+        float view_width = ese_display_get_viewport_width(display);
+        float view_height = ese_display_get_viewport_height(display);
+
+        float view_left = camera_x - view_width / 2.0f;
+        float view_top = camera_y - view_height / 2.0f;
+
+        float screen_x = final_x - view_left;
+        float screen_y = final_y - view_top;
+
+        // Use the font drawing function
+        EseDrawList *draw_list = engine_get_draw_list(eng);
+        font_draw_text(eng, "console_font_10x20", tc->text, screen_x, screen_y,
+                       tc->base.entity->draw_order, _text_font_texture_callback, draw_list);
     }
-
-    // Calculate text dimensions
-    int text_width =
-        strlen(tc->text) * (FONT_CHAR_WIDTH + FONT_SPACING) - FONT_SPACING;
-    int text_height = FONT_CHAR_HEIGHT;
-
-    // Get entity world position
-    float entity_x = ese_point_get_x(tc->base.entity->position);
-    float entity_y = ese_point_get_y(tc->base.entity->position);
-
-    // Apply offset
-    float final_x = entity_x + ese_point_get_x(tc->offset);
-    float final_y = entity_y + ese_point_get_y(tc->offset);
-
-    // Apply justification (horizontal alignment)
-    switch (tc->justify) {
-    case TEXT_JUSTIFY_CENTER:
-      final_x -= text_width / 2.0f;
-      break;
-    case TEXT_JUSTIFY_RIGHT:
-      final_x -= text_width;
-      break;
-    case TEXT_JUSTIFY_LEFT:
-    default:
-      break;
-    }
-
-    // Apply alignment (vertical alignment)
-    switch (tc->align) {
-    case TEXT_ALIGN_CENTER:
-      final_y -= text_height / 2.0f;
-      break;
-    case TEXT_ALIGN_BOTTOM:
-      final_y -= text_height;
-      break;
-    case TEXT_ALIGN_TOP:
-    default:
-      break;
-    }
-
-    // Convert world coordinates to screen coordinates using camera
-    EseCamera *camera = engine_get_camera(eng);
-    EseDisplay *display = engine_get_display(eng);
-    float camera_x = ese_point_get_x(camera->position);
-    float camera_y = ese_point_get_y(camera->position);
-    float view_width = ese_display_get_viewport_width(display);
-    float view_height = ese_display_get_viewport_height(display);
-
-    float view_left = camera_x - view_width / 2.0f;
-    float view_top = camera_y - view_height / 2.0f;
-
-    float screen_x = final_x - view_left;
-    float screen_y = final_y - view_top;
-
-    // Use the font drawing function
-    EseDrawList *draw_list = engine_get_draw_list(eng);
-    font_draw_text(eng, "console_font_10x20", tc->text, screen_x, screen_y,
-                   tc->base.entity->draw_order, _text_font_texture_callback,
-                   draw_list);
-  }
 }
 
 /**
@@ -233,14 +224,14 @@ static void text_render_sys_update(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void text_render_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  TextRenderSystemData *d = (TextRenderSystemData *)self->data;
-  if (d) {
-    if (d->texts) {
-      memory_manager.free(d->texts);
+    (void)eng;
+    TextRenderSystemData *d = (TextRenderSystemData *)self->data;
+    if (d) {
+        if (d->texts) {
+            memory_manager.free(d->texts);
+        }
+        memory_manager.free(d);
     }
-    memory_manager.free(d);
-  }
 }
 
 /**
@@ -271,18 +262,16 @@ static const EseSystemManagerVTable TextRenderSystemVTable = {
  * @param height Texture height
  * @param user_data Draw list pointer
  */
-static void _text_font_texture_callback(
-    float screen_x, float screen_y, float screen_w, float screen_h,
-    uint64_t z_index, const char *texture_id, float texture_x1,
-    float texture_y1, float texture_x2, float texture_y2, int width, int height,
-    void *user_data) {
-  EseDrawList *draw_list = (EseDrawList *)user_data;
-  EseDrawListObject *text_obj = draw_list_request_object(draw_list);
-  draw_list_object_set_texture(text_obj, texture_id, texture_x1, texture_y1,
-                               texture_x2, texture_y2);
-  draw_list_object_set_bounds(text_obj, screen_x, screen_y, (int)screen_w,
-                              (int)screen_h);
-  draw_list_object_set_z_index(text_obj, z_index);
+static void _text_font_texture_callback(float screen_x, float screen_y, float screen_w,
+                                        float screen_h, uint64_t z_index, const char *texture_id,
+                                        float texture_x1, float texture_y1, float texture_x2,
+                                        float texture_y2, int width, int height, void *user_data) {
+    EseDrawList *draw_list = (EseDrawList *)user_data;
+    EseDrawListObject *text_obj = draw_list_request_object(draw_list);
+    draw_list_object_set_texture(text_obj, texture_id, texture_x1, texture_y1, texture_x2,
+                                 texture_y2);
+    draw_list_object_set_bounds(text_obj, screen_x, screen_y, (int)screen_w, (int)screen_h);
+    draw_list_object_set_z_index(text_obj, z_index);
 }
 
 // ========================================
@@ -295,7 +284,7 @@ static void _text_font_texture_callback(
  * @return EseSystemManager* Created system
  */
 EseSystemManager *text_render_system_create(void) {
-  return system_manager_create(&TextRenderSystemVTable, SYS_PHASE_LATE, NULL);
+    return system_manager_create(&TextRenderSystemVTable, SYS_PHASE_LATE, NULL);
 }
 
 /**
@@ -304,8 +293,8 @@ EseSystemManager *text_render_system_create(void) {
  * @param eng Engine pointer
  */
 void engine_register_text_render_system(EseEngine *eng) {
-  log_assert("TEXT_RENDER_SYS", eng,
-             "engine_register_text_render_system called with NULL engine");
-  EseSystemManager *sys = text_render_system_create();
-  engine_add_system(eng, sys);
+    log_assert("TEXT_RENDER_SYS", eng,
+               "engine_register_text_render_system called with NULL engine");
+    EseSystemManager *sys = text_render_system_create();
+    engine_add_system(eng, sys);
 }

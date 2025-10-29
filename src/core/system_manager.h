@@ -27,9 +27,9 @@ typedef struct EseEntityComponent EseEntityComponent;
  * rendering.
  */
 typedef enum {
-  SYS_PHASE_EARLY, /** Parallel execution before Lua scripts */
-  SYS_PHASE_LUA,   /** Single-threaded execution for Lua components */
-  SYS_PHASE_LATE   /** Parallel execution after Lua, before render */
+    SYS_PHASE_EARLY, /** Parallel execution before Lua scripts */
+    SYS_PHASE_LUA,   /** Single-threaded execution for Lua components */
+    SYS_PHASE_LATE   /** Parallel execution after Lua, before render */
 } EseSystemPhase;
 
 /**
@@ -44,59 +44,59 @@ typedef struct EseSystemManager EseSystemManager;
  *          Systems should implement only the callbacks they need.
  */
 typedef struct EseSystemManagerVTable {
-  /**
-   * @brief Called once when the system is registered with the engine.
-   *
-   * @param self Pointer to the system instance.
-   * @param eng Pointer to the engine.
-   */
-  void (*init)(EseSystemManager *self, EseEngine *eng);
+    /**
+     * @brief Called once when the system is registered with the engine.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     */
+    void (*init)(EseSystemManager *self, EseEngine *eng);
 
-  /**
-   * @brief Called every frame to update the system.
-   *
-   * @param self Pointer to the system instance.
-   * @param eng Pointer to the engine.
-   * @param dt Delta time in seconds since the last frame.
-   */
-  void (*update)(EseSystemManager *self, EseEngine *eng, float dt);
+    /**
+     * @brief Called every frame to update the system.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     * @param dt Delta time in seconds since the last frame.
+     */
+    void (*update)(EseSystemManager *self, EseEngine *eng, float dt);
 
-  /**
-   * @brief Determines whether this system is interested in a component.
-   *
-   * @param self Pointer to the system instance.
-   * @param comp Pointer to the component to check.
-   * @return true if the system wants to track this component, false otherwise.
-   */
-  bool (*accepts)(EseSystemManager *self, const EseEntityComponent *comp);
+    /**
+     * @brief Determines whether this system is interested in a component.
+     *
+     * @param self Pointer to the system instance.
+     * @param comp Pointer to the component to check.
+     * @return true if the system wants to track this component, false
+     * otherwise.
+     */
+    bool (*accepts)(EseSystemManager *self, const EseEntityComponent *comp);
 
-  /**
-   * @brief Notification that a component has been added to an entity.
-   *
-   * @param self Pointer to the system instance.
-   * @param eng Pointer to the engine.
-   * @param comp Pointer to the component that was added.
-   */
-  void (*on_component_added)(EseSystemManager *self, EseEngine *eng,
-                             EseEntityComponent *comp);
+    /**
+     * @brief Notification that a component has been added to an entity.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     * @param comp Pointer to the component that was added.
+     */
+    void (*on_component_added)(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp);
 
-  /**
-   * @brief Notification that a component is about to be removed from an entity.
-   *
-   * @param self Pointer to the system instance.
-   * @param eng Pointer to the engine.
-   * @param comp Pointer to the component that will be removed.
-   */
-  void (*on_component_removed)(EseSystemManager *self, EseEngine *eng,
-                               EseEntityComponent *comp);
+    /**
+     * @brief Notification that a component is about to be removed from an
+     * entity.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     * @param comp Pointer to the component that will be removed.
+     */
+    void (*on_component_removed)(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp);
 
-  /**
-   * @brief Called when the system is being destroyed.
-   *
-   * @param self Pointer to the system instance.
-   * @param eng Pointer to the engine.
-   */
-  void (*shutdown)(EseSystemManager *self, EseEngine *eng);
+    /**
+     * @brief Called when the system is being destroyed.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     */
+    void (*shutdown)(EseSystemManager *self, EseEngine *eng);
 } EseSystemManagerVTable;
 
 /**
@@ -108,8 +108,8 @@ typedef struct EseSystemManagerVTable {
  * @param user_data Optional user data pointer to store system-specific state.
  * @return Pointer to the newly created system.
  */
-EseSystemManager *system_manager_create(const EseSystemManagerVTable *vt,
-                                        EseSystemPhase phase, void *user_data);
+EseSystemManager *system_manager_create(const EseSystemManagerVTable *vt, EseSystemPhase phase,
+                                        void *user_data);
 
 /**
  * @brief Destroys a System instance and frees its resources.
@@ -145,8 +145,7 @@ void engine_add_system(EseEngine *eng, EseSystemManager *sys);
  * @param dt Delta time in seconds.
  * @param parallel Whether to run systems in parallel using the job queue.
  */
-void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt,
-                      bool parallel);
+void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool parallel);
 
 /**
  * @brief Notifies all systems that a component has been added.

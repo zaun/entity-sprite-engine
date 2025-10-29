@@ -29,10 +29,10 @@ typedef void (*EseMapWatcherCallback)(EseMap *map, void *userdata);
  * @brief Map type enumeration for different coordinate systems.
  */
 typedef enum {
-  MAP_TYPE_GRID = 0,     /** Standard grid/square tiles */
-  MAP_TYPE_HEX_POINT_UP, /** Hexagonal tiles with point facing up */
-  MAP_TYPE_HEX_FLAT_UP,  /** Hexagonal tiles with flat side facing up */
-  MAP_TYPE_ISO           /** Isometric tiles */
+    MAP_TYPE_GRID = 0,     /** Standard grid/square tiles */
+    MAP_TYPE_HEX_POINT_UP, /** Hexagonal tiles with point facing up */
+    MAP_TYPE_HEX_FLAT_UP,  /** Hexagonal tiles with flat side facing up */
+    MAP_TYPE_ISO           /** Isometric tiles */
 } EseMapType;
 
 /* --- Lua API
@@ -126,8 +126,8 @@ void ese_map_unref(EseMap *map);
  *
  * @warning The returned EseMap must be freed with ese_map_destroy().
  */
-EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height,
-                       EseMapType type, bool c_only);
+EseMap *ese_map_create(EseLuaEngine *engine, uint32_t width, uint32_t height, EseMapType type,
+                       bool c_only);
 
 /**
  * @brief Destroys an EseMap object and frees its memory.
@@ -365,8 +365,7 @@ void _ese_map_notify_watchers(EseMap *map);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback,
-                         void *userdata);
+bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -376,8 +375,7 @@ bool ese_map_add_watcher(EseMap *map, EseMapWatcherCallback callback,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback,
-                            void *userdata);
+bool ese_map_remove_watcher(EseMap *map, EseMapWatcherCallback callback, void *userdata);
 
 /* --- Map Type Conversion
  * ---------------------------------------------------------------------- */

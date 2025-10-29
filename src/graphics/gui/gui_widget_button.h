@@ -8,7 +8,7 @@ typedef struct GuiWidgetVTable GuiWidgetVTable;
 GuiWidgetVTable *ese_widget_button_get_vtable(void);
 
 // Helper to configure a button created via vtable
-void ese_widget_button_set(struct EseGuiWidget *button, const char *text,
-                           void (*callback)(void *), void *userdata);
+void ese_widget_button_set(struct EseGuiWidget *button, const char *text, void (*callback)(void *),
+                           void *userdata);
 
 #endif // ESE_GUI_WIDGET_BUTTON_H

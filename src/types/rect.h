@@ -202,8 +202,7 @@ int ese_rect_get_lua_ref_count(const EseRect *rect);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback,
-                          void *userdata);
+bool ese_rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -217,8 +216,7 @@ bool ese_rect_add_watcher(EseRect *rect, EseRectWatcherCallback callback,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback,
-                             void *userdata);
+bool ese_rect_remove_watcher(EseRect *rect, EseRectWatcherCallback callback, void *userdata);
 
 /**
  * @brief Notifies all registered watchers of a rect change

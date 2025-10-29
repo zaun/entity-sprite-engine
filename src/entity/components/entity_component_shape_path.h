@@ -18,7 +18,7 @@ typedef struct EsePolyLine EsePolyLine;
  * @return EsePolyLine** Pointer to an array of polylines; caller owns and must
  * free entries and array
  */
-EsePolyLine **shape_path_to_polylines(EseLuaEngine *engine, float scale,
-                                      const char *path, size_t *out_count);
+EsePolyLine **shape_path_to_polylines(EseLuaEngine *engine, float scale, const char *path,
+                                      size_t *out_count);
 
 #endif // ESE_ENTITY_COMPONENT_SHARE_PATH_H

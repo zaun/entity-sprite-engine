@@ -19,40 +19,39 @@ typedef struct EseGuiStyle EseGuiStyle;
  *          allowing polymorphic behavior without large switch statements.
  */
 typedef struct GuiWidgetVTable {
-  char id[64];
-  bool is_container;
-  void (*draw)(EseGui *gui, EseGuiWidget *widget, EseDrawList *draw_list,
-               size_t depth);
-  void (*process_mouse_hover)(EseGuiWidget *widget, int mouse_x, int mouse_y);
-  bool (*process_mouse_click)(EseGuiWidget *widget, int mouse_x, int mouse_y,
-                              EseInputMouseButton button);
-  void (*layout)(EseGuiWidget *widget);
-  EseGuiWidget *(*create)(EseGuiWidget *parent, EseGuiStyle *style);
-  void (*destroy)(EseGuiWidget *widget);
-  int (*lua_init)(EseLuaEngine *engine);
+    char id[64];
+    bool is_container;
+    void (*draw)(EseGui *gui, EseGuiWidget *widget, EseDrawList *draw_list, size_t depth);
+    void (*process_mouse_hover)(EseGuiWidget *widget, int mouse_x, int mouse_y);
+    bool (*process_mouse_click)(EseGuiWidget *widget, int mouse_x, int mouse_y,
+                                EseInputMouseButton button);
+    void (*layout)(EseGuiWidget *widget);
+    EseGuiWidget *(*create)(EseGuiWidget *parent, EseGuiStyle *style);
+    void (*destroy)(EseGuiWidget *widget);
+    int (*lua_init)(EseLuaEngine *engine);
 } GuiWidgetVTable;
 
 typedef struct EseGuiWidget {
-  // Widget bounding box
-  int x, y, width, height;
+    // Widget bounding box
+    int x, y, width, height;
 
-  // Parent
-  struct EseGuiWidget *parent;
+    // Parent
+    struct EseGuiWidget *parent;
 
-  // Children
-  struct EseGuiWidget **children;
-  size_t children_count;
-  size_t children_capacity;
+    // Children
+    struct EseGuiWidget **children;
+    size_t children_count;
+    size_t children_capacity;
 
-  // Common widget data
-  EseGuiStyle *style;
-  EseGuiStyleVariant variant;
-  bool is_hovered;
-  bool is_down;
+    // Common widget data
+    EseGuiStyle *style;
+    EseGuiStyleVariant variant;
+    bool is_hovered;
+    bool is_down;
 
-  // Widget-specific data
-  GuiWidgetVTable type;
-  void *data;
+    // Widget-specific data
+    GuiWidgetVTable type;
+    void *data;
 } EseGuiWidget;
 
 // ========================================
@@ -63,15 +62,12 @@ typedef struct EseGuiWidget {
 void _ese_widget_register(EseLuaEngine *engine);
 
 // Widget operations
-void _ese_widget_draw(EseGui *gui, EseGuiWidget *widget, EseDrawList *draw_list,
-                      size_t depth);
-void _ese_widget_process_mouse_hover(EseGuiWidget *widget, int mouse_x,
-                                     int mouse_y);
-void _ese_widget_process_mouse_clicked(EseGuiWidget *widget, int mouse_x,
-                                       int mouse_y, EseInputMouseButton button);
+void _ese_widget_draw(EseGui *gui, EseGuiWidget *widget, EseDrawList *draw_list, size_t depth);
+void _ese_widget_process_mouse_hover(EseGuiWidget *widget, int mouse_x, int mouse_y);
+void _ese_widget_process_mouse_clicked(EseGuiWidget *widget, int mouse_x, int mouse_y,
+                                       EseInputMouseButton button);
 
 // Widget creation
-void _ese_widget_layout(EseGuiWidget *widget, int x, int y, int width,
-                        int height);
+void _ese_widget_layout(EseGuiWidget *widget, int x, int y, int width, int height);
 
 #endif // ESE_GUI_WIDGET_H

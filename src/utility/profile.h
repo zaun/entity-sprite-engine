@@ -6,11 +6,11 @@
 
 // Snapshot structure for storing timing data
 typedef struct {
-  char *key;
-  uint64_t total;
-  uint64_t count;
-  uint64_t max;
-  char *snapshot_name;
+    char *key;
+    uint64_t total;
+    uint64_t count;
+    uint64_t max;
+    char *snapshot_name;
 } ProfileSnapshot;
 
 #ifdef __cplusplus
@@ -245,20 +245,20 @@ void profile_count_reset_all(void);
 
 // Compile-out stubs
 static inline void profile_time(const char *key, uint64_t ns) {
-  (void)key;
-  (void)ns;
+    (void)key;
+    (void)ns;
 }
 static inline uint64_t profile_get_max(const char *key) {
-  (void)key;
-  return 0;
+    (void)key;
+    return 0;
 }
 static inline uint64_t profile_get_average(const char *key) {
-  (void)key;
-  return 0;
+    (void)key;
+    return 0;
 }
 static inline uint64_t profile_get_count(const char *key) {
-  (void)key;
-  return 0;
+    (void)key;
+    return 0;
 }
 static inline void profile_clear(const char *key) { (void)key; }
 static inline void profile_reset_all(void) {}
@@ -267,23 +267,23 @@ static inline void profile_display(void) {}
 static inline void profile_start(int id) { (void)id; }
 static inline void profile_cancel(int id) { (void)id; }
 static inline void profile_stop(int id, const char *key) {
-  (void)id;
-  (void)key;
+    (void)id;
+    (void)key;
 }
 
 // Snapshot API compile-out stubs
 static inline void profile_snapshot(const char *name) { (void)name; }
 static inline ProfileSnapshot *profile_snapshot_get(const char *name) {
-  (void)name;
-  return NULL;
+    (void)name;
+    return NULL;
 }
 
 // Count API compile-out stubs
 static inline void profile_count_add(const char *key) { (void)key; }
 static inline void profile_count_remove(const char *key) { (void)key; }
 static inline uint64_t profile_count_get(const char *key) {
-  (void)key;
-  return 0;
+    (void)key;
+    return 0;
 }
 static inline void profile_count_clear(const char *key) { (void)key; }
 static inline void profile_count_reset_all(void) {}

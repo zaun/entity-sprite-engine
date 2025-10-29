@@ -23,8 +23,7 @@ typedef struct EseRect EseRect;
 typedef struct lua_State lua_State;
 
 // Forward declaration for EseLuaCFunction (defined in lua_engine.h)
-typedef EseLuaValue *(*EseLuaCFunction)(EseLuaEngine *engine, size_t argc,
-                                        EseLuaValue *argv[]);
+typedef EseLuaValue *(*EseLuaCFunction)(EseLuaEngine *engine, size_t argc, EseLuaValue *argv[]);
 
 /**
  * @brief Creates a complete deep copy of a EseLuaValue structure.
@@ -153,8 +152,7 @@ EseLuaValue *lua_value_create_string(const char *name, const char *value);
  * @warning The error_message string is duplicated, so the original can be
  * freed.
  */
-EseLuaValue *lua_value_create_error(const char *name,
-                                    const char *error_message);
+EseLuaValue *lua_value_create_error(const char *name, const char *error_message);
 
 /**
  * @brief Creates a new empty EseLuaValue structure initialized to TABLE type.
@@ -203,33 +201,25 @@ EseLuaValue *lua_value_create_arc(const char *name, struct EseArc *arc);
 
 EseLuaValue *lua_value_create_color(const char *name, struct EseColor *color);
 
-EseLuaValue *lua_value_create_display(const char *name,
-                                      struct EseDisplay *display);
+EseLuaValue *lua_value_create_display(const char *name, struct EseDisplay *display);
 
-EseLuaValue *lua_value_create_input_state(const char *name,
-                                          struct EseInputState *input_state);
+EseLuaValue *lua_value_create_input_state(const char *name, struct EseInputState *input_state);
 
-EseLuaValue *lua_value_create_map_cell(const char *name,
-                                       struct EseMapCell *map_cell);
+EseLuaValue *lua_value_create_map_cell(const char *name, struct EseMapCell *map_cell);
 
-EseLuaValue *lua_value_create_poly_line(const char *name,
-                                        struct EsePolyLine *poly_line);
+EseLuaValue *lua_value_create_poly_line(const char *name, struct EsePolyLine *poly_line);
 
 EseLuaValue *lua_value_create_ray(const char *name, struct EseRay *ray);
 
-EseLuaValue *lua_value_create_tileset(const char *name,
-                                      struct EseTileSet *tileset);
+EseLuaValue *lua_value_create_tileset(const char *name, struct EseTileSet *tileset);
 
 EseLuaValue *lua_value_create_uuid(const char *name, struct EseUUID *uuid);
 
-EseLuaValue *lua_value_create_vector(const char *name,
-                                     struct EseVector *vector);
+EseLuaValue *lua_value_create_vector(const char *name, struct EseVector *vector);
 
-EseLuaValue *lua_value_create_collision_hit(const char *name,
-                                            struct EseCollisionHit *hit);
+EseLuaValue *lua_value_create_collision_hit(const char *name, struct EseCollisionHit *hit);
 
-EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc,
-                                    EseLuaValue *upvalue);
+EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc, EseLuaValue *upvalue);
 
 /**
  * @brief Adds an item to a EseLuaValue table, with optional deep copying.
@@ -349,8 +339,7 @@ void lua_value_set_map(EseLuaValue *val, struct EseMap *map);
 
 void lua_value_set_arc(EseLuaValue *val, struct EseArc *arc);
 
-void lua_value_set_cfunc(EseLuaValue *val, EseLuaCFunction cfunc,
-                         EseLuaValue *upvalue);
+void lua_value_set_cfunc(EseLuaValue *val, EseLuaCFunction cfunc, EseLuaValue *upvalue);
 
 void lua_value_set_collision_hit(EseLuaValue *val, struct EseCollisionHit *hit);
 

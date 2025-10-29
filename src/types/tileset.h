@@ -212,8 +212,8 @@ uint32_t ese_tileset_get_rng_seed(const EseTileSet *tiles);
  * @param weight The weight for random selection (must be > 0)
  * @return true if successful, false if memory allocation fails
  */
-bool ese_tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id,
-                            const char *sprite_id, uint16_t weight);
+bool ese_tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id,
+                            uint16_t weight);
 
 /**
  * @brief Removes a sprite from a tile mapping.
@@ -223,8 +223,7 @@ bool ese_tileset_add_sprite(EseTileSet *tiles, uint8_t tile_id,
  * @param sprite_id The sprite string to remove
  * @return true if successful, false if sprite not found
  */
-bool ese_tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id,
-                               const char *sprite_id);
+bool ese_tileset_remove_sprite(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id);
 
 /**
  * @brief Gets a random sprite based on weights for a tile.
@@ -261,8 +260,7 @@ size_t ese_tileset_get_sprite_count(const EseTileSet *tiles, uint8_t tile_id);
  * @param new_weight The new weight value (must be > 0)
  * @return true if successful, false if sprite not found
  */
-bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id,
-                                      const char *sprite_id,
+bool ese_tileset_update_sprite_weight(EseTileSet *tiles, uint8_t tile_id, const char *sprite_id,
                                       uint16_t new_weight);
 
 /**

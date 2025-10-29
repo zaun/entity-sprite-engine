@@ -132,8 +132,7 @@ void engine_start(EseEngine *engine);
  * @note This function asserts that both the `engine` and `state` pointers are
  * not NULL.
  */
-void engine_update(EseEngine *engine, float delta_time,
-                   const EseInputState *state);
+void engine_update(EseEngine *engine, float delta_time, const EseInputState *state);
 
 /**
  * @brief Detects collisions between entities and a rectangular area.
@@ -146,8 +145,7 @@ void engine_update(EseEngine *engine, float delta_time,
  * @param max_count Maximum number of entities to return.
  * @return Array of entity pointers, NULL-terminated (caller must free).
  */
-EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect,
-                                         int max_count);
+EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int max_count);
 
 /**
  * @brief Retrieves a sprite from the engine's asset manager.
@@ -170,8 +168,7 @@ EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
  * @return Array of entity pointers, NULL-terminated (caller must free), or NULL
  * if none found
  */
-EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag,
-                               int max_count);
+EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count);
 
 /**
  * @brief Finds an entity by its UUID.
@@ -198,8 +195,8 @@ int engine_get_entity_count(EseEngine *engine);
  * @param prefix The prefix for the console line (max 16 characters).
  * @param message The message to display.
  */
-void engine_add_to_console(EseEngine *engine, EseConsoleLineType type,
-                           const char *prefix, const char *message);
+void engine_add_to_console(EseEngine *engine, EseConsoleLineType type, const char *prefix,
+                           const char *message);
 
 /**
  * @brief Sets whether the console should be drawn.
@@ -217,8 +214,7 @@ void engine_show_console(EseEngine *engine, bool show);
  * @param name The topic name to publish to.
  * @param data The EseLuaValue data to publish.
  */
-void engine_pubsub_pub(EseEngine *engine, const char *name,
-                       const EseLuaValue *data);
+void engine_pubsub_pub(EseEngine *engine, const char *name, const EseLuaValue *data);
 
 /**
  * @brief Subscribes an entity to a topic with a function name.

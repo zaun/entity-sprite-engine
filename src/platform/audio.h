@@ -14,8 +14,8 @@ typedef struct EseSound EseSound;
 
 // Attenuation types for 3D audio
 typedef enum {
-  AUDIO_ATTENUATION_LINEAR = 0,
-  AUDIO_ATTENUATION_EXPONENTIAL = 1
+    AUDIO_ATTENUATION_LINEAR = 0,
+    AUDIO_ATTENUATION_EXPONENTIAL = 1
 } EseAudioAttenuation;
 
 /**
@@ -157,8 +157,7 @@ size_t audio_sound_get_playback_position(EseSound *sound);
  * @param max_dist Maximum distance for full volume
  * @param attenuation Type of distance attenuation to use
  */
-void audio_sound_set_max_distance(EseSound *sound, float max_dist,
-                                  EseAudioAttenuation attenuation);
+void audio_sound_set_max_distance(EseSound *sound, float max_dist, EseAudioAttenuation attenuation);
 
 /**
  * Get the maximum distance for 3D audio attenuation.

@@ -26,9 +26,9 @@
  * @brief Enumeration for poly line types
  */
 typedef enum {
-  POLY_LINE_OPEN,   /** Open polyline (not closed) */
-  POLY_LINE_CLOSED, /** Closed polyline (connects last point to first) */
-  POLY_LINE_FILLED  /** Filled polygon */
+    POLY_LINE_OPEN,   /** Open polyline (not closed) */
+    POLY_LINE_CLOSED, /** Closed polyline (connects last point to first) */
+    POLY_LINE_FILLED  /** Filled polygon */
 } EsePolyLineType;
 
 /**
@@ -46,8 +46,7 @@ typedef struct EsePolyLine EsePolyLine;
  * @param poly_line Pointer to the EsePolyLine that changed
  * @param userdata User-provided data passed when registering the watcher
  */
-typedef void (*EsePolyLineWatcherCallback)(EsePolyLine *poly_line,
-                                           void *userdata);
+typedef void (*EsePolyLineWatcherCallback)(EsePolyLine *poly_line, void *userdata);
 
 // ========================================
 // FORWARD DECLARATIONS
@@ -314,8 +313,7 @@ void _ese_poly_line_notify_watchers(EsePolyLine *poly_line);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_poly_line_add_watcher(EsePolyLine *poly_line,
-                               EsePolyLineWatcherCallback callback,
+bool ese_poly_line_add_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback,
                                void *userdata);
 
 /**
@@ -330,8 +328,7 @@ bool ese_poly_line_add_watcher(EsePolyLine *poly_line,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_poly_line_remove_watcher(EsePolyLine *poly_line,
-                                  EsePolyLineWatcherCallback callback,
+bool ese_poly_line_remove_watcher(EsePolyLine *poly_line, EsePolyLineWatcherCallback callback,
                                   void *userdata);
 
 // Lua integration

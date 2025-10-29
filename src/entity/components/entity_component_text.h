@@ -16,18 +16,18 @@ typedef struct EsePoint EsePoint;
  * @brief Text justification options for horizontal alignment
  */
 typedef enum {
-  TEXT_JUSTIFY_LEFT,
-  TEXT_JUSTIFY_CENTER,
-  TEXT_JUSTIFY_RIGHT,
+    TEXT_JUSTIFY_LEFT,
+    TEXT_JUSTIFY_CENTER,
+    TEXT_JUSTIFY_RIGHT,
 } EseTextJustify;
 
 /**
  * @brief Text alignment options for vertical alignment
  */
 typedef enum {
-  TEXT_ALIGN_TOP,
-  TEXT_ALIGN_CENTER,
-  TEXT_ALIGN_BOTTOM,
+    TEXT_ALIGN_TOP,
+    TEXT_ALIGN_CENTER,
+    TEXT_ALIGN_BOTTOM,
 } EseTextAlign;
 
 /**
@@ -39,27 +39,25 @@ typedef enum {
  * position. The text is rendered using the console font system.
  */
 typedef struct EseEntityComponentText {
-  EseEntityComponent base; /** Base component structure */
+    EseEntityComponent base; /** Base component structure */
 
-  char *text;             /** The text string to display */
-  EseTextJustify justify; /** Horizontal text justification */
-  EseTextAlign align;     /** Vertical text alignment */
-  EsePoint *offset;       /** Offset from entity position */
+    char *text;             /** The text string to display */
+    EseTextJustify justify; /** Horizontal text justification */
+    EseTextAlign align;     /** Vertical text alignment */
+    EsePoint *offset;       /** Offset from entity position */
 } EseEntityComponentText;
 
-EseEntityComponent *
-_entity_component_text_copy(const EseEntityComponentText *src);
+EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *src);
 
 void _entity_component_text_destroy(EseEntityComponentText *component);
 
-void _entity_component_text_update(EseEntityComponentText *component,
-                                   EseEntity *entity, float delta_time);
+void _entity_component_text_update(EseEntityComponentText *component, EseEntity *entity,
+                                   float delta_time);
 
 EseEntityComponentText *_entity_component_text_get(lua_State *L, int idx);
 
 void _entity_component_text_init(EseLuaEngine *engine);
 
-EseEntityComponent *entity_component_text_create(EseLuaEngine *engine,
-                                                 const char *text);
+EseEntityComponent *entity_component_text_create(EseLuaEngine *engine, const char *text);
 
 #endif // ESE_ENTITY_COMPONENT_TEXT_H

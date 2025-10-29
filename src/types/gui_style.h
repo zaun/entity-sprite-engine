@@ -26,18 +26,18 @@
 #define GUI_STYLE_FONT_SIZE_WIDGET_DEFAULT -2
 
 typedef enum EseGuiStyleVariant {
-  GUI_STYLE_VARIANT_DEFAULT = 0,
-  GUI_STYLE_VARIANT_PRIMARY,
-  GUI_STYLE_VARIANT_SECONDARY,
-  GUI_STYLE_VARIANT_SUCCESS,
-  GUI_STYLE_VARIANT_INFO,
-  GUI_STYLE_VARIANT_WARNING,
-  GUI_STYLE_VARIANT_DANGER,
-  GUI_STYLE_VARIANT_LIGHT,
-  GUI_STYLE_VARIANT_DARK,
-  GUI_STYLE_VARIANT_WHITE,
-  GUI_STYLE_VARIANT_TRANSPARENT,
-  GUI_STYLE_VARIANT_MAX
+    GUI_STYLE_VARIANT_DEFAULT = 0,
+    GUI_STYLE_VARIANT_PRIMARY,
+    GUI_STYLE_VARIANT_SECONDARY,
+    GUI_STYLE_VARIANT_SUCCESS,
+    GUI_STYLE_VARIANT_INFO,
+    GUI_STYLE_VARIANT_WARNING,
+    GUI_STYLE_VARIANT_DANGER,
+    GUI_STYLE_VARIANT_LIGHT,
+    GUI_STYLE_VARIANT_DARK,
+    GUI_STYLE_VARIANT_WHITE,
+    GUI_STYLE_VARIANT_TRANSPARENT,
+    GUI_STYLE_VARIANT_MAX
 } EseGuiStyleVariant;
 /**
  * @brief Represents a GUI style with layout, colors, and spacing properties.
@@ -220,121 +220,84 @@ int ese_gui_style_get_font_size(const EseGuiStyle *style);
 
 // Colors getters and setters
 
-EseColor *ese_gui_style_get_color(const EseGuiStyle *style,
-                                  EseGuiStyleVariant variant);
-void ese_gui_style_set_color(EseGuiStyle *style, EseGuiStyleVariant variant,
-                             const EseColor *color);
+EseColor *ese_gui_style_get_color(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
-EseColor *ese_gui_style_get_color_hover(const EseGuiStyle *style,
-                                        EseGuiStyleVariant variant);
-void ese_gui_style_set_color_hover(EseGuiStyle *style,
-                                   EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_color_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_color_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
                                    const EseColor *color);
 
-EseColor *ese_gui_style_get_color_active(const EseGuiStyle *style,
-                                         EseGuiStyleVariant variant);
-void ese_gui_style_set_color_active(EseGuiStyle *style,
-                                    EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_color_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_color_active(EseGuiStyle *style, EseGuiStyleVariant variant,
                                     const EseColor *color);
 
-EseColor *ese_gui_style_get_alert_bg(const EseGuiStyle *style,
-                                     EseGuiStyleVariant variant);
+EseColor *ese_gui_style_get_alert_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_alert_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
                                 const EseColor *color);
 
-EseColor *ese_gui_style_get_alert_text(const EseGuiStyle *style,
-                                       EseGuiStyleVariant variant);
-void ese_gui_style_set_alert_text(EseGuiStyle *style,
-                                  EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_alert_text(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_alert_text(EseGuiStyle *style, EseGuiStyleVariant variant,
                                   const EseColor *color);
 
-EseColor *ese_gui_style_get_alert_border(const EseGuiStyle *style,
-                                         EseGuiStyleVariant variant);
-void ese_gui_style_set_alert_border(EseGuiStyle *style,
-                                    EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_alert_border(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_alert_border(EseGuiStyle *style, EseGuiStyleVariant variant,
                                     const EseColor *color);
 
-EseColor *ese_gui_style_get_bg(const EseGuiStyle *style,
-                               EseGuiStyleVariant variant);
-void ese_gui_style_set_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
-                          const EseColor *color);
+EseColor *ese_gui_style_get_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
-EseColor *ese_gui_style_get_bg_hover(const EseGuiStyle *style,
-                                     EseGuiStyleVariant variant);
+EseColor *ese_gui_style_get_bg_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_bg_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
                                 const EseColor *color);
 
-EseColor *ese_gui_style_get_bg_active(const EseGuiStyle *style,
-                                      EseGuiStyleVariant variant);
+EseColor *ese_gui_style_get_bg_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_bg_active(EseGuiStyle *style, EseGuiStyleVariant variant,
                                  const EseColor *color);
 
-EseColor *ese_gui_style_get_text(const EseGuiStyle *style,
-                                 EseGuiStyleVariant variant);
-void ese_gui_style_set_text(EseGuiStyle *style, EseGuiStyleVariant variant,
-                            const EseColor *color);
+EseColor *ese_gui_style_get_text(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
-EseColor *ese_gui_style_get_text_hover(const EseGuiStyle *style,
-                                       EseGuiStyleVariant variant);
-void ese_gui_style_set_text_hover(EseGuiStyle *style,
-                                  EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_text_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_text_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
                                   const EseColor *color);
 
-EseColor *ese_gui_style_get_text_active(const EseGuiStyle *style,
-                                        EseGuiStyleVariant variant);
-void ese_gui_style_set_text_active(EseGuiStyle *style,
-                                   EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_text_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_text_active(EseGuiStyle *style, EseGuiStyleVariant variant,
                                    const EseColor *color);
 
-EseColor *ese_gui_style_get_border(const EseGuiStyle *style,
-                                   EseGuiStyleVariant variant);
+EseColor *ese_gui_style_get_border(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_border(EseGuiStyle *style, EseGuiStyleVariant variant,
                               const EseColor *color);
 
-EseColor *ese_gui_style_get_border_hover(const EseGuiStyle *style,
-                                         EseGuiStyleVariant variant);
-void ese_gui_style_set_border_hover(EseGuiStyle *style,
-                                    EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_border_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_border_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
                                     const EseColor *color);
 
-EseColor *ese_gui_style_get_border_active(const EseGuiStyle *style,
-                                          EseGuiStyleVariant variant);
-void ese_gui_style_set_border_active(EseGuiStyle *style,
-                                     EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_border_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_border_active(EseGuiStyle *style, EseGuiStyleVariant variant,
                                      const EseColor *color);
 
-EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style,
-                                       EseGuiStyleVariant variant);
-void ese_gui_style_set_tooltip_bg(EseGuiStyle *style,
-                                  EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
                                   const EseColor *color);
 
-EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style,
-                                          EseGuiStyleVariant variant);
-void ese_gui_style_set_tooltip_color(EseGuiStyle *style,
-                                     EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_tooltip_color(EseGuiStyle *style, EseGuiStyleVariant variant,
                                      const EseColor *color);
 
-EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style,
-                                         EseGuiStyleVariant variant);
-void ese_gui_style_set_selection_bg(EseGuiStyle *style,
-                                    EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_selection_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
                                     const EseColor *color);
 
-EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style,
-                                            EseGuiStyleVariant variant);
-void ese_gui_style_set_selection_color(EseGuiStyle *style,
-                                       EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_selection_color(EseGuiStyle *style, EseGuiStyleVariant variant,
                                        const EseColor *color);
 
-EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style,
-                                       EseGuiStyleVariant variant);
-void ese_gui_style_set_focus_ring(EseGuiStyle *style,
-                                  EseGuiStyleVariant variant,
+EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style, EseGuiStyleVariant variant);
+void ese_gui_style_set_focus_ring(EseGuiStyle *style, EseGuiStyleVariant variant,
                                   const EseColor *color);
 
-EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style,
-                                      EseGuiStyleVariant variant);
+EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant,
                                  const EseColor *color);
 
@@ -375,8 +338,7 @@ int ese_gui_style_get_lua_ref_count(const EseGuiStyle *style);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_gui_style_add_watcher(EseGuiStyle *style,
-                               EseGuiStyleWatcherCallback callback,
+bool ese_gui_style_add_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback,
                                void *userdata);
 
 /**
@@ -391,8 +353,7 @@ bool ese_gui_style_add_watcher(EseGuiStyle *style,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_gui_style_remove_watcher(EseGuiStyle *style,
-                                  EseGuiStyleWatcherCallback callback,
+bool ese_gui_style_remove_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback,
                                   void *userdata);
 
 // Lua integration

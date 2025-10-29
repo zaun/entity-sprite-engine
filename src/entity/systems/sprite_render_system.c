@@ -40,9 +40,9 @@
  * efficient rendering during the LATE phase.
  */
 typedef struct {
-  EseEntityComponentSprite **sprites; /** Array of sprite component pointers */
-  size_t count;                       /** Current number of tracked sprites */
-  size_t capacity;                    /** Allocated capacity of the array */
+    EseEntityComponentSprite **sprites; /** Array of sprite component pointers */
+    size_t count;                       /** Current number of tracked sprites */
+    size_t capacity;                    /** Allocated capacity of the array */
 } SpriteRenderSystemData;
 
 // ========================================
@@ -56,13 +56,12 @@ typedef struct {
  * @param comp Component to check
  * @return true if component type is ENTITY_COMPONENT_SPRITE
  */
-static bool sprite_render_sys_accepts(EseSystemManager *self,
-                                      const EseEntityComponent *comp) {
-  (void)self;
-  if (!comp) {
-    return false;
-  }
-  return comp->type == ENTITY_COMPONENT_SPRITE;
+static bool sprite_render_sys_accepts(EseSystemManager *self, const EseEntityComponent *comp) {
+    (void)self;
+    if (!comp) {
+        return false;
+    }
+    return comp->type == ENTITY_COMPONENT_SPRITE;
 }
 
 /**
@@ -74,19 +73,18 @@ static bool sprite_render_sys_accepts(EseSystemManager *self,
  */
 static void sprite_render_sys_on_add(EseSystemManager *self, EseEngine *eng,
                                      EseEntityComponent *comp) {
-  (void)eng;
-  SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
+    (void)eng;
+    SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
 
-  // Expand array if needed
-  if (d->count == d->capacity) {
-    d->capacity = d->capacity ? d->capacity * 2 : 64;
-    d->sprites = memory_manager.realloc(
-        d->sprites, sizeof(EseEntityComponentSprite *) * d->capacity,
-        MMTAG_RS_SPRITE);
-  }
+    // Expand array if needed
+    if (d->count == d->capacity) {
+        d->capacity = d->capacity ? d->capacity * 2 : 64;
+        d->sprites = memory_manager.realloc(
+            d->sprites, sizeof(EseEntityComponentSprite *) * d->capacity, MMTAG_RS_SPRITE);
+    }
 
-  // Add sprite to tracking array
-  d->sprites[d->count++] = (EseEntityComponentSprite *)comp->data;
+    // Add sprite to tracking array
+    d->sprites[d->count++] = (EseEntityComponentSprite *)comp->data;
 }
 
 /**
@@ -98,17 +96,17 @@ static void sprite_render_sys_on_add(EseSystemManager *self, EseEngine *eng,
  */
 static void sprite_render_sys_on_remove(EseSystemManager *self, EseEngine *eng,
                                         EseEntityComponent *comp) {
-  (void)eng;
-  SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
-  EseEntityComponentSprite *sp = (EseEntityComponentSprite *)comp->data;
+    (void)eng;
+    SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
+    EseEntityComponentSprite *sp = (EseEntityComponentSprite *)comp->data;
 
-  // Find and remove sprite from tracking array (swap with last element)
-  for (size_t i = 0; i < d->count; i++) {
-    if (d->sprites[i] == sp) {
-      d->sprites[i] = d->sprites[--d->count];
-      return;
+    // Find and remove sprite from tracking array (swap with last element)
+    for (size_t i = 0; i < d->count; i++) {
+        if (d->sprites[i] == sp) {
+            d->sprites[i] = d->sprites[--d->count];
+            return;
+        }
     }
-  }
 }
 
 /**
@@ -118,10 +116,10 @@ static void sprite_render_sys_on_remove(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void sprite_render_sys_init(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  SpriteRenderSystemData *d =
-      memory_manager.calloc(1, sizeof(SpriteRenderSystemData), MMTAG_RS_SPRITE);
-  self->data = d;
+    (void)eng;
+    SpriteRenderSystemData *d =
+        memory_manager.calloc(1, sizeof(SpriteRenderSystemData), MMTAG_RS_SPRITE);
+    self->data = d;
 }
 
 /**
@@ -133,57 +131,54 @@ static void sprite_render_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng,
-                                     float dt) {
-  (void)dt;
-  SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
+static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+    (void)dt;
+    SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
 
-  for (size_t i = 0; i < d->count; i++) {
-    EseEntityComponentSprite *sp = d->sprites[i];
+    for (size_t i = 0; i < d->count; i++) {
+        EseEntityComponentSprite *sp = d->sprites[i];
 
-    // Skip sprites without a sprite name or inactive entities
-    if (!sp->sprite_name || !sp->base.entity || !sp->base.entity->active ||
-        !sp->base.entity->visible) {
-      continue;
+        // Skip sprites without a sprite name or inactive entities
+        if (!sp->sprite_name || !sp->base.entity || !sp->base.entity->active ||
+            !sp->base.entity->visible) {
+            continue;
+        }
+
+        // Look up sprite by name
+        EseSprite *sprite = engine_get_sprite(eng, sp->sprite_name);
+        if (!sprite) {
+            continue; // Skip if sprite not found
+        }
+
+        // Get sprite frame data
+        const char *texture_id;
+        float x1, y1, x2, y2;
+        int w, h;
+        sprite_get_frame(sprite, sp->current_frame, &texture_id, &x1, &y1, &x2, &y2, &w, &h);
+
+        // Get entity world position
+        float entity_x = ese_point_get_x(sp->base.entity->position);
+        float entity_y = ese_point_get_y(sp->base.entity->position);
+
+        // Convert world coordinates to screen coordinates using camera
+        EseCamera *camera = engine_get_camera(eng);
+        EseDisplay *display = engine_get_display(eng);
+        float camera_x = ese_point_get_x(camera->position);
+        float camera_y = ese_point_get_y(camera->position);
+        float view_width = ese_display_get_viewport_width(display);
+        float view_height = ese_display_get_viewport_height(display);
+
+        float view_left = camera_x - view_width / 2.0f;
+        float view_top = camera_y - view_height / 2.0f;
+
+        float screen_x = entity_x - view_left;
+        float screen_y = entity_y - view_top;
+
+        // Submit to draw list using the public API
+        EseDrawList *draw_list = engine_get_draw_list(eng);
+        _engine_add_texture_to_draw_list(screen_x, screen_y, w, h, sp->base.entity->draw_order,
+                                         texture_id, x1, y1, x2, y2, w, h, draw_list);
     }
-
-    // Look up sprite by name
-    EseSprite *sprite = engine_get_sprite(eng, sp->sprite_name);
-    if (!sprite) {
-      continue; // Skip if sprite not found
-    }
-
-    // Get sprite frame data
-    const char *texture_id;
-    float x1, y1, x2, y2;
-    int w, h;
-    sprite_get_frame(sprite, sp->current_frame, &texture_id, &x1, &y1, &x2, &y2,
-                     &w, &h);
-
-    // Get entity world position
-    float entity_x = ese_point_get_x(sp->base.entity->position);
-    float entity_y = ese_point_get_y(sp->base.entity->position);
-
-    // Convert world coordinates to screen coordinates using camera
-    EseCamera *camera = engine_get_camera(eng);
-    EseDisplay *display = engine_get_display(eng);
-    float camera_x = ese_point_get_x(camera->position);
-    float camera_y = ese_point_get_y(camera->position);
-    float view_width = ese_display_get_viewport_width(display);
-    float view_height = ese_display_get_viewport_height(display);
-
-    float view_left = camera_x - view_width / 2.0f;
-    float view_top = camera_y - view_height / 2.0f;
-
-    float screen_x = entity_x - view_left;
-    float screen_y = entity_y - view_top;
-
-    // Submit to draw list using the public API
-    EseDrawList *draw_list = engine_get_draw_list(eng);
-    _engine_add_texture_to_draw_list(screen_x, screen_y, w, h,
-                                     sp->base.entity->draw_order, texture_id,
-                                     x1, y1, x2, y2, w, h, draw_list);
-  }
 }
 
 /**
@@ -193,14 +188,14 @@ static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng,
  * @param eng Engine pointer
  */
 static void sprite_render_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
-  (void)eng;
-  SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
-  if (d) {
-    if (d->sprites) {
-      memory_manager.free(d->sprites);
+    (void)eng;
+    SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
+    if (d) {
+        if (d->sprites) {
+            memory_manager.free(d->sprites);
+        }
+        memory_manager.free(d);
     }
-    memory_manager.free(d);
-  }
 }
 
 /**
@@ -224,7 +219,7 @@ static const EseSystemManagerVTable SpriteRenderSystemVTable = {
  * @return EseSystemManager* Created system
  */
 EseSystemManager *sprite_render_system_create(void) {
-  return system_manager_create(&SpriteRenderSystemVTable, SYS_PHASE_LATE, NULL);
+    return system_manager_create(&SpriteRenderSystemVTable, SYS_PHASE_LATE, NULL);
 }
 
 /**
@@ -233,8 +228,8 @@ EseSystemManager *sprite_render_system_create(void) {
  * @param eng Engine pointer
  */
 void engine_register_sprite_render_system(EseEngine *eng) {
-  log_assert("SPRITE_RENDER_SYS", eng,
-             "engine_register_sprite_render_system called with NULL engine");
-  EseSystemManager *sys = sprite_render_system_create();
-  engine_add_system(eng, sys);
+    log_assert("SPRITE_RENDER_SYS", eng,
+               "engine_register_sprite_render_system called with NULL engine");
+    EseSystemManager *sys = sprite_render_system_create();
+    engine_add_system(eng, sys);
 }

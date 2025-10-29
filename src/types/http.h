@@ -45,9 +45,8 @@
  * @param body NUL-terminated string containing response body
  * @param user User data pointer passed to the request
  */
-typedef void (*http_callback_t)(int status_code, const char *headers,
-                                const uint8_t *raw, size_t raw_len,
-                                const char *body, void *user);
+typedef void (*http_callback_t)(int status_code, const char *headers, const uint8_t *raw,
+                                size_t raw_len, const char *body, void *user);
 
 /**
  * @brief HTTP request structure.
@@ -161,8 +160,8 @@ void ese_http_request_set_timeout(EseHttpRequest *request, long timeout_ms);
  * @param callback Function to call when request completes
  * @param user_data User data to pass to the callback
  */
-void ese_http_request_set_callback(EseHttpRequest *request,
-                                   http_callback_t callback, void *user_data);
+void ese_http_request_set_callback(EseHttpRequest *request, http_callback_t callback,
+                                   void *user_data);
 
 /**
  * @brief Starts the HTTP request on a background thread.

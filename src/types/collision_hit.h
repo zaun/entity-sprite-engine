@@ -22,18 +22,18 @@ typedef struct EseLuaValue EseLuaValue;
  * @brief Identifies the source/type of a collision hit.
  */
 typedef enum EseCollisionKind {
-  COLLISION_KIND_COLLIDER = 1, /**< Collider-to-collider hit */
-  COLLISION_KIND_MAP = 2       /**< Collider-to-map hit */
+    COLLISION_KIND_COLLIDER = 1, /**< Collider-to-collider hit */
+    COLLISION_KIND_MAP = 2       /**< Collider-to-map hit */
 } EseCollisionKind;
 
 /**
  * @brief State of the collision within the frame timeline.
  */
 typedef enum EseCollisionState {
-  COLLISION_STATE_NONE = 0,  /**< Not colliding */
-  COLLISION_STATE_ENTER = 1, /**< Began colliding this frame */
-  COLLISION_STATE_STAY = 2,  /**< Continued colliding this frame */
-  COLLISION_STATE_LEAVE = 3  /**< Stopped colliding this frame */
+    COLLISION_STATE_NONE = 0,  /**< Not colliding */
+    COLLISION_STATE_ENTER = 1, /**< Began colliding this frame */
+    COLLISION_STATE_STAY = 2,  /**< Continued colliding this frame */
+    COLLISION_STATE_LEAVE = 3  /**< Stopped colliding this frame */
 } EseCollisionState;
 
 /**

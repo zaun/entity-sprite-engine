@@ -42,8 +42,7 @@ uint64_t ese_helper_hash(void *data, size_t size);
  * be at least nsz bytes long.
  * @param nsz The size of the name buffer.
  */
-void ese_helper_split(const char *in, char *gbuf, size_t gsz, char *nbuf,
-                      size_t nsz);
+void ese_helper_split(const char *in, char *gbuf, size_t gsz, char *nbuf, size_t nsz);
 
 #ifdef __cplusplus
 }

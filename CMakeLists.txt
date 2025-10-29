@@ -269,6 +269,9 @@ target_include_directories(entityspriteengine PRIVATE
 
 target_link_libraries(entityspriteengine PUBLIC glslang spirv-cross-c PRIVATE mbedtls mbedx509 mbedcrypto)
 
+# Include development tools
+include(CMakeTools.cmake)
+
 # Add the examples subdirectory.
 add_subdirectory(examples)
 

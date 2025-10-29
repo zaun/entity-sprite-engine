@@ -225,8 +225,7 @@ int ese_map_cell_get_layer(const EseMapCell *cell, size_t layer_index);
  * @param tile_id The new tile ID
  * @return true if successful, false if index is out of bounds
  */
-bool ese_map_cell_set_layer(EseMapCell *cell, size_t layer_index,
-                            uint8_t tile_id);
+bool ese_map_cell_set_layer(EseMapCell *cell, size_t layer_index, uint8_t tile_id);
 
 /**
  * @brief Clears all layers from the map cell.
@@ -320,9 +319,7 @@ void ese_map_cell_clear_flag(EseMapCell *cell, uint32_t flag);
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_map_cell_add_watcher(EseMapCell *cell,
-                              EseMapCellWatcherCallback callback,
-                              void *userdata);
+bool ese_map_cell_add_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
@@ -332,8 +329,7 @@ bool ese_map_cell_add_watcher(EseMapCell *cell,
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_map_cell_remove_watcher(EseMapCell *cell,
-                                 EseMapCellWatcherCallback callback,
+bool ese_map_cell_remove_watcher(EseMapCell *cell, EseMapCellWatcherCallback callback,
                                  void *userdata);
 
 #endif // ESE_MAP_CELL_H

@@ -19,15 +19,14 @@ typedef struct EseLuaEngine EseLuaEngine;
  *          left blank as requested.
  */
 typedef struct EseEntityComponentShape {
-  EseEntityComponent base;   /** Base component structure */
-  EsePolyLine **polylines;   /** Array of polylines for the shape */
-  size_t polylines_count;    /** Number of polylines */
-  size_t polylines_capacity; /** Allocated capacity for polylines array */
-  float rotation;            /** Rotation of the shape */
+    EseEntityComponent base;   /** Base component structure */
+    EsePolyLine **polylines;   /** Array of polylines for the shape */
+    size_t polylines_count;    /** Number of polylines */
+    size_t polylines_capacity; /** Allocated capacity for polylines array */
+    float rotation;            /** Rotation of the shape */
 } EseEntityComponentShape;
 
-EseEntityComponent *
-_entity_component_shape_copy(const EseEntityComponentShape *src);
+EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *src);
 
 void _entity_component_shape_destroy(EseEntityComponentShape *component);
 
@@ -35,9 +34,8 @@ EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx);
 
 void _entity_component_shape_init(EseLuaEngine *engine);
 
-void _entity_component_shape_draw(EseEntityComponentShape *component,
-                                  float screen_x, float screen_y,
-                                  EntityDrawCallbacks *callbacks,
+void _entity_component_shape_draw(EseEntityComponentShape *component, float screen_x,
+                                  float screen_y, EntityDrawCallbacks *callbacks,
                                   void *callback_user_data);
 
 EseEntityComponent *entity_component_shape_create(EseLuaEngine *engine);

@@ -268,8 +268,7 @@ bool ese_ray_intersects_rect(const EseRay *ray, const EseRect *rect);
  * @param out_x Pointer to store the resulting x coordinate
  * @param out_y Pointer to store the resulting y coordinate
  */
-void ese_ray_get_point_at_distance(const EseRay *ray, float distance,
-                                   float *out_x, float *out_y);
+void ese_ray_get_point_at_distance(const EseRay *ray, float distance, float *out_x, float *out_y);
 
 /**
  * @brief Normalizes the ray's direction vector.

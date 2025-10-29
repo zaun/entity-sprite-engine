@@ -33,46 +33,45 @@ typedef struct EseJobQueue EseJobQueue;
 typedef struct EseSystemManager EseSystemManager;
 
 struct EseEngine {
-  EseRenderer *renderer;        /** Pointer to the engine's renderer */
-  EseDrawList *draw_list;       /** Flat render lists used in processes */
-  EseRenderList *render_list_a; /** First render list for double buffering */
-  EseRenderList *render_list_b; /** Second render list for double buffering */
-  bool active_render_list; /** Flag to indicate which render list is currently
-                              active */
+    EseRenderer *renderer;        /** Pointer to the engine's renderer */
+    EseDrawList *draw_list;       /** Flat render lists used in processes */
+    EseRenderList *render_list_a; /** First render list for double buffering */
+    EseRenderList *render_list_b; /** Second render list for double buffering */
+    bool active_render_list;      /** Flag to indicate which render list is currently
+                                     active */
 
-  EseDoubleLinkedList
-      *entities; /** A doubly-linked list containing all active entities */
-  EseDoubleLinkedList *del_entities; /** A doubly-linked list containing to be
-                                        deleted entities */
+    EseDoubleLinkedList *entities;     /** A doubly-linked list containing all active entities */
+    EseDoubleLinkedList *del_entities; /** A doubly-linked list containing to be
+                                          deleted entities */
 
-  SpatialIndex *spatial_index; /** Broad-phase spatial index for collision pair
-                                  generation */
-  CollisionResolver *collision_resolver; /** Narrow-phase resolver for detailed
-                                            collision hits */
+    SpatialIndex *spatial_index;           /** Broad-phase spatial index for collision
+                                              pair generation */
+    CollisionResolver *collision_resolver; /** Narrow-phase resolver for
+                                              detailed collision hits */
 
-  EseInputState *input_state; /** The current input state of the application */
-  EseDisplay *display_state; /** The current display state of the application */
-  EseCamera *camera_state;   /**M The current camera state of the application */
-  EseAssetManager *asset_manager; /** Pointer to the engine's asset manager */
-  EseLuaEngine *lua_engine;       /** Pointer to the Lua scripting engine */
+    EseInputState *input_state;     /** The current input state of the application */
+    EseDisplay *display_state;      /** The current display state of the application */
+    EseCamera *camera_state;        /**M The current camera state of the application */
+    EseAssetManager *asset_manager; /** Pointer to the engine's asset manager */
+    EseLuaEngine *lua_engine;       /** Pointer to the Lua scripting engine */
 
-  EseConsole *console;    /** Pointer to the engine's console */
-  EsePubSub *pub_sub;     /** Pointer to the engine's pub/sub system */
-  EseJobQueue *job_queue; /** Pointer to the engine's job queue */
+    EseConsole *console;    /** Pointer to the engine's console */
+    EsePubSub *pub_sub;     /** Pointer to the engine's pub/sub system */
+    EseJobQueue *job_queue; /** Pointer to the engine's job queue */
 
-  int startup_ref;   /** Reference to the startup script in the Lua registry */
-  bool draw_console; /** Whether to draw the console */
+    int startup_ref;   /** Reference to the startup script in the Lua registry */
+    bool draw_console; /** Whether to draw the console */
 
-  EseGui *gui; /** Pointer to the engine's GUI */
+    EseGui *gui; /** Pointer to the engine's GUI */
 
-  bool isRunning; /** Flag to indicate if the engine is running */
+    bool isRunning; /** Flag to indicate if the engine is running */
 
-  EseArray *map_components; /** Array<EseEntityComponentMap*> for active map
-                               components */
+    EseArray *map_components; /** Array<EseEntityComponentMap*> for active map
+                                 components */
 
-  EseSystemManager **systems; /** Array of registered systems */
-  size_t sys_count;           /** Number of registered systems */
-  size_t sys_cap;             /** Capacity of the systems array */
+    EseSystemManager **systems; /** Array of registered systems */
+    size_t sys_count;           /** Number of registered systems */
+    size_t sys_cap;             /** Capacity of the systems array */
 };
 
 /**
@@ -116,25 +115,23 @@ void _engine_render_list_clear(EseEngine *engine);
  * @note This function asserts that the user_data pointer is not NULL.
  * @warning The `user_data` pointer is assumed to be a valid `EseRenderList*`.
  */
-void _engine_add_texture_to_draw_list(float screen_x, float screen_y,
-                                      float screen_w, float screen_h,
-                                      uint64_t z_index, const char *texture_id,
-                                      float texture_x1, float texture_y1,
-                                      float texture_x2, float texture_y2,
-                                      int width, int height, void *user_data);
+void _engine_add_texture_to_draw_list(float screen_x, float screen_y, float screen_w,
+                                      float screen_h, uint64_t z_index, const char *texture_id,
+                                      float texture_x1, float texture_y1, float texture_x2,
+                                      float texture_y2, int width, int height, void *user_data);
 
-void _engine_add_rect_to_draw_list(float screen_x, float screen_y,
-                                   uint64_t z_index, int width, int height,
-                                   float rotation, bool filled, unsigned char r,
-                                   unsigned char g, unsigned char b,
-                                   unsigned char a, void *user_data);
+void _engine_add_rect_to_draw_list(float screen_x, float screen_y, uint64_t z_index, int width,
+                                   int height, float rotation, bool filled, unsigned char r,
+                                   unsigned char g, unsigned char b, unsigned char a,
+                                   void *user_data);
 
-void _engine_add_polyline_to_draw_list(
-    float screen_x, float screen_y, uint64_t z_index, const float *points,
-    size_t point_count, float stroke_width, unsigned char fill_r,
-    unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
-    unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b,
-    unsigned char stroke_a, void *user_data);
+void _engine_add_polyline_to_draw_list(float screen_x, float screen_y, uint64_t z_index,
+                                       const float *points, size_t point_count, float stroke_width,
+                                       unsigned char fill_r, unsigned char fill_g,
+                                       unsigned char fill_b, unsigned char fill_a,
+                                       unsigned char stroke_r, unsigned char stroke_g,
+                                       unsigned char stroke_b, unsigned char stroke_a,
+                                       void *user_data);
 
 /**
  * @brief Swaps the active render list.

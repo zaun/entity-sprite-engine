@@ -49,24 +49,24 @@ extern void _ese_point_make_point_notify_watchers(EsePoint *point);
  * @return 0 (no return values)
  */
 static int _ese_point_lua_gc(lua_State *L) {
-  // Get from userdata
-  EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, POINT_PROXY_META);
-  if (!ud) {
-    return 0; // Not our userdata
-  }
-
-  EsePoint *point = *ud;
-  if (point) {
-    // If lua_ref == LUA_NOREF, there are no more references to this point,
-    // so we can free it.
-    // If lua_ref != LUA_NOREF, this point was referenced from C and should not
-    // be freed.
-    if (ese_point_get_lua_ref(point) == LUA_NOREF) {
-      ese_point_destroy(point);
+    // Get from userdata
+    EsePoint **ud = (EsePoint **)luaL_testudata(L, 1, POINT_PROXY_META);
+    if (!ud) {
+        return 0; // Not our userdata
     }
-  }
 
-  return 0;
+    EsePoint *point = *ud;
+    if (point) {
+        // If lua_ref == LUA_NOREF, there are no more references to this point,
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this point was referenced from C and should
+        // not be freed.
+        if (ese_point_get_lua_ref(point) == LUA_NOREF) {
+            ese_point_destroy(point);
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -80,31 +80,31 @@ static int _ese_point_lua_gc(lua_State *L) {
  * invalid)
  */
 static int _ese_point_lua_index(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_INDEX);
-  EsePoint *point = ese_point_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!point || !key) {
-    profile_cancel(PROFILE_LUA_POINT_INDEX);
+    profile_start(PROFILE_LUA_POINT_INDEX);
+    EsePoint *point = ese_point_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!point || !key) {
+        profile_cancel(PROFILE_LUA_POINT_INDEX);
+        return 0;
+    }
+
+    if (strcmp(key, "x") == 0) {
+        lua_pushnumber(L, ese_point_get_x(point));
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "y") == 0) {
+        lua_pushnumber(L, ese_point_get_y(point));
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, point);
+        lua_pushcclosure(L, _ese_point_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (method)");
+        return 1;
+    }
+
+    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (invalid)");
     return 0;
-  }
-
-  if (strcmp(key, "x") == 0) {
-    lua_pushnumber(L, ese_point_get_x(point));
-    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "y") == 0) {
-    lua_pushnumber(L, ese_point_get_y(point));
-    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "toJSON") == 0) {
-    lua_pushlightuserdata(L, point);
-    lua_pushcclosure(L, _ese_point_lua_to_json, 1);
-    profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (method)");
-    return 1;
-  }
-
-  profile_stop(PROFILE_LUA_POINT_INDEX, "point_lua_index (invalid)");
-  return 0;
 }
 
 /**
@@ -118,35 +118,35 @@ static int _ese_point_lua_index(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_point_lua_newindex(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_NEWINDEX);
-  EsePoint *point = ese_point_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!point || !key) {
-    profile_cancel(PROFILE_LUA_POINT_INDEX);
-    return 0;
-  }
+    profile_start(PROFILE_LUA_POINT_NEWINDEX);
+    EsePoint *point = ese_point_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!point || !key) {
+        profile_cancel(PROFILE_LUA_POINT_INDEX);
+        return 0;
+    }
 
-  if (strcmp(key, "x") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
-      return luaL_error(L, "point.x must be a number");
+    if (strcmp(key, "x") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
+            return luaL_error(L, "point.x must be a number");
+        }
+        ese_point_set_x(point, (float)lua_tonumber(L, 3));
+        _ese_point_make_point_notify_watchers(point);
+        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
+        return 0;
+    } else if (strcmp(key, "y") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
+            return luaL_error(L, "point.y must be a number");
+        }
+        ese_point_set_y(point, (float)lua_tonumber(L, 3));
+        _ese_point_make_point_notify_watchers(point);
+        profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
+        return 0;
     }
-    ese_point_set_x(point, (float)lua_tonumber(L, 3));
-    _ese_point_make_point_notify_watchers(point);
-    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
-    return 0;
-  } else if (strcmp(key, "y") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_POINT_NEWINDEX);
-      return luaL_error(L, "point.y must be a number");
-    }
-    ese_point_set_y(point, (float)lua_tonumber(L, 3));
-    _ese_point_make_point_notify_watchers(point);
-    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (setter)");
-    return 0;
-  }
-  profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (invalid)");
-  return luaL_error(L, "unknown or unassignable property '%s'", key);
+    profile_stop(PROFILE_LUA_POINT_NEWINDEX, "point_lua_newindex (invalid)");
+    return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
 /**
@@ -159,19 +159,18 @@ static int _ese_point_lua_newindex(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1)
  */
 static int _ese_point_lua_tostring(lua_State *L) {
-  EsePoint *point = ese_point_lua_get(L, 1);
+    EsePoint *point = ese_point_lua_get(L, 1);
 
-  if (!point) {
-    lua_pushstring(L, "Point: (invalid)");
+    if (!point) {
+        lua_pushstring(L, "Point: (invalid)");
+        return 1;
+    }
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), "(x=%.3f, y=%.3f)", ese_point_get_x(point), ese_point_get_y(point));
+    lua_pushstring(L, buf);
+
     return 1;
-  }
-
-  char buf[64];
-  snprintf(buf, sizeof(buf), "(x=%.3f, y=%.3f)", ese_point_get_x(point),
-           ese_point_get_y(point));
-  lua_pushstring(L, buf);
-
-  return 1;
 }
 
 // Lua constructors
@@ -187,43 +186,43 @@ static int _ese_point_lua_tostring(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_point_lua_new(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_NEW);
+    profile_start(PROFILE_LUA_POINT_NEW);
 
-  // Get argument count
-  int argc = lua_gettop(L);
-  if (argc != 2) {
-    profile_cancel(PROFILE_LUA_POINT_NEW);
-    return luaL_error(L, "Point.new(number, number) takes 2 arguments");
-  }
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
+        return luaL_error(L, "Point.new(number, number) takes 2 arguments");
+    }
 
-  if (lua_type(L, 1) != LUA_TNUMBER) {
-    profile_cancel(PROFILE_LUA_POINT_NEW);
-    return luaL_error(L, "Point.new(number, number) arguments must be numbers");
-  }
-  if (lua_type(L, 2) != LUA_TNUMBER) {
-    profile_cancel(PROFILE_LUA_POINT_NEW);
-    return luaL_error(L, "Point.new(number, number) arguments must be numbers");
-  }
+    if (lua_type(L, 1) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
+        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
+    }
+    if (lua_type(L, 2) != LUA_TNUMBER) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
+        return luaL_error(L, "Point.new(number, number) arguments must be numbers");
+    }
 
-  float x = (float)lua_tonumber(L, 1);
-  float y = (float)lua_tonumber(L, 2);
+    float x = (float)lua_tonumber(L, 1);
+    float y = (float)lua_tonumber(L, 2);
 
-  // Create the point
-  EsePoint *point = _ese_point_make();
-  ese_point_set_x(point, x);
-  ese_point_set_y(point, y);
-  ese_point_set_state(point, L);
+    // Create the point
+    EsePoint *point = _ese_point_make();
+    ese_point_set_x(point, x);
+    ese_point_set_y(point, y);
+    ese_point_set_state(point, L);
 
-  // Create userdata directly
-  EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
-  *ud = point;
+    // Create userdata directly
+    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
+    *ud = point;
 
-  // Attach metatable
-  luaL_getmetatable(L, POINT_PROXY_META);
-  lua_setmetatable(L, -2);
+    // Attach metatable
+    luaL_getmetatable(L, POINT_PROXY_META);
+    lua_setmetatable(L, -2);
 
-  profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
-  return 1;
+    profile_stop(PROFILE_LUA_POINT_NEW, "point_lua_new");
+    return 1;
 }
 
 /**
@@ -237,29 +236,29 @@ static int _ese_point_lua_new(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_point_lua_zero(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_ZERO);
+    profile_start(PROFILE_LUA_POINT_ZERO);
 
-  // Get argument count
-  int argc = lua_gettop(L);
-  if (argc != 0) {
-    profile_cancel(PROFILE_LUA_POINT_NEW);
-    return luaL_error(L, "Point.zero() takes 0 arguments");
-  }
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        profile_cancel(PROFILE_LUA_POINT_NEW);
+        return luaL_error(L, "Point.zero() takes 0 arguments");
+    }
 
-  // Create the point using the standard creation function
-  EsePoint *point = _ese_point_make();
-  ese_point_set_state(point, L);
+    // Create the point using the standard creation function
+    EsePoint *point = _ese_point_make();
+    ese_point_set_state(point, L);
 
-  // Create userdata directly
-  EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
-  *ud = point;
+    // Create userdata directly
+    EsePoint **ud = (EsePoint **)lua_newuserdata(L, sizeof(EsePoint *));
+    *ud = point;
 
-  // Attach metatable
-  luaL_getmetatable(L, POINT_PROXY_META);
-  lua_setmetatable(L, -2);
+    // Attach metatable
+    luaL_getmetatable(L, POINT_PROXY_META);
+    lua_setmetatable(L, -2);
 
-  profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
-  return 1;
+    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_zero");
+    return 1;
 }
 
 /**
@@ -272,29 +271,28 @@ static int _ese_point_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the distance)
  */
 static int _ese_point_lua_distance(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_ZERO);
+    profile_start(PROFILE_LUA_POINT_ZERO);
 
-  // Get argument count
-  int argc = lua_gettop(L);
-  if (argc != 2) {
-    profile_cancel(PROFILE_LUA_POINT_ZERO);
-    return luaL_error(L, "Point.distance(point, point) takes 2 arguments");
-  }
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 2) {
+        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        return luaL_error(L, "Point.distance(point, point) takes 2 arguments");
+    }
 
-  EsePoint *point1 = ese_point_lua_get(L, 1);
-  EsePoint *point2 = ese_point_lua_get(L, 2);
+    EsePoint *point1 = ese_point_lua_get(L, 1);
+    EsePoint *point2 = ese_point_lua_get(L, 2);
 
-  if (!point1 || !point2) {
-    profile_cancel(PROFILE_LUA_POINT_ZERO);
-    return luaL_error(L,
-                      "Point.distance(point, point) arguments must be points");
-  }
+    if (!point1 || !point2) {
+        profile_cancel(PROFILE_LUA_POINT_ZERO);
+        return luaL_error(L, "Point.distance(point, point) arguments must be points");
+    }
 
-  float distance = ese_point_distance(point1, point2);
-  lua_pushnumber(L, (double)distance);
+    float distance = ese_point_distance(point1, point2);
+    lua_pushnumber(L, (double)distance);
 
-  profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_distance");
-  return 1;
+    profile_stop(PROFILE_LUA_POINT_ZERO, "point_lua_distance");
+    return 1;
 }
 
 // Lua JSON methods
@@ -310,53 +308,52 @@ static int _ese_point_lua_distance(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_point_lua_from_json(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_FROM_JSON);
+    profile_start(PROFILE_LUA_POINT_FROM_JSON);
 
-  // Get argument count
-  int argc = lua_gettop(L);
-  if (argc != 1) {
-    profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-    return luaL_error(L, "Point.fromJSON(string) takes 1 argument");
-  }
+    // Get argument count
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON(string) takes 1 argument");
+    }
 
-  if (lua_type(L, 1) != LUA_TSTRING) {
-    profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-    return luaL_error(L, "Point.fromJSON(string) argument must be a string");
-  }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON(string) argument must be a string");
+    }
 
-  const char *json_str = lua_tostring(L, 1);
+    const char *json_str = lua_tostring(L, 1);
 
-  // Parse JSON string
-  cJSON *json = cJSON_Parse(json_str);
-  if (!json) {
-    log_error("POINT", "Point.fromJSON: failed to parse JSON string: %s",
-              json_str ? json_str : "NULL");
-    profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-    return luaL_error(L, "Point.fromJSON: invalid JSON string");
-  }
+    // Parse JSON string
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("POINT", "Point.fromJSON: failed to parse JSON string: %s",
+                  json_str ? json_str : "NULL");
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: invalid JSON string");
+    }
 
-  // Get the current engine from Lua registry
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (!engine) {
-    cJSON_Delete(json);
-    profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-    return luaL_error(L, "Point.fromJSON: no engine available");
-  }
+    // Get the current engine from Lua registry
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: no engine available");
+    }
 
-  // Use the existing deserialization function
-  EsePoint *point = ese_point_deserialize(engine, json);
-  cJSON_Delete(json); // Clean up JSON object
+    // Use the existing deserialization function
+    EsePoint *point = ese_point_deserialize(engine, json);
+    cJSON_Delete(json); // Clean up JSON object
 
-  if (!point) {
-    profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
-    return luaL_error(L, "Point.fromJSON: failed to deserialize point");
-  }
+    if (!point) {
+        profile_cancel(PROFILE_LUA_POINT_FROM_JSON);
+        return luaL_error(L, "Point.fromJSON: failed to deserialize point");
+    }
 
-  ese_point_lua_push(point);
+    ese_point_lua_push(point);
 
-  profile_stop(PROFILE_LUA_POINT_FROM_JSON, "point_lua_from_json");
-  return 1;
+    profile_stop(PROFILE_LUA_POINT_FROM_JSON, "point_lua_from_json");
+    return 1;
 }
 
 /**
@@ -370,39 +367,39 @@ static int _ese_point_lua_from_json(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the JSON string)
  */
 static int _ese_point_lua_to_json(lua_State *L) {
-  profile_start(PROFILE_LUA_POINT_TO_JSON);
+    profile_start(PROFILE_LUA_POINT_TO_JSON);
 
-  EsePoint *point = ese_point_lua_get(L, 1);
-  if (!point) {
-    profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-    return luaL_error(L, "Point:toJSON() called on invalid point");
-  }
+    EsePoint *point = ese_point_lua_get(L, 1);
+    if (!point) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() called on invalid point");
+    }
 
-  // Serialize point to JSON
-  cJSON *json = ese_point_serialize(point);
-  if (!json) {
-    profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-    return luaL_error(L, "Point:toJSON() failed to serialize point");
-  }
+    // Serialize point to JSON
+    cJSON *json = ese_point_serialize(point);
+    if (!json) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() failed to serialize point");
+    }
 
-  // Convert JSON to string
-  char *json_str = cJSON_PrintUnformatted(json);
-  cJSON_Delete(json); // Clean up JSON object
+    // Convert JSON to string
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json); // Clean up JSON object
 
-  if (!json_str) {
-    profile_cancel(PROFILE_LUA_POINT_TO_JSON);
-    return luaL_error(L, "Point:toJSON() failed to convert to string");
-  }
+    if (!json_str) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() failed to convert to string");
+    }
 
-  // Push the JSON string onto the stack (lua_pushstring makes a copy)
-  lua_pushstring(L, json_str);
+    // Push the JSON string onto the stack (lua_pushstring makes a copy)
+    lua_pushstring(L, json_str);
 
-  // Clean up the string (cJSON_PrintUnformatted uses malloc)
-  // Note: We free here, but lua_pushstring should have made a copy
-  free(json_str); // cJSON doesn't use the memory manager
+    // Clean up the string (cJSON_PrintUnformatted uses malloc)
+    // Note: We free here, but lua_pushstring should have made a copy
+    free(json_str); // cJSON doesn't use the memory manager
 
-  profile_stop(PROFILE_LUA_POINT_TO_JSON, "point_lua_to_json");
-  return 1;
+    profile_stop(PROFILE_LUA_POINT_TO_JSON, "point_lua_to_json");
+    return 1;
 }
 
 // ========================================
@@ -418,15 +415,13 @@ static int _ese_point_lua_to_json(lua_State *L) {
  * @param engine EseLuaEngine pointer where the EsePoint type will be registered
  */
 void _ese_point_lua_init(EseLuaEngine *engine) {
-  // Create metatable
-  lua_engine_new_object_meta(engine, POINT_PROXY_META, _ese_point_lua_index,
-                             _ese_point_lua_newindex, _ese_point_lua_gc,
-                             _ese_point_lua_tostring);
+    // Create metatable
+    lua_engine_new_object_meta(engine, POINT_PROXY_META, _ese_point_lua_index,
+                               _ese_point_lua_newindex, _ese_point_lua_gc, _ese_point_lua_tostring);
 
-  // Create global Point table with functions
-  const char *keys[] = {"new", "zero", "distance", "fromJSON"};
-  lua_CFunction functions[] = {_ese_point_lua_new, _ese_point_lua_zero,
-                               _ese_point_lua_distance,
-                               _ese_point_lua_from_json};
-  lua_engine_new_object(engine, "Point", 4, keys, functions);
+    // Create global Point table with functions
+    const char *keys[] = {"new", "zero", "distance", "fromJSON"};
+    lua_CFunction functions[] = {_ese_point_lua_new, _ese_point_lua_zero, _ese_point_lua_distance,
+                                 _ese_point_lua_from_json};
+    lua_engine_new_object(engine, "Point", 4, keys, functions);
 }

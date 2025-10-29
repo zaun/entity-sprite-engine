@@ -268,8 +268,7 @@ void ese_arc_unref(EseArc *arc);
  * @param tolerance Distance tolerance for point-on-arc check
  * @return true if point is on the arc within tolerance, false otherwise
  */
-bool ese_arc_contains_point(const EseArc *arc, float x, float y,
-                            float tolerance);
+bool ese_arc_contains_point(const EseArc *arc, float x, float y, float tolerance);
 
 /**
  * @brief Gets the length of the arc.
@@ -288,8 +287,7 @@ float ese_arc_get_length(const EseArc *arc);
  * @param out_y Pointer to store the resulting y coordinate
  * @return true if angle is within arc range, false otherwise
  */
-bool ese_arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x,
-                                float *out_y);
+bool ese_arc_get_point_at_angle(const EseArc *arc, float angle, float *out_x, float *out_y);
 
 /**
  * @brief Checks if the arc intersects with a rectangle.

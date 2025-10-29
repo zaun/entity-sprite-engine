@@ -252,8 +252,7 @@ void ese_vector_unref(EseVector *vector);
  * like "nw"
  * @param magnitude Length of the resulting vector
  */
-void ese_vector_set_direction(EseVector *vector, const char *direction,
-                              float magnitude);
+void ese_vector_set_direction(EseVector *vector, const char *direction, float magnitude);
 
 /**
  * @brief Calculates the magnitude (length) of the vector.

@@ -61,8 +61,8 @@ typedef uint32_t ese_worker_id_t;
  * @typedef job_result_copy_function
  * @brief Type for a function that copies a job result.
  */
-typedef void *(*job_result_copy_function)(const void *worker_result,
-                                          size_t worker_size, size_t *out_size);
+typedef void *(*job_result_copy_function)(const void *worker_result, size_t worker_size,
+                                          size_t *out_size);
 
 /**
  * @typedef job_result_free_function
@@ -80,41 +80,37 @@ typedef void *(*worker_init_function)(ese_worker_id_t worker_id);
  * @typedef worker_deinit_function
  * @brief Type for a function that deinitializes a worker thread.
  */
-typedef void (*worker_deinit_function)(ese_worker_id_t worker_id,
-                                       void *thread_data);
+typedef void (*worker_deinit_function)(ese_worker_id_t worker_id, void *thread_data);
 
 /**
  * @typedef JobResult
  * @brief Type for a job result.
  */
 typedef struct {
-  void *result;                     /** Worker thread result */
-  size_t size;                      /** Result size in bytes */
-  job_result_copy_function copy_fn; /** Optional deep-copy function */
-  job_result_free_function free_fn; /** Optional worker-side destructor */
+    void *result;                     /** Worker thread result */
+    size_t size;                      /** Result size in bytes */
+    job_result_copy_function copy_fn; /** Optional deep-copy function */
+    job_result_free_function free_fn; /** Optional worker-side destructor */
 } JobResult;
 
 /**
  * @typedef worker_thread_job_function
  * @brief Type for a function that executes a job on a worker thread.
  */
-typedef JobResult (*worker_thread_job_function)(void *thread_data,
-                                                const void *user_data,
+typedef JobResult (*worker_thread_job_function)(void *thread_data, const void *user_data,
                                                 volatile bool *canceled);
 
 /**
  * @typedef main_thread_job_callback
  * @brief Type for a function that executes a job on the main thread.
  */
-typedef void (*main_thread_job_callback)(ese_job_id_t job_id, void *user_data,
-                                         void *result);
+typedef void (*main_thread_job_callback)(ese_job_id_t job_id, void *user_data, void *result);
 
 /**
  * @typedef main_thread_job_cleanup
  * @brief Type for a function that cleans up a job on the main thread.
  */
-typedef void (*main_thread_job_cleanup)(ese_job_id_t job_id, void *user_data,
-                                        void *result);
+typedef void (*main_thread_job_cleanup)(ese_job_id_t job_id, void *user_data, void *result);
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -137,8 +133,7 @@ typedef void (*main_thread_job_cleanup)(ese_job_id_t job_id, void *user_data,
  * @param deinit_fn Optional cleanup function for worker threads
  * @return EseJobQueue* New job queue instance
  */
-EseJobQueue *ese_job_queue_create(uint32_t num_workers,
-                                  worker_init_function init_fn,
+EseJobQueue *ese_job_queue_create(uint32_t num_workers, worker_init_function init_fn,
                                   worker_deinit_function deinit_fn);
 
 /**
@@ -168,10 +163,8 @@ void ese_job_queue_destroy(EseJobQueue *queue);
  * @param user_data User data to pass to the job function
  * @return ese_job_id_t Job ID or ESE_JOB_NOT_QUEUED on failure
  */
-ese_job_id_t ese_job_queue_push(EseJobQueue *queue,
-                                worker_thread_job_function fn,
-                                main_thread_job_callback callback,
-                                main_thread_job_cleanup cleanup,
+ese_job_id_t ese_job_queue_push(EseJobQueue *queue, worker_thread_job_function fn,
+                                main_thread_job_callback callback, main_thread_job_cleanup cleanup,
                                 void *user_data);
 
 /**
@@ -190,12 +183,10 @@ ese_job_id_t ese_job_queue_push(EseJobQueue *queue,
  * @param user_data User data to pass to the job function
  * @return ese_job_id_t Job ID or ESE_JOB_NOT_QUEUED on failure
  */
-ese_job_id_t ese_job_queue_push_on_worker(EseJobQueue *queue,
-                                          ese_worker_id_t worker_id,
+ese_job_id_t ese_job_queue_push_on_worker(EseJobQueue *queue, ese_worker_id_t worker_id,
                                           worker_thread_job_function fn,
                                           main_thread_job_callback callback,
-                                          main_thread_job_cleanup cleanup,
-                                          void *user_data);
+                                          main_thread_job_cleanup cleanup, void *user_data);
 
 /**
  * @brief Query the status of a job.
@@ -222,8 +213,7 @@ int32_t ese_job_queue_status(EseJobQueue *queue, ese_job_id_t job_id);
  * @param timeout_ms Timeout in milliseconds (0 for infinite wait)
  * @return int32_t Job status code
  */
-int32_t ese_job_queue_wait_for_completion(EseJobQueue *queue,
-                                          ese_job_id_t job_id,
+int32_t ese_job_queue_wait_for_completion(EseJobQueue *queue, ese_job_id_t job_id,
                                           size_t timeout_ms);
 
 /**

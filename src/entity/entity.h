@@ -29,11 +29,10 @@ typedef struct EseArray EseArray;
  * @param height        Source height in pixels
  * @param user_data     User-provided callback data
  */
-typedef void (*EntityDrawTextureCallback)(
-    float screen_x, float screen_y, float screen_w, float screen_h,
-    uint64_t z_index, const char *texture_id, float texture_x1,
-    float texture_y1, float texture_x2, float texture_y2, int width, int height,
-    void *user_data);
+typedef void (*EntityDrawTextureCallback)(float screen_x, float screen_y, float screen_w,
+                                          float screen_h, uint64_t z_index, const char *texture_id,
+                                          float texture_x1, float texture_y1, float texture_x2,
+                                          float texture_y2, int width, int height, void *user_data);
 
 /**
  * @brief Callback function type for entity rectangle drawing operations.
@@ -52,11 +51,9 @@ typedef void (*EntityDrawTextureCallback)(
  * @param a             Alpha color component (0-255)
  * @param user_data     User-provided callback data
  */
-typedef void (*EntityDrawRectCallback)(float screen_x, float screen_y,
-                                       uint64_t z_index, int width, int height,
-                                       float rotation, bool filled,
-                                       unsigned char r, unsigned char g,
-                                       unsigned char b, unsigned char a,
+typedef void (*EntityDrawRectCallback)(float screen_x, float screen_y, uint64_t z_index, int width,
+                                       int height, float rotation, bool filled, unsigned char r,
+                                       unsigned char g, unsigned char b, unsigned char a,
                                        void *user_data);
 
 /**
@@ -78,12 +75,13 @@ typedef void (*EntityDrawRectCallback)(float screen_x, float screen_y,
  * @param stroke_a      Stroke color alpha component (0-255)
  * @param user_data     User-provided callback data
  */
-typedef void (*EntityDrawPolyLineCallback)(
-    float screen_x, float screen_y, uint64_t z_index, const float *points,
-    size_t point_count, float stroke_width, unsigned char fill_r,
-    unsigned char fill_g, unsigned char fill_b, unsigned char fill_a,
-    unsigned char stroke_r, unsigned char stroke_g, unsigned char stroke_b,
-    unsigned char stroke_a, void *user_data);
+typedef void (*EntityDrawPolyLineCallback)(float screen_x, float screen_y, uint64_t z_index,
+                                           const float *points, size_t point_count,
+                                           float stroke_width, unsigned char fill_r,
+                                           unsigned char fill_g, unsigned char fill_b,
+                                           unsigned char fill_a, unsigned char stroke_r,
+                                           unsigned char stroke_g, unsigned char stroke_b,
+                                           unsigned char stroke_a, void *user_data);
 
 /**
  * @brief Structure containing pointers to all entity drawing callback
@@ -98,9 +96,9 @@ typedef void (*EntityDrawPolyLineCallback)(
  * @param draw_polyline  Callback for drawing polyline-based entities
  */
 typedef struct EntityDrawCallbacks {
-  EntityDrawTextureCallback draw_texture;
-  EntityDrawRectCallback draw_rect;
-  EntityDrawPolyLineCallback draw_polyline;
+    EntityDrawTextureCallback draw_texture;
+    EntityDrawRectCallback draw_rect;
+    EntityDrawPolyLineCallback draw_polyline;
 } EntityDrawCallbacks;
 
 /**
@@ -146,8 +144,8 @@ void entity_update(EseEntity *entity, float delta_time);
  */
 void entity_set_position(EseEntity *entity, float x, float y);
 
-void entity_run_function_with_args(EseEntity *entity, const char *func_name,
-                                   int argc, EseLuaValue *argv[]);
+void entity_run_function_with_args(EseEntity *entity, const char *func_name, int argc,
+                                   EseLuaValue *argv[]);
 
 /**
  * @brief Process collision callbacks for a collision pair with known state.
@@ -177,9 +175,8 @@ bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect);
  * @param callbacks Structure containing all drawing callback functions
  * @param callback_user_data User data for callback
  */
-void entity_draw(EseEntity *entity, float camera_x, float camera_y,
-                 float view_width, float view_height,
-                 EntityDrawCallbacks *callbacks, void *callback_user_data);
+void entity_draw(EseEntity *entity, float camera_x, float camera_y, float view_width,
+                 float view_height, EntityDrawCallbacks *callbacks, void *callback_user_data);
 
 /**
  * @brief Adds a component to an entity.

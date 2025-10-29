@@ -22,34 +22,31 @@ typedef struct lua_State lua_State;
  * properties. The engine reference is not owned and should not be freed.
  */
 typedef struct EseEntityComponentLua {
-  EseEntityComponent base; /** Base component structure */
+    EseEntityComponent base; /** Base component structure */
 
-  char *script;         /** Filename of the Lua script to execute */
-  EseLuaEngine *engine; /** Reference to Lua engine (not owned) */
-  int instance_ref;     /** Lua registry reference to instance table */
+    char *script;         /** Filename of the Lua script to execute */
+    EseLuaEngine *engine; /** Reference to Lua engine (not owned) */
+    int instance_ref;     /** Lua registry reference to instance table */
 
-  EseLuaValue *arg;    /** Argument value passed to script functions */
-  EseLuaValue **props; /** Array of dynamic properties */
-  size_t props_count;  /** Number of properties in the array */
+    EseLuaValue *arg;    /** Argument value passed to script functions */
+    EseLuaValue **props; /** Array of dynamic properties */
+    size_t props_count;  /** Number of properties in the array */
 
-  EseHashMap
-      *function_cache; /** Cache of function references for performance */
+    EseHashMap *function_cache; /** Cache of function references for performance */
 } EseEntityComponentLua;
 
-EseEntityComponent *
-_entity_component_lua_copy(const EseEntityComponentLua *src);
+EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src);
 
 void _entity_component_lua_destroy(EseEntityComponentLua *component);
 
-void _entity_component_lua_update(EseEntityComponentLua *component,
-                                  EseEntity *entity, double delta_time);
+void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity,
+                                  double delta_time);
 
 EseEntityComponentLua *_entity_component_lua_get(lua_State *L, int idx);
 
 void _entity_component_lua_init(EseLuaEngine *engine);
 
-EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine,
-                                                const char *script);
+EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char *script);
 
 /**
  * @brief Runs a Lua function using cached function references for performance.
@@ -68,9 +65,8 @@ EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine,
  * @return true if the function executed successfully, false if function doesn't
  * exist or on error.
  */
-bool entity_component_lua_run(EseEntityComponentLua *component,
-                              EseEntity *entity, const char *func_name,
-                              int argc, EseLuaValue *argv[]);
+bool entity_component_lua_run(EseEntityComponentLua *component, EseEntity *entity,
+                              const char *func_name, int argc, EseLuaValue *argv[]);
 
 /**
  * @brief Populates the function cache with standard entity lifecycle functions.

@@ -30,12 +30,10 @@ void dlist_append(EseDoubleLinkedList *list, void *value);
 void dlist_remove_by_value(EseDoubleLinkedList *list, void *value);
 
 // Find first node matching predicate
-void *dlist_find(EseDoubleLinkedList *list, DListPredicate pred,
-                 void *user_data);
+void *dlist_find(EseDoubleLinkedList *list, DListPredicate pred, void *user_data);
 
 // Remove all nodes matching predicate
-void dlist_remove_by(EseDoubleLinkedList *list, DListPredicate pred,
-                     void *user_data);
+void dlist_remove_by(EseDoubleLinkedList *list, DListPredicate pred, void *user_data);
 
 // Iterator
 EseDListIter *dlist_iter_create(EseDoubleLinkedList *list);
@@ -56,7 +54,6 @@ void dlist_clear(EseDoubleLinkedList *list);
 void dlist_remove_all(EseDoubleLinkedList *list);
 
 // Remove all nodes matching predicate
-void dlist_remove_all_by(EseDoubleLinkedList *list, DListPredicate pred,
-                         void *user_data);
+void dlist_remove_all_by(EseDoubleLinkedList *list, DListPredicate pred, void *user_data);
 
 #endif // ESE_DOUBLE_LINKED_LIST_H

@@ -20,12 +20,12 @@
 // coordination in gui.c
 
 void _ese_gui_layout_destroy(EseGuiLayout *layout) {
-  if (layout == NULL) {
-    return;
-  }
-  if (layout->root != NULL) {
-    layout->root->type.destroy(layout->root);
-    layout->root = NULL;
-  }
-  layout->current_widget = NULL;
+    if (layout == NULL) {
+        return;
+    }
+    if (layout->root != NULL) {
+        layout->root->type.destroy(layout->root);
+        layout->root = NULL;
+    }
+    layout->current_widget = NULL;
 }

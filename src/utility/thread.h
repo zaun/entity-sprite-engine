@@ -45,8 +45,7 @@ typedef void *(*EseThreadFn)(void *ud);
 
 /* Thread operations */
 EseThread ese_thread_create(EseThreadFn fn, void *ud);
-void *
-ese_thread_join(EseThread th); /* returns thread fn return value, or NULL */
+void *ese_thread_join(EseThread th); /* returns thread fn return value, or NULL */
 void ese_thread_detach(EseThread th);
 EseThreadId ese_thread_current_id(void);
 bool ese_thread_id_equal(EseThreadId a, EseThreadId b);
@@ -77,8 +76,7 @@ void ese_atomic_int_init(EseAtomicInt *a, int init);
 int ese_atomic_int_load(EseAtomicInt *a);
 void ese_atomic_int_store(EseAtomicInt *a, int v);
 int ese_atomic_int_fetch_add(EseAtomicInt *a, int v);
-bool ese_atomic_int_compare_exchange(EseAtomicInt *a, int *expected,
-                                     int desired);
+bool ese_atomic_int_compare_exchange(EseAtomicInt *a, int *expected, int desired);
 
 /* Atomic size_t */
 EseAtomicSizeT *ese_atomic_size_t_create(size_t init);
@@ -89,8 +87,7 @@ void ese_atomic_size_t_init(EseAtomicSizeT *a, size_t init);
 size_t ese_atomic_size_t_load(EseAtomicSizeT *a);
 void ese_atomic_size_t_store(EseAtomicSizeT *a, size_t v);
 size_t ese_atomic_size_t_fetch_add(EseAtomicSizeT *a, size_t v);
-bool ese_atomic_size_t_compare_exchange(EseAtomicSizeT *a, size_t *expected,
-                                        size_t desired);
+bool ese_atomic_size_t_compare_exchange(EseAtomicSizeT *a, size_t *expected, size_t desired);
 void ese_atomic_size_t_fetch_sub_inplace(EseAtomicSizeT *a, size_t v);
 
 /* Helper: set/get thread-local current engine pointer (optional) */

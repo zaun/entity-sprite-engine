@@ -51,24 +51,24 @@ static int _ese_arc_lua_from_json(lua_State *L);
  * @return Always returns 0 (no values pushed)
  */
 static int _ese_arc_lua_gc(lua_State *L) {
-  // Get from userdata
-  EseArc **ud = (EseArc **)luaL_testudata(L, 1, ARC_META);
-  if (!ud) {
-    return 0; // Not our userdata
-  }
-
-  EseArc *arc = *ud;
-  if (arc) {
-    // If lua_ref == LUA_NOREF, there are no more references to this arc,
-    // so we can free it.
-    // If lua_ref != LUA_NOREF, this arc was referenced from C and should not be
-    // freed.
-    if (ese_arc_get_lua_ref(arc) == LUA_NOREF) {
-      ese_arc_destroy(arc);
+    // Get from userdata
+    EseArc **ud = (EseArc **)luaL_testudata(L, 1, ARC_META);
+    if (!ud) {
+        return 0; // Not our userdata
     }
-  }
 
-  return 0;
+    EseArc *arc = *ud;
+    if (arc) {
+        // If lua_ref == LUA_NOREF, there are no more references to this arc,
+        // so we can free it.
+        // If lua_ref != LUA_NOREF, this arc was referenced from C and should
+        // not be freed.
+        if (ese_arc_get_lua_ref(arc) == LUA_NOREF) {
+            ese_arc_destroy(arc);
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -84,62 +84,62 @@ static int _ese_arc_lua_gc(lua_State *L) {
  * properties/methods, 0 for invalid)
  */
 static int _ese_arc_lua_index(lua_State *L) {
-  profile_start(PROFILE_LUA_ARC_INDEX);
-  EseArc *arc = ese_arc_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!arc || !key) {
-    profile_cancel(PROFILE_LUA_ARC_INDEX);
-    return 0;
-  }
+    profile_start(PROFILE_LUA_ARC_INDEX);
+    EseArc *arc = ese_arc_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!arc || !key) {
+        profile_cancel(PROFILE_LUA_ARC_INDEX);
+        return 0;
+    }
 
-  if (strcmp(key, "x") == 0) {
-    lua_pushnumber(L, ese_arc_get_x(arc));
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "y") == 0) {
-    lua_pushnumber(L, ese_arc_get_y(arc));
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "radius") == 0) {
-    lua_pushnumber(L, ese_arc_get_radius(arc));
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "start_angle") == 0) {
-    lua_pushnumber(L, ese_arc_get_start_angle(arc));
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "end_angle") == 0) {
-    lua_pushnumber(L, ese_arc_get_end_angle(arc));
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
-    return 1;
-  } else if (strcmp(key, "contains_point") == 0) {
-    lua_pushlightuserdata(L, arc);
-    lua_pushcclosure(L, _ese_arc_lua_contains_point, 1);
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
-    return 1;
-  } else if (strcmp(key, "intersects_rect") == 0) {
-    lua_pushlightuserdata(L, arc);
-    lua_pushcclosure(L, _ese_arc_lua_intersects_rect, 1);
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
-    return 1;
-  } else if (strcmp(key, "get_length") == 0) {
-    lua_pushlightuserdata(L, arc);
-    lua_pushcclosure(L, _ese_arc_lua_get_length, 1);
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
-    return 1;
-  } else if (strcmp(key, "get_point_at_angle") == 0) {
-    lua_pushlightuserdata(L, arc);
-    lua_pushcclosure(L, _ese_arc_lua_get_point_at_angle, 1);
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
-    return 1;
-  } else if (strcmp(key, "toJSON") == 0) {
-    lua_pushlightuserdata(L, arc);
-    lua_pushcclosure(L, _ese_arc_lua_to_json, 1);
-    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
-    return 1;
-  }
-  profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (invalid)");
-  return 0;
+    if (strcmp(key, "x") == 0) {
+        lua_pushnumber(L, ese_arc_get_x(arc));
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "y") == 0) {
+        lua_pushnumber(L, ese_arc_get_y(arc));
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "radius") == 0) {
+        lua_pushnumber(L, ese_arc_get_radius(arc));
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "start_angle") == 0) {
+        lua_pushnumber(L, ese_arc_get_start_angle(arc));
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "end_angle") == 0) {
+        lua_pushnumber(L, ese_arc_get_end_angle(arc));
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (getter)");
+        return 1;
+    } else if (strcmp(key, "contains_point") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_contains_point, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "intersects_rect") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_intersects_rect, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "get_length") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_get_length, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "get_point_at_angle") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_get_point_at_angle, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, arc);
+        lua_pushcclosure(L, _ese_arc_lua_to_json, 1);
+        profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (method)");
+        return 1;
+    }
+    profile_stop(PROFILE_LUA_ARC_INDEX, "ese_arc_lua_index (invalid)");
+    return 0;
 }
 
 /**
@@ -153,57 +153,57 @@ static int _ese_arc_lua_index(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_arc_lua_newindex(lua_State *L) {
-  profile_start(PROFILE_LUA_ARC_NEWINDEX);
-  EseArc *arc = ese_arc_lua_get(L, 1);
-  const char *key = lua_tostring(L, 2);
-  if (!arc || !key) {
-    profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-    return 0;
-  }
+    profile_start(PROFILE_LUA_ARC_NEWINDEX);
+    EseArc *arc = ese_arc_lua_get(L, 1);
+    const char *key = lua_tostring(L, 2);
+    if (!arc || !key) {
+        profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+        return 0;
+    }
 
-  if (strcmp(key, "x") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-      return luaL_error(L, "arc.x must be a number");
+    if (strcmp(key, "x") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+            return luaL_error(L, "arc.x must be a number");
+        }
+        ese_arc_set_x(arc, (float)lua_tonumber(L, 3));
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
+        return 0;
+    } else if (strcmp(key, "y") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+            return luaL_error(L, "arc.y must be a number");
+        }
+        ese_arc_set_y(arc, (float)lua_tonumber(L, 3));
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
+        return 0;
+    } else if (strcmp(key, "radius") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+            return luaL_error(L, "arc.radius must be a number");
+        }
+        ese_arc_set_radius(arc, (float)lua_tonumber(L, 3));
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
+        return 0;
+    } else if (strcmp(key, "start_angle") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+            return luaL_error(L, "arc.start_angle must be a number");
+        }
+        ese_arc_set_start_angle(arc, (float)lua_tonumber(L, 3));
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
+        return 0;
+    } else if (strcmp(key, "end_angle") == 0) {
+        if (lua_type(L, 3) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
+            return luaL_error(L, "arc.end_angle must be a number");
+        }
+        ese_arc_set_end_angle(arc, (float)lua_tonumber(L, 3));
+        profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
+        return 0;
     }
-    ese_arc_set_x(arc, (float)lua_tonumber(L, 3));
-    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
-    return 0;
-  } else if (strcmp(key, "y") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-      return luaL_error(L, "arc.y must be a number");
-    }
-    ese_arc_set_y(arc, (float)lua_tonumber(L, 3));
-    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
-    return 0;
-  } else if (strcmp(key, "radius") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-      return luaL_error(L, "arc.radius must be a number");
-    }
-    ese_arc_set_radius(arc, (float)lua_tonumber(L, 3));
-    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
-    return 0;
-  } else if (strcmp(key, "start_angle") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-      return luaL_error(L, "arc.start_angle must be a number");
-    }
-    ese_arc_set_start_angle(arc, (float)lua_tonumber(L, 3));
-    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
-    return 0;
-  } else if (strcmp(key, "end_angle") == 0) {
-    if (lua_type(L, 3) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEWINDEX);
-      return luaL_error(L, "arc.end_angle must be a number");
-    }
-    ese_arc_set_end_angle(arc, (float)lua_tonumber(L, 3));
-    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (setter)");
-    return 0;
-  }
-  profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (invalid)");
-  return luaL_error(L, "unknown or unassignable property '%s'", key);
+    profile_stop(PROFILE_LUA_ARC_NEWINDEX, "ese_arc_lua_newindex (invalid)");
+    return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
 /**
@@ -217,22 +217,20 @@ static int _ese_arc_lua_newindex(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1)
  */
 static int _ese_arc_lua_tostring(lua_State *L) {
-  EseArc *arc = ese_arc_lua_get(L, 1);
+    EseArc *arc = ese_arc_lua_get(L, 1);
 
-  if (!arc) {
-    lua_pushstring(L, "Arc: (invalid)");
+    if (!arc) {
+        lua_pushstring(L, "Arc: (invalid)");
+        return 1;
+    }
+
+    char buf[128];
+    snprintf(buf, sizeof(buf), "Arc: %p (x=%.2f, y=%.2f, r=%.2f, start=%.2f, end=%.2f)",
+             (void *)arc, ese_arc_get_x(arc), ese_arc_get_y(arc), ese_arc_get_radius(arc),
+             ese_arc_get_start_angle(arc), ese_arc_get_end_angle(arc));
+    lua_pushstring(L, buf);
+
     return 1;
-  }
-
-  char buf[128];
-  snprintf(buf, sizeof(buf),
-           "Arc: %p (x=%.2f, y=%.2f, r=%.2f, start=%.2f, end=%.2f)",
-           (void *)arc, ese_arc_get_x(arc), ese_arc_get_y(arc),
-           ese_arc_get_radius(arc), ese_arc_get_start_angle(arc),
-           ese_arc_get_end_angle(arc));
-  lua_pushstring(L, buf);
-
-  return 1;
 }
 
 // Lua constructors
@@ -249,56 +247,53 @@ static int _ese_arc_lua_tostring(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_arc_lua_new(lua_State *L) {
-  profile_start(PROFILE_LUA_ARC_NEW);
-  float x = 0.0f, y = 0.0f, radius = 1.0f, start_angle = 0.0f,
-        end_angle = 2.0f * M_PI;
+    profile_start(PROFILE_LUA_ARC_NEW);
+    float x = 0.0f, y = 0.0f, radius = 1.0f, start_angle = 0.0f, end_angle = 2.0f * M_PI;
 
-  int n_args = lua_gettop(L);
-  if (n_args == 5) {
-    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER ||
-        lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER ||
-        lua_type(L, 5) != LUA_TNUMBER) {
-      profile_cancel(PROFILE_LUA_ARC_NEW);
-      return luaL_error(L, "all arguments must be numbers");
+    int n_args = lua_gettop(L);
+    if (n_args == 5) {
+        if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER ||
+            lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER ||
+            lua_type(L, 5) != LUA_TNUMBER) {
+            profile_cancel(PROFILE_LUA_ARC_NEW);
+            return luaL_error(L, "all arguments must be numbers");
+        }
+        x = (float)lua_tonumber(L, 1);
+        y = (float)lua_tonumber(L, 2);
+        radius = (float)lua_tonumber(L, 3);
+        start_angle = (float)lua_tonumber(L, 4);
+        end_angle = (float)lua_tonumber(L, 5);
+    } else if (n_args != 0) {
+        profile_cancel(PROFILE_LUA_ARC_NEW);
+        return luaL_error(L, "new() takes 0 or 5 arguments (x, y, radius, "
+                             "start_angle, end_angle)");
     }
-    x = (float)lua_tonumber(L, 1);
-    y = (float)lua_tonumber(L, 2);
-    radius = (float)lua_tonumber(L, 3);
-    start_angle = (float)lua_tonumber(L, 4);
-    end_angle = (float)lua_tonumber(L, 5);
-  } else if (n_args != 0) {
-    profile_cancel(PROFILE_LUA_ARC_NEW);
-    return luaL_error(
-        L,
-        "new() takes 0 or 5 arguments (x, y, radius, start_angle, end_angle)");
-  }
 
-  // Get the engine from the Lua state
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (!engine) {
-    profile_cancel(PROFILE_LUA_ARC_NEW);
-    return luaL_error(L, "Arc.new: no engine available");
-  }
+    // Get the engine from the Lua state
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        profile_cancel(PROFILE_LUA_ARC_NEW);
+        return luaL_error(L, "Arc.new: no engine available");
+    }
 
-  // Create the arc using the standard creation function
-  EseArc *arc = ese_arc_create(engine);
-  ese_arc_set_x(arc, x);
-  ese_arc_set_y(arc, y);
-  ese_arc_set_radius(arc, radius);
-  ese_arc_set_start_angle(arc, start_angle);
-  ese_arc_set_end_angle(arc, end_angle);
+    // Create the arc using the standard creation function
+    EseArc *arc = ese_arc_create(engine);
+    ese_arc_set_x(arc, x);
+    ese_arc_set_y(arc, y);
+    ese_arc_set_radius(arc, radius);
+    ese_arc_set_start_angle(arc, start_angle);
+    ese_arc_set_end_angle(arc, end_angle);
 
-  // Create userdata directly
-  EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
-  *ud = arc;
+    // Create userdata directly
+    EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
+    *ud = arc;
 
-  // Attach metatable
-  luaL_getmetatable(L, ARC_META);
-  lua_setmetatable(L, -2);
+    // Attach metatable
+    luaL_getmetatable(L, ARC_META);
+    lua_setmetatable(L, -2);
 
-  profile_stop(PROFILE_LUA_ARC_NEW, "ese_arc_lua_new");
-  return 1;
+    profile_stop(PROFILE_LUA_ARC_NEW, "ese_arc_lua_new");
+    return 1;
 }
 
 /**
@@ -313,35 +308,34 @@ static int _ese_arc_lua_new(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the proxy table)
  */
 static int _ese_arc_lua_zero(lua_State *L) {
-  profile_start(PROFILE_LUA_ARC_ZERO);
+    profile_start(PROFILE_LUA_ARC_ZERO);
 
-  int n_args = lua_gettop(L);
-  if (n_args != 0) {
-    profile_cancel(PROFILE_LUA_ARC_ZERO);
-    return luaL_error(L, "zero() takes no arguments");
-  }
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        profile_cancel(PROFILE_LUA_ARC_ZERO);
+        return luaL_error(L, "zero() takes no arguments");
+    }
 
-  // Get the engine from the Lua state
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (!engine) {
-    profile_cancel(PROFILE_LUA_ARC_ZERO);
-    return luaL_error(L, "Arc.zero: no engine available");
-  }
+    // Get the engine from the Lua state
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        profile_cancel(PROFILE_LUA_ARC_ZERO);
+        return luaL_error(L, "Arc.zero: no engine available");
+    }
 
-  // Create the arc using the standard creation function
-  EseArc *arc = ese_arc_create(engine);
+    // Create the arc using the standard creation function
+    EseArc *arc = ese_arc_create(engine);
 
-  // Create userdata directly
-  EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
-  *ud = arc;
+    // Create userdata directly
+    EseArc **ud = (EseArc **)lua_newuserdata(L, sizeof(EseArc *));
+    *ud = arc;
 
-  // Attach metatable
-  luaL_getmetatable(L, ARC_META);
-  lua_setmetatable(L, -2);
+    // Attach metatable
+    luaL_getmetatable(L, ARC_META);
+    lua_setmetatable(L, -2);
 
-  profile_stop(PROFILE_LUA_ARC_ZERO, "ese_arc_lua_zero");
-  return 1;
+    profile_stop(PROFILE_LUA_ARC_ZERO, "ese_arc_lua_zero");
+    return 1;
 }
 
 // Lua methods
@@ -355,37 +349,35 @@ static int _ese_arc_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_arc_lua_contains_point(lua_State *L) {
-  int n_args = lua_gettop(L);
-  if (n_args < 3 || n_args > 4) {
-    return luaL_error(
-        L, "arc:contains_point(x, y [, tolerance]) requires 2 or 3 arguments");
-  }
+    int n_args = lua_gettop(L);
+    if (n_args < 3 || n_args > 4) {
+        return luaL_error(L, "arc:contains_point(x, y [, tolerance]) requires 2 or 3 arguments");
+    }
 
-  if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
-    return luaL_error(
-        L, "arc:contains_point(x, y [, tolerance]) requires numbers");
-  }
+    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
+        return luaL_error(L, "arc:contains_point(x, y [, tolerance]) requires numbers");
+    }
 
-  if (n_args == 4 && lua_type(L, 4) != LUA_TNUMBER) {
-    return luaL_error(
-        L, "arc:contains_point(x, y [, tolerance]) tolerance must be a number");
-  }
+    if (n_args == 4 && lua_type(L, 4) != LUA_TNUMBER) {
+        return luaL_error(L, "arc:contains_point(x, y [, tolerance]) tolerance "
+                             "must be a number");
+    }
 
-  EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-  if (!arc) {
-    return luaL_error(L, "Invalid EseArc object in contains_point method");
-  }
+    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!arc) {
+        return luaL_error(L, "Invalid EseArc object in contains_point method");
+    }
 
-  float x = (float)lua_tonumber(L, 2);
-  float y = (float)lua_tonumber(L, 3);
-  float tolerance = 0.1f;
+    float x = (float)lua_tonumber(L, 2);
+    float y = (float)lua_tonumber(L, 3);
+    float tolerance = 0.1f;
 
-  if (n_args == 4) {
-    tolerance = (float)lua_tonumber(L, 4);
-  }
+    if (n_args == 4) {
+        tolerance = (float)lua_tonumber(L, 4);
+    }
 
-  lua_pushboolean(L, ese_arc_contains_point(arc, x, y, tolerance));
-  return 1;
+    lua_pushboolean(L, ese_arc_contains_point(arc, x, y, tolerance));
+    return 1;
 }
 
 /**
@@ -398,25 +390,23 @@ static int _ese_arc_lua_contains_point(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_arc_lua_intersects_rect(lua_State *L) {
-  int n_args = lua_gettop(L);
-  if (n_args != 2) {
-    return luaL_error(L,
-                      "arc:intersects_rect(rect) requires exactly 1 argument");
-  }
+    int n_args = lua_gettop(L);
+    if (n_args != 2) {
+        return luaL_error(L, "arc:intersects_rect(rect) requires exactly 1 argument");
+    }
 
-  EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-  if (!arc) {
-    return luaL_error(L, "Invalid EseArc object in intersects_rect method");
-  }
+    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!arc) {
+        return luaL_error(L, "Invalid EseArc object in intersects_rect method");
+    }
 
-  EseRect *rect = ese_rect_lua_get(L, 2);
-  if (!rect) {
-    return luaL_error(
-        L, "arc:intersects_rect(rect) argument must be an Rect object");
-  }
+    EseRect *rect = ese_rect_lua_get(L, 2);
+    if (!rect) {
+        return luaL_error(L, "arc:intersects_rect(rect) argument must be an Rect object");
+    }
 
-  lua_pushboolean(L, ese_arc_intersects_rect(arc, rect));
-  return 1;
+    lua_pushboolean(L, ese_arc_intersects_rect(arc, rect));
+    return 1;
 }
 
 /**
@@ -429,18 +419,18 @@ static int _ese_arc_lua_intersects_rect(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the length value)
  */
 static int _ese_arc_lua_get_length(lua_State *L) {
-  int n_args = lua_gettop(L);
-  if (n_args != 1) {
-    return luaL_error(L, "arc:get_length() takes no arguments");
-  }
+    int n_args = lua_gettop(L);
+    if (n_args != 1) {
+        return luaL_error(L, "arc:get_length() takes no arguments");
+    }
 
-  EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-  if (!arc) {
-    return luaL_error(L, "Invalid EseArc object in get_length method");
-  }
+    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!arc) {
+        return luaL_error(L, "Invalid EseArc object in get_length method");
+    }
 
-  lua_pushnumber(L, ese_arc_get_length(arc));
-  return 1;
+    lua_pushnumber(L, ese_arc_get_length(arc));
+    return 1;
 }
 
 /**
@@ -455,34 +445,33 @@ static int _ese_arc_lua_get_length(lua_State *L) {
  * for failure: false)
  */
 static int _ese_arc_lua_get_point_at_angle(lua_State *L) {
-  int n_args = lua_gettop(L);
-  if (n_args != 2) {
-    return luaL_error(
-        L, "arc:get_point_at_angle(angle) requires exactly 1 argument");
-  }
+    int n_args = lua_gettop(L);
+    if (n_args != 2) {
+        return luaL_error(L, "arc:get_point_at_angle(angle) requires exactly 1 argument");
+    }
 
-  EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-  if (!arc) {
-    return luaL_error(L, "Invalid EseArc object in get_point_at_angle method");
-  }
+    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
+    if (!arc) {
+        return luaL_error(L, "Invalid EseArc object in get_point_at_angle method");
+    }
 
-  if (lua_type(L, 2) != LUA_TNUMBER) {
-    return luaL_error(L, "arc:get_point_at_angle(angle) requires a number");
-  }
+    if (lua_type(L, 2) != LUA_TNUMBER) {
+        return luaL_error(L, "arc:get_point_at_angle(angle) requires a number");
+    }
 
-  float angle = (float)lua_tonumber(L, 2);
-  float x, y;
-  bool success = ese_arc_get_point_at_angle(arc, angle, &x, &y);
+    float angle = (float)lua_tonumber(L, 2);
+    float x, y;
+    bool success = ese_arc_get_point_at_angle(arc, angle, &x, &y);
 
-  if (success) {
-    lua_pushboolean(L, true);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    return 3;
-  } else {
-    lua_pushboolean(L, false);
-    return 1;
-  }
+    if (success) {
+        lua_pushboolean(L, true);
+        lua_pushnumber(L, x);
+        lua_pushnumber(L, y);
+        return 3;
+    } else {
+        lua_pushboolean(L, false);
+        return 1;
+    }
 }
 
 /**
@@ -493,25 +482,25 @@ static int _ese_arc_lua_get_point_at_angle(lua_State *L) {
  * and returns the string.
  */
 static int _ese_arc_lua_to_json(lua_State *L) {
-  EseArc *arc = ese_arc_lua_get(L, 1);
-  if (!arc) {
-    return luaL_error(L, "Arc:toJSON() called on invalid arc");
-  }
+    EseArc *arc = ese_arc_lua_get(L, 1);
+    if (!arc) {
+        return luaL_error(L, "Arc:toJSON() called on invalid arc");
+    }
 
-  cJSON *json = ese_arc_serialize(arc);
-  if (!json) {
-    return luaL_error(L, "Arc:toJSON() failed to serialize arc");
-  }
+    cJSON *json = ese_arc_serialize(arc);
+    if (!json) {
+        return luaL_error(L, "Arc:toJSON() failed to serialize arc");
+    }
 
-  char *json_str = cJSON_PrintUnformatted(json);
-  cJSON_Delete(json);
-  if (!json_str) {
-    return luaL_error(L, "Arc:toJSON() failed to convert to string");
-  }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "Arc:toJSON() failed to convert to string");
+    }
 
-  lua_pushstring(L, json_str);
-  free(json_str);
-  return 1;
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
 }
 
 /**
@@ -521,37 +510,36 @@ static int _ese_arc_lua_to_json(lua_State *L) {
  * `Arc.fromJSON(json_string)`.
  */
 static int _ese_arc_lua_from_json(lua_State *L) {
-  int argc = lua_gettop(L);
-  if (argc != 1) {
-    return luaL_error(L, "Arc.fromJSON(string) takes 1 argument");
-  }
-  if (lua_type(L, 1) != LUA_TSTRING) {
-    return luaL_error(L, "Arc.fromJSON(string) argument must be a string");
-  }
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "Arc.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "Arc.fromJSON(string) argument must be a string");
+    }
 
-  const char *json_str = lua_tostring(L, 1);
-  cJSON *json = cJSON_Parse(json_str);
-  if (!json) {
-    log_error("ARC", "Arc.fromJSON: failed to parse JSON string: %s",
-              json_str ? json_str : "NULL");
-    return luaL_error(L, "Arc.fromJSON: invalid JSON string");
-  }
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("ARC", "Arc.fromJSON: failed to parse JSON string: %s",
+                  json_str ? json_str : "NULL");
+        return luaL_error(L, "Arc.fromJSON: invalid JSON string");
+    }
 
-  EseLuaEngine *engine =
-      (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-  if (!engine) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "Arc.fromJSON: no engine available");
+    }
+
+    EseArc *arc = ese_arc_deserialize(engine, json);
     cJSON_Delete(json);
-    return luaL_error(L, "Arc.fromJSON: no engine available");
-  }
+    if (!arc) {
+        return luaL_error(L, "Arc.fromJSON: failed to deserialize arc");
+    }
 
-  EseArc *arc = ese_arc_deserialize(engine, json);
-  cJSON_Delete(json);
-  if (!arc) {
-    return luaL_error(L, "Arc.fromJSON: failed to deserialize arc");
-  }
-
-  ese_arc_lua_push(arc);
-  return 1;
+    ese_arc_lua_push(arc);
+    return 1;
 }
 
 // ========================================
@@ -567,14 +555,12 @@ static int _ese_arc_lua_from_json(lua_State *L) {
  * @param engine EseLuaEngine pointer where the EseArc type will be registered
  */
 void _ese_arc_lua_init(EseLuaEngine *engine) {
-  // Create metatable
-  lua_engine_new_object_meta(engine, ARC_META, _ese_arc_lua_index,
-                             _ese_arc_lua_newindex, _ese_arc_lua_gc,
-                             _ese_arc_lua_tostring);
+    // Create metatable
+    lua_engine_new_object_meta(engine, ARC_META, _ese_arc_lua_index, _ese_arc_lua_newindex,
+                               _ese_arc_lua_gc, _ese_arc_lua_tostring);
 
-  // Create global Arc table with functions
-  const char *keys[] = {"new", "zero", "fromJSON"};
-  lua_CFunction functions[] = {_ese_arc_lua_new, _ese_arc_lua_zero,
-                               _ese_arc_lua_from_json};
-  lua_engine_new_object(engine, "Arc", 3, keys, functions);
+    // Create global Arc table with functions
+    const char *keys[] = {"new", "zero", "fromJSON"};
+    lua_CFunction functions[] = {_ese_arc_lua_new, _ese_arc_lua_zero, _ese_arc_lua_from_json};
+    lua_engine_new_object(engine, "Arc", 3, keys, functions);
 }

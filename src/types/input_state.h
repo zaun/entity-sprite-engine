@@ -24,136 +24,136 @@ typedef struct EseLuaEngine EseLuaEngine;
  * @brief An enumeration of all supported keyboard and mouse input keys.
  */
 typedef enum {
-  InputKey_UNKNOWN = 0, /** An unknown or unmapped key. */
+    InputKey_UNKNOWN = 0, /** An unknown or unmapped key. */
 
-  // Letters
-  InputKey_A,
-  InputKey_B,
-  InputKey_C,
-  InputKey_D,
-  InputKey_E,
-  InputKey_F,
-  InputKey_G,
-  InputKey_H,
-  InputKey_I,
-  InputKey_J,
-  InputKey_K,
-  InputKey_L,
-  InputKey_M,
-  InputKey_N,
-  InputKey_O,
-  InputKey_P,
-  InputKey_Q,
-  InputKey_R,
-  InputKey_S,
-  InputKey_T,
-  InputKey_U,
-  InputKey_V,
-  InputKey_W,
-  InputKey_X,
-  InputKey_Y,
-  InputKey_Z,
+    // Letters
+    InputKey_A,
+    InputKey_B,
+    InputKey_C,
+    InputKey_D,
+    InputKey_E,
+    InputKey_F,
+    InputKey_G,
+    InputKey_H,
+    InputKey_I,
+    InputKey_J,
+    InputKey_K,
+    InputKey_L,
+    InputKey_M,
+    InputKey_N,
+    InputKey_O,
+    InputKey_P,
+    InputKey_Q,
+    InputKey_R,
+    InputKey_S,
+    InputKey_T,
+    InputKey_U,
+    InputKey_V,
+    InputKey_W,
+    InputKey_X,
+    InputKey_Y,
+    InputKey_Z,
 
-  // Numbers (top row)
-  InputKey_0,
-  InputKey_1,
-  InputKey_2,
-  InputKey_3,
-  InputKey_4,
-  InputKey_5,
-  InputKey_6,
-  InputKey_7,
-  InputKey_8,
-  InputKey_9,
+    // Numbers (top row)
+    InputKey_0,
+    InputKey_1,
+    InputKey_2,
+    InputKey_3,
+    InputKey_4,
+    InputKey_5,
+    InputKey_6,
+    InputKey_7,
+    InputKey_8,
+    InputKey_9,
 
-  // Function keys
-  InputKey_F1,
-  InputKey_F2,
-  InputKey_F3,
-  InputKey_F4,
-  InputKey_F5,
-  InputKey_F6,
-  InputKey_F7,
-  InputKey_F8,
-  InputKey_F9,
-  InputKey_F10,
-  InputKey_F11,
-  InputKey_F12,
-  InputKey_F13,
-  InputKey_F14,
-  InputKey_F15,
+    // Function keys
+    InputKey_F1,
+    InputKey_F2,
+    InputKey_F3,
+    InputKey_F4,
+    InputKey_F5,
+    InputKey_F6,
+    InputKey_F7,
+    InputKey_F8,
+    InputKey_F9,
+    InputKey_F10,
+    InputKey_F11,
+    InputKey_F12,
+    InputKey_F13,
+    InputKey_F14,
+    InputKey_F15,
 
-  // Control keys
-  InputKey_LSHIFT,
-  InputKey_RSHIFT,
-  InputKey_LCTRL,
-  InputKey_RCTRL,
-  InputKey_LALT,
-  InputKey_RALT,
-  InputKey_LCMD,
-  InputKey_RCMD,
+    // Control keys
+    InputKey_LSHIFT,
+    InputKey_RSHIFT,
+    InputKey_LCTRL,
+    InputKey_RCTRL,
+    InputKey_LALT,
+    InputKey_RALT,
+    InputKey_LCMD,
+    InputKey_RCMD,
 
-  // Navigation keys
-  InputKey_UP,
-  InputKey_DOWN,
-  InputKey_LEFT,
-  InputKey_RIGHT,
-  InputKey_HOME,
-  InputKey_END,
-  InputKey_PAGEUP,
-  InputKey_PAGEDOWN,
-  InputKey_INSERT,
-  InputKey_DELETE,
+    // Navigation keys
+    InputKey_UP,
+    InputKey_DOWN,
+    InputKey_LEFT,
+    InputKey_RIGHT,
+    InputKey_HOME,
+    InputKey_END,
+    InputKey_PAGEUP,
+    InputKey_PAGEDOWN,
+    InputKey_INSERT,
+    InputKey_DELETE,
 
-  // Special keys
-  InputKey_SPACE,
-  InputKey_ENTER,
-  InputKey_ESCAPE,
-  InputKey_TAB,
-  InputKey_BACKSPACE,
-  InputKey_CAPSLOCK,
+    // Special keys
+    InputKey_SPACE,
+    InputKey_ENTER,
+    InputKey_ESCAPE,
+    InputKey_TAB,
+    InputKey_BACKSPACE,
+    InputKey_CAPSLOCK,
 
-  // Symbols
-  InputKey_MINUS,
-  InputKey_EQUAL,
-  InputKey_LEFTBRACKET,
-  InputKey_RIGHTBRACKET,
-  InputKey_BACKSLASH,
-  InputKey_SEMICOLON,
-  InputKey_APOSTROPHE,
-  InputKey_GRAVE,
-  InputKey_COMMA,
-  InputKey_PERIOD,
-  InputKey_SLASH,
+    // Symbols
+    InputKey_MINUS,
+    InputKey_EQUAL,
+    InputKey_LEFTBRACKET,
+    InputKey_RIGHTBRACKET,
+    InputKey_BACKSLASH,
+    InputKey_SEMICOLON,
+    InputKey_APOSTROPHE,
+    InputKey_GRAVE,
+    InputKey_COMMA,
+    InputKey_PERIOD,
+    InputKey_SLASH,
 
-  // Keypad
-  InputKey_KP_0,
-  InputKey_KP_1,
-  InputKey_KP_2,
-  InputKey_KP_3,
-  InputKey_KP_4,
-  InputKey_KP_5,
-  InputKey_KP_6,
-  InputKey_KP_7,
-  InputKey_KP_8,
-  InputKey_KP_9,
-  InputKey_KP_DECIMAL,
-  InputKey_KP_ENTER,
-  InputKey_KP_PLUS,
-  InputKey_KP_MINUS,
-  InputKey_KP_MULTIPLY,
-  InputKey_KP_DIVIDE,
+    // Keypad
+    InputKey_KP_0,
+    InputKey_KP_1,
+    InputKey_KP_2,
+    InputKey_KP_3,
+    InputKey_KP_4,
+    InputKey_KP_5,
+    InputKey_KP_6,
+    InputKey_KP_7,
+    InputKey_KP_8,
+    InputKey_KP_9,
+    InputKey_KP_DECIMAL,
+    InputKey_KP_ENTER,
+    InputKey_KP_PLUS,
+    InputKey_KP_MINUS,
+    InputKey_KP_MULTIPLY,
+    InputKey_KP_DIVIDE,
 
-  InputKey_MAX /** The total number of keys supported. */
+    InputKey_MAX /** The total number of keys supported. */
 } EseInputKey;
 
 typedef enum {
-  InputMouse_LEFT,
-  InputMouse_RIGHT,
-  InputMouse_MIDDLE,
-  InputMouse_X1,
-  InputMouse_X2,
-  InputMouse_MAX,
+    InputMouse_LEFT,
+    InputMouse_RIGHT,
+    InputMouse_MIDDLE,
+    InputMouse_X1,
+    InputMouse_X2,
+    InputMouse_MAX,
 } EseInputMouseButton;
 
 /**
@@ -216,8 +216,7 @@ bool ese_input_state_get_key_down(const EseInputState *input, EseInputKey key);
  * @param key The input key to check.
  * @return true if the key was pressed this frame, false otherwise.
  */
-bool ese_input_state_get_key_pressed(const EseInputState *input,
-                                     EseInputKey key);
+bool ese_input_state_get_key_pressed(const EseInputState *input, EseInputKey key);
 
 /**
  * @brief Gets the state of a specific key (whether it was released this frame).
@@ -226,8 +225,7 @@ bool ese_input_state_get_key_pressed(const EseInputState *input,
  * @param key The input key to check.
  * @return true if the key was released this frame, false otherwise.
  */
-bool ese_input_state_get_key_released(const EseInputState *input,
-                                      EseInputKey key);
+bool ese_input_state_get_key_released(const EseInputState *input, EseInputKey key);
 
 /**
  * @brief Gets the state of a specific mouse button.
