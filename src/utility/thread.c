@@ -183,6 +183,20 @@ static void *thread_start_trampoline(void *ud) {
     return ret;
 }
 
+/*
+ * ese_thread_get_cpu_cores()
+ *
+ * macOS SDKs hide sysconf() and sysctl() when compiled in strict ISO C modes
+ * (e.g. with -std=c99).  To avoid depending on feature macros such as
+ * _XOPEN_SOURCE or _DARWIN_C_SOURCE, this version queries the Mach host API
+ * instead.  host_info(host_basic_info) is part of <mach/mach_host.h> and is
+ * always available in every macOS SDK, including ARM64 builds.
+ *
+ * For Linux/Unix this falls back to sysconf(_SC_NPROCESSORS_ONLN).
+ *
+ * This avoids hidden prototypes, extra feature defines, and platform-specific
+ * compile failures while still returning the correct logical core count.
+ */
 int ese_thread_get_cpu_cores(void) {
 #if defined(__APPLE__)
     /* Ask the Mach host API instead of sysconf/sysctl */
