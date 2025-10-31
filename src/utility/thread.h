@@ -44,6 +44,7 @@ typedef DWORD EseThreadId;
 typedef void *(*EseThreadFn)(void *ud);
 
 /* Thread operations */
+int ese_thread_get_cpu_cores(void);
 EseThread ese_thread_create(EseThreadFn fn, void *ud);
 void *ese_thread_join(EseThread th); /* returns thread fn return value, or NULL */
 void ese_thread_detach(EseThread th);

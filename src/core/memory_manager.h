@@ -74,14 +74,27 @@ typedef enum {
     MMTAG_RS_TEXT,     /** Renderer System - Text */
     MMTAG_RS_COLLIDER, /** Renderer System - Collider */
     MMTAG_RS_MAP,      /** Renderer System - Map */
-    MMTAG_TEMP,        /** Temporary - Should only be used while actively debugging and
-                          testing. */
+    MMTAG_TEMP,        /** Temporary - Should only be used while actively debugging and testing. */
     MMTAG_COUNT
 } MemTag;
 
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
+
+/**
+ * @brief Thread-safe shared memory allocator for cross-thread usage.
+ *
+ * These functions use a global mutex-protected allocator,
+ * allowing allocations to be freed from any thread safely.
+ */
+ struct memory_manager_shared_api {
+    void *(*malloc)(size_t size, MemTag tag);
+    void *(*calloc)(size_t count, size_t size, MemTag tag);
+    void *(*realloc)(void *ptr, size_t size, MemTag tag);
+    void (*free)(void *ptr);
+    char *(*strdup)(const char *str, MemTag tag);
+};
 
 /**
  * @brief API structure for memory management operations.
@@ -100,6 +113,8 @@ struct memory_manager_api {
     char *(*strdup)(const char *str, MemTag tag);           /** Duplicate string */
     void (*report)(bool all_threads);                       /** Print memory usage report */
     void (*destroy)(bool all_threads);                      /** Cleanup memory manager resources */
+
+    const struct memory_manager_shared_api shared;          /** Shared cross-thread API */
 };
 
 extern const struct memory_manager_api memory_manager;

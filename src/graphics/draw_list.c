@@ -1,3 +1,12 @@
+/*
+ * Project: Entity Sprite Engine
+ *
+ * Draw list implementation providing an object pool and utilities for
+ * building frame render data (rects, textures, polylines, meshes).
+ *
+ * Copyright (c) 2025-2026 Entity Sprite Engine
+ * See LICENSE.md for details.
+ */
 #include "graphics/draw_list.h"
 #include "core/memory_manager.h"
 #include "utility/log.h"
@@ -9,6 +18,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+// ========================================
+// Defines and Structs
+// ========================================
+
 #define DRAW_LIST_INITIAL_CAPACITY 256
 #define TEXTURE_ID_MAX_LEN 256
 #define POLYLINE_MAX_POINTS 1024
@@ -16,6 +29,17 @@
 #define MESH_MAX_INDICES 8192
 
 #define EDL_OBJ_MAGIC 0xE5E5E5E5u
+
+// ========================================
+// FORWARD DECLARATIONS
+// ========================================
+
+static int _compare_draw_list_object_z(const void *a, const void *b);
+static void _init_new_object(EseDrawListObject *obj);
+
+// ========================================
+// PRIVATE FUNCTIONS
+// ========================================
 
 /**
  * @brief Color data for draw list objects.
@@ -46,8 +70,7 @@ typedef struct EseDrawListPoint {
  *          polyline objects.
  */
 typedef struct EseDrawListPolyLine {
-    EseDrawListPoint points[POLYLINE_MAX_POINTS]; /** Array of points defining
-                                                     the polyline */
+    EseDrawListPoint points[POLYLINE_MAX_POINTS]; /** Array of points defining the polyline */
     size_t point_count;                           /** Number of points in the polyline */
     EseDrawListColor fill_color;                  /** Fill color for the polyline */
     EseDrawListColor stroke_color;                /** Stroke color for the polyline */
@@ -115,8 +138,7 @@ struct EseDrawListObject {
     float x; /** The x-coordinate of the object's top-left corner */
     float y; /** The y-coordinate of the object's top-left corner */
 
-    float rotation; /** The rotation of the object around the pivot point in
-                       radians */
+    float rotation; /** The rotation of the object around the pivot point in radians */
     float rot_x;    /** The x coordinate for the rotation pivot point (normalized) */
     float rot_y;    /** The y coordinate for the rotation pivot point (normalized) */
 
@@ -149,6 +171,13 @@ static int _compare_draw_list_object_z(const void *a, const void *b) {
     return (za > zb) - (za < zb);
 }
 
+/**
+ * @brief Initialize a new draw list object.
+ *
+ * @details This function initializes a new draw list object with default values.
+ *
+ * @param obj Pointer to the object to initialize.
+ */
 static void _init_new_object(EseDrawListObject *obj) {
     if (!obj)
         return;
@@ -174,9 +203,13 @@ static void _init_new_object(EseDrawListObject *obj) {
     memset(&obj->data, 0, sizeof(obj->data));
 }
 
+// ========================================
+// PUBLIC FUNCTIONS
+// ========================================
+
 EseDrawList *draw_list_create(void) {
-    EseDrawList *draw_list = memory_manager.malloc(sizeof(EseDrawList), MMTAG_DRAWLIST);
-    draw_list->objects = memory_manager.malloc(
+    EseDrawList *draw_list = memory_manager.shared.malloc(sizeof(EseDrawList), MMTAG_DRAWLIST);
+    draw_list->objects = memory_manager.shared.malloc(
         sizeof(EseDrawListObject *) * DRAW_LIST_INITIAL_CAPACITY, MMTAG_DRAWLIST);
 
     draw_list->objects_capacity = DRAW_LIST_INITIAL_CAPACITY;
@@ -184,8 +217,8 @@ EseDrawList *draw_list_create(void) {
     // Create atomic counter for thread safety
     draw_list->objects_count = ese_atomic_size_t_create(0);
     if (!draw_list->objects_count) {
-        memory_manager.free(draw_list->objects);
-        memory_manager.free(draw_list);
+        memory_manager.shared.free(draw_list->objects);
+        memory_manager.shared.free(draw_list);
         return NULL;
     }
 
@@ -194,28 +227,33 @@ EseDrawList *draw_list_create(void) {
 
     // Pre-allocate objects
     for (size_t i = 0; i < draw_list->objects_capacity; ++i) {
-        draw_list->objects[i] = memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
+        draw_list->objects[i] = memory_manager.shared.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
         _init_new_object(draw_list->objects[i]);
     }
     return draw_list;
 }
 
 void draw_list_destroy(EseDrawList *draw_list) {
-    log_assert("RENDER_LIST", draw_list, "draw_list_destroy called with NULL draw_list");
+    log_assert("DRAW_LIST", draw_list, "draw_list_destroy called with NULL draw_list");
 
+    log_verbose("DRAW_LIST", "draw_list_destroy destroying draw_list %p", draw_list);
     for (size_t i = 0; i < draw_list->objects_capacity; ++i) {
-        memory_manager.free(draw_list->objects[i]);
+        log_verbose("DRAW_LIST", "draw_list_destroy freeing object %p", draw_list->objects[i]);
+        memory_manager.shared.free(draw_list->objects[i]);
     }
-    memory_manager.free(draw_list->objects);
+
+    memory_manager.shared.free(draw_list->objects);
     ese_atomic_size_t_destroy(draw_list->objects_count);
     ese_mutex_destroy(draw_list->mutex);
-    memory_manager.free(draw_list);
+    memory_manager.shared.free(draw_list);
 }
 
 void draw_list_clear(EseDrawList *draw_list) {
     log_assert("RENDER_LIST", draw_list, "draw_list_clear called with NULL draw_list");
 
+    ese_mutex_lock(draw_list->mutex);
     ese_atomic_size_t_store(draw_list->objects_count, 0);
+    ese_mutex_unlock(draw_list->mutex);
 }
 
 EseDrawListObject *draw_list_request_object(EseDrawList *draw_list) {
@@ -228,7 +266,7 @@ EseDrawListObject *draw_list_request_object(EseDrawList *draw_list) {
                                                           : DRAW_LIST_INITIAL_CAPACITY;
         if (new_capacity <= index)
             new_capacity = index + 1;
-        EseDrawListObject **new_objs = memory_manager.realloc(
+        EseDrawListObject **new_objs = memory_manager.shared.realloc(
             draw_list->objects, sizeof(EseDrawListObject *) * new_capacity, MMTAG_DRAWLIST);
         if (!new_objs) {
             ese_atomic_size_t_fetch_sub_inplace(draw_list->objects_count, 1);
@@ -238,7 +276,7 @@ EseDrawListObject *draw_list_request_object(EseDrawList *draw_list) {
         draw_list->objects = new_objs;
         for (size_t i = draw_list->objects_capacity; i < new_capacity; ++i) {
             draw_list->objects[i] =
-                memory_manager.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
+                memory_manager.shared.calloc(1, sizeof(EseDrawListObject), MMTAG_DRAWLIST);
             _init_new_object(draw_list->objects[i]);
         }
         draw_list->objects_capacity = new_capacity;
@@ -270,7 +308,10 @@ void draw_list_sort(EseDrawList *draw_list) {
 size_t draw_list_get_object_count(const EseDrawList *draw_list) {
     log_assert("RENDER_LIST", draw_list, "draw_list_get_object_count called with NULL draw_list");
 
-    return ese_atomic_size_t_load(draw_list->objects_count);
+    ese_mutex_lock((EseMutex *)draw_list->mutex);
+    size_t count = ese_atomic_size_t_load(draw_list->objects_count);
+    ese_mutex_unlock((EseMutex *)draw_list->mutex);
+    return count;
 }
 
 EseDrawListObject *draw_list_get_object(const EseDrawList *draw_list, size_t index) {

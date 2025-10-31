@@ -1,3 +1,5 @@
+#define _DARWIN_C_SOURCE 1
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -5,12 +7,24 @@
 #if defined(ESE_THREAD_POSIX)
 #include <errno.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdatomic.h>
 #include <time.h>
+#include <unistd.h>
 #elif defined(ESE_THREAD_WIN32)
 #include <intrin.h>
 #include <process.h>
 #include <windows.h>
+#endif
+
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+/* tiny wrapper so we don't depend on sysctl/sysconf visibility */
+#include <mach/mach_host.h>
+#include <mach/host_info.h>
+#include <mach/mach.h>
+#endif
 #endif
 
 #include "utility/log.h"
@@ -169,6 +183,22 @@ static void *thread_start_trampoline(void *ud) {
     return ret;
 }
 
+int ese_thread_get_cpu_cores(void) {
+#if defined(__APPLE__)
+    /* Ask the Mach host API instead of sysconf/sysctl */
+    host_basic_info_data_t info;
+    mach_msg_type_number_t count = HOST_BASIC_INFO_COUNT;
+    if (host_info(mach_host_self(), HOST_BASIC_INFO,
+                (host_info_t)&info, &count) != KERN_SUCCESS ||
+        info.max_cpus < 1)
+        return 1;
+    return (int)info.max_cpus;
+#else
+    long nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+    return nprocs > 0 ? (int)nprocs : 1;
+#endif
+}
+
 EseThread ese_thread_create(EseThreadFn fn, void *ud) {
     if (!fn)
         return NULL;
@@ -242,6 +272,12 @@ static unsigned __stdcall win_thread_trampoline(void *argp) {
         free(arg->self);
     }
     return 0;
+}
+
+int ese_thread_get_cpu_cores(void) {
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return (int)sysinfo.dwNumberOfProcessors;
 }
 
 EseThread ese_thread_create(EseThreadFn fn, void *ud) {

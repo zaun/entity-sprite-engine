@@ -17,6 +17,7 @@
 
 typedef struct EseEngine EseEngine;
 typedef struct EseEntityComponent EseEntityComponent;
+typedef struct EseDrawList EseDrawList;
 
 /**
  * @brief Phase bucket for coarse scheduling of system execution.

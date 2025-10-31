@@ -90,21 +90,64 @@ typedef struct MemoryManager {
     size_t capacity;
 } MemoryManager;
 
+// Per-thread memory manager
 static MemoryManager *g_memory_manager = NULL;
 static EseMutex *g_mm_mutex = NULL;
+
+// Shared memory manager
+static EseMutex *g_shared_mutex = NULL;
+static MemoryManagerThread *g_shared_thread = NULL;
+
 static const char *mem_tag_names[MMTAG_COUNT] = {
-    "GENERAL         ", "ENGINE          ", "GUI             ", "GUI_STYLE       ",
-    "ASSET           ", "ENTITY          ", "COMP_LUA        ", "COMP_MAP        ",
-    "LUA             ", "LUA_VALUE       ", "LUA_SCRIPT      ", "RENDERER        ",
-    "SPRITE          ", "DRAWLIST        ", "RENDERLIST      ", "SHADER          ",
-    "WINDOW          ", "ARRAY           ", "HASHMAP         ", "GROUP_HASHMAP   ",
-    "LINKED_LIST     ", "LINKED_LIST_ITER", "CONSOLE         ", "ARC             ",
-    "CAMERA          ", "DISPLAY         ", "INPUT_STATE     ", "MAP_CELL        ",
-    "MAP             ", "POINT           ", "RAY             ", "RECT            ",
-    "TILESET         ", "UUID            ", "VECTOR          ", "AUDIO           ",
-    "COLLISION_INDEX ", "COLOR           ", "POLY_LINE       ", "PUB_SUB         ",
-    "THREAD          ", "HTTP            ", "REN_SYS_SHAPE   ", "SYS_SPRITE      ",
-    "REN_SYS_SPRITE  ", "TEMP            ",
+    "GENERAL         ",
+    "ENGINE          ",
+    "GUI             ",
+    "GUI_STYLE       ",
+    "ASSET           ",
+    "ENTITY          ",
+    "COMP_LUA        ",
+    "COMP_MAP        ",
+    "LUA             ",
+    "LUA_VALUE       ",
+    "LUA_SCRIPT      ",
+    "RENDERER        ",
+    "SPRITE          ",
+    "DRAWLIST        ",
+    "RENDERLIST      ",
+    "SHADER          ",
+    "WINDOW          ",
+    "ARRAY           ",
+    "HASHMAP         ",
+    "GROUP_HASHMAP   ",
+    "LINKED_LIST     ",
+    "LINKED_LIST_ITER",
+    "CONSOLE         ",
+    "ARC             ",
+    "CAMERA          ",
+    "DISPLAY         ",
+    "INPUT_STATE     ",
+    "MAP_CELL        ",
+    "MAP             ",
+    "POINT           ",
+    "RAY             ",
+    "RECT            ",
+    "TILESET         ",
+    "UUID            ",
+    "VECTOR          ",
+    "AUDIO           ",
+    "COLLISION_INDEX ",
+    "COLOR           ",
+    "POLY_LINE       ",
+    "PUB_SUB         ",
+    "THREAD          ",
+    "HTTP            ",
+    "REN_SYS_SHAPE   ",
+    "SYS_SPRITE      ",
+    "REN_SYS_SPRITE  ",
+    "REN_SYS_TEXT    ",
+    "REN_SYS_COLLIDER",
+    "REN_SYS_MAP     ",
+    "TEMP            ",
 };
 
 // ========================================
@@ -208,6 +251,8 @@ static inline size_t _hash_ptr(void *ptr) {
  * @param tag The memory tag
  */
 static void _track_alloc(MemoryManagerThread *thread, void *ptr, size_t size, MemTag tag) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
+
     size_t hash = _hash_ptr(ptr);
 
     AllocEntry *entry = (AllocEntry *)malloc(sizeof(AllocEntry));
@@ -349,19 +394,111 @@ static void _print_backtrace(AllocEntry *entry) {
 #endif
 
 /**
+ * @brief Generate and print a memory usage report.
+ *
+ * @param all_threads If true, report for all threads; otherwise just current
+ * thread
+ */
+ static void _mm_report(MemoryManagerThread *thread) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
+
+    ese_mutex_lock(g_mm_mutex);
+
+    if (thread->thread_number == -1) {
+        printf("\n=== Memory Usage Report (Shared Memory Manager) ===\n");
+    } else if (thread->thread_number == 0) {
+        printf("\n=== Memory Usage Report (Main Thread) ===\n");
+    } else {
+        printf("\n=== Memory Usage Report (Thread %d) ===\n", thread->thread_number);
+    }
+
+    printf("Current usage: %zu bytes\n", thread->global.current_usage);
+    printf("Max usage:     %zu bytes\n", thread->global.max_usage);
+    printf("Total allocs:  %zu\n", thread->global.total_allocs);
+    printf("Total frees:   %zu\n", thread->global.total_frees);
+    printf("Largest alloc: %zu bytes\n", thread->global.largest_alloc);
+    printf("Total allocated: %zu bytes\n", thread->global.total_bytes_alloced);
+
+    // Check for leaks
+    size_t leak_count = 0;
+    size_t leak_bytes = 0;
+    for (size_t i = 0; i < ALLOC_TABLE_SIZE; i++) {
+        AllocEntry *entry = thread->alloc_table[i];
+        while (entry) {
+            leak_count++;
+            leak_bytes += entry->size;
+            entry = entry->next;
+        }
+    }
+
+    if (leak_count > 0) {
+        printf("  WARNING: %zu memory leaks detected (%zu bytes leaked)!\n", leak_count,
+               leak_bytes);
+        printf("  Sample leaks:\n");
+        size_t shown = 0;
+#if MEMORY_TRACKING != 1
+        for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
+            AllocEntry *entry = thread->alloc_table[i];
+            while (entry && shown < 10) {
+                const char *tagname = (entry->tag >= 0 && entry->tag < MMTAG_COUNT)
+                                          ? mem_tag_names[entry->tag]
+                                          : "UNKNOWN";
+                printf("    %p: %zu bytes (%s)\n", entry->ptr, entry->size, tagname);
+                entry = entry->next;
+                shown++;
+            }
+        }
+#else
+        for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
+            AllocEntry *entry = thread->alloc_table[i];
+            while (entry && shown < 10) {
+                const char *tagname = (entry->tag >= 0 && entry->tag < MMTAG_COUNT)
+                                          ? mem_tag_names[entry->tag]
+                                          : "UNKNOWN";
+                printf("    %p: %zu bytes (%s)\n", entry->ptr, entry->size, tagname);
+                if (entry->bt_size > 0) {
+                    char **symbols = backtrace_symbols(entry->bt, entry->bt_size);
+                    if (symbols) {
+                        printf("      Backtrace (most recent first):\n");
+                        for (int bi = 0; bi < entry->bt_size; bi++) {
+                            printf("        %s\n", symbols[bi]);
+                        }
+                        free(symbols);
+                    }
+                }
+                entry = entry->next;
+                shown++;
+            }
+        }
+#endif
+        if (leak_count > 10) {
+            printf("    ... and %zu more leaks\n", leak_count - 10);
+        }
+    }
+
+    printf("\nPer-Tag:\n");
+    for (int i = 0; i < MMTAG_COUNT; ++i) {
+        const MemStats *s = &thread->tags[i];
+        if (s->total_allocs > 0) {
+            printf("  [%s] current=%zu, max=%zu, allocs=%zu, frees=%zu, "
+                   "largest=%zu, avg=%zu\n",
+                   mem_tag_names[i], s->current_usage, s->max_usage, s->total_allocs,
+                   s->total_frees, s->largest_alloc,
+                   s->total_allocs ? s->total_bytes_alloced / s->total_allocs : 0);
+        }
+    }
+
+    ese_mutex_unlock(g_mm_mutex);
+}
+
+/**
  * @brief Abort with a detailed memory manager report.
  *
  * @param thread The thread's memory manager
  * @param msg The abort message
  */
 static void _abort_with_report(MemoryManagerThread *thread, const char *msg) {
-    if (thread) {
-        fprintf(stderr, "\n=== Memory Manager Thread %d State ===\n", thread->thread_number);
-        fprintf(stderr, "Current usage: %zu bytes\n", thread->global.current_usage);
-        fprintf(stderr, "Max usage:     %zu bytes\n", thread->global.max_usage);
-        fprintf(stderr, "Total allocs:  %zu\n", thread->global.total_allocs);
-        fprintf(stderr, "Total frees:   %zu\n", thread->global.total_frees);
-    }
+    _mm_report(thread);
     fprintf(stderr, "\nFATAL: %s\n\n", msg);
 
     void *buffer[32];
@@ -378,130 +515,20 @@ static void _abort_with_report(MemoryManagerThread *thread, const char *msg) {
     abort();
 }
 
-/**
- * @brief Generate and print a memory usage report.
- *
- * @param all_threads If true, report for all threads; otherwise just current
- * thread
- */
-static void _mm_report(bool all_threads) {
-    MemoryManager *mm = g_memory_manager;
-    if (!mm) {
-        printf("=== Memory Usage Report ===\n");
-        printf("No memory manager initialized yet.\n");
-        return;
-    }
-
-    // Lock the memory manager
-    if (g_mm_mutex)
-        ese_mutex_lock(g_mm_mutex);
-
-    if (all_threads) {
-        printf("=== Memory Usage Report (All Threads) ===\n");
-        for (size_t i = 0; i < mm->capacity; ++i) {
-            MemoryManagerThread *t = mm->threads[i];
-            if (!t)
-                continue;
-            printf("Thread %d: current=%zu, max=%zu, allocs=%zu, frees=%zu, "
-                   "largest=%zu, avg=%zu\n",
-                   t->thread_number, t->global.current_usage, t->global.max_usage,
-                   t->global.total_allocs, t->global.total_frees, t->global.largest_alloc,
-                   t->global.total_allocs ? t->global.total_bytes_alloced / t->global.total_allocs
-                                          : 0);
-        }
-    } else {
-        MemoryManagerThread *thread = _get_thread_manager();
-        printf("=== Memory Usage Report (Current Thread %d) ===\n", thread->thread_number);
-        printf("Current usage: %zu bytes\n", thread->global.current_usage);
-        printf("Max usage:     %zu bytes\n", thread->global.max_usage);
-        printf("Total allocs:  %zu\n", thread->global.total_allocs);
-        printf("Total frees:   %zu\n", thread->global.total_frees);
-        printf("Largest alloc: %zu bytes\n", thread->global.largest_alloc);
-        printf("Total allocated: %zu bytes\n", thread->global.total_bytes_alloced);
-
-        size_t leak_count = 0;
-        size_t leak_bytes = 0;
-        for (size_t i = 0; i < ALLOC_TABLE_SIZE; i++) {
-            AllocEntry *entry = thread->alloc_table[i];
-            while (entry) {
-                leak_count++;
-                leak_bytes += entry->size;
-                entry = entry->next;
-            }
-        }
-
-        if (leak_count > 0) {
-            printf("  WARNING: %zu memory leaks detected (%zu bytes leaked)!\n", leak_count,
-                   leak_bytes);
-            printf("  Sample leaks:\n");
-            size_t shown = 0;
-#if MEMORY_TRACKING != 1
-            for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
-                AllocEntry *entry = thread->alloc_table[i];
-                while (entry && shown < 10) {
-                    const char *tagname = (entry->tag >= 0 && entry->tag < MMTAG_COUNT)
-                                              ? mem_tag_names[entry->tag]
-                                              : "UNKNOWN";
-                    printf("    %p: %zu bytes (%s)\n", entry->ptr, entry->size, tagname);
-                    entry = entry->next;
-                    shown++;
-                }
-            }
-#else
-            for (size_t i = 0; i < ALLOC_TABLE_SIZE && shown < 10; i++) {
-                AllocEntry *entry = thread->alloc_table[i];
-                while (entry && shown < 10) {
-                    const char *tagname = (entry->tag >= 0 && entry->tag < MMTAG_COUNT)
-                                              ? mem_tag_names[entry->tag]
-                                              : "UNKNOWN";
-                    printf("    %p: %zu bytes (%s)\n", entry->ptr, entry->size, tagname);
-                    if (entry->bt_size > 0) {
-                        char **symbols = backtrace_symbols(entry->bt, entry->bt_size);
-                        if (symbols) {
-                            printf("      Backtrace (most recent first):\n");
-                            for (int bi = 0; bi < entry->bt_size; bi++) {
-                                printf("        %s\n", symbols[bi]);
-                            }
-                            free(symbols);
-                        }
-                    }
-                    entry = entry->next;
-                    shown++;
-                }
-            }
-#endif
-            if (leak_count > 10) {
-                printf("    ... and %zu more leaks\n", leak_count - 10);
-            }
-        }
-
-        printf("\nPer-Tag:\n");
-        for (int i = 0; i < MMTAG_COUNT; ++i) {
-            const MemStats *s = &thread->tags[i];
-            if (s->total_allocs > 0) {
-                printf("  [%s] current=%zu, max=%zu, allocs=%zu, frees=%zu, "
-                       "largest=%zu, avg=%zu\n",
-                       mem_tag_names[i], s->current_usage, s->max_usage, s->total_allocs,
-                       s->total_frees, s->largest_alloc,
-                       s->total_allocs ? s->total_bytes_alloced / s->total_allocs : 0);
-            }
-        }
-    }
-
-    // Unlock the memory manager
-    if (g_mm_mutex)
-        ese_mutex_unlock(g_mm_mutex);
-}
+// ========================================
+// MEMORY MANAGER FUNCTIONS
+// ========================================
 
 /**
  * @brief Allocate memory with tracking.
  *
+ * @param thread The thread's memory manager
  * @param size The size to allocate
  * @param tag The memory tag
  * @return void* The allocated pointer
  */
-static void *_mm_malloc(size_t size, MemTag tag) {
-    MemoryManagerThread *thread = _get_thread_manager();
+static void *_mm_malloc(MemoryManagerThread *thread, size_t size, MemTag tag) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
 
     size_t aligned_size = _align_up(size, 16);
     void *ptr = aligned_alloc(16, aligned_size);
@@ -545,19 +572,21 @@ static void *_mm_malloc(size_t size, MemTag tag) {
 /**
  * @brief Allocate and zero-initialize memory with tracking.
  *
+ * @param thread The thread's memory manager
  * @param count Number of elements
  * @param size Size of each element
  * @param tag The memory tag
  * @return void* The allocated and zeroed pointer
  */
-static void *_mm_calloc(size_t count, size_t size, MemTag tag) {
+static void *_mm_calloc(MemoryManagerThread *thread, size_t count, size_t size, MemTag tag) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
+
     if (size != 0 && count > SIZE_MAX / size) {
-        MemoryManagerThread *thread = _get_thread_manager();
         _abort_with_report(thread, "Invalid calloc parameters");
         return NULL;
     }
     size_t total_size = count * size;
-    void *ptr = _mm_malloc(total_size, tag);
+    void *ptr = _mm_malloc(thread, total_size, tag);
     if (ptr) {
         memset(ptr, 0, total_size);
     }
@@ -567,15 +596,17 @@ static void *_mm_calloc(size_t count, size_t size, MemTag tag) {
 /**
  * @brief Free allocated memory with tracking.
  *
+ * @param thread The thread's memory manager
  * @param ptr The pointer to free
  */
-static void _mm_free(void *ptr) {
+static void _mm_free(MemoryManagerThread *thread, void *ptr) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
+
     if (!ptr)
         return;
 
     log_verbose("MEMORY_MANAGER", "FREE: freeing ptr=%p", ptr);
 
-    MemoryManagerThread *thread = _get_thread_manager();
     AllocEntry *entry = NULL;
 
 #if MEMORY_TRACKING == 1 && MEMORY_TRACK_FREE == 1
@@ -644,16 +675,17 @@ static void _mm_free(void *ptr) {
 /**
  * @brief Reallocate memory with tracking.
  *
+ * @param thread The thread's memory manager
  * @param ptr The existing pointer
  * @param size The new size
  * @param tag The memory tag
  * @return void* The reallocated pointer
  */
-static void *_mm_realloc(void *ptr, size_t size, MemTag tag) {
-    if (!ptr)
-        return _mm_malloc(size, tag);
+static void *_mm_realloc(MemoryManagerThread *thread, void *ptr, size_t size, MemTag tag) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
 
-    MemoryManagerThread *thread = _get_thread_manager();
+    if (!ptr)
+        return _mm_malloc(thread, size, tag);
 
     size_t hash = _hash_ptr(ptr);
     AllocEntry *entry = thread->alloc_table[hash];
@@ -667,28 +699,31 @@ static void *_mm_realloc(void *ptr, size_t size, MemTag tag) {
         entry = entry->next;
     }
 
-    void *new_ptr = _mm_malloc(size, tag);
+    void *new_ptr = _mm_malloc(thread, size, tag);
     size_t copy_size = (old_size > 0 && old_size < size) ? old_size : size;
     if (old_size > 0) {
         memcpy(new_ptr, ptr, copy_size);
     }
 
-    _mm_free(ptr);
+    _mm_free(thread, ptr);
     return new_ptr;
 }
 
 /**
  * @brief Duplicate a string with tracking.
  *
+ * @param thread The thread's memory manager
  * @param str The string to duplicate
  * @param tag The memory tag
  * @return char* The duplicated string
  */
-static char *_mm_strdup(const char *str, MemTag tag) {
+static char *_mm_strdup(MemoryManagerThread *thread, const char *str, MemTag tag) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
+
     if (!str)
         return NULL;
     size_t len = strlen(str) + 1;
-    char *copy = (char *)_mm_malloc(len, tag);
+    char *copy = (char *)_mm_malloc(thread, len, tag);
     memcpy(copy, str, len);
     return copy;
 }
@@ -699,110 +734,257 @@ static char *_mm_strdup(const char *str, MemTag tag) {
  * @param all_threads If true, destroy all threads; otherwise just current
  * thread
  */
-static void _mm_destroy(bool all_threads) {
-    /* If manager never created, nothing to do. */
-    if (!g_memory_manager)
-        return;
+static void _mm_destroy(MemoryManagerThread *thread) {
+    log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
 
-    /* Serialize all destroy operations to avoid concurrent frees. */
-    if (g_mm_mutex)
-        ese_mutex_lock(g_mm_mutex);
-
-    /* Re-check under lock in case another thread freed it. */
-    if (!g_memory_manager) {
-        if (g_mm_mutex)
-            ese_mutex_unlock(g_mm_mutex);
-        return;
-    }
-
-    if (all_threads) {
-        log_verbose("MEMORY_MANAGER", "Destroyed all threads' memory managers");
-        for (size_t i = 0; i < g_memory_manager->capacity; ++i) {
-            MemoryManagerThread *t = g_memory_manager->threads[i];
-            if (!t)
-                continue;
-            for (size_t j = 0; j < ALLOC_TABLE_SIZE; j++) {
-                AllocEntry *e = t->alloc_table[j];
-                while (e) {
-                    AllocEntry *n = e->next;
-                    free(e);
-                    e = n;
-                }
-#if MEMORY_TRACK_FREE == 1
-                AllocEntry *fe = t->freed_table[j];
-                while (fe) {
-                    AllocEntry *nf = fe->next;
-                    free(fe);
-                    fe = nf;
-                }
-#endif
-            }
-            free(t);
-            g_memory_manager->threads[i] = NULL;
-        }
-        free(g_memory_manager->threads);
-        g_memory_manager->threads = NULL;
-        g_memory_manager->capacity = 0;
+    if (thread->thread_number == -1) {
+        log_debug("MEMORY_MANAGER", "Destroyed shared memory manager");
+    } else if (thread->thread_number == 0) {
+        log_debug("MEMORY_MANAGER", "Destroyed main thread");
     } else {
-        int tid = ese_thread_get_number();
-        if ((size_t)tid < g_memory_manager->capacity) {
-            MemoryManagerThread *t = g_memory_manager->threads[tid];
-            if (t) {
-                log_verbose("MEMORY_MANAGER", "Destroyed thread %d's memory manager",
-                            t->thread_number);
-                for (size_t j = 0; j < ALLOC_TABLE_SIZE; j++) {
-                    AllocEntry *e = t->alloc_table[j];
-                    while (e) {
-                        AllocEntry *n = e->next;
-                        free(e);
-                        e = n;
-                    }
+        log_debug("MEMORY_MANAGER", "Destroyed thread %d's memory manager", thread->thread_number);
+    }
+
+    for (size_t j = 0; j < ALLOC_TABLE_SIZE; j++) {
+        AllocEntry *e = thread->alloc_table[j];
+        while (e) {
+            AllocEntry *n = e->next;
+            free(e);
+            e = n;
+        }
 #if MEMORY_TRACK_FREE == 1
-                    AllocEntry *fe = t->freed_table[j];
-                    while (fe) {
-                        AllocEntry *nf = fe->next;
-                        free(fe);
-                        fe = nf;
-                    }
+        AllocEntry *fe = thread->freed_table[j];
+        while (fe) {
+            AllocEntry *nf = fe->next;
+            free(fe);
+            fe = nf;
+        }
 #endif
-                }
-                free(t);
-                g_memory_manager->threads[tid] = NULL;
-            }
+    }
+
+    free(thread);
+}
+
+// ========================================
+// SHARED MEMORY MANAGER FUNCTIONS
+// ========================================
+
+/**
+ * @brief Initialize the shared memory manager.
+ *
+ * @return void
+ */
+static void _init_shared_manager(void) {
+    if (!g_shared_thread) {
+        g_shared_thread = (MemoryManagerThread *)calloc(1, sizeof(MemoryManagerThread));
+        if (!g_shared_thread) {
+            fprintf(stderr, "FATAL: Out of memory (shared manager)\n");
+            abort();
+        }
+        g_shared_thread->thread_number = -1;
+    }
+    if (!g_shared_mutex) {
+        g_shared_mutex = ese_mutex_create();
+        if (!g_shared_mutex) {
+            fprintf(stderr, "FATAL: Failed to create shared allocator mutex\n");
+            abort();
+        }
+    }
+}
+
+/**
+ * @brief Allocate memory from the shared memory manager.
+ *
+ * @param size The size to allocate
+ * @param tag The memory tag
+ * @return void* The allocated pointer
+ */
+static void *_mm_malloc_shared(size_t size, MemTag tag) {
+    _init_shared_manager();
+
+    ese_mutex_lock(g_shared_mutex);
+    void *ptr = _mm_malloc(g_shared_thread, size, tag);
+    ese_mutex_unlock(g_shared_mutex);
+
+    return ptr;
+}
+
+/**
+ * @brief Allocate and zero-initialize memory from the shared memory manager.
+ *
+ * @param count Number of elements
+ * @param size Size of each element
+ * @param tag The memory tag
+ * @return void* The allocated and zeroed pointer
+ */
+static void *_mm_calloc_shared(size_t count, size_t size, MemTag tag) {
+    _init_shared_manager();
+
+    ese_mutex_lock(g_shared_mutex);
+    void *ptr = _mm_calloc(g_shared_thread, count, size, tag);
+    ese_mutex_unlock(g_shared_mutex);
+
+    return ptr;
+}
+
+/**
+ * @brief Reallocate memory from the shared memory manager.
+ *
+ * @param ptr The existing pointer
+ * @param size The new size
+ * @param tag The memory tag
+ * @return void* The reallocated pointer
+ */
+static void *_mm_realloc_shared(void *ptr, size_t size, MemTag tag) {
+    _init_shared_manager();
+
+    ese_mutex_lock(g_shared_mutex);
+    void *new_ptr = _mm_realloc(g_shared_thread, ptr, size, tag);
+    ese_mutex_unlock(g_shared_mutex);
+
+    return new_ptr;
+}
+
+/**
+ * @brief Free memory from the shared memory manager.
+ *
+ * @param ptr The pointer to free
+ */
+static void _mm_free_shared(void *ptr) {
+    _init_shared_manager();
+
+    log_debug("MEMORY_MANAGER", "FREE_SHARED: freeing ptr=%p", ptr);
+    ese_mutex_lock(g_shared_mutex);
+    _mm_free(g_shared_thread, ptr);
+    ese_mutex_unlock(g_shared_mutex);
+}
+
+static char *_mm_strdup_shared(const char *str, MemTag tag) {
+    _init_shared_manager();
+
+    ese_mutex_lock(g_shared_mutex);
+    char *ptr = _mm_strdup(g_shared_thread, str, tag);
+    ese_mutex_unlock(g_shared_mutex);
+    return ptr;
+}
+
+
+
+// ========================================
+// WRAPPER FUNCTIONS
+// ========================================
+
+static void *_mm_malloc_wrapper(size_t size, MemTag tag) {
+    MemoryManagerThread *thread = _get_thread_manager();
+    return _mm_malloc(thread, size, tag);
+}
+
+static void *_mm_calloc_wrapper(size_t count, size_t size, MemTag tag) {
+    MemoryManagerThread *thread = _get_thread_manager();
+    return _mm_calloc(thread, count, size, tag);
+}
+
+static void *_mm_realloc_wrapper(void *ptr, size_t size, MemTag tag) {
+    MemoryManagerThread *thread = _get_thread_manager();
+    return _mm_realloc(thread, ptr, size, tag);
+}
+
+static void _mm_free_wrapper(void *ptr) {
+    MemoryManagerThread *thread = _get_thread_manager();
+    _mm_free(thread, ptr);
+}
+
+static char *_mm_strdup_wrapper(const char *str, MemTag tag) {
+    MemoryManagerThread *thread = _get_thread_manager();
+    return _mm_strdup(thread, str, tag);
+}
+
+static void _mm_destroy_wrapper(bool all_threads) {
+    if (!all_threads) {
+        int tid = ese_thread_get_number();
+        MemoryManagerThread *thread = g_memory_manager->threads[tid];
+        if (thread) {
+            _mm_report(thread);
+            ese_mutex_lock(g_mm_mutex);
+            _mm_destroy(thread);
+            g_memory_manager->threads[tid] = NULL;
+            ese_mutex_unlock(g_mm_mutex);
+        }
+        return;
+    }
+
+    // Destroy all threads
+    log_debug("MEMORY_MANAGER", "Destroying all threads");
+    for (size_t i = 0; i < g_memory_manager->capacity; i++) {
+        MemoryManagerThread *thread = g_memory_manager->threads[i];
+        if (thread) {
+            _mm_report(thread);
+            ese_mutex_lock(g_mm_mutex);
+            _mm_destroy(thread);
+            g_memory_manager->threads[i] = NULL;
+            ese_mutex_unlock(g_mm_mutex);
         }
     }
 
-    /* If nothing left, free the container. */
-    bool any_left = false;
-    if (g_memory_manager) {
-        for (size_t i = 0; i < g_memory_manager->capacity; ++i) {
-            if (g_memory_manager->threads && g_memory_manager->threads[i]) {
-                any_left = true;
-                break;
-            }
-        }
-        if (!any_left) {
-            free(g_memory_manager->threads);
-            g_memory_manager->threads = NULL;
-            free(g_memory_manager);
-            g_memory_manager = NULL;
-            /* Intentionally leave g_mm_mutex alive; it may be used by
-               late logging or other shutdown paths. */
+    // Destroy the shared memory manager
+    if (g_shared_thread) {
+        log_debug("MEMORY_MANAGER", "Destroying shared memory manager");
+        ese_mutex_lock(g_shared_mutex);
+        _mm_destroy(g_shared_thread);
+        ese_mutex_unlock(g_shared_mutex);
+        ese_mutex_destroy(g_shared_mutex);
+        g_shared_mutex = NULL;
+        g_shared_thread = NULL;
+    }
+
+    // Destroy the memory manager
+    log_debug("MEMORY_MANAGER", "Destroying memory manager");
+    free(g_memory_manager->threads);
+    g_memory_manager->threads = NULL;
+    free(g_memory_manager);
+    g_memory_manager = NULL;
+}
+
+static void _mm_report_wrapper(bool all_threads) {
+    if (!all_threads) {
+        int tid = ese_thread_get_number();
+        log_verbose("MEMORY_MANAGER", "Reporting current thread %d", tid);
+        MemoryManagerThread *thread = g_memory_manager->threads[tid];
+        _mm_report(thread);
+        return;
+    }
+
+    // Report all threads
+    for (size_t i = 0; i < g_memory_manager->capacity; i++) {
+        MemoryManagerThread *thread = g_memory_manager->threads[i];
+        if (thread) {
+            _mm_report(thread);
         }
     }
 
-    if (g_mm_mutex)
-        ese_mutex_unlock(g_mm_mutex);
+    // Report the shared memory manager
+    log_verbose("MEMORY_MANAGER", "Reporting shared memory manager");
+    _mm_report(g_shared_thread);
 }
 
 // ========================================
 // PUBLIC FUNCTIONS
 // ========================================
 
-const struct memory_manager_api memory_manager = {.malloc = _mm_malloc,
-                                                  .calloc = _mm_calloc,
-                                                  .realloc = _mm_realloc,
-                                                  .free = _mm_free,
-                                                  .strdup = _mm_strdup,
-                                                  .report = _mm_report,
-                                                  .destroy = _mm_destroy};
+const struct memory_manager_api memory_manager = {
+    .malloc = _mm_malloc_wrapper,
+    .calloc = _mm_calloc_wrapper,
+    .realloc = _mm_realloc_wrapper,
+    .free = _mm_free_wrapper,
+    .strdup = _mm_strdup_wrapper,
+    .report = _mm_report_wrapper,
+    .destroy = _mm_destroy_wrapper,
+
+    .shared = {
+        .malloc = _mm_malloc_shared,
+        .calloc = _mm_calloc_shared,
+        .realloc = _mm_realloc_shared,
+        .free = _mm_free_shared,
+        .strdup = _mm_strdup_shared,
+    }
+};

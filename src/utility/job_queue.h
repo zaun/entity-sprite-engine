@@ -86,7 +86,7 @@ typedef void (*worker_deinit_function)(ese_worker_id_t worker_id, void *thread_d
  * @typedef JobResult
  * @brief Type for a job result.
  */
-typedef struct {
+typedef struct JobResult {
     void *result;                     /** Worker thread result */
     size_t size;                      /** Result size in bytes */
     job_result_copy_function copy_fn; /** Optional deep-copy function */

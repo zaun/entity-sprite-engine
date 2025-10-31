@@ -180,13 +180,13 @@ static void sprite_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
 /**
  * @brief Virtual table for the sprite system.
  */
-static const EseSystemManagerVTable SpriteSystemVTable = {.init = sprite_sys_init,
-                                                          .update = sprite_sys_update,
-                                                          .accepts = sprite_sys_accepts,
-                                                          .on_component_added = sprite_sys_on_add,
-                                                          .on_component_removed =
-                                                              sprite_sys_on_remove,
-                                                          .shutdown = sprite_sys_shutdown};
+static const EseSystemManagerVTable SpriteSystemVTable = {
+    .init = sprite_sys_init,
+    .update = sprite_sys_update,
+    .accepts = sprite_sys_accepts,
+    .on_component_added = sprite_sys_on_add,
+    .on_component_removed = sprite_sys_on_remove,
+    .shutdown = sprite_sys_shutdown};
 
 // ========================================
 // PUBLIC FUNCTIONS

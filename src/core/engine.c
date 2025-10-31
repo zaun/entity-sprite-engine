@@ -67,8 +67,10 @@ EseEngine *engine_create(const char *startup_script) {
 
     engine->lua_engine = lua_engine_create();
 
-    // Create job queue with 4 workers by default (no per-worker init/deinit)
-    engine->job_queue = ese_job_queue_create(4, NULL, NULL);
+    // Create job queue with 8 workers by default (no per-worker init/deinit)
+    int cpu_cores = ese_thread_get_cpu_cores(); 
+    int num_workers = cpu_cores > 8 ? 8 : cpu_cores;
+    engine->job_queue = ese_job_queue_create(num_workers, NULL, NULL);
 
     // Initialize GUI Lua functions after GUI is created
     engine->gui = ese_gui_create(engine->lua_engine);
@@ -153,18 +155,38 @@ EseEngine *engine_create(const char *startup_script) {
 void engine_destroy(EseEngine *engine) {
     log_assert("ENGINE", engine, "engine_destroy called with NULL engine");
 
+    // Stop all threads 1st
+    if (engine->job_queue) {
+        log_verbose("ENGINE", "Destroying job queue");
+        ese_job_queue_destroy(engine->job_queue);
+    }
+
+    if (engine->pub_sub) {
+        log_verbose("ENGINE", "Destroying pubsub");
+        ese_pubsub_destroy(engine->pub_sub);
+    }
+
     // Destroy all systems first (they may reference entities)
     if (engine->systems) {
+        log_verbose("ENGINE", "Destroying systems");
         for (size_t i = 0; i < engine->sys_count; i++) {
             system_manager_destroy(engine->systems[i], engine);
         }
         memory_manager.free(engine->systems);
     }
 
+    log_verbose("ENGINE", "Destroying GUI");
     ese_gui_destroy(engine->gui);
+
+    log_verbose("ENGINE", "Destroying draw list");
     draw_list_destroy(engine->draw_list);
+
+    log_verbose("ENGINE", "Destroying render list a");
     render_list_destroy(engine->render_list_a);
+
+    log_verbose("ENGINE", "Destroying render list b");
     render_list_destroy(engine->render_list_b);
+
 
     // Now free the entirty lists
     void *v;
@@ -182,13 +204,6 @@ void engine_destroy(EseEngine *engine) {
     }
     ese_input_state_destroy(engine->input_state);
 
-    if (engine->pub_sub) {
-        ese_pubsub_destroy(engine->pub_sub);
-    }
-    if (engine->job_queue) {
-        ese_job_queue_destroy(engine->job_queue);
-    }
-
     ese_display_destroy(engine->display_state);
     ese_camera_destroy(engine->camera_state);
     console_destroy(engine->console);
@@ -205,6 +220,7 @@ void engine_destroy(EseEngine *engine) {
     lua_engine_remove_registry_key(engine->lua_engine->runtime, LUA_ENGINE_KEY);
     lua_engine_destroy(engine->lua_engine);
 
+    log_verbose("ENGINE", "Destroying engine");
     memory_manager.free(engine);
 }
 
