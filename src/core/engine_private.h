@@ -16,7 +16,7 @@
 #include "core/console.h"
 #include "core/engine.h"
 #include "core/pubsub.h"
-#include "core/spatial_index.h"
+#include "utility/spatial_index.h"
 #include "entity/entity.h"
 #include "graphics/gui/gui.h"
 #include "scripting/lua_engine.h"

@@ -231,12 +231,12 @@
 #include "entity/components/entity_component_map.h"
 #include "entity/entity.h"
 #include "entity/entity_private.h"
-#include "spatial_index.h"
 #include "types/rect.h"
 #include "utility/array.h"
 #include "utility/hashmap.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "utility/spatial_index.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>

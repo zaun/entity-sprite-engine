@@ -5,7 +5,6 @@
 #include "core/engine_private.h"
 #include "core/memory_manager.h"
 #include "core/pubsub.h"
-#include "core/spatial_index.h"
 #include "core/system_manager.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
@@ -35,6 +34,7 @@
 #include "utility/job_queue.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "utility/spatial_index.h"
 #include "vendor/lua/src/lauxlib.h"
 #include <limits.h>
 #include <stdbool.h>
