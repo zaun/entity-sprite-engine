@@ -27,7 +27,10 @@ static void _lua_vtable_destroy(EseEntityComponent *component) {
 }
 
 static void _lua_vtable_update(EseEntityComponent *component, EseEntity *entity, float delta_time) {
-    _entity_component_lua_update((EseEntityComponentLua *)component->data, entity, delta_time);
+	(void)component;
+	(void)entity;
+	(void)delta_time;
+	// Lua updates are handled by lua_system in SYS_PHASE_LUA
 }
 
 static void _lua_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,

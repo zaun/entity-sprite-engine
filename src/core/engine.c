@@ -18,6 +18,7 @@
 #include "entity/systems/sprite_render_system.h"
 #include "entity/systems/sprite_system.h"
 #include "entity/systems/text_render_system.h"
+#include "entity/systems/lua_system.h"
 #include "graphics/font.h"
 #include "graphics/gui/gui.h"
 #include "graphics/gui/gui_lua.h"
@@ -134,6 +135,7 @@ EseEngine *engine_create(const char *startup_script) {
 
     // Register systems
     engine_register_sprite_system(engine);
+    engine_register_lua_system(engine);
     engine_register_sprite_render_system(engine);
     engine_register_shape_render_system(engine);
     engine_register_text_render_system(engine);
