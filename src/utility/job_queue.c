@@ -121,7 +121,7 @@ static void _free_job_value(void *value) {
  * @param worker_id Target worker ID or ESE_WORKER_ANY
  * @param fn Job function to execute
  * @param callback Optional callback function
- * @param cleanup Cleanup function
+ * @param cleanup Optional Cleanup function
  * @param user_data User data to pass to job
  * @return EseJob* Created job or NULL on failure
  */
@@ -130,7 +130,6 @@ static EseJob *_create_job(EseJobQueue *q, ese_worker_id_t worker_id, worker_thr
                            void *user_data) {
     log_assert("JOBQ", q, "_create_job null q");
     log_assert("JOBQ", fn, "_create_job null fn");
-    log_assert("JOBQ", cleanup, "_create_job null cleanup");
 
     EseJob *job = memory_manager.calloc(1, sizeof(EseJob), MMTAG_THREAD);
     job->id = q->next_job_id++;
@@ -381,7 +380,7 @@ ese_job_id_t ese_job_queue_push(EseJobQueue *q, worker_thread_job_function fn,
  * @param fn Required function to execute on worker thread
  * @param callback Optional callback to execute on main thread when job
  * completes
- * @param cleanup Required cleanup function to execute on main thread when job
+ * @param cleanup Optional cleanup function to execute on main thread when job
  * destroyed
  * @param user_data User data to pass to the job function
  * @return ese_job_id_t Job ID or ESE_JOB_NOT_QUEUED on failure
@@ -392,7 +391,6 @@ ese_job_id_t ese_job_queue_push_on_worker(EseJobQueue *q, ese_worker_id_t worker
                                           main_thread_job_cleanup cleanup, void *user_data) {
     log_assert("JOBQ", q, "push_on_worker null q");
     log_assert("JOBQ", fn, "push_on_worker null fn");
-    log_assert("JOBQ", cleanup, "push_on_worker null cleanup");
 
     if (!(worker_id == ESE_WORKER_ANY || worker_id < q->num_workers)) {
         return ESE_JOB_NOT_QUEUED;

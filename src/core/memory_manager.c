@@ -117,6 +117,7 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "SHADER          ",
     "WINDOW          ",
     "ARRAY           ",
+    "SHARED_ARRAY    ",
     "HASHMAP         ",
     "GROUP_HASHMAP   ",
     "LINKED_LIST     ",
@@ -665,7 +666,11 @@ static void _mm_free(MemoryManagerThread *thread, void *ptr) {
     } else {
         fprintf(stderr, "\n=== FREE OF UNTRACKED POINTER ===\n");
         fprintf(stderr, "Pointer: %p\n", ptr);
-        _abort_with_report(thread, "Free of untracked pointer");
+        
+#if MEMORY_TRACKING != 1
+        _print_backtrace(entry);
+#endif
+        abort();
     }
 
     free(ptr);

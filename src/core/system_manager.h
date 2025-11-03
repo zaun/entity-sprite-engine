@@ -54,7 +54,23 @@ typedef struct EseSystemManagerVTable {
     void (*init)(EseSystemManager *self, EseEngine *eng);
 
     /**
-     * @brief Called every frame to update the system.
+     * @brief Called on main thread before the system is run.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     */
+    void (*setup)(EseSystemManager *self, EseEngine *eng);
+
+    /**
+     * @brief Called on main thread after the system is run.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     */
+    void (*teardown)(EseSystemManager *self, EseEngine *eng);
+
+    /**
+     * @brief Called every frame to update the system in the worker thread.
      *
      * @param self Pointer to the system instance.
      * @param eng Pointer to the engine.

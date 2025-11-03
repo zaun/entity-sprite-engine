@@ -147,10 +147,10 @@
  *
  * Previous | Current | State Transition | Hit Generated
  * ---------|---------|------------------|---------------
- * None     | None    | NONE            | No
- * None     | Collide | ENTER           | Yes (detailed)
- * Collide  | Collide | STAY            | Yes (detailed)
- * Collide  | None    | LEAVE           | Yes (minimal)
+ * None     | None    | NONE             | No
+ * None     | Collide | ENTER            | Yes (detailed)
+ * Collide  | Collide | STAY             | Yes (detailed)
+ * Collide  | None    | LEAVE            | Yes (minimal)
  *
  * PERFORMANCE CHARACTERISTICS
  * ===========================

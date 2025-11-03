@@ -121,6 +121,8 @@ static void lua_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
 
 static const EseSystemManagerVTable LuaSystemVTable = {
 	.init = lua_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
 	.update = lua_sys_update,
 	.accepts = lua_sys_accepts,
 	.on_component_added = lua_sys_on_add,

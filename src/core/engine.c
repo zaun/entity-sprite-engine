@@ -1,5 +1,6 @@
 #include "core/engine.h"
 #include "core/collision_resolver.h"
+#include "core/collision_system.h"
 #include "core/console.h"
 #include "core/engine_lua.h"
 #include "core/engine_private.h"
@@ -64,6 +65,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine->sys_cap = 0;
 
     engine->spatial_index = spatial_index_create();
+    engine->collision_hits = NULL;
     engine->collision_resolver = collision_resolver_create();
 
     engine->lua_engine = lua_engine_create();
@@ -134,6 +136,7 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_global_lock(engine->lua_engine);
 
     // Register systems
+    engine_register_collision_system(engine, 4);
     engine_register_sprite_system(engine);
     engine_register_lua_system(engine);
     engine_register_sprite_render_system(engine);
@@ -175,6 +178,11 @@ void engine_destroy(EseEngine *engine) {
             system_manager_destroy(engine->systems[i], engine);
         }
         memory_manager.free(engine->systems);
+    }
+
+    if (engine->collision_hits) {
+        log_verbose("ENGINE", "Destroying collision hits");
+        array_destroy(engine->collision_hits);
     }
 
     log_verbose("ENGINE", "Destroying GUI");
@@ -349,138 +357,138 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         return;
     }
 
-    // Run ECS Systems in phases
+    // Run early phase systems (before Lua)
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    engine_run_phase(engine, SYS_PHASE_EARLY, delta_time,
-                     true); // Parallel systems before Lua
+    engine_run_phase(engine, SYS_PHASE_EARLY, delta_time, true);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_early");
 
     // Entity PASS ONE - Update each active entity.
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
 
-    int entity_count = 0;
+    // int entity_count = 0;
 
-    void *value;
-    EseDListIter *entity_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(entity_iter, &value)) {
-        EseEntity *entity = (EseEntity *)value;
+    // void *value;
+    // EseDListIter *entity_iter = dlist_iter_create(engine->entities);
+    // while (dlist_iter_next(entity_iter, &value)) {
+    //     EseEntity *entity = (EseEntity *)value;
 
-        // Skip inactive entities
-        if (!entity->active) {
-            continue;
-        }
+    //     // Skip inactive entities
+    //     if (!entity->active) {
+    //         continue;
+    //     }
 
-        entity_count++;
+    //     entity_count++;
 
-        // Update components
-        for (size_t i = 0; i < entity->component_count; i++) {
-            if (!entity->components[i]->active) {
-                continue;
-            }
+    //     // Update components
+    //     for (size_t i = 0; i < entity->component_count; i++) {
+    //         if (!entity->components[i]->active) {
+    //             continue;
+    //         }
 
-            entity_component_update(entity->components[i], entity, delta_time);
-        }
-    }
-    dlist_iter_free(entity_iter);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_update");
+    //         entity_component_update(entity->components[i], entity, delta_time);
+    //     }
+    // }
+    // dlist_iter_free(entity_iter);
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_update");
 
-    // Run LUA phase systems (single-threaded for Lua scripts)
+    // Run LUA phase systems (not-parallel, single-threaded for Lua scripts)
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_LUA, delta_time, false);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_lua");
 
     // Entity PASS TWO - Check for collisions
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
 
     // Clear collision states for all entities at the beginning of each frame
     // This swaps current and previous collision states
-    void *clear_value;
-    EseDListIter *clear_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(clear_iter, &clear_value)) {
-        EseEntity *entity = (EseEntity *)clear_value;
-        if (!entity->active)
-            continue;
-    }
-    dlist_iter_free(clear_iter);
+    // void *clear_value;
+    // EseDListIter *clear_iter = dlist_iter_create(engine->entities);
+    // while (dlist_iter_next(clear_iter, &clear_value)) {
+    //     EseEntity *entity = (EseEntity *)clear_value;
+    //     if (!entity->active)
+    //         continue;
+    // }
+    // dlist_iter_free(clear_iter);
 
     // Entity PASS TWO Step 1: Collect spatial pairs using spatial index
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    spatial_index_clear(engine->spatial_index);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_clear");
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // spatial_index_clear(engine->spatial_index);
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_clear");
 
     // Insert active entities
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    void *entity_value;
-    EseDListIter *insert_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(insert_iter, &entity_value)) {
-        EseEntity *entity = (EseEntity *)entity_value;
-        if (!entity->active)
-            continue;
-        spatial_index_insert(engine->spatial_index, entity);
-    }
-    dlist_iter_free(insert_iter);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_insert");
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // void *entity_value;
+    // EseDListIter *insert_iter = dlist_iter_create(engine->entities);
+    // while (dlist_iter_next(insert_iter, &entity_value)) {
+    //     EseEntity *entity = (EseEntity *)entity_value;
+    //     if (!entity->active)
+    //         continue;
+    //     spatial_index_insert(engine->spatial_index, entity);
+    // }
+    // dlist_iter_free(insert_iter);
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_insert");
 
-    // Get spatial pairs from the spatial index (array is cleared internally)
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    EseArray *spatial_pairs = spatial_index_get_pairs(engine->spatial_index);
-    size_t spatial_pair_count = array_size(spatial_pairs);
-    for (size_t spi = 0; spi < spatial_pair_count; spi++) {
-        profile_count_add("eng_collision_spatial_pairs_count");
-    }
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_get_pairs");
+    // // Get spatial pairs from the spatial index (array is cleared internally)
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // EseArray *spatial_pairs = spatial_index_get_pairs(engine->spatial_index);
+    // size_t spatial_pair_count = array_size(spatial_pairs);
+    // for (size_t spi = 0; spi < spatial_pair_count; spi++) {
+    //     profile_count_add("eng_collision_spatial_pairs_count");
+    // }
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_spatial_get_pairs");
 
     // Resolve pairs into detailed collision hits
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    EseArray *collision_hits =
-        collision_resolver_solve(engine->collision_resolver, spatial_pairs, engine->lua_engine);
-    size_t resolved_hit_count = array_size(collision_hits);
-    for (size_t rhi = 0; rhi < resolved_hit_count; rhi++) {
-        profile_count_add("eng_collision_hits_count");
-    }
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_resolver_solve");
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_detect");
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // size_t resolved_hit_count = array_size(engine->collision_hits);
+    // for (size_t rhi = 0; rhi < resolved_hit_count; rhi++) {
+    //     profile_count_add("eng_collision_hits_count");
+    // }
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_collision_resolver_solve");
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_detect");
 
-    // Entity PASS TWO Step 2: Process collision callbacks for all pairs
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    size_t hit_count = array_size(collision_hits);
-    for (size_t i = 0; i < hit_count; i++) {
-        EseCollisionHit *hit = (EseCollisionHit *)array_get(collision_hits, i);
-        if (!hit)
-            continue;
-        entity_process_collision_callbacks(hit);
-    }
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_callback");
+    // // Entity PASS TWO Step 2: Process collision callbacks for all pairs
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // size_t hit_count = array_size(engine->collision_hits);
+    // for (size_t i = 0; i < hit_count; i++) {
+    //     EseCollisionHit *hit = (EseCollisionHit *)array_get(engine->collision_hits, i);
+    //     if (!hit)
+    //         continue;
+    //     entity_process_collision_callbacks(hit);
+    // }
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_callback");
 
     // Entity PASS THREE - Create draw calls for each active entity (non-sprite
     // components) This creates a flat list of draw calls from all entities. The
     // entity_draw() function is responsible for performing visibility culling
     // based on the camera position and view dimensions passed to it. Each
     // visible entity may contribute multiple draw calls to the list.
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // draw_list_clear(engine->draw_list);
+    // entity_iter = dlist_iter_create(engine->entities);
+    // while (dlist_iter_next(entity_iter, &value)) {
+    //     EseEntity *entity = (EseEntity *)value;
+
+    //     if (!entity->active || !entity->visible) {
+    //         continue;
+    //     }
+
+    //     EntityDrawCallbacks callbacks = {.draw_texture = _engine_add_texture_to_draw_list,
+    //                                      .draw_rect = _engine_add_rect_to_draw_list,
+    //                                      .draw_polyline = _engine_add_polyline_to_draw_list};
+
+    //     entity_draw(entity, ese_point_get_x(engine->camera_state->position),
+    //                 ese_point_get_y(engine->camera_state->position),
+    //                 ese_display_get_viewport_width(engine->display_state),
+    //                 ese_display_get_viewport_height(engine->display_state), &callbacks,
+    //                 engine->draw_list);
+    // }
+    // dlist_iter_free(entity_iter);
+    // profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_draw");
+
+    // Clear the draw list
     draw_list_clear(engine->draw_list);
-    entity_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(entity_iter, &value)) {
-        EseEntity *entity = (EseEntity *)value;
 
-        if (!entity->active || !entity->visible) {
-            continue;
-        }
-
-        EntityDrawCallbacks callbacks = {.draw_texture = _engine_add_texture_to_draw_list,
-                                         .draw_rect = _engine_add_rect_to_draw_list,
-                                         .draw_polyline = _engine_add_polyline_to_draw_list};
-
-        entity_draw(entity, ese_point_get_x(engine->camera_state->position),
-                    ese_point_get_y(engine->camera_state->position),
-                    ese_display_get_viewport_width(engine->display_state),
-                    ese_display_get_viewport_height(engine->display_state), &callbacks,
-                    engine->draw_list);
-    }
-    dlist_iter_free(entity_iter);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_draw");
-
-    // Run LATE phase systems (parallel after Lua, before render)
+    // Run LATE phase systems (parallel after Lua)
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_LATE, delta_time, true);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_late");

@@ -239,6 +239,8 @@ static void text_render_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
  */
 static const EseSystemManagerVTable TextRenderSystemVTable = {
     .init = text_render_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = text_render_sys_update,
     .accepts = text_render_sys_accepts,
     .on_component_added = text_render_sys_on_add,

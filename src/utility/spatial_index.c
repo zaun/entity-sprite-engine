@@ -227,7 +227,7 @@ static SpatialIndexKey _spatial_index_compute_key(int x, int y) {
 
 static void _free_spatial_pair(void *ptr) {
     if (ptr)
-        memory_manager.free(ptr);
+        memory_manager.shared.free(ptr);
 }
 
 static int _dbvh_get_height(DBVHNode *node) { return node ? node->height : 0; }
@@ -463,14 +463,15 @@ static void _emit_pair_if_new(SpatialIndex *index, EseHashMap *seen, EseArray *p
     hashmap_set(seen, key, (void *)1);
     memory_manager.free(key);
 
+    // Use shared allocator so SpatialPair can be freed from any thread
     SpatialPair *pair =
-        (SpatialPair *)memory_manager.malloc(sizeof(SpatialPair), MMTAG_COLLISION_INDEX);
+        (SpatialPair *)memory_manager.shared.malloc(sizeof(SpatialPair), MMTAG_COLLISION_INDEX);
     pair->a = a;
     pair->b = b;
 
     if (!array_push(pairs, pair)) {
         log_warn("SPATIAL_INDEX", "Failed to add pair to array");
-        memory_manager.free(pair);
+        memory_manager.shared.free(pair);
     }
 }
 

@@ -228,6 +228,8 @@ static void _collider_rect_callback(float screen_x, float screen_y, uint64_t z_i
  */
 static const EseSystemManagerVTable ColliderRenderSystemVTable = {
     .init = collider_render_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = collider_render_sys_update,
     .accepts = collider_render_sys_accepts,
     .on_component_added = collider_render_sys_on_add,

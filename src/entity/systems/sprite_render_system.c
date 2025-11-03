@@ -203,6 +203,8 @@ static void sprite_render_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
  */
 static const EseSystemManagerVTable SpriteRenderSystemVTable = {
     .init = sprite_render_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = sprite_render_sys_update,
     .accepts = sprite_render_sys_accepts,
     .on_component_added = sprite_render_sys_on_add,

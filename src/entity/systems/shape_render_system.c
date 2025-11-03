@@ -363,6 +363,8 @@ static void shape_render_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
  */
 static const EseSystemManagerVTable ShapeRenderSystemVTable = {
     .init = shape_render_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = shape_render_sys_update,
     .accepts = shape_render_sys_accepts,
     .on_component_added = shape_render_sys_on_add,

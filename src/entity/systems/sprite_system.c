@@ -182,6 +182,8 @@ static void sprite_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
  */
 static const EseSystemManagerVTable SpriteSystemVTable = {
     .init = sprite_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = sprite_sys_update,
     .accepts = sprite_sys_accepts,
     .on_component_added = sprite_sys_on_add,

@@ -46,6 +46,7 @@ struct EseEngine {
 
     SpatialIndex *spatial_index;           /** Broad-phase spatial index for collision
                                               pair generation */
+    EseArray *collision_hits;               /** Array of collision hits for the current frame */
     CollisionResolver *collision_resolver; /** Narrow-phase resolver for
                                               detailed collision hits */
 

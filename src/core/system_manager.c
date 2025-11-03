@@ -153,6 +153,7 @@ void engine_add_system(EseEngine *eng, EseSystemManager *sys) {
  */
 void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool parallel) {
     log_assert("SYSTEM_MANAGER", eng, "engine_run_phase called with NULL engine");
+    log_verbose("SYSTEM_MANAGER", "Running phase %d with parallel=%d", phase, parallel);
 
     // For parallel execution, we need to track job IDs to wait for them
     ese_job_id_t *job_ids = NULL;
@@ -167,6 +168,11 @@ void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool paral
         EseSystemManager *s = eng->systems[i];
         if (!s->active || s->phase != phase) {
             continue;
+        }
+
+        // If a setup function is defined, call it
+        if (s->vt && s->vt->setup) {
+            s->vt->setup(s, eng);
         }
 
         if (parallel && eng->job_queue) {
@@ -198,6 +204,15 @@ void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool paral
         }
         memory_manager.free(job_ids);
     }
+
+    // If a teardown function is defined, call it
+    for (size_t i = 0; i < eng->sys_count; i++) {
+        EseSystemManager *s = eng->systems[i];
+        if (s->vt && s->vt->teardown) {
+            s->vt->teardown(s, eng);
+        }
+    }
+    log_verbose("SYSTEM_MANAGER", "Phase %d with parallel=%d complete", phase, parallel);
 }
 
 /**

@@ -490,6 +490,8 @@ static void _map_render_draw_iso(EseEntityComponentMap *component, float screen_
 
 static const EseSystemManagerVTable MapRenderSystemVTable = {
     .init = map_render_sys_init,
+    .setup = NULL,
+    .teardown = NULL,
     .update = map_render_sys_update,
     .accepts = map_render_sys_accepts,
     .on_component_added = map_render_sys_on_add,
