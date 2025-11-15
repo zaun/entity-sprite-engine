@@ -1,33 +1,32 @@
-#include "types/color.h"
-#include "core/memory_manager.h"
-#include "scripting/lua_engine.h"
-#include "types/color_lua.h"
-#include "utility/log.h"
-#include "utility/profile.h"
-#include "vendor/json/cJSON.h"
+#include <string.h>
+#include <stdio.h>
 #include <math.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include "core/memory_manager.h"
+#include "scripting/lua_engine.h"
+#include "utility/log.h"
+#include "utility/profile.h"
+#include "types/color.h"
+#include "types/color_lua.h"
+#include "vendor/json/cJSON.h"
 
 // The actual EseColor struct definition (private to this file)
 typedef struct EseColor {
-    float r; /** The red component of the color (0.0-1.0) */
-    float g; /** The green component of the color (0.0-1.0) */
-    float b; /** The blue component of the color (0.0-1.0) */
-    float a; /** The alpha component of the color (0.0-1.0) */
+    float r;            /** The red component of the color (0.0-1.0) */
+    float g;            /** The green component of the color (0.0-1.0) */
+    float b;            /** The blue component of the color (0.0-1.0) */
+    float a;            /** The alpha component of the color (0.0-1.0) */
 
-    lua_State *state;  /** Lua State this EseColor belongs to */
-    int lua_ref;       /** Lua registry reference to its own proxy table */
-    int lua_ref_count; /** Number of times this color has been referenced in C
-                        */
-
+    lua_State *state;   /** Lua State this EseColor belongs to */
+    int lua_ref;        /** Lua registry reference to its own proxy table */
+    int lua_ref_count;  /** Number of times this color has been referenced in C */
+    
     // Watcher system
-    EseColorWatcherCallback *watchers; /** Array of watcher callbacks */
-    void **watcher_userdata;           /** Array of userdata for each watcher */
-    size_t watcher_count;              /** Number of registered watchers */
-    size_t watcher_capacity;           /** Capacity of the watcher arrays */
+    EseColorWatcherCallback *watchers;     /** Array of watcher callbacks */
+    void **watcher_userdata;               /** Array of userdata for each watcher */
+    size_t watcher_count;                  /** Number of registered watchers */
+    size_t watcher_capacity;               /** Capacity of the watcher arrays */
 } EseColor;
 
 // ========================================
@@ -45,6 +44,7 @@ static void _ese_color_set_lua_ref(EseColor *color, int lua_ref);
 static void _ese_color_set_lua_ref_count(EseColor *color, int lua_ref_count);
 static void _ese_color_set_state(EseColor *color, lua_State *state);
 
+
 // ========================================
 // PRIVATE FUNCTIONS
 // ========================================
@@ -52,10 +52,10 @@ static void _ese_color_set_state(EseColor *color, lua_State *state);
 // Core helpers
 /**
  * @brief Creates a new EseColor instance with default values
- *
- * Allocates memory for a new EseColor and initializes all fields to safe
- * defaults. The color starts at black (0,0,0,1) with no Lua state or watchers.
- *
+ * 
+ * Allocates memory for a new EseColor and initializes all fields to safe defaults.
+ * The color starts at black (0,0,0,1) with no Lua state or watchers.
+ * 
  * @return Pointer to the newly created EseColor, or NULL on allocation failure
  */
 static EseColor *_ese_color_make() {
@@ -110,23 +110,26 @@ static void _ese_color_set_state(EseColor *color, lua_State *state) {
 // Watcher system
 /**
  * @brief Notifies all registered watchers of a color change
- *
+ * 
  * Iterates through all registered watcher callbacks and invokes them with the
  * updated color and their associated userdata. This is called whenever the
  * color's r, g, b, or a components are modified.
- *
+ * 
  * @param color Pointer to the EseColor that has changed
  */
 static void _ese_color_notify_watchers(EseColor *color) {
-    if (!color || color->watcher_count == 0)
-        return;
-
+    if (!color || color->watcher_count == 0) return;
+    
     for (size_t i = 0; i < color->watcher_count; i++) {
         if (color->watchers[i]) {
             color->watchers[i](color, color->watcher_userdata[i]);
         }
     }
 }
+
+
+
+
 
 // ========================================
 // PUBLIC FUNCTIONS
@@ -142,7 +145,7 @@ EseColor *ese_color_create(EseLuaEngine *engine) {
 
 EseColor *ese_color_copy(const EseColor *source) {
     log_assert("COLOR", source, "ese_color_copy called with NULL source");
-
+    
     EseColor *copy = (EseColor *)memory_manager.malloc(sizeof(EseColor), MMTAG_COLOR);
     copy->r = ese_color_get_r(source);
     copy->g = ese_color_get_g(source);
@@ -159,12 +162,11 @@ EseColor *ese_color_copy(const EseColor *source) {
 }
 
 void ese_color_destroy(EseColor *color) {
-    if (!color)
-        return;
-
+    if (!color) return;
+    
     if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // No Lua references, safe to free immediately
-
+    
         // Free watcher arrays if they exist
         if (color->watchers) {
             memory_manager.free(color->watchers);
@@ -250,45 +252,48 @@ int ese_color_get_lua_ref_count(const EseColor *color) {
 bool ese_color_add_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
     log_assert("COLOR", color, "ese_color_add_watcher called with NULL color");
     log_assert("COLOR", callback, "ese_color_add_watcher called with NULL callback");
-
+    
     // Initialize watcher arrays if this is the first watcher
     if (color->watcher_count == 0) {
         color->watcher_capacity = 4; // Start with capacity for 4 watchers
-        color->watchers = memory_manager.malloc(
-            sizeof(EseColorWatcherCallback) * color->watcher_capacity, MMTAG_COLOR);
-        color->watcher_userdata =
-            memory_manager.malloc(sizeof(void *) * color->watcher_capacity, MMTAG_COLOR);
+        color->watchers = memory_manager.malloc(sizeof(EseColorWatcherCallback) * color->watcher_capacity, MMTAG_COLOR);
+        color->watcher_userdata = memory_manager.malloc(sizeof(void*) * color->watcher_capacity, MMTAG_COLOR);
         color->watcher_count = 0;
     }
-
+    
     // Expand arrays if needed
     if (color->watcher_count >= color->watcher_capacity) {
         size_t new_capacity = color->watcher_capacity * 2;
         EseColorWatcherCallback *new_watchers = memory_manager.realloc(
-            color->watchers, sizeof(EseColorWatcherCallback) * new_capacity, MMTAG_COLOR);
-        void **new_userdata = memory_manager.realloc(color->watcher_userdata,
-                                                     sizeof(void *) * new_capacity, MMTAG_COLOR);
-
-        if (!new_watchers || !new_userdata)
-            return false;
-
+            color->watchers, 
+            sizeof(EseColorWatcherCallback) * new_capacity, 
+            MMTAG_COLOR
+        );
+        void **new_userdata = memory_manager.realloc(
+            color->watcher_userdata, 
+            sizeof(void*) * new_capacity, 
+            MMTAG_COLOR
+        );
+        
+        if (!new_watchers || !new_userdata) return false;
+        
         color->watchers = new_watchers;
         color->watcher_userdata = new_userdata;
         color->watcher_capacity = new_capacity;
     }
-
+    
     // Add the new watcher
     color->watchers[color->watcher_count] = callback;
     color->watcher_userdata[color->watcher_count] = userdata;
     color->watcher_count++;
-
+    
     return true;
 }
 
 bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback, void *userdata) {
     log_assert("COLOR", color, "ese_color_remove_watcher called with NULL color");
     log_assert("COLOR", callback, "ese_color_remove_watcher called with NULL callback");
-
+    
     for (size_t i = 0; i < color->watcher_count; i++) {
         if (color->watchers[i] == callback && color->watcher_userdata[i] == userdata) {
             // Remove this watcher by shifting remaining ones
@@ -300,14 +305,14 @@ bool ese_color_remove_watcher(EseColor *color, EseColorWatcherCallback callback,
             return true;
         }
     }
-
+    
     return false;
 }
 
 // Lua integration
 void ese_color_lua_init(EseLuaEngine *engine) {
     log_assert("COLOR", engine, "ese_color_lua_init called with NULL engine");
-
+    
     _ese_color_lua_init(engine);
 }
 
@@ -316,8 +321,7 @@ void ese_color_lua_push(EseColor *color) {
 
     if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // Lua-owned: create a new userdata
-        EseColor **ud =
-            (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
+        EseColor **ud = (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
         *ud = color;
 
         // Attach metatable
@@ -331,28 +335,27 @@ void ese_color_lua_push(EseColor *color) {
 
 EseColor *ese_color_lua_get(lua_State *L, int idx) {
     log_assert("COLOR", L, "ese_color_lua_get called with NULL Lua state");
-
+    
     // Check if the value at idx is userdata
     if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
-
+    
     // Get the userdata and check metatable
     EseColor **ud = (EseColor **)luaL_testudata(L, idx, COLOR_META);
     if (!ud) {
         return NULL; // Wrong metatable or not userdata
     }
-
+    
     return *ud;
 }
 
 void ese_color_ref(EseColor *color) {
     log_assert("COLOR", color, "ese_color_ref called with NULL color");
-
+    
     if (ese_color_get_lua_ref(color) == LUA_NOREF) {
         // First time referencing - create userdata and store reference
-        EseColor **ud =
-            (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
+        EseColor **ud = (EseColor **)lua_newuserdata(ese_color_get_state(color), sizeof(EseColor *));
         *ud = color;
 
         // Attach metatable
@@ -372,12 +375,11 @@ void ese_color_ref(EseColor *color) {
 }
 
 void ese_color_unref(EseColor *color) {
-    if (!color)
-        return;
-
+    if (!color) return;
+    
     if (ese_color_get_lua_ref(color) != LUA_NOREF && ese_color_get_lua_ref_count(color) > 0) {
         _ese_color_set_lua_ref_count(color, ese_color_get_lua_ref_count(color) - 1);
-
+        
         if (ese_color_get_lua_ref_count(color) == 0) {
             // No more references - remove from registry
             luaL_unref(ese_color_get_state(color), LUA_REGISTRYINDEX, ese_color_get_lua_ref(color));
@@ -392,18 +394,18 @@ void ese_color_unref(EseColor *color) {
 bool ese_color_set_hex(EseColor *color, const char *hex_string) {
     log_assert("COLOR", color, "ese_color_set_hex called with NULL color");
     log_assert("COLOR", hex_string, "ese_color_set_hex called with NULL hex_string");
-
+    
     if (!hex_string || hex_string[0] != '#') {
         return false;
     }
-
+    
     size_t len = strlen(hex_string);
     if (len < 4 || len > 9) { // #RGB to #RRGGBBAA
         return false;
     }
-
+    
     unsigned int r, g, b, a = 255; // Default alpha to 255
-
+    
     if (len == 4) { // #RGB
         if (sscanf(hex_string, "#%1x%1x%1x", &r, &g, &b) != 3) {
             return false;
@@ -430,44 +432,44 @@ bool ese_color_set_hex(EseColor *color, const char *hex_string) {
     } else {
         return false;
     }
-
+    
     // Convert to normalized floats
     color->r = (float)r / 255.0f;
     color->g = (float)g / 255.0f;
     color->b = (float)b / 255.0f;
     color->a = (float)a / 255.0f;
-
+    
     _ese_color_notify_watchers(color);
     return true;
 }
 
-void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b,
-                        unsigned char a) {
+void ese_color_set_byte(EseColor *color, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
     log_assert("COLOR", color, "ese_color_set_byte called with NULL color");
-
+    
     color->r = (float)r / 255.0f;
     color->g = (float)g / 255.0f;
     color->b = (float)b / 255.0f;
     color->a = (float)a / 255.0f;
-
+    
     _ese_color_notify_watchers(color);
 }
 
-void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b,
-                        unsigned char *a) {
+void ese_color_get_byte(const EseColor *color, unsigned char *r, unsigned char *g, unsigned char *b, unsigned char *a) {
     log_assert("COLOR", color, "ese_color_get_byte called with NULL color");
     log_assert("COLOR", r, "ese_color_get_byte called with NULL r pointer");
     log_assert("COLOR", g, "ese_color_get_byte called with NULL g pointer");
     log_assert("COLOR", b, "ese_color_get_byte called with NULL b pointer");
     log_assert("COLOR", a, "ese_color_get_byte called with NULL a pointer");
-
+    
     *r = (unsigned char)(color->r * 255.0f + 0.5f);
     *g = (unsigned char)(color->g * 255.0f + 0.5f);
     *b = (unsigned char)(color->b * 255.0f + 0.5f);
     *a = (unsigned char)(color->a * 255.0f + 0.5f);
 }
 
-size_t ese_color_sizeof(void) { return sizeof(EseColor); }
+size_t ese_color_sizeof(void) {
+    return sizeof(EseColor);
+}
 
 /**
  * @brief Serializes an EseColor to a cJSON object.

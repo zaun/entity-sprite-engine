@@ -1,9 +1,8 @@
 /**
  * @file gui_style.h
  * @brief GUI style type for styling GUI elements
- * @details Provides style properties for GUI elements including colors, layout,
- * and spacing
- *
+ * @details Provides style properties for GUI elements including colors, layout, and spacing
+ * 
  * @copyright Copyright (c) 2024 ESE Project
  * @license See LICENSE.md for license information
  */
@@ -11,9 +10,9 @@
 #ifndef ESE_GUI_STYLE_H
 #define ESE_GUI_STYLE_H
 
-#include "vendor/json/cJSON.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include "vendor/json/cJSON.h"
 
 // ========================================
 // DEFINES AND STRUCTS
@@ -46,7 +45,7 @@ typedef struct EseGuiStyle EseGuiStyle;
 
 /**
  * @brief Callback function type for gui style property change notifications.
- *
+ * 
  * @param style Pointer to the EseGuiStyle that changed
  * @param userdata User-provided data passed when registering the watcher
  */
@@ -70,61 +69,57 @@ typedef enum EseGuiFlexAlignItems EseGuiFlexAlignItems;
 // Core lifecycle
 /**
  * @brief Creates a new EseGuiStyle object.
- *
- * @details Allocates memory for a new EseGuiStyle and initializes to default
- * values. The style is created without Lua references and must be explicitly
+ * 
+ * @details Allocates memory for a new EseGuiStyle and initializes to default values.
+ *          The style is created without Lua references and must be explicitly
  *          referenced with ese_gui_style_ref() if Lua access is desired.
- *
+ * 
  * @param engine Pointer to a EseLuaEngine
  * @return Pointer to newly created EseGuiStyle object
- *
- * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy()
- * to prevent memory leaks
+ * 
+ * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy() to prevent memory leaks
  */
 EseGuiStyle *ese_gui_style_create(EseLuaEngine *engine);
 
 /**
  * @brief Copies a source EseGuiStyle into a new EseGuiStyle object.
- *
- * @details This function creates a deep copy of an EseGuiStyle object. It
- * allocates a new EseGuiStyle struct and copies all members. The copy is
- * created without Lua references and must be explicitly referenced with
- * ese_gui_style_ref() if Lua access is desired.
- *
+ * 
+ * @details This function creates a deep copy of an EseGuiStyle object. It allocates a new EseGuiStyle
+ *          struct and copies all members. The copy is created without Lua references
+ *          and must be explicitly referenced with ese_gui_style_ref() if Lua access is desired.
+ * 
  * @param source Pointer to the source EseGuiStyle to copy.
  * @return A new, distinct EseGuiStyle object that is a copy of the source.
- *
- * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy()
- * to prevent memory leaks
+ * 
+ * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy() to prevent memory leaks
  */
 EseGuiStyle *ese_gui_style_copy(const EseGuiStyle *source);
 
 /**
- * @brief Destroys a EseGuiStyle object, managing memory based on Lua
- * references.
- *
- * @details If the style has no Lua references (lua_ref == LUA_NOREF), frees
- * memory immediately. If the style has Lua references, decrements the reference
- * counter. When the counter reaches 0, removes the Lua reference and lets Lua's
- * garbage collector handle final cleanup.
- *
+ * @brief Destroys a EseGuiStyle object, managing memory based on Lua references.
+ * 
+ * @details If the style has no Lua references (lua_ref == LUA_NOREF), frees memory immediately.
+ *          If the style has Lua references, decrements the reference counter.
+ *          When the counter reaches 0, removes the Lua reference and lets
+ *          Lua's garbage collector handle final cleanup.
+ * 
  * @note If the style is Lua-owned, memory may not be freed immediately.
  *       Lua's garbage collector will finalize it once no references remain.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object to destroy
  */
 void ese_gui_style_destroy(EseGuiStyle *style);
 
 /**
  * @brief Gets the size of the EseGuiStyle structure in bytes.
- *
+ * 
  * @return The size of the EseGuiStyle structure in bytes
  */
 size_t ese_gui_style_sizeof(void);
 
 /**
  * @brief Sets the border width of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param border_width The border width value
  */
@@ -132,7 +127,7 @@ void ese_gui_style_set_border_width(EseGuiStyle *style, int border_width);
 
 /**
  * @brief Gets the border width of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The border width value
  */
@@ -140,7 +135,7 @@ int ese_gui_style_get_border_width(const EseGuiStyle *style);
 
 /**
  * @brief Sets the padding left of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param padding_left The padding left value
  */
@@ -148,7 +143,7 @@ void ese_gui_style_set_padding_left(EseGuiStyle *style, int padding_left);
 
 /**
  * @brief Gets the padding left of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The padding left value
  */
@@ -156,7 +151,7 @@ int ese_gui_style_get_padding_left(const EseGuiStyle *style);
 
 /**
  * @brief Sets the padding top of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param padding_top The padding top value
  */
@@ -164,7 +159,7 @@ void ese_gui_style_set_padding_top(EseGuiStyle *style, int padding_top);
 
 /**
  * @brief Gets the padding top of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The padding top value
  */
@@ -172,7 +167,7 @@ int ese_gui_style_get_padding_top(const EseGuiStyle *style);
 
 /**
  * @brief Sets the padding right of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param padding_right The padding right value
  */
@@ -180,7 +175,7 @@ void ese_gui_style_set_padding_right(EseGuiStyle *style, int padding_right);
 
 /**
  * @brief Gets the padding right of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The padding right value
  */
@@ -188,7 +183,7 @@ int ese_gui_style_get_padding_right(const EseGuiStyle *style);
 
 /**
  * @brief Sets the padding bottom of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param padding_bottom The padding bottom value
  */
@@ -196,7 +191,7 @@ void ese_gui_style_set_padding_bottom(EseGuiStyle *style, int padding_bottom);
 
 /**
  * @brief Gets the padding bottom of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The padding bottom value
  */
@@ -204,7 +199,7 @@ int ese_gui_style_get_padding_bottom(const EseGuiStyle *style);
 
 /**
  * @brief Sets the font size of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param font_size The font size value
  */
@@ -212,11 +207,12 @@ void ese_gui_style_set_font_size(EseGuiStyle *style, int font_size);
 
 /**
  * @brief Gets the font size of the style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The font size value
  */
 int ese_gui_style_get_font_size(const EseGuiStyle *style);
+
 
 // Colors getters and setters
 
@@ -224,87 +220,69 @@ EseColor *ese_gui_style_get_color(const EseGuiStyle *style, EseGuiStyleVariant v
 void ese_gui_style_set_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_color_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_color_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                   const EseColor *color);
+void ese_gui_style_set_color_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_color_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_color_active(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                    const EseColor *color);
+void ese_gui_style_set_color_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_alert_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_alert_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                const EseColor *color);
+void ese_gui_style_set_alert_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_alert_text(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_alert_text(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                  const EseColor *color);
+void ese_gui_style_set_alert_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_alert_border(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_alert_border(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                    const EseColor *color);
+void ese_gui_style_set_alert_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_bg_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_bg_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                const EseColor *color);
+void ese_gui_style_set_bg_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_bg_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_bg_active(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                 const EseColor *color);
+void ese_gui_style_set_bg_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_text(const EseGuiStyle *style, EseGuiStyleVariant variant);
 void ese_gui_style_set_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_text_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_text_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                  const EseColor *color);
+void ese_gui_style_set_text_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_text_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_text_active(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                   const EseColor *color);
+void ese_gui_style_set_text_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_border(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_border(EseGuiStyle *style, EseGuiStyleVariant variant,
-                              const EseColor *color);
+void ese_gui_style_set_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_border_hover(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_border_hover(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                    const EseColor *color);
+void ese_gui_style_set_border_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_border_active(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_border_active(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                     const EseColor *color);
+void ese_gui_style_set_border_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                  const EseColor *color);
+void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_tooltip_color(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                     const EseColor *color);
+void ese_gui_style_set_tooltip_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_selection_bg(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                    const EseColor *color);
+void ese_gui_style_set_selection_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_selection_color(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                       const EseColor *color);
+void ese_gui_style_set_selection_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_focus_ring(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                  const EseColor *color);
+void ese_gui_style_set_focus_ring(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style, EseGuiStyleVariant variant);
-void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant,
-                                 const EseColor *color);
+void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color);
 
 // Lua-related access
 /**
  * @brief Gets the Lua state associated with this gui style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return Pointer to the Lua state, or NULL if none
  */
@@ -312,7 +290,7 @@ lua_State *ese_gui_style_get_state(const EseGuiStyle *style);
 
 /**
  * @brief Gets the Lua registry reference for this gui style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The Lua registry reference value
  */
@@ -320,107 +298,97 @@ int ese_gui_style_get_lua_ref(const EseGuiStyle *style);
 
 /**
  * @brief Gets the Lua reference count for this gui style.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @return The current reference count
  */
 int ese_gui_style_get_lua_ref_count(const EseGuiStyle *style);
 
 /**
- * @brief Adds a watcher callback to be notified when any gui style property
- * changes.
- *
- * @details The callback will be called whenever any property of the gui style
- * is modified. Multiple watchers can be registered on the same gui style.
- *
+ * @brief Adds a watcher callback to be notified when any gui style property changes.
+ * 
+ * @details The callback will be called whenever any property of the gui style is modified.
+ *          Multiple watchers can be registered on the same gui style.
+ * 
  * @param style Pointer to the EseGuiStyle object to watch
  * @param callback Function to call when properties change
  * @param userdata User-provided data to pass to the callback
  * @return true if watcher was added successfully, false otherwise
  */
-bool ese_gui_style_add_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback,
-                               void *userdata);
+bool ese_gui_style_add_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback, void *userdata);
 
 /**
  * @brief Removes a previously registered watcher callback.
- *
+ * 
  * @details Removes the first occurrence of the callback with matching userdata.
- *          If the same callback is registered multiple times with different
- * userdata, only the first match will be removed.
- *
+ *          If the same callback is registered multiple times with different userdata,
+ *          only the first match will be removed.
+ * 
  * @param style Pointer to the EseGuiStyle object
  * @param callback Function to remove
  * @param userdata User data that was used when registering
  * @return true if watcher was removed, false if not found
  */
-bool ese_gui_style_remove_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback,
-                                  void *userdata);
+bool ese_gui_style_remove_watcher(EseGuiStyle *style, EseGuiStyleWatcherCallback callback, void *userdata);
 
 // Lua integration
 /**
  * @brief Initializes the EseGuiStyle userdata type in the Lua state.
- *
- * @details Creates and registers the "GuiStyleProxyMeta" metatable with
- * __index, __newindex,
- *          __gc, __tostring metamethods for property access and garbage
- * collection. This allows EseGuiStyle objects to be used naturally from Lua
- * with dot notation. Also creates the global "GuiStyle" table with "new"
- * constructor.
- *
- * @param engine EseLuaEngine pointer where the EseGuiStyle type will be
- * registered
+ * 
+ * @details Creates and registers the "GuiStyleProxyMeta" metatable with __index, __newindex,
+ *          __gc, __tostring metamethods for property access and garbage collection.
+ *          This allows EseGuiStyle objects to be used naturally from Lua with dot notation.
+ *          Also creates the global "GuiStyle" table with "new" constructor.
+ * 
+ * @param engine EseLuaEngine pointer where the EseGuiStyle type will be registered
  */
 void ese_gui_style_lua_init(EseLuaEngine *engine);
 
 /**
  * @brief Pushes a EseGuiStyle object to the Lua stack.
- *
- * @details If the style has no Lua references (lua_ref == LUA_NOREF), creates a
- * new proxy table. If the style has Lua references, retrieves the existing
+ * 
+ * @details If the style has no Lua references (lua_ref == LUA_NOREF), creates a new
+ *          proxy table. If the style has Lua references, retrieves the existing
  *          proxy table from the registry.
- *
+ * 
  * @param style Pointer to the EseGuiStyle object to push to Lua
  */
 void ese_gui_style_lua_push(EseGuiStyle *style);
 
 /**
- * @brief Extracts a EseGuiStyle pointer from a Lua userdata object with type
- * safety.
- *
+ * @brief Extracts a EseGuiStyle pointer from a Lua userdata object with type safety.
+ * 
  * @details Retrieves the C EseGuiStyle pointer from the "__ptr" field of a Lua
  *          table that was created by ese_gui_style_lua_push(). Performs
- *          type checking to ensure the object is a valid EseGuiStyle proxy
- * table with the correct metatable and userdata pointer.
- *
+ *          type checking to ensure the object is a valid EseGuiStyle proxy table
+ *          with the correct metatable and userdata pointer.
+ * 
  * @param L Lua state pointer
  * @param idx Stack index of the Lua EseGuiStyle object
- * @return Pointer to the EseGuiStyle object, or NULL if extraction fails or
- * type check fails
- *
- * @warning Returns NULL for invalid objects - always check return value before
- * use
+ * @return Pointer to the EseGuiStyle object, or NULL if extraction fails or type check fails
+ * 
+ * @warning Returns NULL for invalid objects - always check return value before use
  */
 EseGuiStyle *ese_gui_style_lua_get(lua_State *L, int idx);
 
 /**
- * @brief References a EseGuiStyle object for Lua access with reference
- * counting.
- *
- * @details If style->lua_ref is LUA_NOREF, pushes the style to Lua and
- * references it, setting lua_ref_count to 1. If style->lua_ref is already set,
- * increments the reference count by 1. This prevents the style from being
- * garbage collected while C code holds references to it.
- *
+ * @brief References a EseGuiStyle object for Lua access with reference counting.
+ * 
+ * @details If style->lua_ref is LUA_NOREF, pushes the style to Lua and references it,
+ *          setting lua_ref_count to 1. If style->lua_ref is already set, increments
+ *          the reference count by 1. This prevents the style from being garbage
+ *          collected while C code holds references to it.
+ * 
  * @param style Pointer to the EseGuiStyle object to reference
  */
 void ese_gui_style_ref(EseGuiStyle *style);
 
 /**
  * @brief Unreferences a EseGuiStyle object, decrementing the reference count.
- *
- * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua
- * reference is removed from the registry. This function does NOT free memory.
- *
+ * 
+ * @details Decrements lua_ref_count by 1. If the count reaches 0, the Lua reference
+ *          is removed from the registry. This function does NOT free memory.
+ * 
  * @param style Pointer to the EseGuiStyle object to unreference
  */
 void ese_gui_style_unref(EseGuiStyle *style);
@@ -428,15 +396,14 @@ void ese_gui_style_unref(EseGuiStyle *style);
 /**
  * @brief Serializes an EseGuiStyle to a cJSON object.
  *
- * @details Creates a cJSON object representing the gui style with type
- * "GUI_STYLE" and all style properties. Only serializes the style data, not
+ * @details Creates a cJSON object representing the gui style with type "GUI_STYLE"
+ *          and all style properties. Only serializes the style data, not
  *          Lua-related fields.
  *
  * @param style Pointer to the EseGuiStyle object to serialize
  * @return cJSON object representing the gui style, or NULL on failure
  *
- * @warning The caller is responsible for calling cJSON_Delete() on the returned
- * object
+ * @warning The caller is responsible for calling cJSON_Delete() on the returned object
  */
 cJSON *ese_gui_style_serialize(const EseGuiStyle *style);
 
@@ -444,16 +411,14 @@ cJSON *ese_gui_style_serialize(const EseGuiStyle *style);
  * @brief Deserializes an EseGuiStyle from a cJSON object.
  *
  * @details Creates a new EseGuiStyle from a cJSON object with type "GUI_STYLE"
- *          and all style properties. The style is created with the specified
- * engine and must be explicitly referenced with ese_gui_style_ref() if Lua
- * access is desired.
+ *          and all style properties. The style is created with the specified engine
+ *          and must be explicitly referenced with ese_gui_style_ref() if Lua access is desired.
  *
  * @param engine EseLuaEngine pointer for gui style creation
  * @param data cJSON object containing gui style data
  * @return Pointer to newly created EseGuiStyle object, or NULL on failure
  *
- * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy()
- * to prevent memory leaks
+ * @warning The returned EseGuiStyle must be freed with ese_gui_style_destroy() to prevent memory leaks
  */
 EseGuiStyle *ese_gui_style_deserialize(EseLuaEngine *engine, const cJSON *data);
 
