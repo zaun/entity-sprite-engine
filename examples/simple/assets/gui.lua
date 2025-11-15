@@ -33,6 +33,7 @@ end
 -- The top of the variant stack is what is used to style the following widgets.
 
 function ENTITY:entity_update(delta_time)
+    print("GUI entity_update")
     local style = GuiStyle.new()
     style.background[GuiStyle.VARIANT.PRIMARY] = Color.new(0, 1, 0, 1)
 

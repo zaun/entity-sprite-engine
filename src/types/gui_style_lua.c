@@ -52,8 +52,7 @@ static int _ese_gui_style_lua_to_json(lua_State *L);
  * @param L Lua state
  * @return 0 (no return values)
  */
-static int _ese_gui_style_lua_gc(lua_State *L) {
-    // Get from userdata
+ static int _ese_gui_style_lua_gc(lua_State *L) {
     EseGuiStyle **ud = (EseGuiStyle **)luaL_testudata(L, 1, GUI_STYLE_PROXY_META);
     if (!ud) {
         return 0; // Not our userdata
@@ -69,7 +68,7 @@ static int _ese_gui_style_lua_gc(lua_State *L) {
             ese_gui_style_destroy(style);
         }
     }
-
+    
     return 0;
 }
 
@@ -260,6 +259,7 @@ static int _ese_gui_style_lua_index(lua_State *L) {
         profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "background") == 0) {
+        log_debug("GUI_STYLE_LUA", "_ese_gui_style_lua_index called with key: %s", key);
         _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_bg, ese_gui_style_set_bg);
         profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
         return 1;

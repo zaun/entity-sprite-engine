@@ -22,7 +22,11 @@ static int _ese_color_lua_tostring(lua_State *L);
 
 // Lua constructors
 static int _ese_color_lua_new(lua_State *L);
-static int _ese_color_from_name(lua_State *L);
+static int _ese_color_lua_white(lua_State *L);
+static int _ese_color_lua_black(lua_State *L);
+static int _ese_color_lua_red(lua_State *L);
+static int _ese_color_lua_green(lua_State *L);
+static int _ese_color_lua_blue(lua_State *L);
 
 // Lua methods
 static int _ese_color_lua_set_hex(lua_State *L);
@@ -52,6 +56,7 @@ static int _ese_color_lua_gc(lua_State *L) {
         // Only destroy if no C-side references
         if (ese_color_get_lua_ref_count(color) == 0) {
             ese_color_destroy(color);
+            *ud = NULL;
         }
     }
 
@@ -181,62 +186,52 @@ static int _ese_color_lua_new(lua_State *L) {
     return 1;
 }
 
-static int _ese_color_from_name(lua_State *L) {
-    const char *name = luaL_checkstring(L, 1);
-
+static int _ese_color_lua_white(lua_State *L) {
     EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    log_assert("COLOR", engine, "Color.from_name: engine is NULL");
+    log_assert("COLOR", engine, "Color.white: engine is NULL");
 
     EseColor *color = ese_color_create(engine);
-    if (strcmp(name, "blue") == 0) {
-        ese_color_set_hex(color, "#0d6efd");
-    } else if (strcmp(name, "indigo") == 0) {
-        ese_color_set_hex(color, "#6610f2");
-    } else if (strcmp(name, "purple") == 0) {
-        ese_color_set_hex(color, "#6f42c1");
-    } else if (strcmp(name, "pink") == 0) {
-        ese_color_set_hex(color, "#d63384");
-    } else if (strcmp(name, "red") == 0) {
-        ese_color_set_hex(color, "#dc3545");
-    } else if (strcmp(name, "orange") == 0) {
-        ese_color_set_hex(color, "#fd7e14");
-    } else if (strcmp(name, "yellow") == 0) {
-        ese_color_set_hex(color, "#ffc107");
-    } else if (strcmp(name, "green") == 0) {
-        ese_color_set_hex(color, "#198754");
-    } else if (strcmp(name, "teal") == 0) {
-        ese_color_set_hex(color, "#20c997");
-    } else if (strcmp(name, "cyan") == 0) {
-        ese_color_set_hex(color, "#0dcaf0");
-    } else if (strcmp(name, "white") == 0) {
-        ese_color_set_hex(color, "#ffffff");
-    } else if (strcmp(name, "black") == 0) {
-        ese_color_set_hex(color, "#000000");
-    } else if (strcmp(name, "gray_100") == 0) {
-        ese_color_set_hex(color, "#f8f9fa");
-    } else if (strcmp(name, "gray_200") == 0) {
-        ese_color_set_hex(color, "#e9ecef");
-    } else if (strcmp(name, "gray_300") == 0) {
-        ese_color_set_hex(color, "#dee2e6");
-    } else if (strcmp(name, "gray_400") == 0) {
-        ese_color_set_hex(color, "#ced4da");
-    } else if (strcmp(name, "gray_500") == 0) {
-        ese_color_set_hex(color, "#adb5bd");
-    } else if (strcmp(name, "gray_600") == 0) {
-        ese_color_set_hex(color, "#6c757d");
-    } else if (strcmp(name, "gray_700") == 0) {
-        ese_color_set_hex(color, "#495057");
-    } else if (strcmp(name, "gray_800") == 0) {
-        ese_color_set_hex(color, "#343a40");
-    } else if (strcmp(name, "gray_900") == 0) {
-        ese_color_set_hex(color, "#212529");
-    } else if (strcmp(name, "transparent") == 0) {
-        ese_color_set_hex(color, "#00000000");
-    } else {
-        ese_color_destroy(color);
-        return luaL_error(L, "Color.from_name: invalid color name");
-    }
+    ese_color_set_hex(color, "#ffffff");
+    ese_color_lua_push(color);
+    return 1;
+}
 
+static int _ese_color_lua_black(lua_State *L) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    log_assert("COLOR", engine, "Color.black: engine is NULL");
+
+    EseColor *color = ese_color_create(engine);
+    ese_color_set_hex(color, "#000000");
+    ese_color_lua_push(color);
+    return 1;
+}
+
+static int _ese_color_lua_red(lua_State *L) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    log_assert("COLOR", engine, "Color.red: engine is NULL");
+
+    EseColor *color = ese_color_create(engine);
+    ese_color_set_hex(color, "#ff0000");
+    ese_color_lua_push(color);
+    return 1;
+}
+
+static int _ese_color_lua_green(lua_State *L) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    log_assert("COLOR", engine, "Color.green: engine is NULL");
+
+    EseColor *color = ese_color_create(engine);
+    ese_color_set_hex(color, "#00ff00");
+    ese_color_lua_push(color);
+    return 1;
+}
+
+static int _ese_color_lua_blue(lua_State *L) {
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    log_assert("COLOR", engine, "Color.blue: engine is NULL");
+
+    EseColor *color = ese_color_create(engine);
+    ese_color_set_hex(color, "#0000ff");
     ese_color_lua_push(color);
     return 1;
 }

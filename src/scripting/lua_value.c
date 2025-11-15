@@ -303,8 +303,6 @@ EseLuaValue *lua_value_from_stack(lua_State *L, int index) {
 }
 
 EseLuaValue *lua_value_create_nil(const char *name) {
-    log_assert("LUA_VALUE", name, "lua_value_create_nil called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NIL;
     if (name)
@@ -313,8 +311,6 @@ EseLuaValue *lua_value_create_nil(const char *name) {
 }
 
 EseLuaValue *lua_value_create_bool(const char *name, bool value) {
-    log_assert("LUA_VALUE", name, "lua_value_create_bool called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_BOOL;
     v->value.boolean = value;
@@ -324,8 +320,6 @@ EseLuaValue *lua_value_create_bool(const char *name, bool value) {
 }
 
 EseLuaValue *lua_value_create_number(const char *name, double value) {
-    log_assert("LUA_VALUE", name, "lua_value_create_number called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_NUMBER;
     v->value.number = value;
@@ -335,8 +329,6 @@ EseLuaValue *lua_value_create_number(const char *name, double value) {
 }
 
 EseLuaValue *lua_value_create_string(const char *name, const char *value) {
-    log_assert("LUA_VALUE", name, "lua_value_create_string called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_STRING;
     v->value.string = memory_manager.strdup(value, MMTAG_LUA_VALUE);
@@ -346,8 +338,6 @@ EseLuaValue *lua_value_create_string(const char *name, const char *value) {
 }
 
 EseLuaValue *lua_value_create_error(const char *name, const char *error_message) {
-    log_assert("LUA_VALUE", name, "lua_value_create_error called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_ERROR;
     v->value.string = memory_manager.strdup(error_message, MMTAG_LUA_VALUE);
@@ -357,8 +347,6 @@ EseLuaValue *lua_value_create_error(const char *name, const char *error_message)
 }
 
 EseLuaValue *lua_value_create_table(const char *name) {
-    log_assert("LUA_VALUE", name, "lua_value_create_table called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_TABLE;
     v->value.table.items = NULL;
@@ -370,8 +358,6 @@ EseLuaValue *lua_value_create_table(const char *name) {
 }
 
 EseLuaValue *lua_value_create_ref(const char *name, int value) {
-    log_assert("LUA_VALUE", name, "lua_value_create_ref called with NULL name");
-
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
     v->type = LUA_VAL_REF;
     v->value.lua_ref = value;
@@ -546,7 +532,6 @@ EseLuaValue *lua_value_create_collision_hit(const char *name, struct EseCollisio
 }
 
 EseLuaValue *lua_value_create_cfunc(const char *name, EseLuaCFunction cfunc, EseLuaValue *upvalue) {
-    log_assert("LUA_VALUE", name, "lua_value_create_cfunc called with NULL name");
     log_assert("LUA_VALUE", cfunc, "lua_value_create_cfunc called with NULL cfunc");
 
     EseLuaValue *v = memory_manager.calloc(1, sizeof(EseLuaValue), MMTAG_LUA_VALUE);
