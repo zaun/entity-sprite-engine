@@ -525,7 +525,6 @@ void ese_gui_style_destroy(EseGuiStyle *style) {
     if (!style) return;
     
     if (ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
-        // No Lua references, safe to free immediately
     
         // Free watcher arrays if they exist
         if (style->watchers) {
@@ -683,276 +682,335 @@ int ese_gui_style_get_font_size(const EseGuiStyle *style) {
 
 // Colors getters and setters
 
-EseColor *ese_gui_style_get_color(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_color(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->variant[variant];
 }
 
-void ese_gui_style_set_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
-    
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_color_hover(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_color_hover(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->variant_hover[variant];
 }
 
-void ese_gui_style_set_color_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_color_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+    
     SET_COLOR(style->variant_hover[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_color_active(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_color_active(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->variant_active[variant];
 }
 
-void ese_gui_style_set_color_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_color_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+    
     SET_COLOR(style->variant_active[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_alert_bg(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_alert_bg(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->alert_bg_variant[variant];
 }
 
-void ese_gui_style_set_alert_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_alert_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->alert_bg_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_alert_text(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_alert_text(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->alert_text_variant[variant];
 }
 
-void ese_gui_style_set_alert_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_alert_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
     SET_COLOR(style->alert_text_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_alert_border(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_alert_border(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->alert_border_variant[variant];
 }
 
-void ese_gui_style_set_alert_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_alert_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     SET_COLOR(style->alert_border_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_bg(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_bg(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->bg_variant[variant];
 }
 
-void ese_gui_style_set_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->bg_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_bg_hover(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_bg_hover(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->bg_hover_variant[variant];
 }
 
-void ese_gui_style_set_bg_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_bg_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     SET_COLOR(style->bg_hover_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_bg_active(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_bg_active(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->bg_active_variant[variant];
 }
 
-void ese_gui_style_set_bg_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_bg_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->bg_active_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_text(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_text(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->text_variant[variant];
 }
 
-void ese_gui_style_set_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_text(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->text_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_text_hover(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_text_hover(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->text_hover_variant[variant];
 }
 
-void ese_gui_style_set_text_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_text_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->text_hover_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_text_active(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_text_active(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->text_active_variant[variant];
 }
 
-void ese_gui_style_set_text_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_text_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->text_active_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_border(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_border(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->border_variant[variant];
 }
 
-void ese_gui_style_set_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_border(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->border_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_border_hover(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_border_hover(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->border_hover_variant[variant];
 }
 
-void ese_gui_style_set_border_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_border_hover(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->border_hover_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_border_active(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_border_active(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->border_active_variant[variant];
 }
 
-void ese_gui_style_set_border_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_border_active(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->border_active_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_tooltip_bg(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->tooltip_bg_variant[variant];
 }
 
-void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_tooltip_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->tooltip_bg_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_tooltip_color(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    
     return style->tooltip_color_variant[variant];
 }
 
-void ese_gui_style_set_tooltip_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_tooltip_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->tooltip_color_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_selection_bg(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->selection_bg_variant[variant];
 }
 
-void ese_gui_style_set_selection_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_selection_bg(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->selection_bg_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_selection_color(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->selection_color_variant[variant];
 }
 
-void ese_gui_style_set_selection_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_selection_color(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->selection_color_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_focus_ring(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->focus_ring_variant[variant];
 }
 
-void ese_gui_style_set_focus_ring(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_focus_ring(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->focus_ring_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
 
-EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style, EseGuiStyleVariant variant){
+EseColor *ese_gui_style_get_highlight(const EseGuiStyle *style, EseGuiStyleVariant variant) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+
     return style->highlight_variant[variant];
 }
 
-void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color){
+void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant, const EseColor *color) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
     log_assert("GUI_STYLE", variant >= 0 && variant < GUI_STYLE_VARIANT_MAX, "Invalid variant");
+    log_assert("GUI_STYLE", color != NULL, "NULL color parameter");
+
     SET_COLOR(style->highlight_variant[variant], color);
     _ese_gui_style_notify_watchers(style);
 }
@@ -960,16 +1018,19 @@ void ese_gui_style_set_highlight(EseGuiStyle *style, EseGuiStyleVariant variant,
 // Lua-related access
 lua_State *ese_gui_style_get_state(const EseGuiStyle *style) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+
     return style->state;
 }
 
 int ese_gui_style_get_lua_ref(const EseGuiStyle *style) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+
     return style->lua_ref;
 }
 
 int ese_gui_style_get_lua_ref_count(const EseGuiStyle *style) {
     log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+
     return style->lua_ref_count;
 }
 
@@ -1041,88 +1102,83 @@ void ese_gui_style_lua_init(EseLuaEngine *engine) {
 }
 
 void ese_gui_style_lua_push(EseGuiStyle *style) {
-    log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
-    
-    lua_State *L = ese_gui_style_get_state(style);
-    if (!L) {
-        return; // No Lua state available
+    log_assert("GUI_STYLE", style, "ese_gui_style_lua_push called with NULL style");
+
+    if (ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
+        // Lua-owned: create a new userdata
+        EseGuiStyle **ud = (EseGuiStyle **)lua_newuserdata(ese_gui_style_get_state(style), sizeof(EseGuiStyle *));
+        *ud = style;
+
+        // Attach metatable
+        luaL_getmetatable(ese_gui_style_get_state(style), GUI_STYLE_PROXY_META);
+        lua_setmetatable(ese_gui_style_get_state(style), -2);
+    } else {
+        // C-owned: get from registry
+        lua_rawgeti(ese_gui_style_get_state(style), LUA_REGISTRYINDEX, ese_gui_style_get_lua_ref(style));
     }
-    
-    // Check if we already have a proxy table for this style
-    if (ese_gui_style_get_lua_ref(style) != LUA_NOREF) {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, ese_gui_style_get_lua_ref(style));
-        return;
-    }
-    
-    // Create a new proxy table
-    lua_newtable(L);
-    
-    // Create userdata to hold the style pointer
-    EseGuiStyle **ud = (EseGuiStyle **)lua_newuserdata(L, sizeof(EseGuiStyle *));
-    *ud = style;
-    
-    // Set the metatable
-    luaL_setmetatable(L, GUI_STYLE_PROXY_META);
-    
-    // Store the userdata in the proxy table
-    lua_setfield(L, -2, "__ptr");
-    
-    // Set the proxy table's metatable
-    luaL_setmetatable(L, GUI_STYLE_PROXY_META);
 }
 
 EseGuiStyle *ese_gui_style_lua_get(lua_State *L, int idx) {
-    if (!lua_istable(L, idx)) {
+    log_assert("GUI_STYLE", L, "ese_gui_style_lua_get called with NULL Lua state");
+    
+    // Check if the value at idx is userdata
+    if (!lua_isuserdata(L, idx)) {
         return NULL;
     }
     
-    // Get the __ptr field
-    lua_getfield(L, idx, "__ptr");
-    if (!lua_isuserdata(L, -1)) {
-        lua_pop(L, 1);
-        return NULL;
-    }
-    
-    EseGuiStyle **ud = (EseGuiStyle **)lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    
+    // Get the userdata and check metatable
+    EseGuiStyle **ud = (EseGuiStyle **)luaL_testudata(L, idx, GUI_STYLE_PROXY_META);
     if (!ud) {
-        return NULL;
+        return NULL; // Wrong metatable or not userdata
     }
     
     return *ud;
 }
 
 void ese_gui_style_ref(EseGuiStyle *style) {
-    log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+    log_assert("GUI_STYLE", style, "ese_gui_style_ref called with NULL style");
     
-    if (style->lua_ref == LUA_NOREF) {
-        // Push to Lua and reference it
-        ese_gui_style_lua_push(style);
-        if (style->state) {
-            int ref = luaL_ref(style->state, LUA_REGISTRYINDEX);
-            _ese_gui_style_set_lua_ref(style, ref);
-            _ese_gui_style_set_lua_ref_count(style, 1);
-        }
+    if (ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
+        // First time referencing - create userdata and store reference
+        EseGuiStyle **ud = (EseGuiStyle **)lua_newuserdata(ese_gui_style_get_state(style), sizeof(EseGuiStyle *));
+        *ud = style;
+
+        // Attach metatable
+        luaL_getmetatable(ese_gui_style_get_state(style), GUI_STYLE_PROXY_META);
+        lua_setmetatable(ese_gui_style_get_state(style), -2);
+
+        // Store hard reference to prevent garbage collection
+        int ref = luaL_ref(ese_gui_style_get_state(style), LUA_REGISTRYINDEX);
+        _ese_gui_style_set_lua_ref(style, ref);
+        _ese_gui_style_set_lua_ref_count(style, 1);
     } else {
-        // Increment existing reference count
-        _ese_gui_style_set_lua_ref_count(style, style->lua_ref_count + 1);
+        // Already referenced - just increment count
+        _ese_gui_style_set_lua_ref_count(style, ese_gui_style_get_lua_ref_count(style) + 1);
     }
+
+    profile_count_add("ese_gui_style_ref_count");
 }
 
 void ese_gui_style_unref(EseGuiStyle *style) {
-    log_assert("GUI_STYLE", style != NULL, "NULL style parameter");
+    if (!style) return;
     
-    if (style->lua_ref != LUA_NOREF) {
-        _ese_gui_style_set_lua_ref_count(style, style->lua_ref_count - 1);
-        if (style->lua_ref_count <= 0) {
-            if (style->state) {
-                luaL_unref(style->state, LUA_REGISTRYINDEX, style->lua_ref);
-            }
-            _ese_gui_style_set_lua_ref(style, LUA_NOREF);
-            _ese_gui_style_set_lua_ref_count(style, 0);
+    if (ese_gui_style_get_lua_ref(style) != LUA_NOREF && ese_gui_style_get_lua_ref_count(style) > 0) {
+        _ese_gui_style_set_lua_ref_count(style, ese_gui_style_get_lua_ref_count(style) - 1);
+
+        // Clears the pointer so Lua GC will later dereference it
+        lua_rawgeti(ese_gui_style_get_state(style), LUA_REGISTRYINDEX, ese_gui_style_get_lua_ref(style));
+        if (lua_isuserdata(ese_gui_style_get_state(style), -1)) {
+            EseGuiStyle **ud = (EseGuiStyle **)lua_touserdata(ese_gui_style_get_state(style), -1);
+            if (ud) *ud = NULL;
         }
+        lua_pop(ese_gui_style_get_state(style), 1);
+
+        // now drop the registry ref
+        luaL_unref(ese_gui_style_get_state(style), LUA_REGISTRYINDEX, ese_gui_style_get_lua_ref(style));
+        _ese_gui_style_set_lua_ref(style, LUA_NOREF);
     }
+
+    profile_count_add("ese_gui_style_unref_count");
 }
 
 cJSON *ese_gui_style_serialize(const EseGuiStyle *style) {

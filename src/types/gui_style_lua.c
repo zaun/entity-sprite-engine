@@ -51,23 +51,17 @@ static int _ese_gui_style_lua_to_json(lua_State *L);
  * @param L Lua state
  * @return 0 (no return values)
  */
-static int _ese_gui_style_lua_gc(lua_State *L) {
-    // Get from userdata
+ static int _ese_gui_style_lua_gc(lua_State *L) {
     EseGuiStyle **ud = (EseGuiStyle **)luaL_testudata(L, 1, GUI_STYLE_PROXY_META);
-    if (!ud) {
-        return 0; // Not our userdata
-    }
+    if (!ud) return 0;
     
     EseGuiStyle *style = *ud;
-    if (style) {
-        // If lua_ref == LUA_NOREF, there are no more references to this style, 
-        // so we can free it.
-        // If lua_ref != LUA_NOREF, this style was referenced from C and should not be freed.
-        if (ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
-            ese_gui_style_destroy(style);
-        }
+    *ud = NULL;  // ← Immediate, before anything else
+    
+    if (style && ese_gui_style_get_lua_ref(style) == LUA_NOREF) {
+        ese_gui_style_destroy(style);
     }
-
+    
     return 0;
 }
 
@@ -85,6 +79,13 @@ static void _ese_gui_style_create_color_proxy(
     EseColor *(*getter_func)(const EseGuiStyle *, EseGuiStyleVariant),
     void (*setter_func)(EseGuiStyle *, EseGuiStyleVariant, const EseColor *)
 ) {
+    log_assert("GUI_STYLE_LUA", L, "_ese_gui_style_create_color_proxy called with NULL Lua state");
+    log_assert("GUI_STYLE_LUA", style, "_ese_gui_style_create_color_proxy called with NULL style");
+    log_assert("GUI_STYLE_LUA", getter_func, "_ese_gui_style_create_color_proxy called with NULL getter function");
+    log_assert("GUI_STYLE_LUA", setter_func, "_ese_gui_style_create_color_proxy called with NULL setter function");
+
+    log_verbose("GUI_STYLE_LUA", "_ese_gui_style_create_color_proxy called.");
+
     // Create a new table for this color property
     lua_newtable(L);
     
@@ -251,6 +252,7 @@ static int _ese_gui_style_lua_index(lua_State *L) {
         profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
         return 1;
     } else if (strcmp(key, "background") == 0) {
+        log_debug("GUI_STYLE_LUA", "_ese_gui_style_lua_index called with key: %s", key);
         _ese_gui_style_create_color_proxy(L, style, ese_gui_style_get_bg, ese_gui_style_set_bg);
         profile_stop(PROFILE_LUA_GUI_STYLE_INDEX, "gui_style_lua_index (getter)");
         return 1;
