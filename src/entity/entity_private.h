@@ -28,25 +28,24 @@ typedef struct {
  * @brief Internal entity structure.
  */
 struct EseEntity {
-    EseUUID *id;         /** Unique entity identifier */
-    bool active;         /** Whether entity is active */
-    bool visible;        /** Whether entity is visible */
-    bool persistent;     /** Whether entity is persistent */
-    uint64_t draw_order; /** Drawing order (z-index) */
+    EseUUID *id;                        /** Unique entity identifier */
+    bool active;                        /** Whether entity is active */
+    bool visible;                       /** Whether entity is visible */
+    bool persistent;                    /** Whether entity is persistent */
+    bool destroyed;                     /** Whether entity is destroyed */
+    uint64_t draw_order;                /** Drawing order (z-index) */
 
-    bool destroyed; /** Whether entity is destroyed */
+    EsePoint *position;                 /** EseEntity position */
 
-    EsePoint *position; /** EseEntity position */
+    EseEntityComponent **components;    /** Array of components */
+    size_t component_count;             /** Number of components */
+    size_t component_capacity;          /** Capacity of component array */
 
-    EseEntityComponent **components; /** Array of components */
-    size_t component_count;          /** Number of components */
-    size_t component_capacity;       /** Capacity of component array */
-
-    EseHashMap *current_collisions;  /** Hashmap of current frame collisions */
-    EseHashMap *previous_collisions; /** Hashmap of previous frame collisions */
-    EseRect *collision_bounds;       /** Bounds of the entity for collision detection */
-    EseRect *collision_world_bounds; /** Bounds of the entity for collision
-                                        detection in world coordinates */
+    EseHashMap *current_collisions;     /** Hashmap of current frame collisions */
+    EseHashMap *previous_collisions;    /** Hashmap of previous frame collisions */
+    EseRect *collision_bounds;          /** Bounds of the entity for collision detection */
+    EseRect *collision_world_bounds;    /** Bounds of the entity for collision
+                                            detection in world coordinates */
 
     EseLuaEngine *lua;                  /** Lua engine reference */
     EseDoubleLinkedList *default_props; /** Lua default props added to self.data */

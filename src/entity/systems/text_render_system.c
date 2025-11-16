@@ -154,7 +154,7 @@ static void text_render_sys_update(EseSystemManager *self, EseEngine *eng, float
 
         // Skip texts without content or inactive entities
         if (!tc->text || strlen(tc->text) == 0 || !tc->base.entity || !tc->base.entity->active ||
-            !tc->base.entity->visible) {
+            !tc->base.entity->visible || tc->base.entity->destroyed) {
             continue;
         }
 

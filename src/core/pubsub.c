@@ -5,6 +5,7 @@
 #include "utility/array.h"
 #include "utility/hashmap.h"
 #include "utility/log.h"
+#include "utility/thread.h"
 #include <string.h>
 
 /**
@@ -20,6 +21,7 @@ typedef struct {
  */
 struct EsePubSub {
     EseHashMap *topics; // Maps topic names to arrays of subscriptions
+    EseMutex *mutex;    // Mutex for thread-safe hashmap operations
 };
 
 // Forward declarations for private functions
@@ -35,6 +37,9 @@ EsePubSub *ese_pubsub_create(void) {
     pub_sub->topics = hashmap_create(_ese_subscription_free);
     log_assert("pub_sub", pub_sub->topics != NULL, "Failed to create topics hashmap");
 
+    pub_sub->mutex = ese_mutex_create();
+    log_assert("pub_sub", pub_sub->mutex != NULL, "Failed to create pubsub mutex");
+
     return pub_sub;
 }
 
@@ -44,6 +49,9 @@ void ese_pubsub_destroy(EsePubSub *pub_sub) {
     }
 
     hashmap_destroy(pub_sub->topics);
+    if (pub_sub->mutex) {
+        ese_mutex_destroy(pub_sub->mutex);
+    }
     memory_manager.free(pub_sub);
 }
 
@@ -52,17 +60,33 @@ void ese_pubsub_pub(EsePubSub *pub_sub, const char *name, const EseLuaValue *dat
     log_assert("pub_sub", name != NULL, "topic name cannot be NULL");
     log_assert("pub_sub", data != NULL, "data cannot be NULL");
 
+    ese_mutex_lock(pub_sub->mutex);
     EseArray *subscriptions = hashmap_get(pub_sub->topics, name);
     if (subscriptions == NULL) {
+        ese_mutex_unlock(pub_sub->mutex);
         return;
     }
 
+    // Copy subscriptions to process outside the lock to avoid deadlock
+    // if callbacks try to modify pubsub
     size_t count = array_size(subscriptions);
-    for (size_t i = 0; i < count; i++) {
-        EseSubscription *subscription = array_get(subscriptions, i);
-        if (subscription != NULL) {
-            _entity_pubsub_callback(name, data, subscription);
+    EseSubscription **subscription_copy = NULL;
+    if (count > 0) {
+        subscription_copy = memory_manager.malloc(sizeof(EseSubscription *) * count, MMTAG_PUB_SUB);
+        for (size_t i = 0; i < count; i++) {
+            subscription_copy[i] = array_get(subscriptions, i);
         }
+    }
+    ese_mutex_unlock(pub_sub->mutex);
+
+    // Process callbacks outside the lock
+    if (subscription_copy) {
+        for (size_t i = 0; i < count; i++) {
+            if (subscription_copy[i] != NULL) {
+                _entity_pubsub_callback(name, data, subscription_copy[i]);
+            }
+        }
+        memory_manager.free(subscription_copy);
     }
 }
 
@@ -90,6 +114,7 @@ static void _ese_subscription_free(void *value) {
 }
 
 static EseArray *_ese_get_or_create_topic_subscriptions(EsePubSub *pub_sub, const char *name) {
+    ese_mutex_lock(pub_sub->mutex);
     EseArray *subscriptions = hashmap_get(pub_sub->topics, name);
 
     if (subscriptions == NULL) {
@@ -99,6 +124,7 @@ static EseArray *_ese_get_or_create_topic_subscriptions(EsePubSub *pub_sub, cons
         hashmap_set(pub_sub->topics, name, subscriptions);
     }
 
+    ese_mutex_unlock(pub_sub->mutex);
     return subscriptions;
 }
 
@@ -117,7 +143,9 @@ void ese_pubsub_sub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
     subscription->entity = entity;
     subscription->function_name = memory_manager.strdup(function_name, MMTAG_PUB_SUB);
 
+    ese_mutex_lock(pub_sub->mutex);
     array_push(subscriptions, subscription);
+    ese_mutex_unlock(pub_sub->mutex);
 }
 
 void ese_pubsub_unsub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
@@ -127,34 +155,54 @@ void ese_pubsub_unsub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
     log_assert("pub_sub", entity != NULL, "entity cannot be NULL");
     log_assert("pub_sub", function_name != NULL, "function_name cannot be NULL");
 
+    ese_mutex_lock(pub_sub->mutex);
     EseArray *subscriptions = hashmap_get(pub_sub->topics, name);
     if (subscriptions == NULL) {
+        ese_mutex_unlock(pub_sub->mutex);
         return;
     }
 
     size_t count = array_size(subscriptions);
+    EseSubscription *found_subscription = NULL;
+    size_t found_index = 0;
+    bool found = false;
+
     for (size_t i = 0; i < count; i++) {
         EseSubscription *subscription = array_get(subscriptions, i);
         if (subscription != NULL && subscription->entity == entity &&
             strcmp(subscription->function_name, function_name) == 0) {
-
-            // Remove from array; array_remove_at will free the item if a
-            // free_fn was set. Since the array was created with free_fn = NULL,
-            // free explicitly here.
-            array_remove_at(subscriptions, i);
-            if (subscription->function_name) {
-                memory_manager.free(subscription->function_name);
-            }
-            memory_manager.free(subscription);
+            found_subscription = subscription;
+            found_index = i;
+            found = true;
             break;
         }
     }
 
+    if (found) {
+        // Remove from array; array_remove_at will free the item if a
+        // free_fn was set. Since the array was created with free_fn = NULL,
+        // free explicitly here.
+        array_remove_at(subscriptions, found_index);
+    }
+
+    bool should_remove_topic = (array_size(subscriptions) == 0);
+    ese_mutex_unlock(pub_sub->mutex);
+
+    // Free subscription outside the lock
+    if (found && found_subscription) {
+        if (found_subscription->function_name) {
+            memory_manager.free(found_subscription->function_name);
+        }
+        memory_manager.free(found_subscription);
+    }
+
     // If no more subscriptions, remove the topic
-    if (array_size(subscriptions) == 0) {
+    if (should_remove_topic) {
+        ese_mutex_lock(pub_sub->mutex);
         // hashmap_remove returns the stored value without freeing it; free
         // explicitly
         EseArray *removed = (EseArray *)hashmap_remove(pub_sub->topics, name);
+        ese_mutex_unlock(pub_sub->mutex);
         if (removed) {
             _ese_subscription_free(removed);
         }

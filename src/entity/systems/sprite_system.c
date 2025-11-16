@@ -21,6 +21,7 @@
 #include "core/system_manager_private.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_sprite.h"
+#include "entity/entity_private.h"
 #include "graphics/sprite.h"
 #include "utility/log.h"
 
@@ -130,7 +131,12 @@ static void sprite_sys_update(EseSystemManager *self, EseEngine *eng, float dt) 
     for (size_t i = 0; i < d->count; i++) {
         EseEntityComponentSprite *sp = d->sprites[i];
 
-        // Skip sprites without a sprite name
+        // Skip sprites without a sprite name or inactive entities
+        if (!sp->base.entity || !sp->base.entity->active ||
+            !sp->base.entity->visible || sp->base.entity->destroyed) {
+            continue;
+        }
+
         if (!sp->sprite_name) {
             sp->current_frame = 0;
             sp->sprite_ellapse_time = 0;

@@ -170,7 +170,8 @@ static void shape_render_sys_update(EseSystemManager *self, EseEngine *eng, floa
         EseEntityComponentShape *shape = d->shapes[i];
 
         // Skip inactive entities
-        if (!shape->base.entity || !shape->base.entity->active || !shape->base.entity->visible) {
+        if (!shape->base.entity || !shape->base.entity->active || !shape->base.entity->visible ||
+            shape->base.entity->destroyed) {
             continue;
         }
 

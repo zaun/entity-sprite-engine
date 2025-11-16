@@ -11,6 +11,7 @@
 #include "entity/components/entity_component_map.h"
 #include "entity/entity.h"
 #include "entity/entity_private.h"
+#include "entity/systems/cleanup_system.h"
 #include "entity/systems/collider_render_system.h"
 #include "entity/systems/map_render_system.h"
 #include "entity/systems/shape_render_system.h"
@@ -141,6 +142,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine_register_text_render_system(engine);
     engine_register_collider_render_system(engine);
     engine_register_map_render_system(engine);
+    engine_register_cleanup_system(engine);
 
     // Load startup script
     if (startup_script) {
@@ -163,20 +165,6 @@ void engine_destroy(EseEngine *engine) {
         ese_job_queue_destroy(engine->job_queue);
     }
 
-    if (engine->pub_sub) {
-        log_verbose("ENGINE", "Destroying pubsub");
-        ese_pubsub_destroy(engine->pub_sub);
-    }
-
-    // Destroy all systems first (they may reference entities)
-    if (engine->systems) {
-        log_verbose("ENGINE", "Destroying systems");
-        for (size_t i = 0; i < engine->sys_count; i++) {
-            system_manager_destroy(engine->systems[i], engine);
-        }
-        memory_manager.free(engine->systems);
-    }
-
     log_verbose("ENGINE", "Destroying GUI");
     ese_gui_destroy(engine->gui);
 
@@ -189,7 +177,6 @@ void engine_destroy(EseEngine *engine) {
     log_verbose("ENGINE", "Destroying render list b");
     render_list_destroy(engine->render_list_b);
 
-
     // Now free the entirty lists
     void *v;
     while ((v = dlist_pop_front(engine->entities)) != NULL) {
@@ -200,6 +187,21 @@ void engine_destroy(EseEngine *engine) {
     }
     dlist_free(engine->entities);
     dlist_free(engine->del_entities);
+
+    // Destroy all systems
+    if (engine->systems) {
+        log_verbose("ENGINE", "Destroying systems");
+        for (size_t i = 0; i < engine->sys_count; i++) {
+            system_manager_destroy(engine->systems[i], engine);
+        }
+        memory_manager.free(engine->systems);
+    }
+
+    // Destroyt the pub-sub system
+    if (engine->pub_sub) {
+        log_verbose("ENGINE", "Destroying pubsub");
+        ese_pubsub_destroy(engine->pub_sub);
+    }
 
     if (engine->asset_manager) {
         asset_manager_destroy(engine->asset_manager);
@@ -532,6 +534,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
+
+    // Run CLEANUP phase systems (single-threaded, after all other systems complete)
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    engine_run_phase(engine, SYS_PHASE_CLEANUP, delta_time, false);
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_cleanup");
 
     // Delete entities
     profile_start(PROFILE_ENG_UPDATE_SECTION);

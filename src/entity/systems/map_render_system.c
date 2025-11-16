@@ -167,10 +167,16 @@ static void map_render_sys_update(EseSystemManager *self, EseEngine *eng, float 
 
     for (size_t i = 0; i < d->count; i++) {
         EseEntityComponentMap *map = d->maps[i];
-        if (!map || !map->base.entity || !map->base.entity->active || !map->base.entity->visible) {
+        if (!map || !map->base.entity || !map->base.entity->active || !map->base.entity->visible ||
+            map->base.entity->destroyed) {
             continue;
         }
         if (!map->map) {
+            continue;
+        }
+
+        // Check if entity position is valid (may be NULL during destruction)
+        if (!map->base.entity->position) {
             continue;
         }
 

@@ -28,9 +28,10 @@ typedef struct EseDrawList EseDrawList;
  * rendering.
  */
 typedef enum {
-    SYS_PHASE_EARLY, /** Parallel execution before Lua scripts */
-    SYS_PHASE_LUA,   /** Single-threaded execution for Lua components */
-    SYS_PHASE_LATE   /** Parallel execution after Lua, before render */
+    SYS_PHASE_EARLY,   /** Parallel execution before Lua scripts */
+    SYS_PHASE_LUA,     /** Single-threaded execution for Lua components */
+    SYS_PHASE_LATE,    /** Parallel execution after Lua, before render */
+    SYS_PHASE_CLEANUP  /** Single-threaded cleanup after all systems complete */
 } EseSystemPhase;
 
 /**

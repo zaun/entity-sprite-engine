@@ -116,11 +116,17 @@ static void _entity_cleanup(EseEntity *entity) {
         ese_rect_destroy(entity->collision_world_bounds);
     }
 
+    // Remove components from systems and destroy them
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(entity->lua->runtime, ENGINE_KEY);
     for (size_t i = 0; i < entity->component_count; ++i) {
-        // Ensure component Lua refs are decremented before destroy so cleanup
-        // runs
-        entity->components[i]->vtable->unref(entity->components[i]);
-        entity_component_destroy(entity->components[i]);
+        EseEntityComponent *comp = entity->components[i];
+
+        if (engine) {
+            engine_notify_comp_rem(engine, comp);
+        }
+
+        comp->vtable->unref(comp);
+        entity_component_destroy(comp);
     }
     memory_manager.free(entity->components);
 
@@ -455,18 +461,20 @@ bool entity_component_remove(EseEntity *entity, const char *id) {
 
     EseEntityComponent *comp = entity->components[idx];
 
-    // Notify systems that a component is being removed (before destruction)
+    // Notify systems that component is being removed
+    // The cleanup system will queue it for deferred removal in cleanup phase
     EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(entity->lua->runtime, ENGINE_KEY);
     if (engine) {
         engine_notify_comp_rem(engine, comp);
+    } else {
+        // Fallback: if no engine, remove immediately (shouldn't happen in normal flow)
+        comp->vtable->unref(comp);
+        entity_component_destroy(comp);
+
+        entity->components[idx] = entity->components[entity->component_count - 1];
+        entity->components[entity->component_count - 1] = NULL;
+        entity->component_count--;
     }
-
-    comp->vtable->unref(comp);
-    entity_component_destroy(comp);
-
-    entity->components[idx] = entity->components[entity->component_count - 1];
-    entity->components[entity->component_count - 1] = NULL;
-    entity->component_count--;
 
     return true;
 }

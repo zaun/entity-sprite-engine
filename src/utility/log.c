@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include "utility/thread.h"
 
 static struct timeval log_start_time;
 static char *log_enabled_categories = NULL;
@@ -60,6 +61,8 @@ static void log_vprint(const char *level, const char *category, const char *fmt,
         return;
     }
 
+    int32_t thread_id = ese_thread_get_number();
+
     struct timeval now;
     gettimeofday(&now, NULL);
 
@@ -71,7 +74,7 @@ static void log_vprint(const char *level, const char *category, const char *fmt,
     }
     long ms = usec / 1000;
 
-    printf("[%04ld:%03ld] [%s] [%s] ", seconds, ms, level, category);
+    printf("[%04ld:%03ld] [%02d:%s] [%s] ", seconds, ms, thread_id, level, category);
     vprintf(fmt, args);
     printf("\n");
 }

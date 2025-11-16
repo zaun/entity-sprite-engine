@@ -140,7 +140,7 @@ static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng, flo
 
         // Skip sprites without a sprite name or inactive entities
         if (!sp->sprite_name || !sp->base.entity || !sp->base.entity->active ||
-            !sp->base.entity->visible) {
+            !sp->base.entity->visible || sp->base.entity->destroyed) {
             continue;
         }
 
