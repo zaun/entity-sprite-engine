@@ -380,31 +380,6 @@ bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect) {
     return false;
 }
 
-void entity_draw(EseEntity *entity, float camera_x, float camera_y, float view_width,
-                 float view_height, EntityDrawCallbacks *callbacks, void *callback_user_data) {
-    log_assert("ENTITY", entity, "entity_draw called with NULL entity");
-    log_assert("ENTITY", callbacks, "entity_draw called with NULL callbacks");
-    log_assert("ENTITY", callbacks->draw_texture,
-               "entity_draw called with NULL draw_texture callback");
-    log_assert("ENTITY", callbacks->draw_rect, "entity_draw called with NULL draw_rect callback");
-    log_assert("ENTITY", callbacks->draw_polyline,
-               "entity_draw called with NULL draw_polyline callback");
-
-    profile_start(PROFILE_ENTITY_DRAW_OVERALL);
-
-    for (size_t i = 0; i < entity->component_count; i++) {
-        if (!entity->components[i]->active)
-            continue;
-
-        profile_start(PROFILE_ENTITY_DRAW_SECTION);
-        entity_component_draw(entity->components[i], camera_x, camera_y, view_width, view_height,
-                              callbacks, callback_user_data);
-        profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
-    }
-
-    profile_stop(PROFILE_ENTITY_DRAW_OVERALL, "entity_draw");
-}
-
 const char *entity_component_add(EseEntity *entity, EseEntityComponent *comp) {
     log_assert("ENTITY", entity, "entity_component_add called with NULL entity");
     log_assert("ENTITY", comp, "entity_component_add called with NULL comp");

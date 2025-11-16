@@ -44,7 +44,6 @@ static void test_entity_update();
 static void test_entity_run_function();
 static void test_entity_collision_callbacks();
 // Rename to match Unity test implementation name
-static void test_entity_draw();
 static void test_entity_component_management();
 static void test_entity_tags();
 static void test_entity_lua_integration();
@@ -315,48 +314,6 @@ static void test_entity_collision_callbacks() {
     
 }
 
-// Test entity draw
-static void test_entity_draw() {
-    
-    
-    EseEntity *entity = entity_create(test_engine);
-        
-    // Test drawing with no components
-    EntityDrawCallbacks callbacks = {
-        .draw_texture = mock_texture_callback,
-        .draw_rect = mock_rect_callback,
-        .draw_polyline = mock_polyline_callback
-    };
-    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &callbacks, NULL);
-
-    TEST_ASSERT_FALSE_MESSAGE(mock_texture_callback_called, "Texture callback should not be called with no components");
-    TEST_ASSERT_FALSE_MESSAGE(mock_rect_callback_called, "Rect callback should not be called with no components");
-    
-    EseEntityComponent *collider = entity_component_collider_create(test_engine);
-    entity_component_add(entity, collider);
-
-    EseRect *rect = ese_rect_create(test_engine);
-    ese_rect_set_x(rect, 0);
-    ese_rect_set_y(rect, 0);
-    ese_rect_set_width(rect, 100);
-    ese_rect_set_height(rect, 100);
-    entity_component_collider_rects_add((EseEntityComponentCollider *)entity_component_get_data(collider), rect);
-
-    entity_component_collider_set_draw_debug((EseEntityComponentCollider *)entity_component_get_data(collider), true);
-
-    entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &callbacks, NULL);
-
-    TEST_ASSERT_FALSE_MESSAGE(mock_texture_callback_called, "Texture callback should not be called with no components");
-    TEST_ASSERT_TRUE_MESSAGE(mock_rect_callback_called, "Rect callback should not be called with no components");
-    TEST_ASSERT_TRUE_MESSAGE(mock_rect_callback_count == 1, "Rect callback should be called once");
-
-    // TODO: add a sprite component and test that the texture callback is called
-
-    entity_destroy(entity);
-    
-    
-}
-
 // Test entity component management
 static void test_entity_component_management() {
     
@@ -457,13 +414,7 @@ static void test_entity_null_pointer_aborts() {
     // Test that update functions abort with NULL pointers
     TEST_ASSERT_DEATH((entity_update(NULL, 0.016f)), "entity_update should abort with NULL entity");
     TEST_ASSERT_DEATH((entity_run_function_with_args(NULL, "test", 0, NULL)), "entity_run_function_with_args should abort with NULL entity");
-    
-    // Test that draw function aborts with NULL pointers
-    TEST_ASSERT_DEATH((entity_draw(NULL, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL entity");
-    TEST_ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, NULL, NULL)), "entity_draw should abort with NULL callbacks");
-    EntityDrawCallbacks null_callbacks = {0};
-    TEST_ASSERT_DEATH((entity_draw(entity, 0.0f, 0.0f, 800.0f, 600.0f, &null_callbacks, NULL)), "entity_draw should abort with NULL callbacks");
-    
+        
     // Test that component management functions abort with NULL pointers
     TEST_ASSERT_DEATH((entity_component_add(NULL, NULL)), "entity_component_add should abort with NULL entity");
     TEST_ASSERT_DEATH((entity_component_add(entity, NULL)), "entity_component_add should abort with NULL component");
@@ -742,7 +693,6 @@ int main(void) {
     RUN_TEST(test_entity_update);
     RUN_TEST(test_entity_run_function);
     RUN_TEST(test_entity_collision_callbacks);
-    RUN_TEST(test_entity_draw);
     RUN_TEST(test_entity_component_management);
     RUN_TEST(test_entity_tags);
     RUN_TEST(test_entity_lua_integration);

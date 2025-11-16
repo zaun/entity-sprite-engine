@@ -456,35 +456,10 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_collision_callback");
 
-    // Entity PASS THREE - Create draw calls for each active entity (non-sprite
-    // components) This creates a flat list of draw calls from all entities. The
-    // entity_draw() function is responsible for performing visibility culling
-    // based on the camera position and view dimensions passed to it. Each
-    // visible entity may contribute multiple draw calls to the list.
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    // Clear the draw list
     draw_list_clear(engine->draw_list);
-    entity_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(entity_iter, &value)) {
-        EseEntity *entity = (EseEntity *)value;
 
-        if (!entity->active || !entity->visible) {
-            continue;
-        }
-
-        EntityDrawCallbacks callbacks = {.draw_texture = _engine_add_texture_to_draw_list,
-                                         .draw_rect = _engine_add_rect_to_draw_list,
-                                         .draw_polyline = _engine_add_polyline_to_draw_list};
-
-        entity_draw(entity, ese_point_get_x(engine->camera_state->position),
-                    ese_point_get_y(engine->camera_state->position),
-                    ese_display_get_viewport_width(engine->display_state),
-                    ese_display_get_viewport_height(engine->display_state), &callbacks,
-                    engine->draw_list);
-    }
-    dlist_iter_free(entity_iter);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_draw");
-
-    // Run LATE phase systems (parallel after Lua, before render)
+    // Run LATE phase systems
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_LATE, delta_time, true);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_late");

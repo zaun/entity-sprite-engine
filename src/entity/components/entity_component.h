@@ -36,10 +36,6 @@ void entity_component_detect_collision_with_component(EseEntityComponent *a, Ese
 
 bool entity_component_detect_collision_rect(EseEntityComponent *a, EseRect *rect);
 
-void entity_component_draw(EseEntityComponent *component, float camera_x, float camera_y,
-                           float view_width, float view_height, EntityDrawCallbacks *callbacks,
-                           void *callback_user_data);
-
 /**
  * @brief Runs a function on a component using component-specific logic.
  *

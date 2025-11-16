@@ -165,20 +165,6 @@ void entity_process_collision_callbacks(EseCollisionHit *hit);
 bool entity_detect_collision_rect(EseEntity *entity, EseRect *rect);
 
 /**
- * @brief Draws an entity using the provided callback.
- *
- * @param entity Pointer to the EseEntity to draw
- * @param camera_x Camera X position
- * @param camera_y Camera Y position
- * @param view_width View width
- * @param view_height View height
- * @param callbacks Structure containing all drawing callback functions
- * @param callback_user_data User data for callback
- */
-void entity_draw(EseEntity *entity, float camera_x, float camera_y, float view_width,
-                 float view_height, EntityDrawCallbacks *callbacks, void *callback_user_data);
-
-/**
  * @brief Adds a component to an entity.
  *
  * @param entity Pointer to the EseEntity

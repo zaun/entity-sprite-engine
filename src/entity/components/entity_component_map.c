@@ -49,11 +49,6 @@ static void _map_vtable_update(EseEntityComponent *component, EseEntity *entity,
     _entity_component_map_update((EseEntityComponentMap *)component->data, entity, delta_time);
 }
 
-static void _map_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                             void *callbacks, void *user_data) {
-    EntityDrawCallbacks *draw_callbacks = (EntityDrawCallbacks *)callbacks;
-}
-
 static bool _map_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                      const char *func_name, int argc, void *argv[]) {
     // Map components don't support function execution
@@ -99,7 +94,6 @@ static void _map_vtable_unref(EseEntityComponent *component) {
 static const ComponentVTable map_vtable = {.copy = _map_vtable_copy,
                                            .destroy = _map_vtable_destroy,
                                            .update = _map_vtable_update,
-                                           .draw = _map_vtable_draw,
                                            .run_function = _map_vtable_run_function,
                                            .collides = _map_vtable_collides_component,
                                            .ref = _map_vtable_ref,

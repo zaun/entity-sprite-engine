@@ -145,31 +145,6 @@ bool entity_component_detect_collision_rect(EseEntityComponent *component, EseRe
     return false;
 }
 
-void entity_component_draw(EseEntityComponent *component, float camera_x, float camera_y,
-                           float view_width, float view_height, EntityDrawCallbacks *callbacks,
-                           void *callback_user_data) {
-    profile_start(PROFILE_ENTITY_DRAW_SECTION);
-
-    profile_start(PROFILE_ENTITY_DRAW_SCREEN_POS);
-    float entity_x = ese_point_get_x(component->entity->position);
-    float entity_y = ese_point_get_y(component->entity->position);
-
-    float view_left = camera_x - view_width / 2.0f;
-    float view_top = camera_y - view_height / 2.0f;
-    float view_right = camera_x + view_width / 2.0f;
-    float view_bottom = camera_y + view_height / 2.0f;
-
-    int screen_x = (int)(entity_x - view_left);
-    int screen_y = (int)(entity_y - view_top);
-    profile_stop(PROFILE_ENTITY_DRAW_SCREEN_POS, "entity_component_draw_screen_pos");
-
-    if (component->vtable->draw) {
-        component->vtable->draw(component, screen_x, screen_y, callbacks, callback_user_data);
-    }
-
-    profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
-}
-
 bool entity_component_run_function(EseEntityComponent *component, EseEntity *entity,
                                    const char *func_name, int argc, EseLuaValue *argv[]) {
     log_assert("ENTITY_COMP", component,

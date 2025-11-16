@@ -29,8 +29,6 @@ typedef struct ComponentVTable {
     EseEntityComponent *(*copy)(EseEntityComponent *component);
     void (*destroy)(EseEntityComponent *component);
     void (*update)(EseEntityComponent *component, EseEntity *entity, float delta_time);
-    void (*draw)(EseEntityComponent *component, int screen_x, int screen_y, void *callbacks,
-                 void *user_data);
     bool (*run_function)(EseEntityComponent *component, EseEntity *entity, const char *func_name,
                          int argc, void *argv[]);
     void (*collides)(EseEntityComponent *a, EseEntityComponent *b, EseArray *out_hits);
