@@ -74,14 +74,20 @@ static void cleanup_sys_on_remove(EseSystemManager *self, EseEngine *eng,
     (void)eng;
     CleanupSystemData *d = (CleanupSystemData *)self->data;
 
-    // Queue the component for deferred removal (don't remove from entity yet)
-    if (comp && comp->entity) {
-        DeferredComponentRemoval *removal =
-            memory_manager.malloc(sizeof(DeferredComponentRemoval), MMTAG_ENGINE);
-        removal->entity = comp->entity;
-        removal->component = comp;
-        dlist_append(d->removal_queue, removal);
+    if (!comp || !comp->entity) {
+        return;
     }
+
+    if (comp->entity->destroyed) {
+        return;
+    }
+
+    // Queue the component for deferred removal (don't remove from entity yet)
+    DeferredComponentRemoval *removal =
+        memory_manager.malloc(sizeof(DeferredComponentRemoval), MMTAG_ENGINE);
+    removal->entity = comp->entity;
+    removal->component = comp;
+    dlist_append(d->removal_queue, removal);
 }
 
 /**
