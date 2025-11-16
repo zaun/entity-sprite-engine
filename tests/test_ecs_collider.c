@@ -322,51 +322,6 @@ void test_entity_component_collider_position_changed_null_collider(void) {
     TEST_ASSERT_DEATH((entity_component_collider_position_changed(NULL)), "entity_component_collider_position_changed called with NULL collider");
 }
 
-void test_entity_component_collider_update_world_bounds_only(void) {
-    EseEntityComponent *component = entity_component_collider_create(test_engine);
-    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
-    
-    // Attach to entity
-    entity_component_add(test_entity, component);
-    ese_point_set_x(test_entity->position, 100.0f);
-    ese_point_set_y(test_entity->position, 200.0f);
-    
-    // Add rect and update bounds first
-    EseRect *rect = ese_rect_create(test_engine);
-    ese_rect_set_x(rect, 10.0f);
-    ese_rect_set_y(rect, 20.0f);
-    ese_rect_set_width(rect, 30.0f);
-    ese_rect_set_height(rect, 40.0f);
-    
-    entity_component_collider_rects_add(collider, rect);
-    entity_component_collider_update_bounds(collider);
-    
-    // Change entity position
-    ese_point_set_x(test_entity->position, 300.0f);
-    ese_point_set_y(test_entity->position, 400.0f);
-    
-    // Update only world bounds
-    entity_component_collider_update_world_bounds_only(collider);
-    
-    // World bounds should be updated with new position
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 310.0f, ese_rect_get_x(test_entity->collision_world_bounds)); // 300 + 10
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, 420.0f, ese_rect_get_y(test_entity->collision_world_bounds)); // 400 + 20
-}
-
-void test_entity_component_collider_update_world_bounds_only_no_entity(void) {
-    EseEntityComponent *component = entity_component_collider_create(test_engine);
-    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
-    
-    // Should not crash when no entity attached
-    entity_component_collider_update_world_bounds_only(collider);
-    
-    entity_component_destroy(component);
-}
-
-void test_entity_component_collider_update_world_bounds_only_null_collider(void) {
-    TEST_ASSERT_DEATH((entity_component_collider_update_world_bounds_only(NULL)), "entity_component_collider_update_world_bounds_only called with NULL collider");
-}
-
 // Lua API Tests
 void test_entity_component_collider_lua_init(void) {
     lua_State *L = test_engine->runtime;
@@ -651,9 +606,6 @@ int main(void) {
     RUN_TEST(test_entity_component_collider_rect_updated_null_collider);
     RUN_TEST(test_entity_component_collider_position_changed);
     RUN_TEST(test_entity_component_collider_position_changed_null_collider);
-    RUN_TEST(test_entity_component_collider_update_world_bounds_only);
-    RUN_TEST(test_entity_component_collider_update_world_bounds_only_no_entity);
-    RUN_TEST(test_entity_component_collider_update_world_bounds_only_null_collider);
     
     // Lua API Tests
     RUN_TEST(test_entity_component_collider_lua_init);

@@ -69,7 +69,9 @@ void entity_component_update(EseEntityComponent *component, EseEntity *entity, f
 
     profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
 
-    component->vtable->update(component, entity, delta_time);
+    if (component->vtable->update) {
+        component->vtable->update(component, entity, delta_time);
+    }
 
     profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
 }
@@ -161,7 +163,9 @@ void entity_component_draw(EseEntityComponent *component, float camera_x, float 
     int screen_y = (int)(entity_y - view_top);
     profile_stop(PROFILE_ENTITY_DRAW_SCREEN_POS, "entity_component_draw_screen_pos");
 
-    component->vtable->draw(component, screen_x, screen_y, callbacks, callback_user_data);
+    if (component->vtable->draw) {
+        component->vtable->draw(component, screen_x, screen_y, callbacks, callback_user_data);
+    }
 
     profile_stop(PROFILE_ENTITY_DRAW_SECTION, "entity_component_draw");
 }

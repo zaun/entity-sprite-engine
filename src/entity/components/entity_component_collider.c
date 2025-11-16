@@ -61,23 +61,6 @@ static void _collider_vtable_destroy(EseEntityComponent *component) {
     _entity_component_collider_destroy((EseEntityComponentCollider *)component->data);
 }
 
-static void _collider_vtable_update(EseEntityComponent *component, EseEntity *entity,
-                                    float delta_time) {
-    // Collider update only updates world bounds
-    entity_component_collider_update_world_bounds_only(
-        (EseEntityComponentCollider *)component->data);
-}
-
-static void _collider_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                                  void *callbacks, void *user_data) {
-    // Collider rendering is now handled by the collider render system
-    (void)component;
-    (void)screen_x;
-    (void)screen_y;
-    (void)callbacks;
-    (void)user_data;
-}
-
 static bool _collider_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                           const char *func_name, int argc, void *argv[]) {
     // Colliders don't support function execution
@@ -101,8 +84,6 @@ static void _collider_vtable_unref(EseEntityComponent *component) {
 // Static vtable instance for collider components
 static const ComponentVTable collider_vtable = {.copy = _collider_vtable_copy,
                                                 .destroy = _collider_vtable_destroy,
-                                                .update = _collider_vtable_update,
-                                                .draw = _collider_vtable_draw,
                                                 .run_function = _collider_vtable_run_function,
                                                 .collides = _collider_vtable_collides_component,
                                                 .ref = _collider_vtable_ref,
@@ -1010,40 +991,6 @@ void entity_component_collider_position_changed(EseEntityComponentCollider *coll
 
     // Update bounds since entity position affects all rect world positions
     entity_component_collider_update_bounds(collider);
-}
-
-void entity_component_collider_update_world_bounds_only(EseEntityComponentCollider *collider) {
-    log_assert("ENTITY", collider,
-               "entity_component_collider_update_world_bounds_only called with "
-               "NULL collider");
-
-    // If component isn't attached to an entity yet, skip bounds update
-    if (!collider->base.entity) {
-        return;
-    }
-
-    // If no entity bounds exist, can't update world bounds
-    if (!collider->base.entity->collision_bounds) {
-        return;
-    }
-
-    // Update ONLY the world bounds based on current entity position and entity
-    // bounds
-    if (!collider->base.entity->collision_world_bounds) {
-        collider->base.entity->collision_world_bounds = ese_rect_create(collider->base.lua);
-    }
-
-    EseRect *entity_bounds = collider->base.entity->collision_bounds;
-    EseRect *world_bounds = collider->base.entity->collision_world_bounds;
-
-    // Copy entity bounds to world bounds and add entity position offset
-    ese_rect_set_x(world_bounds, ese_rect_get_x(entity_bounds) +
-                                     ese_point_get_x(collider->base.entity->position));
-    ese_rect_set_y(world_bounds, ese_rect_get_y(entity_bounds) +
-                                     ese_point_get_y(collider->base.entity->position));
-    ese_rect_set_width(world_bounds, ese_rect_get_width(entity_bounds));
-    ese_rect_set_height(world_bounds, ese_rect_get_height(entity_bounds));
-    ese_rect_set_rotation(world_bounds, ese_rect_get_rotation(entity_bounds));
 }
 
 bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collider) {

@@ -106,20 +106,6 @@ void test_entity_component_text_copy_basic(void) {
     entity_component_destroy(copy);
 }
 
-void test_entity_component_text_update_and_destroy(void) {
-    EseEntityComponent *component = entity_component_text_create(test_engine, "Update");
-    // Should not crash
-    entity_component_update(component, test_entity, 0.016f);
-
-    // Destroy should not crash
-    entity_component_destroy(component);
-}
-
-void test_entity_component_text_update_null_args(void) {
-    TEST_ASSERT_DEATH((_entity_component_text_update(NULL, test_entity, 0.0f)), "_entity_component_text_update called with NULL component");
-    TEST_ASSERT_DEATH((_entity_component_text_update((EseEntityComponentText *)0x1, NULL, 0.0f)), "_entity_component_text_update called with NULL entity");
-}
-
 void test_entity_component_text_destroy_null(void) {
     TEST_ASSERT_DEATH((_entity_component_text_destroy(NULL)), "_entity_component_text_destroy called with NULL src");
 }
@@ -263,8 +249,6 @@ int main(void) {
     RUN_TEST(test_entity_component_text_create_basic);
     RUN_TEST(test_entity_component_text_copy_null_src);
     RUN_TEST(test_entity_component_text_copy_basic);
-    RUN_TEST(test_entity_component_text_update_and_destroy);
-    RUN_TEST(test_entity_component_text_update_null_args);
     RUN_TEST(test_entity_component_text_destroy_null);
 
     // Lua API Tests

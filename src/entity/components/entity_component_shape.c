@@ -234,21 +234,6 @@ static void _shape_vtable_destroy(EseEntityComponent *component) {
     _entity_component_shape_destroy((EseEntityComponentShape *)component->data);
 }
 
-static void _shape_vtable_update(EseEntityComponent *component, EseEntity *entity,
-                                 float delta_time) {
-    // Shape components don't have update functionality
-}
-
-static void _shape_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                               void *callbacks, void *user_data) {
-    // Shape drawing is now handled by the shape render system
-    (void)component;
-    (void)screen_x;
-    (void)screen_y;
-    (void)callbacks;
-    (void)user_data;
-}
-
 static bool _shape_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                        const char *func_name, int argc, void *argv[]) {
     // Shape components don't support function execution
@@ -294,8 +279,6 @@ static void _shape_vtable_unref(EseEntityComponent *component) {
 // Static vtable instance for shape components
 static const ComponentVTable shape_vtable = {.copy = _shape_vtable_copy,
                                              .destroy = _shape_vtable_destroy,
-                                             .update = _shape_vtable_update,
-                                             .draw = _shape_vtable_draw,
                                              .run_function = _shape_vtable_run_function,
                                              .collides = _shape_vtable_collides_component,
                                              .ref = _shape_vtable_ref,

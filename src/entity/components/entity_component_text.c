@@ -24,21 +24,6 @@ static void _text_vtable_destroy(EseEntityComponent *component) {
     _entity_component_text_destroy((EseEntityComponentText *)component->data);
 }
 
-static void _text_vtable_update(EseEntityComponent *component, EseEntity *entity,
-                                float delta_time) {
-    _entity_component_text_update((EseEntityComponentText *)component->data, entity, delta_time);
-}
-
-static void _text_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                              void *callbacks, void *user_data) {
-    // Text rendering is now handled by the text render system
-    (void)component;
-    (void)screen_x;
-    (void)screen_y;
-    (void)callbacks;
-    (void)user_data;
-}
-
 static bool _text_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                       const char *func_name, int argc, void *argv[]) {
     // Text components don't support function execution
@@ -84,8 +69,6 @@ static void _text_vtable_unref(EseEntityComponent *component) {
 // Static vtable instance for text components
 static const ComponentVTable text_vtable = {.copy = _text_vtable_copy,
                                             .destroy = _text_vtable_destroy,
-                                            .update = _text_vtable_update,
-                                            .draw = _text_vtable_draw,
                                             .run_function = _text_vtable_run_function,
                                             .collides = _text_vtable_collides_component,
                                             .ref = _text_vtable_ref,
@@ -166,16 +149,6 @@ void _entity_component_text_destroy(EseEntityComponentText *component) {
     } else if (component->base.lua_ref == LUA_NOREF) {
         _entity_component_ese_text_cleanup(component);
     }
-}
-
-void _entity_component_text_update(EseEntityComponentText *component, EseEntity *entity,
-                                   float delta_time) {
-    log_assert("ENTITY_COMP", component,
-               "_entity_component_text_update called with NULL component");
-    log_assert("ENTITY_COMP", entity, "_entity_component_text_update called with NULL entity");
-
-    // Text components don't need update logic for now
-    (void)delta_time;
 }
 
 static int _entity_component_text_index(lua_State *L) {

@@ -13,6 +13,7 @@
 #include "entity/entity_private.h"
 #include "entity/systems/cleanup_system.h"
 #include "entity/systems/collider_render_system.h"
+#include "entity/systems/collider_system.h"
 #include "entity/systems/map_render_system.h"
 #include "entity/systems/shape_render_system.h"
 #include "entity/systems/sprite_render_system.h"
@@ -140,6 +141,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine_register_sprite_render_system(engine);
     engine_register_shape_render_system(engine);
     engine_register_text_render_system(engine);
+    engine_register_collider_system(engine);
     engine_register_collider_render_system(engine);
     engine_register_map_render_system(engine);
     engine_register_cleanup_system(engine);

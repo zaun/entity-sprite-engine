@@ -26,18 +26,6 @@ static void _lua_vtable_destroy(EseEntityComponent *component) {
     _entity_component_lua_destroy((EseEntityComponentLua *)component->data);
 }
 
-static void _lua_vtable_update(EseEntityComponent *component, EseEntity *entity, float delta_time) {
-	(void)component;
-	(void)entity;
-	(void)delta_time;
-	// Lua updates are handled by lua_system in SYS_PHASE_LUA
-}
-
-static void _lua_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                             void *callbacks, void *user_data) {
-    // Lua components don't have draw functionality
-}
-
 static bool _lua_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                      const char *func_name, int argc, void *argv[]) {
     return entity_component_lua_run((EseEntityComponentLua *)component->data, entity, func_name,
@@ -62,8 +50,6 @@ static void _lua_vtable_unref(EseEntityComponent *component) {
 // Static vtable instance for lua components
 static const ComponentVTable lua_vtable = {.copy = _lua_vtable_copy,
                                            .destroy = _lua_vtable_destroy,
-                                           .update = _lua_vtable_update,
-                                           .draw = _lua_vtable_draw,
                                            .run_function = _lua_vtable_run_function,
                                            .collides = _lua_vtable_collides_component,
                                            .ref = _lua_vtable_ref,

@@ -55,8 +55,6 @@ void entity_component_collider_rect_updated(EseEntityComponentCollider *collider
 
 void entity_component_collider_position_changed(EseEntityComponentCollider *collider);
 
-void entity_component_collider_update_world_bounds_only(EseEntityComponentCollider *collider);
-
 bool entity_component_collider_get_draw_debug(EseEntityComponentCollider *collider);
 
 void entity_component_collider_set_draw_debug(EseEntityComponentCollider *collider,

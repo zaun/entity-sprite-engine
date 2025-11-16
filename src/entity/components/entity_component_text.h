@@ -51,9 +51,6 @@ EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *sr
 
 void _entity_component_text_destroy(EseEntityComponentText *component);
 
-void _entity_component_text_update(EseEntityComponentText *component, EseEntity *entity,
-                                   float delta_time);
-
 EseEntityComponentText *_entity_component_text_get(lua_State *L, int idx);
 
 void _entity_component_text_init(EseLuaEngine *engine);

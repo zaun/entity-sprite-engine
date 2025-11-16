@@ -22,22 +22,6 @@ static void _sprite_vtable_destroy(EseEntityComponent *component) {
     _entity_component_sprite_destroy((EseEntityComponentSprite *)component->data);
 }
 
-static void _sprite_vtable_update(EseEntityComponent *component, EseEntity *entity,
-                                  float delta_time) {
-    (void)component;
-    (void)entity;
-    (void)delta_time;
-}
-
-static void _sprite_vtable_draw(EseEntityComponent *component, int screen_x, int screen_y,
-                                void *callbacks, void *user_data) {
-    (void)component;
-    (void)screen_x;
-    (void)screen_y;
-    (void)callbacks;
-    (void)user_data;
-}
-
 static bool _sprite_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
                                         const char *func_name, int argc, void *argv[]) {
     // Sprite components don't support function execution
@@ -83,8 +67,6 @@ static void _sprite_vtable_unref(EseEntityComponent *component) {
 // Static vtable instance for sprite components
 static const ComponentVTable sprite_vtable = {.copy = _sprite_vtable_copy,
                                               .destroy = _sprite_vtable_destroy,
-                                              .update = _sprite_vtable_update,
-                                              .draw = _sprite_vtable_draw,
                                               .run_function = _sprite_vtable_run_function,
                                               .collides = _sprite_vtable_collides_component,
                                               .ref = _sprite_vtable_ref,
