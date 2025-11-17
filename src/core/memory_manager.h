@@ -74,6 +74,7 @@ typedef enum {
     MMTAG_RS_TEXT,     /** Renderer System - Text */
     MMTAG_RS_COLLIDER, /** Renderer System - Collider */
     MMTAG_RS_MAP,      /** Renderer System - Map */
+    MMTAG_S_MAP,       /** System - Map */
     MMTAG_TEMP,        /** Temporary - Should only be used while actively debugging and testing. */
     MMTAG_COUNT
 } MemTag;

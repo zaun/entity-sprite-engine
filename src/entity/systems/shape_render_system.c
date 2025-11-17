@@ -162,7 +162,8 @@ static void _rotate_point(float *x, float *y, float angle_radians) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void shape_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult shape_render_sys_update(EseSystemManager *self, EseEngine *eng,
+                                                   float dt) {
     (void)dt;
     ShapeRenderSystemData *d = (ShapeRenderSystemData *)self->data;
 
@@ -340,6 +341,9 @@ static void shape_render_sys_update(EseSystemManager *self, EseEngine *eng, floa
 
         profile_stop(PROFILE_ENTITY_COMP_SHAPE_DRAW, "entity_component_shape_draw");
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

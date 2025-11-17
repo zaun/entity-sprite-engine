@@ -147,6 +147,7 @@ static const char *mem_tag_names[MMTAG_COUNT] = {
     "REN_SYS_TEXT    ",
     "REN_SYS_COLLIDER",
     "REN_SYS_MAP     ",
+    "SYS_MAP         ",
     "TEMP            ",
 };
 

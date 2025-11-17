@@ -57,7 +57,7 @@ static void map_render_sys_on_add(EseSystemManager *self, EseEngine *eng, EseEnt
 static void map_render_sys_on_remove(EseSystemManager *self, EseEngine *eng,
                                     EseEntityComponent *comp);
 static void map_render_sys_init(EseSystemManager *self, EseEngine *eng);
-static void map_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt);
+static EseSystemJobResult map_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt);
 static void map_render_sys_shutdown(EseSystemManager *self, EseEngine *eng);
 static void _map_render_draw(EseEntityComponentMap *component, float screen_x, float screen_y,
                             EntityDrawTextureCallback texCallback, void *callback_user_data);
@@ -157,12 +157,14 @@ static void map_render_sys_init(EseSystemManager *self, EseEngine *eng) {
 * @param eng Engine pointer
 * @param dt Delta time (unused)
 */
-static void map_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult map_render_sys_update(EseSystemManager *self, EseEngine *eng,
+                                                 float dt) {
     (void)dt;
     MapRenderSystemData *d = (MapRenderSystemData *)self->data;
 
     if (!d || d->count == 0) {
-        return;
+        EseSystemJobResult res = {0};
+        return res;
     }
 
     for (size_t i = 0; i < d->count; i++) {
@@ -172,11 +174,6 @@ static void map_render_sys_update(EseSystemManager *self, EseEngine *eng, float 
             continue;
         }
         if (!map->map) {
-            continue;
-        }
-
-        // Check if entity position is valid (may be NULL during destruction)
-        if (!map->base.entity->position) {
             continue;
         }
 
@@ -202,6 +199,9 @@ static void map_render_sys_update(EseSystemManager *self, EseEngine *eng, float 
         EseDrawList *draw_list = engine_get_draw_list(eng);
         _map_render_draw(map, screen_x, screen_y, _engine_add_texture_to_draw_list, draw_list);
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

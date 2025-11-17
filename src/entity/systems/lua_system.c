@@ -62,7 +62,7 @@ static void lua_sys_init(EseSystemManager *self, EseEngine *eng) {
 	self->data = d;
 }
 
-static void lua_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult lua_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
 	(void)eng;
 	LuaSystemData *d = (LuaSystemData *)self->data;
 
@@ -106,6 +106,9 @@ static void lua_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
 
 		profile_stop(PROFILE_ENTITY_COMP_LUA_UPDATE, "lua_system_component_update");
 	}
+
+	EseSystemJobResult res = {0};
+	return res;
 }
 
 static void lua_sys_shutdown(EseSystemManager *self, EseEngine *eng) {

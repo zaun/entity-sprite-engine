@@ -110,7 +110,7 @@ static void cleanup_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void cleanup_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult cleanup_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
     (void)dt;
     CleanupSystemData *d = (CleanupSystemData *)self->data;
 
@@ -154,6 +154,9 @@ static void cleanup_sys_update(EseSystemManager *self, EseEngine *eng, float dt)
 
         memory_manager.free(removal);
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

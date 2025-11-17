@@ -90,11 +90,14 @@ static void test_sys_init(EseSystemManager *self, EseEngine *eng) {
     g_last_engine = eng;
 }
 
-static void test_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult test_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
     (void)self;
     g_update_called++;
     g_last_engine = eng;
     g_last_dt = dt;
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 static bool test_sys_accepts(EseSystemManager *self, const EseEntityComponent *comp) {

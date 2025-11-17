@@ -28,8 +28,7 @@ typedef struct EseSystemManager EseSystemManager;
  *
  * @details The collider system tracks all collider components and updates their
  *          world bounds each frame in an EARLY or LATE phase (depending on how
- *          it is registered with the engine). This moves per-component collider
- *          update logic out of the component vtable and into a system.
+ *          it is registered with the engine).
  *
  * @return Pointer to the newly created collider system.
  */

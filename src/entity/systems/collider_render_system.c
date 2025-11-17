@@ -134,7 +134,8 @@ static void collider_render_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void collider_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult collider_render_sys_update(EseSystemManager *self, EseEngine *eng,
+                                                      float dt) {
     (void)dt;
     ColliderRenderSystemData *d = (ColliderRenderSystemData *)self->data;
 
@@ -175,6 +176,9 @@ static void collider_render_sys_update(EseSystemManager *self, EseEngine *eng, f
                                     0, 0, 255, 255, engine_get_draw_list(eng));
         }
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

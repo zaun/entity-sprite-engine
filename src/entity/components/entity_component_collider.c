@@ -271,19 +271,6 @@ void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
     ese_point_unref(component->offset);
     ese_point_destroy(component->offset);
 
-    // Clean up collision bounds from entity if this component created them
-    if (component->base.entity) {
-        if (component->base.entity->collision_bounds) {
-            ese_rect_unref(component->base.entity->collision_bounds);
-            ese_rect_destroy(component->base.entity->collision_bounds);
-            component->base.entity->collision_bounds = NULL;
-        }
-        if (component->base.entity->collision_world_bounds) {
-            ese_rect_unref(component->base.entity->collision_world_bounds);
-            ese_rect_destroy(component->base.entity->collision_world_bounds);
-            component->base.entity->collision_world_bounds = NULL;
-        }
-    }
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
     profile_count_add("entity_comp_collider_destroy_count");

@@ -128,7 +128,7 @@ static void collider_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void collider_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult collider_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
     (void)eng;
     (void)dt;
     ColliderSystemData *d = (ColliderSystemData *)self->data;
@@ -159,6 +159,9 @@ static void collider_sys_update(EseSystemManager *self, EseEngine *eng, float dt
         ese_rect_set_height(world_bounds, ese_rect_get_height(entity_bounds));
         ese_rect_set_rotation(world_bounds, ese_rect_get_rotation(entity_bounds));
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

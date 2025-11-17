@@ -131,7 +131,8 @@ static void sprite_render_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult sprite_render_sys_update(EseSystemManager *self, EseEngine *eng,
+                                                     float dt) {
     (void)dt;
     SpriteRenderSystemData *d = (SpriteRenderSystemData *)self->data;
 
@@ -179,6 +180,9 @@ static void sprite_render_sys_update(EseSystemManager *self, EseEngine *eng, flo
         _engine_add_texture_to_draw_list(screen_x, screen_y, w, h, sp->base.entity->draw_order,
                                          texture_id, x1, y1, x2, y2, w, h, draw_list);
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

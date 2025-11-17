@@ -46,7 +46,7 @@ typedef struct {
  * @param thread_data Thread data (unused)
  * @param user_data Pointer to SystemJobData
  * @param canceled Cancel flag (unused)
- * @return JobResult Empty job result
+ * @return JobResult Optional job result published by the system
  */
 static JobResult _system_job_worker(void *thread_data, const void *user_data,
                                     volatile bool *canceled) {
@@ -55,11 +55,34 @@ static JobResult _system_job_worker(void *thread_data, const void *user_data,
 
     SystemJobData *job_data = (SystemJobData *)user_data;
     if (job_data && job_data->sys && job_data->sys->vt && job_data->sys->vt->update) {
-        job_data->sys->vt->update(job_data->sys, job_data->eng, job_data->dt);
+        // Delegate to the system's update callback, which returns a
+        // JobResult-compatible payload. An all-zero result means
+        // "no work to apply on the main thread".
+        return job_data->sys->vt->update(job_data->sys, job_data->eng, job_data->dt);
     }
 
-    JobResult res = {.result = NULL, .size = 0};
+    JobResult res = {.result = NULL, .size = 0, .copy_fn = NULL, .free_fn = NULL};
     return res;
+}
+
+/**
+ * @brief Main-thread callback for system jobs.
+ *
+ * @param job_id Job ID (unused)
+ * @param user_data Pointer to SystemJobData
+ * @param result Result pointer (main-thread copy) from JobResult
+ */
+static void _system_job_callback(ese_job_id_t job_id, void *user_data, void *result) {
+    (void)job_id;
+    SystemJobData *job_data = (SystemJobData *)user_data;
+    if (!job_data || !job_data->sys || !job_data->eng || !result) {
+        return;
+    }
+
+    EseSystemManager *sys = job_data->sys;
+    if (sys->vt && sys->vt->apply_result) {
+        sys->vt->apply_result(sys, job_data->eng, result);
+    }
 }
 
 /**
@@ -67,7 +90,12 @@ static JobResult _system_job_worker(void *thread_data, const void *user_data,
  *
  * @param job_id Job ID (unused)
  * @param user_data Pointer to SystemJobData to free
- * @param result Result pointer (unused)
+ * @param result Result pointer (main-thread copy)
+ *
+ * @note The lifetime of the result payload is managed by the system's
+ *       apply_result callback (for parallel phases) or by engine_run_phase
+ *       (for sequential phases). This function is only responsible for freeing
+ *       the SystemJobData wrapper.
  */
 static void _system_job_cleanup(ese_job_id_t job_id, void *user_data, void *result) {
     (void)job_id;
@@ -178,7 +206,7 @@ void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool paral
 
             // Push the job to any available worker
             ese_job_id_t job_id = ese_job_queue_push(eng->job_queue, _system_job_worker,
-                                                     NULL, // No callback needed
+                                                     _system_job_callback,
                                                      _system_job_cleanup, job_data);
 
             if (job_id != ESE_JOB_NOT_QUEUED) {
@@ -186,7 +214,26 @@ void engine_run_phase(EseEngine *eng, EseSystemPhase phase, float dt, bool paral
             }
         } else {
             if (s->vt && s->vt->update) {
-                s->vt->update(s, eng, dt);
+                // Sequential execution: run the system update directly on this
+                // thread. If the system returns a non-empty JobResult and
+                // defines apply_result, invoke it here and then clean up the
+                // worker-result payload.
+                JobResult r = s->vt->update(s, eng, dt);
+
+                if (r.result) {
+                    if (s->vt->apply_result) {
+                        // In the sequential path we are already on the main
+                        // thread, so we can treat the worker result as the
+                        // main-thread payload and skip any extra copy step.
+                        s->vt->apply_result(s, eng, r.result);
+                    }
+
+                    if (r.free_fn) {
+                        r.free_fn(r.result);
+                    } else {
+                        memory_manager.free(r.result);
+                    }
+                }
             }
         }
     }

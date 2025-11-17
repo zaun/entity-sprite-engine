@@ -34,29 +34,26 @@ Within `engine_update(engine, delta_time, state)` a single frame proceeds broadl
 4. **Collision pipeline & callback dispatch** (single-threaded)
    - Build spatial pairs, resolve collisions, run Lua callbacks.
 
-5. **Entity draw pass** (single-threaded, non-system)  
-   - Clear draw list, iterate entities, call `entity_draw`, which dispatches to `entity_component_draw`.
-
-6. **LATE systems (parallel)**
+5. **LATE systems (parallel)**
    - `engine_run_phase(engine, SYS_PHASE_LATE, dt, parallel = true)`
    - Render systems (sprite, shape, map, text, collider debug) run here on worker threads and write directly into `EseDrawList`.
 
-7. **GUI and console drawing** (single-threaded)
+6. **GUI and console drawing** (single-threaded)
    - GUI processes input, populates draw list; console may draw on top.
 
-8. **Renderer flip**
+7. **Renderer flip**
    - Convert draw list → render list, flip active render list; renderer uses the new list.
 
-9. **Async job callbacks**
+8. **Async job callbacks**
    - `ese_job_queue_process(engine->job_queue)` on main thread.
 
-10. **Lua GC**
+9. **Lua GC**
 
-11. **CLEANUP systems (single-threaded)**
+10. **CLEANUP systems (single-threaded)**
     - `engine_run_phase(engine, SYS_PHASE_CLEANUP, dt, parallel = false)`
     - Typically includes the **cleanup system** that processes deferred component removals.
 
-12. **Entity deletion (hard destroy)**
+11. **Entity deletion (hard destroy)**
     - Pop `engine->del_entities`, remove each from `engine->entities`, and call `entity_destroy`.
 
 All **parallel system work** (EARLY & LATE) must be finished (via job queue completion waits) before CLEANUP and entity destruction happen.

@@ -775,6 +775,10 @@ static JobResult _http_worker_thread(void *thread_data, const void *user_data,
     // Setup the request state
     EseHttpRequestState *state =
         (EseHttpRequestState *)memory_manager.malloc(sizeof(EseHttpRequestState), MMTAG_HTTP);
+    if (!state) {
+        JobResult res = {.result = NULL, .size = 0};
+        return res;
+    }
     state->redirect_count = 0;
     state->max_redirects = 10; // Default maximum of 10 redirects
     state->redirect_urls = NULL;
@@ -796,6 +800,7 @@ static JobResult _http_worker_thread(void *thread_data, const void *user_data,
             memory_manager.free(state->current_path);
         if (state->current_port)
             memory_manager.free(state->current_port);
+        memory_manager.free(state);
         JobResult res = {.result = NULL, .size = 0};
         return res;
     }
@@ -1556,12 +1561,14 @@ EseHttpRequest *ese_http_request_create(EseLuaEngine *engine, const char *url) {
     request->url = (char *)memory_manager.malloc(strlen(url) + 1, MMTAG_HTTP);
     if (!request->url) {
         log_debug("HTTP", "Failed to allocate URL string");
+        ese_http_request_destroy(request);
         return NULL;
     }
     strcpy(request->url, url);
 
     if (!_http_parse_url(request)) {
         log_debug("HTTP", "Failed to parse URL: %s", url);
+        ese_http_request_destroy(request);
         return NULL;
     }
 

@@ -15,6 +15,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "utility/job_queue.h"
+
 typedef struct EseEngine EseEngine;
 typedef struct EseEntityComponent EseEntityComponent;
 typedef struct EseDrawList EseDrawList;
@@ -40,6 +42,15 @@ typedef enum {
 typedef struct EseSystemManager EseSystemManager;
 
 /**
+ * @brief Alias for the job queue result type used by systems.
+ *
+ * Systems that need to return worker-thread results should populate this
+ * structure from their update callback. For most systems, this can be left
+ * zero-initialized to indicate "no result".
+ */
+typedef JobResult EseSystemJobResult;
+
+/**
  * @brief Virtual table defining the behavior of a System.
  *
  * @details All callback functions are optional (can be NULL).
@@ -57,11 +68,17 @@ typedef struct EseSystemManagerVTable {
     /**
      * @brief Called every frame to update the system.
      *
+     * @details Systems that need to defer work to the main thread can return
+     *          a non-empty EseSystemJobResult. Systems that do all their work
+     *          in-place may return a zero-initialized result.
+     *
      * @param self Pointer to the system instance.
      * @param eng Pointer to the engine.
      * @param dt Delta time in seconds since the last frame.
+     * @return EseSystemJobResult Worker-thread result payload, or an empty
+     *         result if no main-thread work is required.
      */
-    void (*update)(EseSystemManager *self, EseEngine *eng, float dt);
+    EseSystemJobResult (*update)(EseSystemManager *self, EseEngine *eng, float dt);
 
     /**
      * @brief Determines whether this system is interested in a component.
@@ -99,6 +116,20 @@ typedef struct EseSystemManagerVTable {
      * @param eng Pointer to the engine.
      */
     void (*shutdown)(EseSystemManager *self, EseEngine *eng);
+
+    /**
+     * @brief Apply a system job result on the main thread.
+     *
+     * @details This is invoked from the job queue callback (for parallel
+     *          phases) or directly from engine_run_phase (for sequential
+     *          phases) when a system returns a non-empty EseSystemJobResult
+     *          from its update callback. Most systems can leave this NULL.
+     *
+     * @param self Pointer to the system instance.
+     * @param eng Pointer to the engine.
+     * @param result Main-thread view of the worker result payload.
+     */
+    void (*apply_result)(EseSystemManager *self, EseEngine *eng, void *result);
 } EseSystemManagerVTable;
 
 /**

@@ -124,7 +124,7 @@ static void sprite_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time in seconds
  */
-static void sprite_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult sprite_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
     (void)eng;
     SpriteSystemData *d = (SpriteSystemData *)self->data;
 
@@ -164,6 +164,9 @@ static void sprite_sys_update(EseSystemManager *self, EseEngine *eng, float dt) 
             }
         }
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

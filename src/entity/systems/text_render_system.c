@@ -145,7 +145,8 @@ static void text_render_sys_init(EseSystemManager *self, EseEngine *eng) {
  * @param eng Engine pointer
  * @param dt Delta time (unused)
  */
-static void text_render_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
+static EseSystemJobResult text_render_sys_update(EseSystemManager *self, EseEngine *eng,
+                                                  float dt) {
     (void)dt;
     TextRenderSystemData *d = (TextRenderSystemData *)self->data;
 
@@ -215,6 +216,9 @@ static void text_render_sys_update(EseSystemManager *self, EseEngine *eng, float
         font_draw_text(eng, "console_font_10x20", tc->text, screen_x, screen_y,
                        tc->base.entity->draw_order, _text_font_texture_callback, draw_list);
     }
+
+    EseSystemJobResult res = {0};
+    return res;
 }
 
 /**

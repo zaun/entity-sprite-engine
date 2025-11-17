@@ -14,7 +14,9 @@
 #include "entity/systems/cleanup_system.h"
 #include "entity/systems/collider_render_system.h"
 #include "entity/systems/collider_system.h"
+#include "entity/systems/map_lua_system.h"
 #include "entity/systems/map_render_system.h"
+#include "entity/systems/map_system.h"
 #include "entity/systems/shape_render_system.h"
 #include "entity/systems/sprite_render_system.h"
 #include "entity/systems/sprite_system.h"
@@ -143,7 +145,9 @@ EseEngine *engine_create(const char *startup_script) {
     engine_register_text_render_system(engine);
     engine_register_collider_system(engine);
     engine_register_collider_render_system(engine);
+    engine_register_map_lua_system(engine);
     engine_register_map_render_system(engine);
+    engine_register_map_system(engine);
     engine_register_cleanup_system(engine);
 
     // Load startup script
@@ -358,6 +362,12 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     engine_run_phase(engine, SYS_PHASE_EARLY, delta_time,
                      true); // Parallel systems before Lua
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_early");
+
+    // Process any early-phase async jobs (e.g., map_system bounds) before
+    // entity updates and collision detection.
+    if (engine->job_queue) {
+        ese_job_queue_process(engine->job_queue);
+    }
 
     // Entity PASS ONE - Update each active entity.
     profile_start(PROFILE_ENG_UPDATE_SECTION);
