@@ -86,29 +86,29 @@ int main(void) {
 
     UNITY_BEGIN();
 
-    // RUN_TEST(test_ese_gui_style_sizeof);
-    // RUN_TEST(test_ese_gui_style_create_requires_engine);
-    // RUN_TEST(test_ese_gui_style_create);
-    // RUN_TEST(test_ese_gui_style_background);
-    // RUN_TEST(test_ese_gui_style_background_hovered);
-    // RUN_TEST(test_ese_gui_style_background_pressed);
-    // RUN_TEST(test_ese_gui_style_border);
-    // RUN_TEST(test_ese_gui_style_border_hovered);
-    // RUN_TEST(test_ese_gui_style_border_pressed);
-    // RUN_TEST(test_ese_gui_style_text);
-    // RUN_TEST(test_ese_gui_style_text_hovered);
-    // RUN_TEST(test_ese_gui_style_text_pressed);
-    // RUN_TEST(test_ese_gui_style_border_width);
-    // RUN_TEST(test_ese_gui_style_padding_left);
-    // RUN_TEST(test_ese_gui_style_padding_top);
-    // RUN_TEST(test_ese_gui_style_padding_right);
-    // RUN_TEST(test_ese_gui_style_padding_bottom);
-    // RUN_TEST(test_ese_gui_style_ref);
-    // RUN_TEST(test_ese_gui_style_copy_requires_engine);
-    // RUN_TEST(test_ese_gui_style_copy);
-    // RUN_TEST(test_ese_gui_style_watcher_system);
-    // RUN_TEST(test_ese_gui_style_lua_integration);
-    // RUN_TEST(test_ese_gui_style_lua_init);
+    RUN_TEST(test_ese_gui_style_sizeof);
+    RUN_TEST(test_ese_gui_style_create_requires_engine);
+    RUN_TEST(test_ese_gui_style_create);
+    RUN_TEST(test_ese_gui_style_background);
+    RUN_TEST(test_ese_gui_style_background_hovered);
+    RUN_TEST(test_ese_gui_style_background_pressed);
+    RUN_TEST(test_ese_gui_style_border);
+    RUN_TEST(test_ese_gui_style_border_hovered);
+    RUN_TEST(test_ese_gui_style_border_pressed);
+    RUN_TEST(test_ese_gui_style_text);
+    RUN_TEST(test_ese_gui_style_text_hovered);
+    RUN_TEST(test_ese_gui_style_text_pressed);
+    RUN_TEST(test_ese_gui_style_border_width);
+    RUN_TEST(test_ese_gui_style_padding_left);
+    RUN_TEST(test_ese_gui_style_padding_top);
+    RUN_TEST(test_ese_gui_style_padding_right);
+    RUN_TEST(test_ese_gui_style_padding_bottom);
+    RUN_TEST(test_ese_gui_style_ref);
+    RUN_TEST(test_ese_gui_style_copy_requires_engine);
+    RUN_TEST(test_ese_gui_style_copy);
+    RUN_TEST(test_ese_gui_style_watcher_system);
+    RUN_TEST(test_ese_gui_style_lua_integration);
+    RUN_TEST(test_ese_gui_style_lua_init);
     RUN_TEST(test_ese_gui_style_lua_push);
     // RUN_TEST(test_ese_gui_style_lua_get);
     // RUN_TEST(test_ese_gui_style_serialization);
@@ -502,9 +502,10 @@ static void test_ese_gui_style_lua_push(void) {
     EseGuiStyle **ud = (EseGuiStyle **)lua_touserdata(L, -1);
     TEST_ASSERT_EQUAL_PTR_MESSAGE(style, *ud, "The pushed item should be the actual style");
     
-    lua_pop(L, 1); 
+    lua_pop(L, 1);
 
-    ese_gui_style_destroy(style);
+    // Do not destroy the style here; once pushed with no Lua registry ref, it is
+    // considered Lua-owned and will be cleaned up via the __gc metamethod.
 }
 
 static void test_ese_gui_style_lua_get(void) {

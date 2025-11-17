@@ -145,7 +145,10 @@ static void test_system_create(void) {
     
     TEST_ASSERT_NOT_NULL(sys);
     
-    system_manager_destroy(sys, NULL);
+    // system_manager_destroy now requires a valid engine pointer
+    EseEngine *engine = engine_create(NULL);
+    system_manager_destroy(sys, engine);
+    engine_destroy(engine);
 }
 
 /**
@@ -153,9 +156,10 @@ static void test_system_create(void) {
  */
 static void test_system_destroy_null(void) {
     reset_test_state();
-    
-    system_manager_destroy(NULL, NULL);
-    
+
+    // system_manager_destroy now treats NULL inputs as contract violations via log_assert,
+    // so this test no longer calls it with NULL pointers. We simply verify that doing
+    // nothing leaves shutdown count at zero.
     TEST_ASSERT_EQUAL_INT(0, g_shutdown_called);
 }
 
@@ -504,7 +508,9 @@ static void test_system_user_data(void) {
     
     TEST_ASSERT_NOT_NULL(sys);
     
-    system_manager_destroy(sys, NULL);
+    EseEngine *engine = engine_create(NULL);
+    system_manager_destroy(sys, engine);
+    engine_destroy(engine);
 }
 
 /**

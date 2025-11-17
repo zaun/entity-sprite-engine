@@ -130,8 +130,10 @@ static void test_lua_value_create_nil(void) {
         lua_value_destroy(val);
     }
 
-    // Test nil creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_nil(NULL), "lua_value_create_nil should abort with NULL name");
+    // Test nil creation with NULL name - should be allowed and produce an unnamed value
+    EseLuaValue *unnamed = lua_value_create_nil(NULL);
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "Nil value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_bool(void) {
@@ -153,8 +155,10 @@ static void test_lua_value_create_bool(void) {
         lua_value_destroy(val_false);
     }
 
-    // Test boolean creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_bool(NULL, true), "lua_value_create_bool should abort with NULL name");
+    // Test boolean creation with NULL name - should be allowed
+    EseLuaValue *unnamed = lua_value_create_bool(NULL, true);
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "Boolean value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_number(void) {
@@ -167,8 +171,10 @@ static void test_lua_value_create_number(void) {
         lua_value_destroy(val);
     }
 
-    // Test number creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_number(NULL, -99.75), "lua_value_create_number should abort with NULL name");
+    // Test number creation with NULL name - should be allowed
+    EseLuaValue *unnamed = lua_value_create_number(NULL, -99.75);
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "Number value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_string(void) {
@@ -181,8 +187,10 @@ static void test_lua_value_create_string(void) {
         lua_value_destroy(val);
     }
 
-    // Test string creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_string(NULL, "test"), "lua_value_create_string should abort with NULL name");
+    // Test string creation with NULL name - should be allowed
+    EseLuaValue *unnamed = lua_value_create_string(NULL, "test");
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "String value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_table(void) {
@@ -194,8 +202,10 @@ static void test_lua_value_create_table(void) {
         lua_value_destroy(val);
     }
 
-    // Test table creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_table(NULL), "lua_value_create_table should abort with NULL name");
+    // Test table creation with NULL name - should be allowed
+    EseLuaValue *unnamed = lua_value_create_table(NULL);
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "Table value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_ref(void) {
@@ -207,8 +217,10 @@ static void test_lua_value_create_ref(void) {
         lua_value_destroy(val);
     }
 
-    // Test reference creation with NULL name - should assert
-    TEST_ASSERT_DEATH(lua_value_create_ref(NULL, 456), "lua_value_create_ref should abort with NULL name");
+    // Test reference creation with NULL name - should be allowed
+    EseLuaValue *unnamed = lua_value_create_ref(NULL, 456);
+    TEST_ASSERT_NOT_NULL_MESSAGE(unnamed, "Ref value with NULL name should be created");
+    lua_value_destroy(unnamed);
 }
 
 static void test_lua_value_create_userdata(void) {

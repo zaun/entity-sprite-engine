@@ -99,8 +99,8 @@ void setUp(void) {
 }
 
 void tearDown(void) {
-    // Cleanup between tests
-    memory_manager.destroy(true);
+    // Per-test cleanup is not required; the memory manager is destroyed once at the
+    // end of the test run in main().
 }
 
 /**
