@@ -160,12 +160,9 @@ static void test_pubsub_subscribe(void) {
     // Subscribe to a topic
     engine_pubsub_sub(g_engine, "test_topic", entity, "on_test_event");
     
-    // Verify subscription worked by publishing
+    // Verify subscription worked by publishing (callbacks fire synchronously)
     EseLuaValue *data = lua_value_create_string("test_data", "test_data");
     engine_pubsub_pub(g_engine, "test_topic", data);
-    
-    // Update entity to trigger Lua component
-    entity_update(entity, 0.016f);
     
     // Check if the Lua function was called
     lua_State *L = g_engine->lua_engine->runtime;
@@ -195,7 +192,6 @@ static void test_pubsub_unsubscribe(void) {
     // Publish once to verify subscription
     EseLuaValue *data1 = lua_value_create_string("test_data_1", "test_data_1");
     engine_pubsub_pub(g_engine, "test_topic", data1);
-    entity_update(entity, 0.016f);
     
     // Check that function was called
     lua_State *L = g_engine->lua_engine->runtime;
@@ -215,7 +211,6 @@ static void test_pubsub_unsubscribe(void) {
     // Publish again - should not call callback
     EseLuaValue *data2 = lua_value_create_string("test_data_2", "test_data_2");
     engine_pubsub_pub(g_engine, "test_topic", data2);
-    entity_update(entity, 0.016f);
     
     // Check that function was not called again
     entity_lua_push(entity);
@@ -245,9 +240,6 @@ static void test_pubsub_publish(void) {
     // Publish data
     EseLuaValue *data = lua_value_create_number("test_number", 42.5);
     engine_pubsub_pub(g_engine, "test_topic", data);
-    
-    // Update entity to trigger Lua component
-    entity_update(entity, 0.016f);
     
     // Check if the Lua function was called
     lua_State *L = g_engine->lua_engine->runtime;
@@ -280,10 +272,6 @@ static void test_pubsub_multiple_subscribers(void) {
     // Publish data
     EseLuaValue *data = lua_value_create_bool("test_bool", true);
     engine_pubsub_pub(g_engine, "test_topic", data);
-    
-    // Update both entities
-    entity_update(entity1, 0.016f);
-    entity_update(entity2, 0.016f);
     
     // Check that both entities received the event
     lua_State *L = g_engine->lua_engine->runtime;
@@ -328,7 +316,6 @@ static void test_pubsub_multiple_topics(void) {
     // Publish to topic1 only
     EseLuaValue *data1 = lua_value_create_string("topic1_data", "topic1_data");
     engine_pubsub_pub(g_engine, "topic1", data1);
-    entity_update(entity, 0.016f);
     
     // Check that only the first function was called
     lua_State *L = g_engine->lua_engine->runtime;
@@ -350,7 +337,6 @@ static void test_pubsub_multiple_topics(void) {
     // Publish to topic2 only
     EseLuaValue *data2 = lua_value_create_string("topic2_data", "topic2_data");
     engine_pubsub_pub(g_engine, "topic2", data2);
-    entity_update(entity, 0.016f);
     
     // Check that both functions were called
     entity_lua_push(entity);

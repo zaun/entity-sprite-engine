@@ -1516,8 +1516,9 @@ static void _http_worker_callback(ese_job_id_t job_id, void *user_data, void *re
             request->callback(res->status_code, res->headers ? res->headers : "", res->raw,
                               res->raw_len, res->body ? res->body : "", request->user_data);
         }
-
-        _http_result_free(res);
+        // NOTE: We do NOT free `res` here. The job cleanup function is
+        // responsible for freeing the JobResult so that results are also
+        // reclaimed when callbacks are skipped during shutdown.
     }
 }
 
@@ -1540,6 +1541,14 @@ static void _http_job_cleanup(ese_job_id_t job_id, void *user_data, void *result
         if (request && request->lua_state) {
             ese_http_request_unref(request);
         }
+    }
+
+    // Always free the JobResult produced by the worker thread on the main
+    // thread. This runs whether or not the callback was invoked (e.g. during
+    // shutdown when callbacks are skipped), ensuring no HTTP-tagged buffers
+    // are leaked.
+    if (result) {
+        _http_result_free(result);
     }
 }
 

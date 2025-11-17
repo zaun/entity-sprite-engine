@@ -128,14 +128,6 @@ EseEntity *entity_copy(EseEntity *entity);
 void entity_destroy(EseEntity *entity);
 
 /**
- * @brief Updates an entity and its components.
- *
- * @param entity Pointer to the EseEntity to update
- * @param delta_time Time elapsed since last update
- */
-void entity_update(EseEntity *entity, float delta_time);
-
-/**
  * @brief Sets the position of an entity.
  *
  * @param entity Pointer to the EseEntity

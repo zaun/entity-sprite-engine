@@ -37,6 +37,15 @@
 static EseLuaEngine *test_engine = NULL;
 static EseEntity *test_entity_global = NULL;
 
+// Helper to invoke the Lua-side ENTITY:entity_update(delta_time) function
+// now that the old C-level entity_update has been removed.
+static void _run_entity_update(EseEntity *entity, float dt) {
+    EseLuaValue *delta_time = lua_value_create_number("delta_time", dt);
+    EseLuaValue *args[] = {delta_time};
+    entity_run_function_with_args(entity, "entity_update", 1, args);
+    lua_value_destroy(delta_time);
+}
+
 // Test function declarations
 static void test_entity_creation();
 static void test_entity_copy();
@@ -159,7 +168,7 @@ static void test_entity_copy() {
         EseEntityComponent *lua_compA = entity_component_lua_create(test_engine, "test_entity_script_a");
         entity_component_add(original, lua_compA);
 
-        entity_update(original, 0.016f);
+        _run_entity_update(original, 0.016f);
 
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(original, "foo"), "Verify the prop was in the original entity");
         
@@ -170,7 +179,7 @@ static void test_entity_copy() {
         EseEntityComponent *lua_compB = entity_component_lua_create(test_engine, "test_entity_script_b");
         entity_component_add(copy, lua_compB);
 
-        entity_update(copy, 0.016f);
+        _run_entity_update(copy, 0.016f);
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(copy, "test_value"), "Verify the data was copied");
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(copy, "foo"), "Verify the prop was copied");
 
@@ -197,7 +206,7 @@ static void test_entity_update() {
         EseEntityComponent *lua_comp = entity_component_lua_create(test_engine, "test_entity_script");
         entity_component_add(entity, lua_comp);
             
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
 
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity, "test_tag"), "Entity should have the tag");
     }
@@ -412,7 +421,6 @@ static void test_entity_null_pointer_aborts() {
     TEST_ASSERT_DEATH((entity_destroy(NULL)), "entity_destroy should abort with NULL entity");
     
     // Test that update functions abort with NULL pointers
-    TEST_ASSERT_DEATH((entity_update(NULL, 0.016f)), "entity_update should abort with NULL entity");
     TEST_ASSERT_DEATH((entity_run_function_with_args(NULL, "test", 0, NULL)), "entity_run_function_with_args should abort with NULL entity");
         
     // Test that component management functions abort with NULL pointers
@@ -553,13 +561,13 @@ static void test_entity_data_in_init() {
         entity_component_add(entity, lua_comp);
         
         // First update should trigger entity_init and set up data
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
         
         // Second update should increment counter and add tag
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
         
         // Third update should add the tag
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
 
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity, "data_working"), "Entity should have the data_working tag");
     }
@@ -666,13 +674,13 @@ static void test_entity_colon_syntax_preprocessor() {
         entity_component_add(entity, lua_comp);
         
         // First update should trigger entity_init and call setup_test
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
         
         // Second update should increment counter and call add_working_tag
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
         
         // Third update should add the tag
-        entity_update(entity, 0.016f);
+        _run_entity_update(entity, 0.016f);
 
         TEST_ASSERT_TRUE_MESSAGE(entity_has_tag(entity, "colon_syntax_working"), "Entity should have the colon_syntax_working tag");
     }

@@ -188,24 +188,6 @@ void entity_destroy(EseEntity *entity) {
     }
 }
 
-void entity_update(EseEntity *entity, float delta_time) {
-    log_assert("ENTITY", entity, "entity_update called with NULL entity");
-
-    profile_start(PROFILE_ENTITY_UPDATE_OVERALL);
-
-    for (size_t i = 0; i < entity->component_count; i++) {
-        if (!entity->components[i]->active) {
-            continue;
-        }
-
-        profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
-        entity_component_update(entity->components[i], entity, delta_time);
-        profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
-    }
-
-    profile_stop(PROFILE_ENTITY_UPDATE_OVERALL, "entity_update");
-}
-
 void entity_set_position(EseEntity *entity, float x, float y) {
     log_assert("ENTITY", entity, "entity_set_position called with NULL entity");
 

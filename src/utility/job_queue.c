@@ -286,6 +286,23 @@ static void *_worker_thread_main(void *ud) {
         ese_mutex_lock(q->jobs_mutex);
         if (picked->canceled || is_canceled_local) {
             picked->canceled = true;
+
+            // If the job produced a worker_result but was canceled before
+            // the normal RESULTS_READY/RESULTS_PROCESSED/EXECUTED pipeline,
+            // we must free the worker_result here. Otherwise, any
+            // worker-owned buffers (such as HTTP response data) will be
+            // leaked because free_fn is only invoked when transitioning
+            // RESULTS_PROCESSED -> EXECUTED.
+            if (picked->worker_result.result) {
+                if (picked->worker_result.free_fn) {
+                    picked->worker_result.free_fn(picked->worker_result.result);
+                } else {
+                    memory_manager.free(picked->worker_result.result);
+                }
+                picked->worker_result.result = NULL;
+                picked->worker_result.size = 0;
+            }
+
             picked->state = JOB_CANCELED;
         } else {
             picked->state = JOB_RESULTS_READY;

@@ -29,8 +29,6 @@ void entity_component_destroy(EseEntityComponent *component);
 
 void entity_component_push(EseEntityComponent *component);
 
-void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time);
-
 void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b,
                                                       EseArray *out_hits);
 

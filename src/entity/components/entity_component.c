@@ -64,18 +64,6 @@ void entity_component_push(EseEntityComponent *component) {
     profile_stop(PROFILE_ENTITY_LUA_PROPERTY_ACCESS, "entity_component_push");
 }
 
-void entity_component_update(EseEntityComponent *component, EseEntity *entity, float delta_time) {
-    log_assert("ENTITY_COMP", component, "entity_component_update called with NULL component");
-
-    profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
-
-    if (component->vtable->update) {
-        component->vtable->update(component, entity, delta_time);
-    }
-
-    profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_update");
-}
-
 void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b,
                                                       EseArray *out_hits) {
     log_assert("ENTITY_COMP", a,

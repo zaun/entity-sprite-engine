@@ -200,9 +200,6 @@ static void test_entity_subscribe() {
         EseLuaValue *data = lua_value_create_string("test_data", "Hello World");
         engine_pubsub_pub(g_engine, "error_test_event", data);
         
-        // Update entity to trigger Lua component
-        entity_update(entity, 0.016f);
-        
         // Check if the Lua function was called by examining the entity's data
         lua_State *L = g_engine->lua_engine->runtime;
         entity_lua_push(entity);
@@ -241,7 +238,6 @@ static void test_entity_unsubscribe() {
             // Publish to verify subscription works
             EseLuaValue *data1 = lua_value_create_string("test_data_1", "First Message");
             engine_pubsub_pub(g_engine, "unsubscribe_test_event", data1);
-            entity_update(entity, 0.016f);
             
             // Unsubscribe
             engine_pubsub_unsub(g_engine, "unsubscribe_test_event", entity, "on_test_event");
@@ -249,7 +245,6 @@ static void test_entity_unsubscribe() {
             // Publish again - should not call the function
             EseLuaValue *data2 = lua_value_create_string("test_data_2", "Second Message");
             engine_pubsub_pub(g_engine, "unsubscribe_test_event", data2);
-            entity_update(entity, 0.016f);
             
             // Check that the function was not called again
             entity_lua_push(entity);
@@ -295,15 +290,12 @@ static void test_entity_publish() {
             
             // Publish string data
             engine_pubsub_pub(g_engine, "publish_test_event", string_data);
-            entity_update(entity, 0.016f);
             
             // Publish number data
             engine_pubsub_pub(g_engine, "publish_test_event", number_data);
-            entity_update(entity, 0.016f);
             
             // Publish boolean data
             engine_pubsub_pub(g_engine, "publish_test_event", bool_data);
-            entity_update(entity, 0.016f);
             
             // Check that the function was called multiple times
             entity_lua_push(entity);
@@ -358,10 +350,6 @@ static void test_entity_multiple_subscribers() {
             EseLuaValue *data = lua_value_create_string("test_data", "Multiple Subscribers");
             engine_pubsub_pub(g_engine, "multiple_subscribers_test_event", data);
             
-            // Update both entities
-            entity_update(entity1, 0.016f);
-            entity_update(entity2, 0.016f);
-            
             // Check that both entities received the event
             
             // Check entity1
@@ -415,12 +403,10 @@ static void test_entity_multiple_topics() {
             // Publish to topic1 only
             EseLuaValue *data1 = lua_value_create_string("test_data", "Topic 1 Message");
             engine_pubsub_pub(g_engine, "topic1", data1);
-            entity_update(entity, 0.016f);
             
             // Publish to topic2 only
             EseLuaValue *data2 = lua_value_create_string("test_data", "Topic 2 Message");
             engine_pubsub_pub(g_engine, "topic2", data2);
-            entity_update(entity, 0.016f);
             
             // Check that the correct functions were called
             lua_State *L = g_engine->lua_engine->runtime;
@@ -596,7 +582,6 @@ static void test_entity_pubsub_data_passing() {
             
             // Publish complex data
             engine_pubsub_pub(g_engine, "data_passing_test_event", complex_data);
-            entity_update(entity, 0.016f);
             
             // Check that the data was received
             entity_lua_push(entity);

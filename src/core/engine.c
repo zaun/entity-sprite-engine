@@ -369,35 +369,6 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         ese_job_queue_process(engine->job_queue);
     }
 
-    // Entity PASS ONE - Update each active entity.
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-
-    int entity_count = 0;
-
-    void *value;
-    EseDListIter *entity_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(entity_iter, &value)) {
-        EseEntity *entity = (EseEntity *)value;
-
-        // Skip inactive entities
-        if (!entity->active) {
-            continue;
-        }
-
-        entity_count++;
-
-        // Update components
-        for (size_t i = 0; i < entity->component_count; i++) {
-            if (!entity->components[i]->active) {
-                continue;
-            }
-
-            entity_component_update(entity->components[i], entity, delta_time);
-        }
-    }
-    dlist_iter_free(entity_iter);
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_entity_update");
-
     // Run LUA phase systems (single-threaded for Lua scripts)
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_LUA, delta_time, false);
