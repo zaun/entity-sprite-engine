@@ -64,6 +64,10 @@ int _lua_asset_load_atlas(lua_State *L);
  */
 int _lua_asset_load_shader(lua_State *L);
 
+int _lua_asset_load_sound(lua_State *L);
+
+int _lua_asset_load_music(lua_State *L);
+
 int _lua_asset_load_map(lua_State *L);
 
 int _lua_asset_get_map(lua_State *L);

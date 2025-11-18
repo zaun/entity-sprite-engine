@@ -9,9 +9,6 @@
 #include "utility/hashmap.h"
 #include <stdint.h>
 
-#define MAX_TAG_LENGTH 16
-#define MAX_TAGS_PER_ENTITY 32
-
 #define DRAW_ORDER_SHIFT 48
 #define DRAW_ORDER_SCALE (1ULL << DRAW_ORDER_SHIFT)
 #define DRAW_ORDER_MAX_USERZ ((1ULL << (64 - DRAW_ORDER_SHIFT)) - 1ULL)

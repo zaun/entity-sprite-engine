@@ -4,9 +4,6 @@ cmake_minimum_required(VERSION 3.16)
 option(FORCE_PLATFORM_LINUX "Force the use of the Linux platform" OFF)
 option(FORCE_PLATFORM_MAC "Force the use of the MacOS platform" OFF)
 
-# Sanitizer option
-option(SANITIZE "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
-
 # Check for conflicting options.
 if(FORCE_PLATFORM_LINUX AND FORCE_PLATFORM_MAC)
     message(FATAL_ERROR "Cannot force both Linux and MacOS. Please choose one.")
@@ -85,6 +82,8 @@ endif()
 # but using a non-recursive glob to match the user's intent.
 file(GLOB ENGINE_CORE_SOURCES
     "src/vendor/json/*.c"
+    "src/vendor/miniaud/*.c"
+    "src/vendor/stb/*.c"
     "src/core/*.c"
     "src/core/**/*.c"
     "src/entity/*.c"
@@ -101,6 +100,8 @@ file(GLOB ENGINE_CORE_SOURCES
     "src/types/**/*.c"
     "src/utility/*.c"
     "src/utility/**/*.c"
+    "src/audio/*.c"
+    "src/audio/**/*.c"
 )
 
 # Combine all sources
@@ -197,20 +198,17 @@ elseif(PLATFORM STREQUAL "LINUX")
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
     find_package(PkgConfig REQUIRED)
-    find_library(OPENAL_LIB REQUIRED)
 
     target_include_directories(entityspriteengine PRIVATE
         ${OPENGL_INCLUDE_DIR}
         ${GLFW3_INCLUDE_DIR}
         ${GLEW_INCLUDE_DIRS}
-        ${OPENAL_INCLUDE_DIRS}
     )
 
     target_link_libraries(entityspriteengine PRIVATE
         OpenGL::GL
         glfw
         GLEW::GLEW
-        ${OPENAL_LIBRARIES}
     )
 endif()
 

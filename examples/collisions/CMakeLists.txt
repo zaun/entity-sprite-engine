@@ -48,8 +48,14 @@ if(PLATFORM STREQUAL "MAC")
         target_link_libraries(collisions PRIVATE glslang-default-resource-limits stdc++)
     endif()
 
-    # Always sync assets at build time so changes are picked up by `make`
-    add_custom_target(collisions_assets_sync ALL
+    # Track example assets and Info.plist so changes are picked up by `make`
+    file(GLOB_RECURSE COLLISIONS_ASSETS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+    )
+
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:collisions>/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
@@ -61,33 +67,17 @@ if(PLATFORM STREQUAL "MAC")
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
             "$<TARGET_BUNDLE_CONTENT_DIR:collisions>/Info.plist"
+        COMMAND ${CMAKE_COMMAND} -E touch
+            "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
+        DEPENDS ${COLLISIONS_ASSETS}
         COMMENT "Syncing collisions assets"
         VERBATIM
     )
+
+    add_custom_target(collisions_assets_sync ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
+    )
     add_dependencies(collisions_assets_sync collisions)
-
-    # Copy assets to macOS bundle Resources directory
-    add_custom_command(
-        TARGET collisions POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:collisions>/Resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-        "$<TARGET_BUNDLE_CONTENT_DIR:collisions>/Resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy
-        "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
-        "$<TARGET_BUNDLE_CONTENT_DIR:collisions>/Info.plist"
-        VERBATIM
-    )
-
-    # Also copy assets to resources/ directory for cross-platform filesystem access
-    add_custom_command(
-        TARGET collisions POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:collisions>/resources"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-        "$<TARGET_FILE_DIR:collisions>/resources/"
-        VERBATIM
-    )
 
 elseif(PLATFORM STREQUAL "LINUX")
     # Create a regular Linux executable
@@ -107,26 +97,28 @@ elseif(PLATFORM STREQUAL "LINUX")
         target_link_libraries(collisions PRIVATE glslang-default-resource-limits stdc++)
     endif()
 
-    # Always sync assets at build time so changes are picked up by `make`
-    add_custom_target(collisions_assets_sync ALL
+    # Track example assets so changes are picked up by `make`
+    file(GLOB_RECURSE COLLISIONS_ASSETS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
+    )
+
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:collisions>/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
             "$<TARGET_FILE_DIR:collisions>/resources/"
+        COMMAND ${CMAKE_COMMAND} -E touch
+            "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
+        DEPENDS ${COLLISIONS_ASSETS}
         COMMENT "Syncing collisions assets"
         VERBATIM
     )
-    add_dependencies(collisions_assets_sync collisions)
 
-    # Copy assets to a resources directory next to the executable
-    add_custom_command(
-        TARGET collisions POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:collisions>/resources"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-        "$<TARGET_FILE_DIR:collisions>/resources/"
-        VERBATIM
+    add_custom_target(collisions_assets_sync ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.collisions_assets_stamp"
     )
+    add_dependencies(collisions_assets_sync collisions)
 
 else()
     message(FATAL_ERROR "Unknown platform: ${PLATFORM}. Expected 'MAC' or 'LINUX'")

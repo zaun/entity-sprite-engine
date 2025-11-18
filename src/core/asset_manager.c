@@ -10,6 +10,8 @@
 #include "utility/helpers.h"
 #include "utility/log.h"
 #include "vendor/json/cJSON.h"
+#include "audio/pcm.h"
+#include "vendor/miniaud/miniaudio.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -22,8 +24,8 @@ typedef enum {
     ASSET_SPRITE,
     ASSET_TEXTURE,
     ASSET_MAP,
-    // ASSET_SOUND,              // Future use
-    // ASSET_MUSIC,              // Future use
+    ASSET_SOUND,
+    ASSET_MUSIC,
     // ASSET_PARTICLE_SYSTEM,    // Future use
     // ASSET_FONT,               // Future use
     // ASSET_MATERIAL            // Future use
@@ -69,6 +71,8 @@ struct EseAssetManager {
     EseGroupedHashMap *textures; /** Hash map of texture assets by group and ID */
     EseGroupedHashMap *atlases;  /** Hash map of atlas assets by group and ID */
     EseGroupedHashMap *maps;     /** Hash map of map assets by group and ID */
+    EseGroupedHashMap *sound;    /** Hash map of short sound effect assets */
+    EseGroupedHashMap *audio;    /** Hash map of music/background audio assets */
 
     // Group tracking
     char **groups;         /** Array of group names for asset organization */
@@ -93,6 +97,11 @@ void _asset_free(void *data) {
     } else if (asset->type == ASSET_MAP) {
         EseMap *map = (EseMap *)asset->data;
         ese_map_destroy(map);
+    } else if (asset->type == ASSET_SOUND || asset->type == ASSET_MUSIC) {
+        EsePcm *pcm = (EsePcm *)asset->data;
+        if (pcm) {
+            pcm_free(pcm);
+        }
     } else {
         log_error("ASSET_MANAGER", "Unable to memory_manager.free unknown asset type");
     }
@@ -223,6 +232,8 @@ EseAssetManager *asset_manager_create(EseRenderer *renderer) {
     manager->textures = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
     manager->atlases = grouped_hashmap_create(NULL);
     manager->maps = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
+    manager->sound = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
+    manager->audio = grouped_hashmap_create((EseGroupedHashMapFreeFn)_asset_free);
 
     manager->groups = NULL;      // init groups array
     manager->group_count = 0;    // init count
@@ -241,6 +252,8 @@ void asset_manager_destroy(EseAssetManager *manager) {
     grouped_hashmap_destroy(manager->textures);
     grouped_hashmap_destroy(manager->atlases);
     grouped_hashmap_destroy(manager->maps);
+    grouped_hashmap_destroy(manager->sound);
+    grouped_hashmap_destroy(manager->audio);
 
     for (size_t i = 0; i < manager->group_count; i++) {
         memory_manager.free(manager->groups[i]);
@@ -545,6 +558,38 @@ EseSprite *asset_manager_get_sprite(EseAssetManager *manager, const char *asset_
     return (EseSprite *)asset->data;
 }
 
+EsePcm *asset_manager_get_sound(EseAssetManager *manager, const char *asset_id) {
+    log_assert("ASSET_MANAGER", manager, "asset_manager_get_sound called with NULL manager");
+    log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_sound called with NULL asset_id");
+
+    char out_group[64];
+    char out_name[64];
+    ese_helper_split(asset_id, out_group, sizeof(out_group), out_name, sizeof(out_name));
+
+    EseAsset *asset = (EseAsset *)grouped_hashmap_get(manager->sound, out_group, out_name);
+    if (!asset) {
+        return NULL;
+    }
+
+    return (EsePcm *)asset->data;
+}
+
+EsePcm *asset_manager_get_music(EseAssetManager *manager, const char *asset_id) {
+    log_assert("ASSET_MANAGER", manager, "asset_manager_get_music called with NULL manager");
+    log_assert("ASSET_MANAGER", asset_id, "asset_manager_get_music called with NULL asset_id");
+
+    char out_group[64];
+    char out_name[64];
+    ese_helper_split(asset_id, out_group, sizeof(out_group), out_name, sizeof(out_name));
+
+    EseAsset *asset = (EseAsset *)grouped_hashmap_get(manager->audio, out_group, out_name);
+    if (!asset) {
+        return NULL;
+    }
+
+    return (EsePcm *)asset->data;
+}
+
 bool asset_manager_load_map(EseAssetManager *manager, EseLuaEngine *lua, const char *filename,
                             const char *group) {
     log_assert("ASSET_MANAGER", manager, "asset_manager_load_map called with NULL manager");
@@ -843,6 +888,92 @@ EseMap *asset_manager_get_map(EseAssetManager *manager, const char *asset_id) {
     return (EseMap *)asset->data;
 }
 
+static bool _asset_manager_decode_audio(const char *filename, float **out_samples,
+                                        uint32_t *out_channels, uint32_t *out_sample_rate,
+                                        uint32_t *out_frame_count) {
+    log_assert("ASSET_MANAGER", filename, "_asset_manager_decode_audio called with NULL filename");
+    log_assert("ASSET_MANAGER", out_samples,
+               "_asset_manager_decode_audio called with NULL out_samples pointer");
+
+    char *full_path = filesystem_get_resource(filename);
+    if (!full_path) {
+        log_error("ASSET_MANAGER", "Error: filesystem_get_resource failed for %s", filename);
+        return false;
+    }
+
+    ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 0, 0);
+    ma_decoder decoder;
+    ma_result result = ma_decoder_init_file(full_path, &config, &decoder);
+    memory_manager.free(full_path);
+
+    if (result != MA_SUCCESS) {
+        log_error(
+            "ASSET_MANAGER",
+            "Error: Failed to open audio file %s: %s",
+            filename, ma_result_description(result));
+        return false;
+    }
+
+    ma_uint64 frame_count = 0;
+    result = ma_decoder_get_length_in_pcm_frames(&decoder, &frame_count);
+    if (result != MA_SUCCESS || frame_count == 0) {
+        log_error("ASSET_MANAGER", "Error: Failed to get length for audio file %s", filename);
+        ma_decoder_uninit(&decoder);
+        return false;
+    }
+
+    ma_uint32 channels = decoder.outputChannels;
+    ma_uint32 sample_rate = decoder.outputSampleRate;
+
+    size_t total_frames = (size_t)frame_count;
+    size_t total_samples = total_frames * (size_t)channels;
+
+    float *samples = memory_manager.malloc(total_samples * sizeof(float), MMTAG_AUDIO);
+    if (!samples) {
+        log_error("ASSET_MANAGER", "Error: Failed to allocate buffer for decoded audio %s",
+                  filename);
+        ma_decoder_uninit(&decoder);
+        return false;
+    }
+
+    ma_uint64 total_read = 0;
+    while (total_read < frame_count) {
+        ma_uint64 frames_to_read = frame_count - total_read;
+        ma_uint64 frames_read = 0;
+        ma_result read_result = ma_decoder_read_pcm_frames(
+            &decoder, samples + (total_read * channels), frames_to_read, &frames_read);
+
+        if (read_result != MA_SUCCESS && read_result != MA_AT_END) {
+            log_error("ASSET_MANAGER",
+                      "Error: Failed while decoding audio frames for %s (result=%d)", filename,
+                      (int)read_result);
+            memory_manager.free(samples);
+            ma_decoder_uninit(&decoder);
+            return false;
+        }
+
+        if (frames_read == 0) {
+            break;
+        }
+        total_read += frames_read;
+    }
+
+    ma_decoder_uninit(&decoder);
+
+    if (total_read == 0) {
+        log_error("ASSET_MANAGER", "Error: No frames decoded for audio file %s", filename);
+        memory_manager.free(samples);
+        return false;
+    }
+
+    *out_samples = samples;
+    *out_channels = channels;
+    *out_sample_rate = sample_rate;
+    *out_frame_count = (uint32_t)total_read;
+
+    return true;
+}
+
 bool asset_manager_create_font_atlas(EseAssetManager *manager, const char *name,
                                      const unsigned char *font_data, int total_chars,
                                      int char_width, int char_height) {
@@ -961,6 +1092,85 @@ bool asset_manager_create_font_atlas(EseAssetManager *manager, const char *name,
     return true;
 }
 
+bool asset_manager_load_sound(EseAssetManager *manager, const char *filename, const char *is,
+                              const char *group) {
+    log_assert("ASSET_MANAGER", manager, "asset_manager_load_sound called with NULL manager");
+    log_assert("ASSET_MANAGER", filename, "asset_manager_load_sound called with NULL filename");
+    log_assert("ASSET_MANAGER", is, "asset_manager_load_sound called with NULL id");
+    log_assert("ASSET_MANAGER", group, "asset_manager_load_sound called with NULL group");
+
+    if (grouped_hashmap_get(manager->sound, group, is) != NULL) {
+        return true;
+    }
+
+    float *samples = NULL;
+    uint32_t channels = 0;
+    uint32_t sample_rate = 0;
+    uint32_t frame_count = 0;
+
+    if (!_asset_manager_decode_audio(filename, &samples, &channels, &sample_rate, &frame_count)) {
+        return false;
+    }
+
+    EsePcm *pcm = pcm_create(samples, frame_count, channels, sample_rate);
+    if (!pcm) {
+        log_error("ASSET_MANAGER", "Error: Failed to create EsePcm for sound %s", filename);
+        // pcm_create takes ownership of samples on success; on failure we must free them here.
+        if (samples) {
+            memory_manager.free(samples);
+        }
+        return false;
+    }
+
+    EseAsset *asset = _asset_create();
+    asset->type = ASSET_SOUND;
+    asset->data = pcm;
+
+    _asset_manager_add_group(manager, group);
+    grouped_hashmap_set(manager->sound, group, is, asset);
+
+    return true;
+}
+
+bool asset_manager_load_music(EseAssetManager *manager, const char *filename, const char *is,
+                              const char *group) {
+    log_assert("ASSET_MANAGER", manager, "asset_manager_load_music called with NULL manager");
+    log_assert("ASSET_MANAGER", filename, "asset_manager_load_music called with NULL filename");
+    log_assert("ASSET_MANAGER", is, "asset_manager_load_music called with NULL id");
+    log_assert("ASSET_MANAGER", group, "asset_manager_load_music called with NULL group");
+
+    if (grouped_hashmap_get(manager->audio, group, is) != NULL) {
+        return true;
+    }
+
+    float *samples = NULL;
+    uint32_t channels = 0;
+    uint32_t sample_rate = 0;
+    uint32_t frame_count = 0;
+
+    if (!_asset_manager_decode_audio(filename, &samples, &channels, &sample_rate, &frame_count)) {
+        return false;
+    }
+
+    EsePcm *pcm = pcm_create(samples, frame_count, channels, sample_rate);
+    if (!pcm) {
+        log_error("ASSET_MANAGER", "Error: Failed to create EsePcm for music %s", filename);
+        if (samples) {
+            memory_manager.free(samples);
+        }
+        return false;
+    }
+
+    EseAsset *asset = _asset_create();
+    asset->type = ASSET_MUSIC;
+    asset->data = pcm;
+
+    _asset_manager_add_group(manager, group);
+    grouped_hashmap_set(manager->audio, group, is, asset);
+
+    return true;
+}
+
 void asset_manager_remove_group(EseAssetManager *manager, const char *group) {
     if (!manager) {
         log_error("ASSET_MANAGER", "Error: asset_manager_remove_group called with NULL manager");
@@ -976,6 +1186,8 @@ void asset_manager_remove_group(EseAssetManager *manager, const char *group) {
     grouped_hashmap_remove_group(manager->textures, group);
     grouped_hashmap_remove_group(manager->atlases, group);
     grouped_hashmap_remove_group(manager->maps, group);
+    grouped_hashmap_remove_group(manager->sound, group);
+    grouped_hashmap_remove_group(manager->audio, group);
 
     _asset_manager_remove_group(manager, group);
 }

@@ -6,6 +6,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define MAX_TAG_LENGTH 16
+#define MAX_TAGS_PER_ENTITY 32
+
 // Forward declarations
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseEntity EseEntity;

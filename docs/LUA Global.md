@@ -204,6 +204,68 @@ print("All maps loaded successfully")
 
 ---
 
+### `asset_load_sound(group, id, filename)`
+Loads a sound asset (short effect-style audio) into the engine's asset manager.  
+
+**Arguments:**
+- `group` → string (group name for organizing audio assets)
+- `id` → string (unique identifier for this sound within the group)
+- `filename` → string (path to the sound file relative to the engine working directory)
+
+**Returns:** `true` if loaded successfully, `false` otherwise
+
+**Notes:**
+- **Asset grouping** - sounds are organized by group and id for lookup
+- **Format support** - uses the engine's audio backend (see project docs for supported formats)
+- **Memory management** - sound data is managed by the asset manager
+- **Usage** - typically used for short SFX triggered during gameplay
+- **Error handling** - returns false if the file cannot be loaded or decoded
+
+**Example:**
+```lua
+-- Load UI and gameplay sounds
+if not asset_load_sound("audio", "ui_click", "audio/ui_click.ogg") then
+    print("Failed to load ui_click sound")
+end
+
+if not asset_load_sound("audio", "jump", "audio/jump.ogg") then
+    print("Failed to load jump sound")
+end
+```
+
+---
+
+### `asset_load_music(group, id, filename)`
+Loads a music track (long-running background audio) into the engine's asset manager.  
+
+**Arguments:**
+- `group` → string (group name for organizing audio assets)
+- `id` → string (unique identifier for this music track within the group)
+- `filename` → string (path to the music file relative to the engine working directory)
+
+**Returns:** `true` if loaded successfully, `false` otherwise
+
+**Notes:**
+- **Asset grouping** - music tracks are organized by group and id for lookup
+- **Format support** - uses the engine's audio backend (see project docs for supported formats)
+- **Memory management** - music data is managed by the asset manager
+- **Usage** - designed for longer looping tracks such as background or theme music
+- **Error handling** - returns false if the file cannot be loaded or decoded
+
+**Example:**
+```lua
+-- Load background music
+if not asset_load_music("music", "title_theme", "audio/title_theme.ogg") then
+    print("Failed to load title theme")
+end
+
+if not asset_load_music("music", "level_theme", "audio/level_theme.ogg") then
+    print("Failed to load level theme")
+end
+```
+
+---
+
 ### `asset_get_map(mapName)`
 Retrieves a loaded map from the asset manager.  
 

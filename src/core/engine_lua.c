@@ -117,6 +117,62 @@ int _lua_asset_load_atlas(lua_State *L) {
     return 1;
 }
 
+int _lua_asset_load_sound(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 3) {
+        log_warn("ENGINE", "asset_load_sound(String group, String id, String filename) takes 3 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    if (!lua_isstring(L, 1) || !lua_isstring(L, 2) || !lua_isstring(L, 3)) {
+        log_warn("ENGINE", "asset_load_sound(String group, String id, String filename) takes 3 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    const char *group = lua_tostring(L, 1);
+    const char *id = lua_tostring(L, 2);
+    const char *filename = lua_tostring(L, 3);
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    bool status = asset_manager_load_sound(engine->asset_manager, filename, id, group);
+
+    log_debug("ENGINE", "Loading sound %s (group=%s, id=%s) has %s.", filename, group, id,
+              status ? "completed" : "failed");
+
+    lua_pushboolean(L, status);
+    return 1;
+}
+
+int _lua_asset_load_music(lua_State *L) {
+    int n_args = lua_gettop(L);
+    if (n_args != 3) {
+        log_warn("ENGINE", "asset_load_music(String group, String id, String filename) takes 3 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    if (!lua_isstring(L, 1) || !lua_isstring(L, 2) || !lua_isstring(L, 3)) {
+        log_warn("ENGINE", "asset_load_music(String group, String id, String filename) takes 3 string arguments");
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    const char *group = lua_tostring(L, 1);
+    const char *id = lua_tostring(L, 2);
+    const char *filename = lua_tostring(L, 3);
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    bool status = asset_manager_load_music(engine->asset_manager, filename, id, group);
+
+    log_debug("ENGINE", "Loading music %s (group=%s, id=%s) has %s.", filename, group, id,
+              status ? "completed" : "failed");
+
+    lua_pushboolean(L, status);
+    return 1;
+}
+
 int _lua_asset_load_shader(lua_State *L) {
     int n_args = lua_gettop(L);
     if (n_args != 2) {

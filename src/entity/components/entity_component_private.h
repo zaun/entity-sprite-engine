@@ -17,6 +17,7 @@ typedef enum {
     ENTITY_COMPONENT_SHAPE,
     ENTITY_COMPONENT_SPRITE,
     ENTITY_COMPONENT_TEXT,
+    ENTITY_COMPONENT_SOUND,
 } EntityComponentType;
 
 /**

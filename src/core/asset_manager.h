@@ -10,6 +10,7 @@ typedef struct EseRenderer EseRenderer;
 typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseSprite EseSprite;
 typedef struct EseMap EseMap;
+typedef struct EsePcm EsePcm;
 
 // EseAsset Manager
 EseAssetManager *asset_manager_create(EseRenderer *renderer);
@@ -20,6 +21,10 @@ bool asset_manager_load_sprite_atlas(EseAssetManager *manager, const char *filen
                                      const char *group, bool indexed);
 bool asset_manager_load_map(EseAssetManager *manager, EseLuaEngine *lua, const char *filename,
                             const char *group);
+bool asset_manager_load_sound(EseAssetManager *manager, const char *filename, const char *is,
+                              const char *group);
+bool asset_manager_load_music(EseAssetManager *manager, const char *filename, const char *is,
+                              const char *group);
 
 // EseAsset Creation
 bool asset_manager_create_font_atlas(EseAssetManager *manager, const char *name,
@@ -31,6 +36,8 @@ EseSprite *asset_manager_get_sprite(EseAssetManager *manager, const char *asset_
 void asset_manager_get_texture_size(EseAssetManager *manager, const char *asset_id, int **out_width,
                                     int **out_height);
 EseMap *asset_manager_get_map(EseAssetManager *manager, const char *asset_id);
+EsePcm *asset_manager_get_sound(EseAssetManager *manager, const char *asset_id);
+EsePcm *asset_manager_get_music(EseAssetManager *manager, const char *asset_id);
 
 // EseAsset Manager Management
 void asset_manager_remove_group(EseAssetManager *manager, const char *group);

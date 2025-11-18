@@ -44,6 +44,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_MSC_VER)
+#include <malloc.h>
+#endif
+
 // ========================================
 // Defines and Structs
 // ========================================
@@ -232,6 +236,38 @@ static MemoryManagerThread *_get_thread_manager(void) {
  */
 static inline size_t _align_up(size_t n, size_t align) { return (n + align - 1) & ~(align - 1); }
 
+// Portable aligned allocation wrapper to centralize platform differences.
+// Returns memory aligned to `alignment` bytes and of size `size`, or NULL on failure.
+static void *ese_aligned_alloc(size_t alignment, size_t size) {
+#if defined(_MSC_VER)
+    // On Windows/MSVC, use _aligned_malloc which requires _aligned_free.
+    return _aligned_malloc(size, alignment);
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+    // C11 aligned_alloc is available; alignment must be a power of two and size
+    // must be a multiple of alignment. Callers ensure this via _align_up.
+    return aligned_alloc(alignment, size);
+#else
+    // POSIX fallback: posix_memalign. It returns 0 on success and non-zero on failure.
+    void *ptr = NULL;
+    if (posix_memalign(&ptr, alignment, size) != 0) {
+        return NULL;
+    }
+    return ptr;
+#endif
+}
+
+// Matching deallocation function for ese_aligned_alloc.
+static void ese_aligned_free(void *ptr) {
+    if (!ptr) {
+        return;
+    }
+#if defined(_MSC_VER)
+    _aligned_free(ptr);
+#else
+    free(ptr);
+#endif
+}
+
 /**
  * @brief Hash a pointer to get a table index.
  *
@@ -397,10 +433,9 @@ static void _print_backtrace(AllocEntry *entry) {
 /**
  * @brief Generate and print a memory usage report.
  *
- * @param all_threads If true, report for all threads; otherwise just current
- * thread
+ * @param thread The thread to report on.
  */
- static void _mm_report(MemoryManagerThread *thread) {
+static void _mm_report(MemoryManagerThread *thread) {
     log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
 
     ese_mutex_lock(g_mm_mutex);
@@ -532,9 +567,9 @@ static void *_mm_malloc(MemoryManagerThread *thread, size_t size, MemTag tag) {
     log_assert("MEMORY_MANAGER", thread != NULL, "Thread is NULL");
 
     size_t aligned_size = _align_up(size, 16);
-    void *ptr = aligned_alloc(16, aligned_size);
+    void *ptr = ese_aligned_alloc(16, aligned_size);
     if (!ptr) {
-        log_error("MEMORY_MANAGER", "MALLOC: aligned_alloc failed for size %zu", aligned_size);
+        log_error("MEMORY_MANAGER", "MALLOC: ese_aligned_alloc failed for size %zu", aligned_size);
         fflush(stdout);
         _abort_with_report(thread, "Failed to allocate memory");
         return NULL;
@@ -669,7 +704,7 @@ static void _mm_free(MemoryManagerThread *thread, void *ptr) {
         _abort_with_report(thread, "Free of untracked pointer");
     }
 
-    free(ptr);
+    ese_aligned_free(ptr);
     log_verbose("MEMORY_MANAGER", "FREE: completed");
 }
 

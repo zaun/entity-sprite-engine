@@ -30,9 +30,9 @@ static int _button_lua_push(lua_State *L);
 
 // Callback bridge for Lua
 typedef struct LuaButtonCallbackData {
-    lua_State *L;
-    int ref;
-    void *userdata;
+    lua_State *L;      /** Lua state used for the callback */
+    int ref;           /** Registry ref to the callback function */
+    int userdata_ref;  /** Registry ref to the Lua userdata/value (LUA_NOREF if none) */
 } LuaButtonCallbackData;
 static void _button_invoke_lua_callback(void *ud);
 
@@ -69,7 +69,23 @@ static void _button_data_destroy(GuiButtonData *data) {
         memory_manager.free(data->text);
     }
     if (data->userdata) {
-        memory_manager.free(data->userdata);
+        // If this button was created from Lua, userdata is a LuaButtonCallbackData
+        if (data->callback == _button_invoke_lua_callback) {
+            LuaButtonCallbackData *cbd = (LuaButtonCallbackData *)data->userdata;
+            if (cbd->L) {
+                if (cbd->ref != LUA_NOREF) {
+                    luaL_unref(cbd->L, LUA_REGISTRYINDEX, cbd->ref);
+                }
+                if (cbd->userdata_ref != LUA_NOREF) {
+                    luaL_unref(cbd->L, LUA_REGISTRYINDEX, cbd->userdata_ref);
+                }
+            }
+            memory_manager.free(cbd);
+        } else {
+            // C-created buttons may store arbitrary user data; preserve legacy
+            // behavior of freeing it here.
+            memory_manager.free(data->userdata);
+        }
     }
     memory_manager.free(data);
 }
@@ -282,8 +298,32 @@ static void _button_invoke_lua_callback(void *ud) {
     if (!cbd || !cbd->L) {
         return;
     }
+
+    // Push the callback function
     lua_rawgeti(cbd->L, LUA_REGISTRYINDEX, cbd->ref);
-    lua_call(cbd->L, 0, 0);
+
+    // Always pass two arguments to the callback: self (currently nil) and the
+    // userdata/value (or nil). This matches Lua method syntax
+    // function ENTITY:play_laserRetro0(sounds) end
+    // which desugars to function ENTITY.play_laserRetro0(self, sounds) end.
+    lua_pushnil(cbd->L); // self (unused in current audio GUI example)
+
+    if (cbd->userdata_ref != LUA_NOREF) {
+        lua_rawgeti(cbd->L, LUA_REGISTRYINDEX, cbd->userdata_ref);
+    } else {
+        lua_pushnil(cbd->L);
+    }
+
+    // callback(self, userdata)
+    lua_call(cbd->L, 2, 0);
+
+    // Release registry references now that we've invoked the callback
+    luaL_unref(cbd->L, LUA_REGISTRYINDEX, cbd->ref);
+    cbd->ref = LUA_NOREF;
+    if (cbd->userdata_ref != LUA_NOREF) {
+        luaL_unref(cbd->L, LUA_REGISTRYINDEX, cbd->userdata_ref);
+        cbd->userdata_ref = LUA_NOREF;
+    }
 }
 
 static void _button_font_texture_callback(float screen_x, float screen_y, float screen_w,
@@ -332,10 +372,8 @@ static int _button_lua_push(lua_State *L) {
         return luaL_error(L, "GUI.push_button() callback must be a function");
     }
 
-    void *userdata = NULL;
-    if (n_args >= 3) {
-        userdata = lua_touserdata(L, 3);
-    }
+    // Optional userdata/value to be passed back to the callback
+    bool has_userdata = (n_args >= 3 && !lua_isnoneornil(L, 3));
 
     EseGuiStyle *opt_style = NULL;
     if (n_args == 4) {
@@ -371,7 +409,15 @@ static int _button_lua_push(lua_State *L) {
         (LuaButtonCallbackData *)memory_manager.calloc(1, sizeof(LuaButtonCallbackData), MMTAG_GUI);
     cb->L = L;
     cb->ref = ref;
-    cb->userdata = userdata;
+    cb->userdata_ref = LUA_NOREF;
+
+    if (has_userdata) {
+        // Store a strong reference to the userdata/value so we can pass it
+        // back into the callback later.
+        lua_pushvalue(L, 3);
+        cb->userdata_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+
     data->userdata = cb;
     data->callback = _button_invoke_lua_callback;
 

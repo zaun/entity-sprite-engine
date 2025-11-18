@@ -113,6 +113,8 @@ EseEngine *engine_create(const char *startup_script) {
     lua_engine_add_function(engine->lua_engine, "asset_load_script", _lua_asset_load_script);
     lua_engine_add_function(engine->lua_engine, "asset_load_atlas", _lua_asset_load_atlas);
     lua_engine_add_function(engine->lua_engine, "asset_load_shader", _lua_asset_load_shader);
+    lua_engine_add_function(engine->lua_engine, "asset_load_sound", _lua_asset_load_sound);
+    lua_engine_add_function(engine->lua_engine, "asset_load_music", _lua_asset_load_music);
     lua_engine_add_function(engine->lua_engine, "asset_load_map", _lua_asset_load_map);
     lua_engine_add_function(engine->lua_engine, "asset_get_map", _lua_asset_get_map);
     lua_engine_add_function(engine->lua_engine, "set_pipeline", _lua_set_pipeline);
@@ -183,7 +185,7 @@ void engine_destroy(EseEngine *engine) {
     log_verbose("ENGINE", "Destroying render list b");
     render_list_destroy(engine->render_list_b);
 
-    // Now free the entirty lists
+    // Now free the entity lists
     void *v;
     while ((v = dlist_pop_front(engine->entities)) != NULL) {
         entity_destroy((EseEntity *)v);
@@ -354,7 +356,6 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
         engine->input_state->keys_pressed[InputKey_C]) {
         log_debug("ENGINE", "Toggle console");
         engine->draw_console = !engine->draw_console;
-        return;
     }
 
     // Run ECS Systems in phases
@@ -373,20 +374,6 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_LUA, delta_time, false);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_lua");
-
-    // Entity PASS TWO - Check for collisions
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-
-    // Clear collision states for all entities at the beginning of each frame
-    // This swaps current and previous collision states
-    void *clear_value;
-    EseDListIter *clear_iter = dlist_iter_create(engine->entities);
-    while (dlist_iter_next(clear_iter, &clear_value)) {
-        EseEntity *entity = (EseEntity *)clear_value;
-        if (!entity->active)
-            continue;
-    }
-    dlist_iter_free(clear_iter);
 
     // Entity PASS TWO Step 1: Collect spatial pairs using spatial index
     profile_start(PROFILE_ENG_UPDATE_SECTION);
@@ -468,7 +455,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_console_draw");
 
     // Renderer update - Create a batched render list
-    // incliding all texture and vertext information
+    // including all texture and vertext information
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     EseRenderList *render_list = _engine_get_render_list(engine);
     render_list_clear(render_list);
@@ -503,7 +490,7 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     void *v;
     while ((v = dlist_pop_front(engine->del_entities)) != NULL) {
         EseEntity *entity = (EseEntity *)v;
-        // remvoe from entities list here
+        // remove from entities list here
         dlist_remove_by_value(engine->entities, entity);
         entity_destroy(entity);
     }
@@ -583,7 +570,7 @@ EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id) {
  */
 static void _normalize_tag(char *dest, const char *src) {
     size_t i = 0;
-    while (src[i] && i < 16 - 1) { // MAX_TAG_LENGTH is 16
+    while (src[i] && i < MAX_TAG_LENGTH - 1) { // MAX_TAG_LENGTH is 16
         if (src[i] >= 'a' && src[i] <= 'z') {
             dest[i] = src[i] - 32; // Convert to uppercase
         } else {
@@ -602,7 +589,7 @@ EseEntity **engine_find_by_tag(EseEngine *engine, const char *tag, int max_count
         return NULL;
     }
 
-    char normalized_tag[16]; // MAX_TAG_LENGTH
+    char normalized_tag[MAX_TAG_LENGTH]; // MAX_TAG_LENGTH
     _normalize_tag(normalized_tag, tag);
 
     // Allocate result array (max_count + 1 for NULL terminator)

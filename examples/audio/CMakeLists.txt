@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.16)
 # Platform-specific build configuration
 if(PLATFORM STREQUAL "MAC")
     # Create the executable as a macOS application bundle.
-    add_executable(breakout MACOSX_BUNDLE breakout.c)
+    add_executable(audio MACOSX_BUNDLE main.c)
 
     # Set the Info.plist file.
-    set_target_properties(breakout PROPERTIES
+    set_target_properties(audio PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
     )
 
@@ -20,7 +20,7 @@ if(PLATFORM STREQUAL "MAC")
     find_library(IMAGEIO_LIB ImageIO)
     find_library(CORE_GRAPHICS_LIB CoreGraphics)
 
-    target_link_libraries(breakout PRIVATE
+    target_link_libraries(audio PRIVATE
         entityspriteengine
         ${COCOA_LIB}
         ${METAL_LIB}
@@ -33,92 +33,92 @@ if(PLATFORM STREQUAL "MAC")
         ${CORE_GRAPHICS_LIB}
     )
 
-    target_link_options(breakout PRIVATE
+    target_link_options(audio PRIVATE
         "-Wl,-rpath,@executable_path/../Frameworks"
     )
 
     # Add debugging and sanitization flags if SANITIZE is enabled
     if(SANITIZE)
-        target_compile_options(breakout PRIVATE
+        target_compile_options(audio PRIVATE
             -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
         )
-        target_link_options(breakout PRIVATE
+        target_link_options(audio PRIVATE
             -fsanitize=address,undefined
         )
-        target_link_libraries(breakout PRIVATE glslang-default-resource-limits stdc++)
+        target_link_libraries(audio PRIVATE glslang-default-resource-limits stdc++)
     endif()
 
     # Track example assets and Info.plist so changes are picked up by `make`
-    file(GLOB_RECURSE BREAKOUT_ASSETS
+    file(GLOB_RECURSE AUDIO_ASSETS
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
         "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
     )
 
     add_custom_command(
-        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:breakout>/resources"
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:audio>/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-            "$<TARGET_FILE_DIR:breakout>/resources/"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:breakout>/Resources/"
+            "$<TARGET_FILE_DIR:audio>/resources/"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:audio>/Resources/"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-            "$<TARGET_BUNDLE_CONTENT_DIR:breakout>/Resources/"
+            "$<TARGET_BUNDLE_CONTENT_DIR:audio>/Resources/"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
-            "$<TARGET_BUNDLE_CONTENT_DIR:breakout>/Info.plist"
+            "$<TARGET_BUNDLE_CONTENT_DIR:audio>/Info.plist"
         COMMAND ${CMAKE_COMMAND} -E touch
-            "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
-        DEPENDS ${BREAKOUT_ASSETS}
-        COMMENT "Syncing breakout assets"
+            "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
+        DEPENDS ${AUDIO_ASSETS}
+        COMMENT "Syncing audio assets"
         VERBATIM
     )
 
-    add_custom_target(breakout_assets_sync ALL
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
+    add_custom_target(audio_assets_sync ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
     )
-    add_dependencies(breakout_assets_sync breakout)
+    add_dependencies(audio_assets_sync audio)
 
 elseif(PLATFORM STREQUAL "LINUX")
     # Create a regular Linux executable
-    add_executable(breakout breakout.c)
+    add_executable(audio main.c)
 
     # Link with the engine library
-    target_link_libraries(breakout PRIVATE entityspriteengine)
+    target_link_libraries(audio PRIVATE entityspriteengine)
 
     # Add debugging and sanitization flags if SANITIZE is enabled
     if(SANITIZE)
-        target_compile_options(breakout PRIVATE
+        target_compile_options(audio PRIVATE
             -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
         )
-        target_link_options(breakout PRIVATE
+        target_link_options(audio PRIVATE
             -fsanitize=address,undefined
         )
-        target_link_libraries(breakout PRIVATE glslang-default-resource-limits stdc++)
+        target_link_libraries(audio PRIVATE glslang-default-resource-limits stdc++)
     endif()
 
     # Track example assets so changes are picked up by `make`
-    file(GLOB_RECURSE BREAKOUT_ASSETS
+    file(GLOB_RECURSE AUDIO_ASSETS
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
     )
 
     add_custom_command(
-        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:breakout>/resources"
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:audio>/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
-            "$<TARGET_FILE_DIR:breakout>/resources/"
+            "$<TARGET_FILE_DIR:audio>/resources/"
         COMMAND ${CMAKE_COMMAND} -E touch
-            "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
-        DEPENDS ${BREAKOUT_ASSETS}
-        COMMENT "Syncing breakout assets"
+            "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
+        DEPENDS ${AUDIO_ASSETS}
+        COMMENT "Syncing audio assets"
         VERBATIM
     )
 
-    add_custom_target(breakout_assets_sync ALL
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.breakout_assets_stamp"
+    add_custom_target(audio_assets_sync ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/.audio_assets_stamp"
     )
-    add_dependencies(breakout_assets_sync breakout)
+    add_dependencies(audio_assets_sync audio)
 
 else()
     message(FATAL_ERROR "Unknown platform: ${PLATFORM}. Expected 'MAC' or 'LINUX'")

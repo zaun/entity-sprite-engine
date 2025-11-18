@@ -5,6 +5,7 @@ if(SANITIZE)
     message(STATUS "Sanitizer enabled for examples")
 endif()
 
+add_subdirectory(audio)
 add_subdirectory(bounce)
 add_subdirectory(breakout)
 add_subdirectory(collisions)

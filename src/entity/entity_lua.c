@@ -449,18 +449,31 @@ static int _entity_lua_components_get(lua_State *L) {
 
 /**
  * @brief Lua function to add a tag to an entity.
+ *
+ * Supports both:
+ *   - entity:add_tag("tag")  -- colon syntax (entity is argument 1)
+ *   - entity.add_tag("tag")  -- dot syntax (entity is captured as upvalue)
  */
 static int _entity_lua_add_tag(lua_State *L) {
+    // Try colon syntax first: entity is the first argument.
     EseEntity *entity = entity_lua_get(L, 1);
+    int tag_index = 2;
+
+    if (!entity) {
+        // Fallback to dot syntax: entity is stored as a lightuserdata upvalue.
+        entity = (EseEntity *)lua_touserdata(L, lua_upvalueindex(1));
+        tag_index = 1;
+    }
+
     if (!entity) {
         return luaL_error(L, "Invalid entity");
     }
 
-    if (!lua_isstring(L, 2)) {
+    if (!lua_isstring(L, tag_index)) {
         return luaL_error(L, "Tag must be a string");
     }
 
-    const char *tag = lua_tostring(L, 2);
+    const char *tag = lua_tostring(L, tag_index);
     bool success = entity_add_tag(entity, tag);
     lua_pushboolean(L, success);
     return 1;
