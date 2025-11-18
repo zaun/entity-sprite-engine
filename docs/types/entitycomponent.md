@@ -8,7 +8,9 @@ The following component types are currently supported:
 - **Sprite Component** (`EntityComponentSprite`) → handles rendering animated sprites  
 - **Collider Component** (`EntityComponentCollider`) → handles collision detection  
 - **Lua Component** (`EntityComponentLua`) → attaches Lua scripts to entities  
-- **Map Component** (`EntityComponentMap`) → handles tile-based map rendering
+- **Map Component** (`EntityComponentMap`) → handles tile-based map rendering  
+- **Sound Component** (`EntityComponentSound`) → represents a sound to be played  
+- **Listener Component** (`EntityComponentListener`) → represents an audio listener for spatial sound
 
 ---
 
@@ -322,6 +324,8 @@ The following component type constants are available for type checking and searc
 - `ENTITY_COMPONENT_LUA` → Lua script component type  
 - `ENTITY_COMPONENT_MAP` → Map rendering component type
 - `ENTITY_COMPONENT_SPRITE` → Sprite rendering component type
+- `ENTITY_COMPONENT_SOUND` → Sound component type
+- `ENTITY_COMPONENT_LISTENER` → Listener component type (audio listener)
 
 **Example:**
 ```lua

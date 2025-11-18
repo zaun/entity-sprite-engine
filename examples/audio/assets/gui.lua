@@ -1,11 +1,8 @@
-function ENTITY:entity_init()
-    print("GUI entity initialized")
-    print(self.data)
-end
-
 function ENTITY:play_laserRetro0(sounds)
-    print(sounds)
-    print(sounds.data.soundA)
+    print("Sound Device Count: " .. #Sound.devices)
+    for name, device in pairs(Sound.devices) do
+        print("Device " .. tostring(name) .. ": " .. tostring(device))
+    end
     print(sounds.data.soundA.sound)
 end
 

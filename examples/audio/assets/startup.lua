@@ -9,13 +9,18 @@ function STARTUP:startup()
         return
     end
 
-    local gui = Entity.new()
-    gui.components.add(EntityComponentLua.new("gui.lua"))
+    local listener = Entity.new()
+    listener.data.listener = EntityComponentListener.new()
+    listener.add_tag("listener")
 
     local sounds = Entity.new();
     sounds.data.soundA = EntityComponentSound.new("scifi:laser0")
     sounds.components.add(sounds.data.soundA)
     sounds.add_tag("sounds")
 
+    local gui = Entity.new()
+    gui.components.add(EntityComponentLua.new("gui.lua"))
     gui.data.sounds = sounds
+
+
 end

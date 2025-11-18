@@ -18,6 +18,7 @@
 #include "entity/systems/map_render_system.h"
 #include "entity/systems/map_system.h"
 #include "entity/systems/shape_render_system.h"
+#include "entity/systems/sound_system.h"
 #include "entity/systems/sprite_render_system.h"
 #include "entity/systems/sprite_system.h"
 #include "entity/systems/text_render_system.h"
@@ -151,6 +152,7 @@ EseEngine *engine_create(const char *startup_script) {
     engine_register_map_render_system(engine);
     engine_register_map_system(engine);
     engine_register_cleanup_system(engine);
+    engine_register_sound_system(engine);
 
     // Load startup script
     if (startup_script) {

@@ -8,6 +8,7 @@
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component_sound.h"
+#include "entity/components/entity_component_listener.h"
 #include "entity/entity_private.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
@@ -26,6 +27,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);
     _entity_component_sound_init(engine);
+    _entity_component_listener_init(engine);
 
     profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_lua_init");
 }
@@ -206,6 +208,13 @@ EseEntityComponent *entity_component_get(lua_State *L) {
         (EseEntityComponentSound **)luaL_testudata(L, 1, ENTITY_COMPONENT_SOUND_PROXY_META);
     if (ud_sound) {
         return &(*ud_sound)->base;
+    }
+
+    // Handle userdata - check if it's a listener component
+    EseEntityComponentListener **ud_listener = (EseEntityComponentListener **)luaL_testudata(
+        L, 1, ENTITY_COMPONENT_LISTENER_PROXY_META);
+    if (ud_listener) {
+        return &(*ud_listener)->base;
     }
 
     luaL_argerror(L, 1, "expected a component userdata, got unknown userdata type");

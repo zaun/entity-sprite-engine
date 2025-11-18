@@ -9,31 +9,21 @@
  * Copyright (c) 2025-2026 Entity Sprite Engine
  * See LICENSE.md for details.
  */
-#include "entity/systems/sound_system.h"
 #include "core/engine_private.h"
 #include "core/memory_manager.h"
 #include "core/system_manager.h"
 #include "core/system_manager_private.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_sound.h"
+#include "entity/components/entity_component_listener.h"
+#include "entity/systems/sound_system.h"
+#include "entity/systems/sound_system_lua.h"
+#include "entity/systems/sound_system_private.h"
 #include "entity/entity_private.h"
 #include "utility/log.h"
+#include "vendor/miniaud/miniaudio.h"
 
-// ========================================
-// Defines and Structs
-// ========================================
-
-/**
- * @brief Internal data for the sound system.
- *
- * Maintains a dynamically-sized array of sound component pointers for
- * future per-frame updates.
- */
-typedef struct {
-    EseEntityComponentSound **sounds; /** Array of sound component pointers */
-    size_t count;                     /** Current number of tracked sounds */
-    size_t capacity;                  /** Allocated capacity of the array */
-} SoundSystemData;
+SoundSystemData *g_sound_system_data = NULL;
 
 // ========================================
 // PRIVATE FUNCTIONS
@@ -47,7 +37,7 @@ static bool sound_sys_accepts(EseSystemManager *self, const EseEntityComponent *
     if (!comp) {
         return false;
     }
-    return comp->type == ENTITY_COMPONENT_SOUND;
+    return comp->type == ENTITY_COMPONENT_SOUND || comp->type == ENTITY_COMPONENT_LISTENER;
 }
 
 /**
@@ -55,19 +45,30 @@ static bool sound_sys_accepts(EseSystemManager *self, const EseEntityComponent *
  */
 static void sound_sys_on_add(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp) {
     (void)eng;
-    SoundSystemData *d = (SoundSystemData *)self->data;
 
     if (!comp || !comp->data) {
         return;
     }
 
-    if (d->count == d->capacity) {
-        d->capacity = d->capacity ? d->capacity * 2 : 64;
-        d->sounds = memory_manager.realloc(d->sounds, sizeof(EseEntityComponentSound *) * d->capacity,
-                                           MMTAG_S_SPRITE); // reuse sprite system tag for now
-    }
+    if (comp->type == ENTITY_COMPONENT_SOUND) {
+        if (g_sound_system_data->sound_count == g_sound_system_data->sound_capacity) {
+            g_sound_system_data->sound_capacity = g_sound_system_data->sound_capacity ? g_sound_system_data->sound_capacity * 2 : 64;
+            g_sound_system_data->sounds = memory_manager.realloc(
+                g_sound_system_data->sounds, sizeof(EseEntityComponentSound *) * g_sound_system_data->sound_capacity,
+                MMTAG_S_SPRITE); // reuse sprite system tag for now
+        }
 
-    d->sounds[d->count++] = (EseEntityComponentSound *)comp->data;
+        g_sound_system_data->sounds[g_sound_system_data->sound_count++] = (EseEntityComponentSound *)comp->data;
+    } else if (comp->type == ENTITY_COMPONENT_LISTENER) {
+        if (g_sound_system_data->listener_count == g_sound_system_data->listener_capacity) {
+            g_sound_system_data->listener_capacity = g_sound_system_data->listener_capacity ? g_sound_system_data->listener_capacity * 2 : 4;
+            g_sound_system_data->listeners = memory_manager.realloc(
+                g_sound_system_data->listeners, sizeof(EseEntityComponentListener *) * g_sound_system_data->listener_capacity,
+                MMTAG_S_SPRITE); // reuse sprite system tag for now
+        }
+
+        g_sound_system_data->listeners[g_sound_system_data->listener_count++] = (EseEntityComponentListener *)comp->data;
+    }
 }
 
 /**
@@ -75,18 +76,36 @@ static void sound_sys_on_add(EseSystemManager *self, EseEngine *eng, EseEntityCo
  */
 static void sound_sys_on_remove(EseSystemManager *self, EseEngine *eng, EseEntityComponent *comp) {
     (void)eng;
-    SoundSystemData *d = (SoundSystemData *)self->data;
 
-    if (!comp || !comp->data || d->count == 0) {
+    if (!comp || !comp->data) {
         return;
     }
 
-    EseEntityComponentSound *sc = (EseEntityComponentSound *)comp->data;
-
-    for (size_t i = 0; i < d->count; i++) {
-        if (d->sounds[i] == sc) {
-            d->sounds[i] = d->sounds[--d->count];
+    if (comp->type == ENTITY_COMPONENT_SOUND) {
+        if (g_sound_system_data->sound_count == 0) {
             return;
+        }
+
+        EseEntityComponentSound *sc = (EseEntityComponentSound *)comp->data;
+
+        for (size_t i = 0; i < g_sound_system_data->sound_count; i++) {
+            if (g_sound_system_data->sounds[i] == sc) {
+                g_sound_system_data->sounds[i] = g_sound_system_data->sounds[--g_sound_system_data->sound_count];
+                return;
+            }
+        }
+    } else if (comp->type == ENTITY_COMPONENT_LISTENER) {
+        if (g_sound_system_data->listener_count == 0) {
+            return;
+        }
+
+        EseEntityComponentListener *lc = (EseEntityComponentListener *)comp->data;
+
+        for (size_t i = 0; i < g_sound_system_data->listener_count; i++) {
+            if (g_sound_system_data->listeners[i] == lc) {
+                g_sound_system_data->listeners[i] = g_sound_system_data->listeners[--g_sound_system_data->listener_count];
+                return;
+            }
         }
     }
 }
@@ -96,8 +115,37 @@ static void sound_sys_on_remove(EseSystemManager *self, EseEngine *eng, EseEntit
  */
 static void sound_sys_init(EseSystemManager *self, EseEngine *eng) {
     (void)eng;
-    SoundSystemData *d = memory_manager.calloc(1, sizeof(SoundSystemData), MMTAG_S_SPRITE);
-    self->data = d;
+    g_sound_system_data = memory_manager.calloc(1, sizeof(SoundSystemData), MMTAG_S_SPRITE);
+
+    // Initilize audio
+    ma_result result = ma_context_init(NULL, 0, NULL, &g_sound_system_data->context);
+    if (result != MA_SUCCESS) {
+        log_error("SOUND_SYSTEM", "Failed to initilize audio: %s", ma_result_description(result));
+        g_sound_system_data->ready = false;
+        return;
+    }
+
+    // Get devices
+    result = ma_context_get_devices(&g_sound_system_data->context, &g_sound_system_data->device_infos, &g_sound_system_data->device_info_count, NULL, 0);
+    if (result != MA_SUCCESS) {
+        log_error("SOUND_SYSTEM", "Failed to get devices: %s", ma_result_description(result));
+        ma_context_uninit(&g_sound_system_data->context);
+
+        g_sound_system_data->ready = false;
+        g_sound_system_data->device_info_count = 0;
+        g_sound_system_data->device_infos = NULL;
+        return;
+    }
+    g_sound_system_data->ready = true;
+
+    // log devices
+    log_verbose("SOUND_SYSTEM", "Playback devices:");
+    for (ma_uint32 i = 0; i < g_sound_system_data->device_info_count; i++) {
+        log_verbose("SOUND_SYSTEM", "  %s %u: %s",
+            g_sound_system_data->device_infos[i].isDefault ? "**" : "  ",
+            i, g_sound_system_data->device_infos[i].name,
+            g_sound_system_data->device_infos[i].id);
+    }
 }
 
 /**
@@ -122,10 +170,21 @@ static void sound_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
     (void)eng;
     SoundSystemData *d = (SoundSystemData *)self->data;
     if (d) {
-        if (d->sounds) {
-            memory_manager.free(d->sounds);
+        if (g_sound_system_data->sounds) {
+            memory_manager.free(g_sound_system_data->sounds);
         }
+        if (g_sound_system_data->listeners) {
+            memory_manager.free(g_sound_system_data->listeners);
+        }
+
+        if (g_sound_system_data->ready) {
+            ma_context_uninit(&g_sound_system_data->context);
+        }
+
         memory_manager.free(d);
+        if (g_sound_system_data == d) {
+            g_sound_system_data = NULL;
+        }
     }
 }
 
@@ -144,13 +203,12 @@ static const EseSystemManagerVTable SoundSystemVTable = {
 // PUBLIC FUNCTIONS
 // ========================================
 
-EseSystemManager *sound_system_create(void) {
-    return system_manager_create(&SoundSystemVTable, SYS_PHASE_EARLY, NULL);
-}
-
 void engine_register_sound_system(EseEngine *eng) {
     log_assert("SOUND_SYS", eng, "engine_register_sound_system called with NULL engine");
+    log_assert("SOUND_SYSTEM", g_sound_system_data == NULL, "Only one sound system permitted");
 
-    EseSystemManager *sys = sound_system_create();
-    engine_add_system(eng, sys);
+    engine_add_system(eng, system_manager_create(&SoundSystemVTable, SYS_PHASE_EARLY, NULL));
+
+    // Initialize Lua bindings for the Sound global once the system is registered
+    sound_system_lua_init(eng->lua_engine);
 }

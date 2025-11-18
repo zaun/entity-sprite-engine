@@ -24,17 +24,6 @@ typedef struct EseSystemManager EseSystemManager;
 // ========================================
 
 /**
- * @brief Creates and returns a new Sound System.
- *
- * @details The sound system will track all sound components and
- *          manage their playback. For now, the update function is
- *          intentionally empty.
- *
- * @return Pointer to the newly created sound system.
- */
-EseSystemManager *sound_system_create(void);
-
-/**
  * @brief Registers the sound system with the engine.
  *
  * @details Convenience function that creates and registers the sound
