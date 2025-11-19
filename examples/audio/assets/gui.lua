@@ -1,9 +1,9 @@
 function ENTITY:play_laserRetro0(sounds)
-    print("Sound Device Count: " .. #Sound.devices)
-    for name, device in pairs(Sound.devices) do
-        print("Device " .. tostring(name) .. ": " .. tostring(device))
-    end
-    print(sounds.data.soundA.sound)
+    sounds.data.soundA.play()
+end
+
+function ENTITY:play_laserRetro1(sounds)
+    sounds.data.soundB.play()
 end
 
 function ENTITY:entity_update(delta_time)
@@ -14,6 +14,12 @@ function ENTITY:entity_update(delta_time)
         )
             GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
                 GUI.push_button("Laser Retro 0", ENTITY.play_laserRetro0, self.data.sounds)
+            GUI.close_stack()
+            GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Laser Retro 1", ENTITY.play_laserRetro1, self.data.sounds)
+            GUI.close_stack()
+            GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Pos: " .. self.data.sounds.data.soundA.current_frame, ENTITY.play_laserRetro0)
             GUI.close_stack()
         GUI.close_flex()
     GUI.finish()

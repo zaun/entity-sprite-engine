@@ -24,6 +24,7 @@ typedef struct EseSprite EseSprite;
 typedef struct EseEntityComponentMap EseEntityComponentMap;
 typedef struct EseGui EseGui;
 typedef struct EseJobQueue EseJobQueue;
+typedef struct EsePcm EsePcm;
 
 /**
  * @brief Creates a new EseEngine instance.
@@ -158,6 +159,18 @@ EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int m
  * @return Pointer to the sprite if found, NULL otherwise.
  */
 EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
+
+/**
+ * @brief Retrieves a sound from the engine's asset manager.
+ *
+ * @details This function looks up a decoded PCM sound by its ID in the engine's
+ * asset manager and returns a pointer to it if found.
+ *
+ * @param engine A pointer to the EseEngine instance.
+ * @param sound_id The ID of the sound to retrieve.
+ * @return Pointer to the EsePcm if found, NULL otherwise.
+ */
+EsePcm *engine_get_sound(EseEngine *engine, const char *sound_id);
 
 /**
  * @brief Finds all entities with a specific tag.

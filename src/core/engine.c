@@ -562,7 +562,21 @@ EseEntity **engine_detect_collision_rect(EseEngine *engine, EseRect *rect, int m
 
 // Asset manager passthorugh functions
 EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id) {
+    log_assert("ENGINE", engine, "engine_get_sprite called with NULL engine");
+    log_assert("ENGINE", sprite_id, "engine_get_sprite called with NULL sprite_id");
+    if (!engine->asset_manager) {
+        return NULL;
+    }
     return asset_manager_get_sprite(engine->asset_manager, sprite_id);
+}
+
+EsePcm *engine_get_sound(EseEngine *engine, const char *sound_id) {
+    log_assert("ENGINE", engine, "engine_get_sound called with NULL engine");
+    log_assert("ENGINE", sound_id, "engine_get_sound called with NULL sound_id");
+    if (!engine->asset_manager) {
+        return NULL;
+    }
+    return asset_manager_get_sound(engine->asset_manager, sound_id);
 }
 
 // Tag system functions

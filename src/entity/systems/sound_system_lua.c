@@ -8,10 +8,11 @@
 /**
  * Lua binding for the sound system global state.
  *
- * Exposes a read-only global table `Sound` with a `devices` field:
- *   - `#Sound.devices` returns the total number of playback devices.
- *   - `Sound.devices[idx]` returns the device name (1-based index).
- *   - `Sound.devices[idx] = ...` raises an error (read-only).
+ * Exposes a global table `Sound` with:
+ *   - `Sound.devices`: read-only array of playback device names (1-based).
+ *   - `Sound.selected_device`: name of the currently selected playback device (or nil).
+ *   - `Sound.select(idx)`: selects the playback device at 1-based index `idx` and
+ *     reinitializes the underlying miniaudio playback device.
  */
 
 // ----------------------------------------
@@ -21,6 +22,48 @@
 static int _sound_devices_newindex(lua_State *L) {
     (void)L;
     return luaL_error(L, "Sound.devices is read-only");
+}
+
+// ----------------------------------------
+// selection helpers
+// ----------------------------------------
+
+static int _sound_select(lua_State *L) {
+    int idx = luaL_checkinteger(L, 1);
+    if (idx < 1) {
+        return luaL_error(L, "Sound.select index must be >= 1");
+    }
+
+    if (!g_sound_system_data || !g_sound_system_data->ready ||
+        !g_sound_system_data->device_infos ||
+        g_sound_system_data->device_info_count == 0) {
+        return luaL_error(L, "Sound system not ready");
+    }
+
+    ma_uint32 index = (ma_uint32)(idx - 1);
+    if (index >= g_sound_system_data->device_info_count) {
+        return luaL_error(L, "Invalid sound device index %d", idx);
+    }
+
+    if (!sound_system_select_device_index(index)) {
+        return luaL_error(L, "Failed to select sound device %d", idx);
+    }
+
+    const char *name = sound_system_selected_device_name();
+
+    // Update Sound.selected_device to reflect the newly selected device.
+    lua_getglobal(L, "Sound");
+    if (lua_istable(L, -1)) {
+        if (name) {
+            lua_pushstring(L, name);
+        } else {
+            lua_pushnil(L);
+        }
+        lua_setfield(L, -2, "selected_device");
+    }
+    lua_pop(L, 1);
+
+    return 0;
 }
 
 // ----------------------------------------
@@ -77,6 +120,18 @@ void sound_system_lua_init(EseLuaEngine *engine) {
 
         // Attach devices table to Sound
         lua_setfield(L, -2, "devices"); // Sound.devices = devices
+
+        // Expose selected_device and select() on the Sound table.
+        const char *selected_name = sound_system_selected_device_name();
+        if (selected_name) {
+            lua_pushstring(L, selected_name);
+        } else {
+            lua_pushnil(L);
+        }
+        lua_setfield(L, -2, "selected_device");
+
+        lua_pushcfunction(L, _sound_select);
+        lua_setfield(L, -2, "select");
 
         // Optionally lock Sound itself by hiding its metatable to prevent
         // tampering from Lua. The engine's global lock already prevents

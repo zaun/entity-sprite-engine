@@ -4,6 +4,7 @@
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
 #include "entity/entity_private.h"
+#include "entity/systems/sound_system_private.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "utility/profile.h"
@@ -89,6 +90,8 @@ static EseEntityComponent *_entity_component_sound_make(EseLuaEngine *engine, co
 
     component->frame_count = 0;
     component->current_frame = 0;
+    component->playing = false;
+    component->repeat = false;
 
     if (sound_name != NULL) {
         component->sound_name = memory_manager.strdup(sound_name, MMTAG_ENTITY);
@@ -109,6 +112,8 @@ EseEntityComponent *_entity_component_sound_copy(const EseEntityComponentSound *
     // Copy playback state
     sound_copy->frame_count = src->frame_count;
     sound_copy->current_frame = src->current_frame;
+    sound_copy->playing = src->playing;
+    sound_copy->repeat = src->repeat;
 
     profile_count_add("entity_comp_sound_copy_count");
     return copy;
@@ -138,6 +143,124 @@ void _entity_component_sound_destroy(EseEntityComponentSound *component) {
     } else if (component->base.lua_ref == LUA_NOREF) {
         _entity_component_sound_cleanup(component);
     }
+}
+
+/**
+ * @brief Lua method: comp:play(self)
+ *
+ * Supports both method-call syntax (comp:play()) and property-call syntax
+ * (comp.play()) by either reading the component from the first argument
+ * or from an upvalue bound by the __index metamethod.
+ */
+static int _entity_component_sound_play(lua_State *L) {
+    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    if (!component) {
+        // Fallback: attempt to read bound component from upvalue (for comp.play()).
+        component = _entity_component_sound_get(L, lua_upvalueindex(1));
+        if (!component) {
+            return 0;
+        }
+    }
+
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
+    component->playing = true;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Lua method: comp:pause(self)
+ */
+static int _entity_component_sound_pause(lua_State *L) {
+    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    if (!component) {
+        component = _entity_component_sound_get(L, lua_upvalueindex(1));
+        if (!component) {
+            return 0;
+        }
+    }
+
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
+    component->playing = false;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Lua method: comp:stop(self)
+ */
+static int _entity_component_sound_stop(lua_State *L) {
+    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    if (!component) {
+        component = _entity_component_sound_get(L, lua_upvalueindex(1));
+        if (!component) {
+            return 0;
+        }
+    }
+
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
+    component->playing = false;
+    component->current_frame = 0;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Lua method: comp:seek(self, frame)
+ */
+static int _entity_component_sound_seek(lua_State *L) {
+    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    if (!component) {
+        component = _entity_component_sound_get(L, lua_upvalueindex(1));
+        if (!component) {
+            return 0;
+        }
+    }
+
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
+    lua_Integer frame = luaL_checkinteger(L, 2);
+    if (frame < 0 || (uint32_t)frame > component->frame_count) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return luaL_error(L, "seek frame must be between 0 and frame_count");
+    }
+
+    component->current_frame = (uint32_t)frame;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
+    return 0;
 }
 
 /**
@@ -175,6 +298,48 @@ static int _entity_component_sound_index(lua_State *L) {
     } else if (strcmp(key, "current_frame") == 0) {
         lua_pushinteger(L, (lua_Integer)component->current_frame);
         return 1;
+    } else if (strcmp(key, "playing") == 0) {
+        lua_pushboolean(L, component->playing);
+        return 1;
+    } else if (strcmp(key, "repeat") == 0) {
+        lua_pushboolean(L, component->repeat);
+        return 1;
+    } else if (strcmp(key, "play") == 0) {
+        /*
+         * Return a closure bound to this component so both comp:play()
+         * and comp.play() work correctly.
+         */
+        if (component->base.lua_ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref); /* push self userdata */
+            lua_pushcclosure(L, _entity_component_sound_play, 1);
+        } else {
+            lua_pushcfunction(L, _entity_component_sound_play);
+        }
+        return 1;
+    } else if (strcmp(key, "pause") == 0) {
+        if (component->base.lua_ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
+            lua_pushcclosure(L, _entity_component_sound_pause, 1);
+        } else {
+            lua_pushcfunction(L, _entity_component_sound_pause);
+        }
+        return 1;
+    } else if (strcmp(key, "stop") == 0) {
+        if (component->base.lua_ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
+            lua_pushcclosure(L, _entity_component_sound_stop, 1);
+        } else {
+            lua_pushcfunction(L, _entity_component_sound_stop);
+        }
+        return 1;
+    } else if (strcmp(key, "seek") == 0) {
+        if (component->base.lua_ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
+            lua_pushcclosure(L, _entity_component_sound_seek, 1);
+        } else {
+            lua_pushcfunction(L, _entity_component_sound_seek);
+        }
+        return 1;
     }
 
     return 0;
@@ -195,16 +360,33 @@ static int _entity_component_sound_newindex(lua_State *L) {
     if (!key)
         return 0;
 
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
     if (strcmp(key, "active") == 0) {
         if (!lua_isboolean(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "active must be a boolean");
         }
         component->base.active = lua_toboolean(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
     } else if (strcmp(key, "id") == 0) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return luaL_error(L, "id is read-only");
     } else if (strcmp(key, "sound") == 0) {
         if (!lua_isstring(L, 3) && !lua_isnil(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "sound must be a string or nil");
         }
 
@@ -220,9 +402,32 @@ static int _entity_component_sound_newindex(lua_State *L) {
             component->current_frame = 0;
             component->frame_count = 0;
         }
+
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
     } else if (strcmp(key, "frame_count") == 0 || strcmp(key, "current_frame") == 0) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return luaL_error(L, "%s is read-only", key);
+    } else if (strcmp(key, "repeat") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
+            return luaL_error(L, "repeat must be a boolean");
+        }
+        component->repeat = lua_toboolean(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return 0;
+    }
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
     }
 
     return luaL_error(L, "unknown or unassignable property '%s'", key);
@@ -260,11 +465,13 @@ static int _entity_component_sound_tostring(lua_State *L) {
 
     char buf[256];
     snprintf(buf, sizeof(buf),
-             "EntityComponentSound: %p (id=%s active=%s sound=%s frame_count=%u current_frame=%u)",
+             "EntityComponentSound: %p (id=%s active=%s sound=%s frame_count=%u current_frame=%u playing=%s repeat=%s)",
              (void *)component, ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false",
              component->sound_name ? component->sound_name : "nil",
-             (unsigned int)component->frame_count, (unsigned int)component->current_frame);
+             (unsigned int)component->frame_count, (unsigned int)component->current_frame,
+             component->playing ? "true" : "false",
+             component->repeat ? "true" : "false");
     lua_pushstring(L, buf);
 
     return 1;

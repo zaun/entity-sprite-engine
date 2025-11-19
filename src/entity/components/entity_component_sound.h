@@ -3,6 +3,7 @@
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 #include "vendor/lua/src/lua.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -11,7 +12,6 @@
 // Forward declarations
 typedef struct EseEntity EseEntity;
 typedef struct EseLuaEngine EseLuaEngine;
-
 /**
  * @brief Component that provides sound playback capabilities to an entity.
  *
@@ -22,9 +22,11 @@ typedef struct EseLuaEngine EseLuaEngine;
 typedef struct EseEntityComponentSound {
     EseEntityComponent base; /** Base component structure */
 
-    char *sound_name;      /** Name/ID of the sound to play */
-    uint32_t frame_count;  /** Total number of audio frames (read-only to Lua) */
-    uint32_t current_frame;/** Current playback frame (read-only to Lua) */
+    char *sound_name;       /** Name/ID of the sound to play */
+    uint32_t frame_count;   /** Total number of audio frames (read-only to Lua) */
+    uint32_t current_frame; /** Current playback frame (read-only to Lua) */
+    bool playing;           /** True if the sound is currently playing */
+    bool repeat;            /** True if the sound should repeat when it reaches the end */
 } EseEntityComponentSound;
 
 EseEntityComponent *_entity_component_sound_copy(const EseEntityComponentSound *src);
