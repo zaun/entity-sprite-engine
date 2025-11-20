@@ -12,6 +12,7 @@
 // Forward declarations
 typedef struct EseEntity EseEntity;
 typedef struct EseLuaEngine EseLuaEngine;
+typedef struct EsePcm EsePcm;
 /**
  * @brief Component that provides sound playback capabilities to an entity.
  *
@@ -23,10 +24,12 @@ typedef struct EseEntityComponentSound {
     EseEntityComponent base; /** Base component structure */
 
     char *sound_name;       /** Name/ID of the sound to play */
+    EsePcm *pcm;            /** Cached decoded PCM asset for fast audio-thread access */
     uint32_t frame_count;   /** Total number of audio frames (read-only to Lua) */
     uint32_t current_frame; /** Current playback frame (read-only to Lua) */
     bool playing;           /** True if the sound is currently playing */
     bool repeat;            /** True if the sound should repeat when it reaches the end */
+    bool spatial;           /** Whether this sound should be spatialized (default: true) */
 } EseEntityComponentSound;
 
 EseEntityComponent *_entity_component_sound_copy(const EseEntityComponentSound *src);

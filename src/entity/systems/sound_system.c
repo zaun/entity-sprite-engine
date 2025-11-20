@@ -20,9 +20,11 @@
 #include "entity/systems/sound_system_lua.h"
 #include "entity/systems/sound_system_private.h"
 #include "entity/entity_private.h"
+#include "types/point.h"
 #include "utility/log.h"
 #include "vendor/miniaud/miniaudio.h"
 #include "audio/pcm.h"
+#include <math.h>
 #include <string.h>
 
 SoundSystemData *g_sound_system_data = NULL;
@@ -74,6 +76,55 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
         }
         return; // nothing to mix
     }
+
+    // Find the first active listener (component and entity) if any.
+    EseEntityComponentListener *listener = NULL;
+    EsePoint *listener_pos = NULL;
+    float listener_x = 0.0f;
+    float listener_y = 0.0f;
+    float listener_volume = 1.0f; // normalized [0,1]
+    float listener_max_distance = 0.0f;
+    bool listener_spatial = false;
+
+    if (data->listeners && data->listener_count > 0) {
+        for (size_t li = 0; li < data->listener_count; li++) {
+            EseEntityComponentListener *lc = data->listeners[li];
+            if (!lc || !lc->base.active) {
+                continue;
+            }
+
+            EseEntity *ent = lc->base.entity;
+            if (!ent || !ent->active || ent->destroyed) {
+                continue;
+            }
+
+            listener = lc;
+            listener_spatial = lc->spatial;
+
+            // Clamp and normalize listener volume from [0,100] -> [0,1].
+            float vol = lc->volume;
+            if (vol < 0.0f) {
+                vol = 0.0f;
+            } else if (vol > 100.0f) {
+                vol = 100.0f;
+            }
+            listener_volume = vol / 100.0f;
+
+            listener_max_distance = lc->max_distance;
+            if (listener_max_distance < 0.0f) {
+                listener_max_distance = 0.0f;
+            }
+
+            listener_pos = ent->position;
+            if (listener_pos) {
+                listener_x = ese_point_get_x(listener_pos);
+                listener_y = ese_point_get_y(listener_pos);
+            }
+
+            break; // Use the first active listener only.
+        }
+    }
+
     // Mix all active & playing sound components into the output buffer.
     for (size_t i = 0; i < data->sound_count; i++) {
         EseEntityComponentSound *sound = data->sounds[i];
@@ -86,10 +137,17 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
             continue;
         }
 
-        EsePcm *pcm = engine_get_sound(eng, sound->sound_name);
+        EseEntity *sound_entity = sound->base.entity;
+        if (!sound_entity || !sound_entity->active || sound_entity->destroyed) {
+            continue;
+        }
+
+        // Use the cached PCM pointer resolved on the main thread.
+        EsePcm *pcm = sound->pcm;
         if (!pcm) {
             continue;
         }
+
         const float *pcm_samples = pcm_get_samples(pcm);
         uint32_t pcm_frames = pcm_get_frame_count(pcm);
         uint32_t pcm_channels = pcm_get_channels(pcm);
@@ -102,6 +160,77 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
         sound->frame_count = pcm_frames;
 
         uint32_t frame_pos = sound->current_frame;
+
+        // Compute per-sound gain and optional stereo panning based on
+        // listener/sound positions and spatial flags.
+        float base_gain = 1.0f;
+        float left_gain = 1.0f;
+        float right_gain = 1.0f;
+        bool apply_spatial_pan = false;
+
+        EsePoint *sound_pos = sound_entity->position;
+
+        // Apply listener master volume if we have a listener.
+        if (listener) {
+            base_gain = listener_volume;
+        }
+
+        // Spatialization only when:
+        //  - the sound is marked spatial,
+        //  - we have an active listener that wants spatial audio,
+        //  - both entities have positions and max_distance > 0.
+        if (sound->spatial && listener && listener_spatial && sound_pos && listener_pos &&
+            listener_max_distance > 0.0f) {
+            float sx = ese_point_get_x(sound_pos);
+            float sy = ese_point_get_y(sound_pos);
+
+            float dx = sx - listener_x;
+            float dy = sy - listener_y;
+            float distance = sqrtf(dx * dx + dy * dy);
+
+            if (distance >= listener_max_distance) {
+                base_gain = 0.0f;
+            } else {
+                float att = 1.0f - (distance / listener_max_distance);
+                if (att < 0.0f) {
+                    att = 0.0f;
+                }
+                base_gain *= att;
+
+                // Left/right pan from relative x offset.
+                float pan = 0.0f;
+                if (listener_max_distance > 0.0f) {
+                    pan = dx / listener_max_distance;
+                }
+                if (pan < -1.0f) {
+                    pan = -1.0f;
+                } else if (pan > 1.0f) {
+                    pan = 1.0f;
+                }
+
+                if (channels >= 2) {
+                    float l = 1.0f;
+                    float r = 1.0f;
+                    if (pan >= 0.0f) {
+                        // Sound is to the right: reduce left channel.
+                        l = 1.0f - pan;
+                        r = 1.0f;
+                    } else {
+                        // Sound is to the left: reduce right channel.
+                        l = 1.0f;
+                        r = 1.0f + pan; // pan is negative
+                    }
+                    left_gain = base_gain * l;
+                    right_gain = base_gain * r;
+                    apply_spatial_pan = true;
+                }
+            }
+        }
+
+        if (!apply_spatial_pan) {
+            left_gain = base_gain;
+            right_gain = base_gain;
+        }
 
         for (ma_uint32 f = 0; f < total_frames; f++) {
             if (!sound->playing) {
@@ -136,7 +265,20 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
                     sample = pcm_samples[frame_pos * pcm_channels + src_ch];
                 }
 
-                out_samples[f * channels + ch] += sample;
+                float gain = base_gain;
+                if (channels >= 2) {
+                    if (apply_spatial_pan) {
+                        if (ch == 0) {
+                            gain = left_gain;
+                        } else if (ch == 1) {
+                            gain = right_gain;
+                        }
+                    } else {
+                        gain = base_gain;
+                    }
+                }
+
+                out_samples[f * channels + ch] += sample * gain;
             }
 
             frame_pos++;
@@ -350,15 +492,62 @@ static void sound_sys_init(EseSystemManager *self, EseEngine *eng) {
 /**
  * @brief Update all sound components.
  *
- * The initial skeleton implementation intentionally performs no work
- * and simply returns an empty job result.
+ * Resolves cached PCM pointers for sound components on the main thread so the
+ * audio callback can mix using only pre-resolved EsePcm pointers without
+ * calling back into the engine or asset manager.
  */
 static EseSystemJobResult sound_sys_update(EseSystemManager *self, EseEngine *eng, float dt) {
     (void)self;
-    (void)eng;
     (void)dt;
 
     EseSystemJobResult res = {0};
+
+    if (!g_sound_system_data || !eng) {
+        return res;
+    }
+
+    EseMutex *mtx = g_sound_system_data->mutex;
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
+    for (size_t i = 0; i < g_sound_system_data->sound_count; i++) {
+        EseEntityComponentSound *sound = g_sound_system_data->sounds[i];
+        if (!sound) {
+            continue;
+        }
+
+        // If there is no sound assigned, clear any cached PCM and playback state.
+        if (!sound->sound_name) {
+            sound->pcm = NULL;
+            sound->frame_count = 0;
+            sound->current_frame = 0;
+            continue;
+        }
+
+        // Already have a cached asset, nothing to do.
+        if (sound->pcm) {
+            continue;
+        }
+
+        EsePcm *pcm = engine_get_sound(eng, sound->sound_name);
+        sound->pcm = pcm;
+        if (pcm) {
+            uint32_t frames = pcm_get_frame_count(pcm);
+            sound->frame_count = frames;
+            if (sound->current_frame > frames) {
+                sound->current_frame = frames;
+            }
+        } else {
+            sound->frame_count = 0;
+            sound->current_frame = 0;
+        }
+    }
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
     return res;
 }
 
@@ -375,10 +564,27 @@ static void sound_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
 
     // Stop and uninitialize any active playback device. This will also stop
     // the audio callback from firing before we tear down shared state.
-    if (d->device_initialized) {
+    EseMutex *mtx = d->mutex;
+    bool had_device = false;
+    if (mtx) {
+        ese_mutex_lock(mtx);
+        had_device = d->device_initialized;
+        ese_mutex_unlock(mtx);
+    } else {
+        had_device = d->device_initialized;
+    }
+
+    if (had_device) {
         ma_device_stop(&d->output_device);
         ma_device_uninit(&d->output_device);
-        d->device_initialized = false;
+
+        if (mtx) {
+            ese_mutex_lock(mtx);
+            d->device_initialized = false;
+            ese_mutex_unlock(mtx);
+        } else {
+            d->device_initialized = false;
+        }
     }
 
     if (d->sounds) {
@@ -428,17 +634,38 @@ bool sound_system_select_device_index(ma_uint32 index) {
         return false;
     }
 
+    EseMutex *mtx = g_sound_system_data->mutex;
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
     if (!g_sound_system_data->device_infos ||
         index >= g_sound_system_data->device_info_count) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         log_error("SOUND_SYSTEM", "Cannot select device: index %u out of range", index);
         return false;
     }
 
+    bool had_previous_device = g_sound_system_data->device_initialized;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
+
     // Stop and uninit previous device if needed.
-    if (g_sound_system_data->device_initialized) {
+    if (had_previous_device) {
         ma_device_stop(&g_sound_system_data->output_device);
         ma_device_uninit(&g_sound_system_data->output_device);
-        g_sound_system_data->device_initialized = false;
+
+        if (mtx) {
+            ese_mutex_lock(mtx);
+            g_sound_system_data->device_initialized = false;
+            ese_mutex_unlock(mtx);
+        } else {
+            g_sound_system_data->device_initialized = false;
+        }
     }
 
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
@@ -468,8 +695,16 @@ bool sound_system_select_device_index(ma_uint32 index) {
         return false;
     }
 
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
     g_sound_system_data->output_device_id = g_sound_system_data->device_infos[index].id;
     g_sound_system_data->device_initialized = true;
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
+    }
 
     log_debug("SOUND_SYSTEM", "Selected playback device %u: %s", index,
               g_sound_system_data->device_infos[index].name);
@@ -479,8 +714,7 @@ bool sound_system_select_device_index(ma_uint32 index) {
 
 const char *sound_system_selected_device_name(void) {
     if (!g_sound_system_data || !g_sound_system_data->ready ||
-        !g_sound_system_data->device_infos ||
-        !g_sound_system_data->device_initialized) {
+        !g_sound_system_data->device_infos) {
         return NULL;
     }
 
@@ -488,6 +722,14 @@ const char *sound_system_selected_device_name(void) {
     EseMutex *mtx = g_sound_system_data->mutex;
     if (mtx) {
         ese_mutex_lock(mtx);
+    }
+
+    // No device currently initialized; nothing to report.
+    if (!g_sound_system_data->device_initialized) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return NULL;
     }
 
     // Find the device whose ID matches the currently active output_device_id.

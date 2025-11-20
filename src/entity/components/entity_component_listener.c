@@ -4,6 +4,7 @@
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
 #include "entity/entity_private.h"
+#include "entity/systems/sound_system_private.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "utility/profile.h"
@@ -89,8 +90,8 @@ static EseEntityComponent *_entity_component_listener_make(EseLuaEngine *engine)
     component->base.vtable = &listener_vtable;
 
     // Default listener values
-    component->volume = 0.0f;
-    component->spatial = false;
+    component->volume = 100.0f;
+    component->spatial = true;
     component->max_distance = 1000.0f;
 
     profile_count_add("entity_comp_listener_make_count");
@@ -190,16 +191,33 @@ static int _entity_component_listener_newindex(lua_State *L) {
         return 0;
     }
 
+    EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
+    if (mtx) {
+        ese_mutex_lock(mtx);
+    }
+
     if (strcmp(key, "active") == 0) {
         if (!lua_isboolean(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "active must be a boolean");
         }
         component->base.active = lua_toboolean(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
     } else if (strcmp(key, "id") == 0) {
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return luaL_error(L, "id is read-only");
     } else if (strcmp(key, "volume") == 0) {
         if (!lua_isnumber(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "volume must be a number");
         }
         float v = (float)lua_tonumber(L, 3);
@@ -209,19 +227,38 @@ static int _entity_component_listener_newindex(lua_State *L) {
             v = 100.0f;
         }
         component->volume = v;
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
     } else if (strcmp(key, "spatial") == 0) {
         if (!lua_isboolean(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "spatial must be a boolean");
         }
         component->spatial = lua_toboolean(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
     } else if (strcmp(key, "max_distance") == 0) {
         if (!lua_isnumber(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
             return luaL_error(L, "max_distance must be a number");
         }
         component->max_distance = (float)lua_tonumber(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
         return 0;
+    }
+
+    if (mtx) {
+        ese_mutex_unlock(mtx);
     }
 
     return luaL_error(L, "unknown or unassignable property '%s'", key);

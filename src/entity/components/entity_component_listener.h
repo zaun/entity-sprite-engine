@@ -16,7 +16,7 @@ typedef struct EseLuaEngine EseLuaEngine;
  *
  * @details This component is used by the sound system to determine how
  *          sounds should be heard from a given entity's perspective.
- *          It stores volume, spatialization flag, and maximum distance
+ *          It stores volume, and maximum distance
  *          for audible sounds.
  */
 typedef struct EseEntityComponentListener {
