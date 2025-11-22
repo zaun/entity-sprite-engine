@@ -165,6 +165,11 @@ static int _entity_component_sound_play(lua_State *L) {
         return 0;
     }
 
+    // After normalization, comp:play() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "play() takes no arguments");
+    }
+
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
     if (mtx) {
         ese_mutex_lock(mtx);
@@ -189,6 +194,11 @@ static int _entity_component_sound_pause(lua_State *L) {
         return 0;
     }
 
+    // After normalization, comp:pause() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "pause() takes no arguments");
+    }
+
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
     if (mtx) {
         ese_mutex_lock(mtx);
@@ -211,6 +221,11 @@ static int _entity_component_sound_stop(lua_State *L) {
         L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
         return 0;
+    }
+
+    // After normalization, comp:stop() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "stop() takes no arguments");
     }
 
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
@@ -238,12 +253,17 @@ static int _entity_component_sound_seek(lua_State *L) {
         return 0;
     }
 
+    // After normalization, comp:seek(frame) has 1 argument at index 1.
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "seek(frame) takes exactly 1 argument");
+    }
+
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
     if (mtx) {
         ese_mutex_lock(mtx);
     }
 
-    lua_Integer frame = luaL_checkinteger(L, 2);
+    lua_Integer frame = luaL_checkinteger(L, 1);
     if (frame < 0 || (uint32_t)frame > component->frame_count) {
         if (mtx) {
             ese_mutex_unlock(mtx);
@@ -272,6 +292,11 @@ static int _entity_component_sound_current_time(lua_State *L) {
         return 0;
     }
 
+    // After normalization, comp:current_time() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "current_time() takes no arguments");
+    }
+
     lua_Number seconds = 0.0;
     EsePcm *pcm = component->pcm;
     if (pcm) {
@@ -295,6 +320,11 @@ static int _entity_component_sound_total_time(lua_State *L) {
         L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
         return 0;
+    }
+
+    // After normalization, comp:total_time() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "total_time() takes no arguments");
     }
 
     lua_Number seconds = 0.0;
@@ -355,56 +385,29 @@ static int _entity_component_sound_index(lua_State *L) {
         lua_pushboolean(L, component->spatial);
         return 1;
     } else if (strcmp(key, "play") == 0) {
-        /*
-         * Return a closure bound to this component so both comp:play()
-         * and comp.play() work correctly.
-         */
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref); /* push self userdata */
-            lua_pushcclosure(L, _entity_component_sound_play, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_play);
-        }
+        // Bind this component as an upvalue so both comp:play() and comp.play() work.
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_play, 1);
         return 1;
     } else if (strcmp(key, "pause") == 0) {
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
-            lua_pushcclosure(L, _entity_component_sound_pause, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_pause);
-        }
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_pause, 1);
         return 1;
     } else if (strcmp(key, "stop") == 0) {
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
-            lua_pushcclosure(L, _entity_component_sound_stop, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_stop);
-        }
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_stop, 1);
         return 1;
     } else if (strcmp(key, "seek") == 0) {
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
-            lua_pushcclosure(L, _entity_component_sound_seek, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_seek);
-        }
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_seek, 1);
         return 1;
     } else if (strcmp(key, "current_time") == 0) {
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
-            lua_pushcclosure(L, _entity_component_sound_current_time, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_current_time);
-        }
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_current_time, 1);
         return 1;
     } else if (strcmp(key, "total_time") == 0) {
-        if (component->base.lua_ref != LUA_NOREF) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, component->base.lua_ref);
-            lua_pushcclosure(L, _entity_component_sound_total_time, 1);
-        } else {
-            lua_pushcfunction(L, _entity_component_sound_total_time);
-        }
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_sound_total_time, 1);
         return 1;
     }
 
