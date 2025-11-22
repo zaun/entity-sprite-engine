@@ -594,18 +594,18 @@ static int _entity_component_map_newindex(lua_State *L) {
 
 // show_layer proxy: __index
 static int _entity_component_map_show_layer_index(lua_State *L) {
-    EseEntityComponentMap *component =
-        (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_map_get, "EntityComponentMap");
     if (!component) {
         lua_pushnil(L);
         return 1;
     }
-    if (!lua_isnumber(L, 2)) {
+    if (!lua_isnumber(L, 1)) {
         lua_pushnil(L);
         return 1;
     }
 
-    int index = (int)lua_tointeger(L, 2);
+    int index = (int)lua_tointeger(L, 1);
     if (index <= 0) {
         lua_pushnil(L);
         return 1;
@@ -623,20 +623,20 @@ static int _entity_component_map_show_layer_index(lua_State *L) {
 
 // show_layer proxy: __newindex
 static int _entity_component_map_show_layer_newindex(lua_State *L) {
-    EseEntityComponentMap *component =
-        (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_map_get, "EntityComponentMap");
     if (!component) {
         return 0;
     }
 
-    if (!lua_isnumber(L, 2)) {
+    if (!lua_isnumber(L, 1)) {
         return luaL_error(L, "show_layer index must be a number");
     }
-    if (!lua_isboolean(L, 3)) {
+    if (!lua_isboolean(L, 2)) {
         return luaL_error(L, "show_layer[index] must be a boolean");
     }
 
-    int index = (int)lua_tointeger(L, 2);
+    int index = (int)lua_tointeger(L, 1);
     if (index <= 0) {
         return luaL_error(L, "show_layer index must be >= 1");
     }
@@ -653,8 +653,8 @@ static int _entity_component_map_show_layer_newindex(lua_State *L) {
 
 // show_layer proxy: __len
 static int _entity_component_map_show_layer_len(lua_State *L) {
-    EseEntityComponentMap *component =
-        (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_map_get, "EntityComponentMap");
     int len = (component && component->show_layer) ? (int)component->show_layer_count : 0;
     lua_pushinteger(L, len);
     return 1;
@@ -662,8 +662,8 @@ static int _entity_component_map_show_layer_len(lua_State *L) {
 
 // map_component.show_all_layers()
 static int _entity_component_map_show_all_layers(lua_State *L) {
-    EseEntityComponentMap *component =
-        (EseEntityComponentMap *)lua_touserdata(L, lua_upvalueindex(1));
+    EseEntityComponentMap *component = (EseEntityComponentMap *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_map_get, "EntityComponentMap");
     if (!component || !component->show_layer)
         return 0;
     for (size_t i = 0; i < component->show_layer_count; i++) {

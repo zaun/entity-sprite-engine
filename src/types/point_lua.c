@@ -369,10 +369,17 @@ static int _ese_point_lua_from_json(lua_State *L) {
 static int _ese_point_lua_to_json(lua_State *L) {
     profile_start(PROFILE_LUA_POINT_TO_JSON);
 
-    EsePoint *point = ese_point_lua_get(L, 1);
+EsePoint *point = (EsePoint *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_point_lua_get, "Point");
     if (!point) {
         profile_cancel(PROFILE_LUA_POINT_TO_JSON);
         return luaL_error(L, "Point:toJSON() called on invalid point");
+    }
+
+    // After normalization, point:toJSON() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        profile_cancel(PROFILE_LUA_POINT_TO_JSON);
+        return luaL_error(L, "Point:toJSON() takes 0 arguments");
     }
 
     // Serialize point to JSON

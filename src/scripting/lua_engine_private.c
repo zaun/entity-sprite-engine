@@ -594,3 +594,31 @@ void _lua_engine_build_env_from_master(lua_State *L, int master_ref) {
 
     lua_remove(L, master_idx); // [..., env]
 }
+
+int _lua_engine_class_method_normalize(lua_State     *L,
+                                       const char    *type_name,
+                                       EseLuaClassFn  do_work) {
+    int argc = lua_gettop(L);
+
+    // If first arg is a table, treat it as the class/receiver (colon syntax)
+    if (argc > 0 && lua_istable(L, 1)) {
+        // Optional: sanity check that it's actually the expected type table.
+        // You can add a check here if you want to be strict.
+        lua_remove(L, 1); // [TypeTable, a, b, ...] -> [a, b, ...]
+    }
+
+    // Now, in both syntaxes, logical args start at index 1
+    return do_work(L);
+}
+
+int _lua_engine_class_method_trampoline(lua_State *L) {
+    EseLuaClassFn do_work =
+        (EseLuaClassFn)lua_touserdata(L, lua_upvalueindex(1));
+    const char *type_name = lua_tostring(L, lua_upvalueindex(2));
+
+    if (!do_work) {
+        return luaL_error(L, "internal error: null class method");
+    }
+
+    return _lua_engine_class_method_normalize(L, type_name, do_work);
+}

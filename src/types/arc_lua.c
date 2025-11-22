@@ -349,31 +349,28 @@ static int _ese_arc_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_arc_lua_contains_point(lua_State *L) {
+EseArc *arc = (EseArc *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_arc_lua_get, "Arc");
+
     int n_args = lua_gettop(L);
-    if (n_args < 3 || n_args > 4) {
+    if (n_args < 2 || n_args > 3) {
         return luaL_error(L, "arc:contains_point(x, y [, tolerance]) requires 2 or 3 arguments");
     }
 
-    if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
+    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
         return luaL_error(L, "arc:contains_point(x, y [, tolerance]) requires numbers");
     }
 
-    if (n_args == 4 && lua_type(L, 4) != LUA_TNUMBER) {
-        return luaL_error(L, "arc:contains_point(x, y [, tolerance]) tolerance "
-                             "must be a number");
+    if (n_args == 3 && lua_type(L, 3) != LUA_TNUMBER) {
+        return luaL_error(L, "arc:contains_point(x, y [, tolerance]) tolerance must be a number");
     }
 
-    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!arc) {
-        return luaL_error(L, "Invalid EseArc object in contains_point method");
-    }
-
-    float x = (float)lua_tonumber(L, 2);
-    float y = (float)lua_tonumber(L, 3);
+    float x = (float)lua_tonumber(L, 1);
+    float y = (float)lua_tonumber(L, 2);
     float tolerance = 0.1f;
 
-    if (n_args == 4) {
-        tolerance = (float)lua_tonumber(L, 4);
+    if (n_args == 3) {
+        tolerance = (float)lua_tonumber(L, 3);
     }
 
     lua_pushboolean(L, ese_arc_contains_point(arc, x, y, tolerance));
@@ -390,17 +387,15 @@ static int _ese_arc_lua_contains_point(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_arc_lua_intersects_rect(lua_State *L) {
+EseArc *arc = (EseArc *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_arc_lua_get, "Arc");
+
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
+    if (n_args != 1) {
         return luaL_error(L, "arc:intersects_rect(rect) requires exactly 1 argument");
     }
 
-    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!arc) {
-        return luaL_error(L, "Invalid EseArc object in intersects_rect method");
-    }
-
-    EseRect *rect = ese_rect_lua_get(L, 2);
+    EseRect *rect = ese_rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "arc:intersects_rect(rect) argument must be an Rect object");
     }
@@ -419,14 +414,12 @@ static int _ese_arc_lua_intersects_rect(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the length value)
  */
 static int _ese_arc_lua_get_length(lua_State *L) {
-    int n_args = lua_gettop(L);
-    if (n_args != 1) {
-        return luaL_error(L, "arc:get_length() takes no arguments");
-    }
+EseArc *arc = (EseArc *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_arc_lua_get, "Arc");
 
-    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!arc) {
-        return luaL_error(L, "Invalid EseArc object in get_length method");
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "arc:get_length() takes no arguments");
     }
 
     lua_pushnumber(L, ese_arc_get_length(arc));
@@ -445,21 +438,19 @@ static int _ese_arc_lua_get_length(lua_State *L) {
  * for failure: false)
  */
 static int _ese_arc_lua_get_point_at_angle(lua_State *L) {
+EseArc *arc = (EseArc *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_arc_lua_get, "Arc");
+
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
+    if (n_args != 1) {
         return luaL_error(L, "arc:get_point_at_angle(angle) requires exactly 1 argument");
     }
 
-    EseArc *arc = (EseArc *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!arc) {
-        return luaL_error(L, "Invalid EseArc object in get_point_at_angle method");
-    }
-
-    if (lua_type(L, 2) != LUA_TNUMBER) {
+    if (lua_type(L, 1) != LUA_TNUMBER) {
         return luaL_error(L, "arc:get_point_at_angle(angle) requires a number");
     }
 
-    float angle = (float)lua_tonumber(L, 2);
+    float angle = (float)lua_tonumber(L, 1);
     float x, y;
     bool success = ese_arc_get_point_at_angle(arc, angle, &x, &y);
 

@@ -754,7 +754,16 @@ const char *sound_system_selected_device_name(void) {
 
 void engine_register_sound_system(EseEngine *eng) {
     log_assert("SOUND_SYS", eng, "engine_register_sound_system called with NULL engine");
-    log_assert("SOUND_SYSTEM", g_sound_system_data == NULL, "Only one sound system permitted");
+
+    // The sound system uses a global backing store (g_sound_system_data) which
+    // can only safely be associated with one engine at a time. However, tests
+    // (and some tools) may create additional transient engines in the same
+    // process that do not require audio. For those cases, silently skip
+    // registering another sound system instead of aborting the process.
+    if (g_sound_system_data != NULL) {
+        log_error("SOUND_SYSTEM", "Only one sound system permitted; skipping registration");
+        return;
+    }
 
     engine_add_system(eng, system_manager_create(&SoundSystemVTable, SYS_PHASE_EARLY, NULL));
 

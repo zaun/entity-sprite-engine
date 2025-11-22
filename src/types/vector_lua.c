@@ -284,23 +284,20 @@ static int _ese_vector_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_vector_lua_set_direction(lua_State *L) {
-    // Get argument count
+EseVector *vector = (EseVector *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_vector_lua_get, "Vector");
+
+    // After normalization, logical args start at index 1.
     int n_args = lua_gettop(L);
-    if (n_args == 3) {
-        if (lua_type(L, 2) != LUA_TSTRING || lua_type(L, 3) != LUA_TNUMBER) {
-            return luaL_error(L, "vector:magnitude(string, number) takes a string and a number");
-        }
-    } else {
+    if (n_args != 2) {
         return luaL_error(L, "vector:set_direction(string, number) takes 2 arguments");
     }
-
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in set_direction method");
+    if (lua_type(L, 1) != LUA_TSTRING || lua_type(L, 2) != LUA_TNUMBER) {
+        return luaL_error(L, "vector:set_direction(string, number) takes a string and a number");
     }
 
-    const char *direction = lua_tostring(L, 2);
-    float magnitude = (float)lua_tonumber(L, 3);
+    const char *direction = lua_tostring(L, 1);
+    float magnitude = (float)lua_tonumber(L, 2);
 
     ese_vector_set_direction(vector, direction, magnitude);
     return 0;
@@ -317,15 +314,13 @@ static int _ese_vector_lua_set_direction(lua_State *L) {
  * value)
  */
 static int _ese_vector_lua_magnitude(lua_State *L) {
-    // Get argument count
-    int n_args = lua_gettop(L);
-    if (n_args != 1) {
-        return luaL_error(L, "vector:magnitude() takes 0 arguments");
-    }
+EseVector *vector = (EseVector *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_vector_lua_get, "Vector");
 
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in magnitude method");
+    // After normalization, vector:magnitude() takes 0 arguments.
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "vector:magnitude() takes 0 arguments");
     }
 
     lua_pushnumber(L, ese_vector_magnitude(vector));
@@ -342,15 +337,13 @@ static int _ese_vector_lua_magnitude(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_vector_lua_normalize(lua_State *L) {
-    // Get argument count
-    int n_args = lua_gettop(L);
-    if (n_args != 1) {
-        return luaL_error(L, "vector:normalize() takes 0 arguments");
-    }
+EseVector *vector = (EseVector *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_vector_lua_get, "Vector");
 
-    EseVector *vector = (EseVector *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!vector) {
-        return luaL_error(L, "Invalid EseVector object in normalize method");
+    // After normalization, vector:normalize() takes 0 arguments.
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "vector:normalize() takes 0 arguments");
     }
 
     ese_vector_normalize(vector);

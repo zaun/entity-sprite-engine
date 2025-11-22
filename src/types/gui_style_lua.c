@@ -439,9 +439,15 @@ static int _ese_gui_style_lua_new(lua_State *L) {
  * @return 1 (one return value - the JSON string)
  */
 static int _ese_gui_style_lua_to_json(lua_State *L) {
-    EseGuiStyle *style = (EseGuiStyle *)lua_touserdata(L, lua_upvalueindex(1));
+EseGuiStyle *style = (EseGuiStyle *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_gui_style_lua_get, "GuiStyle");
     if (!style) {
         luaL_error(L, "Invalid GuiStyle");
+        return 0;
+    }
+
+    if (lua_gettop(L) != 0) {
+        luaL_error(L, "GuiStyle:toJSON() takes 0 arguments");
         return 0;
     }
 
@@ -471,33 +477,31 @@ static int _ese_gui_style_lua_to_json(lua_State *L) {
  * @return 1 (one return value - the new GuiStyle)
  */
 static int _ese_gui_style_lua_from_json(lua_State *L) {
-    if (lua_gettop(L) < 2 || !lua_isstring(L, 2)) {
-        luaL_error(L, "Expected JSON string");
-        return 0;
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "GuiStyle.fromJSON(string) takes 1 argument");
+    }
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        return luaL_error(L, "GuiStyle.fromJSON(string) argument must be a string");
     }
 
-    const char *json_string = lua_tostring(L, 2);
+    const char *json_string = lua_tostring(L, 1);
     cJSON *json = cJSON_Parse(json_string);
     if (!json) {
-        luaL_error(L, "Invalid JSON");
-        return 0;
+        return luaL_error(L, "GuiStyle.fromJSON: invalid JSON string");
     }
 
     // Get the engine from the registry
     EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
-    
     if (!engine) {
         cJSON_Delete(json);
-        luaL_error(L, "Invalid engine");
-        return 0;
+        return luaL_error(L, "GuiStyle.fromJSON: no engine available");
     }
 
     EseGuiStyle *style = ese_gui_style_deserialize(engine, json);
     cJSON_Delete(json);
-    
     if (!style) {
-        luaL_error(L, "Failed to deserialize GuiStyle from JSON");
-        return 0;
+        return luaL_error(L, "GuiStyle.fromJSON: failed to deserialize GuiStyle");
     }
 
     ese_gui_style_lua_push(style);

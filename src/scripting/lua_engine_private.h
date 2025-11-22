@@ -2,6 +2,7 @@
 #define ESE_LUA_ENGINE_PRIVATE_H
 
 #include "scripting/lua_value.h"
+#include "scripting/lua_engine.h"
 #include <setjmp.h>
 #include <stdbool.h>
 #include <time.h>
@@ -180,5 +181,45 @@ void _lua_engine_push_luavalue(lua_State *L, EseLuaValue *arg);
 // Shallow clone script_sandbox_master into a new env, leaves env on top of the
 // stack.
 void _lua_engine_build_env_from_master(lua_State *L, int master_ref);
+
+/**
+ * @brief Normalizes class / static method calls to support both colon and dot syntax.
+ *
+ * @details This helper is intended for functions attached to a global "class"
+ *          table (e.g. Point.new, Rect.fromJSON, Entity.find_by_tag) and
+ *          supports both:
+ *
+ *            - Type.func(a, b)   -- dot syntax
+ *            - Type:func(a, b)   -- colon syntax
+ *
+ *          In colon form, Lua passes the receiver table as the first argument,
+ *          so the stack initially looks like:
+ *
+ *              [TypeTable, a, b, ...]
+ *
+ *          In that case this helper removes the table at index 1 using
+ *          lua_remove(L, 1), leaving only the logical arguments:
+ *
+ *              [a, b, ...]
+ *
+ *          In dot form there is no receiver table on the stack, so the
+ *          arguments are already in normalized form.
+ *
+ *          In both cases the worker @p do_work sees only logical arguments
+ *          starting at index 1.
+ *
+ * @param L         Lua state.
+ * @param do_work   Worker function that implements the actual class/static
+ *                  logic and returns the number of Lua return values.
+ * @param type_name Optional type name reserved for stricter validation or
+ *                  error reporting; currently unused by the implementation.
+ *
+ * @return The value returned by @p do_work (i.e., number of values pushed).
+ */
+int _lua_engine_class_method_normalize(lua_State     *L,
+                                       const char    *type_name,
+                                       EseLuaClassFn  do_work);     
+
+int _lua_engine_class_method_trampoline(lua_State *L);  
 
 #endif // ESE_LUA_ENGINE_PRIVATE_H

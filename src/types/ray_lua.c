@@ -339,18 +339,16 @@ static int _ese_ray_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_ray_lua_intersects_rect(lua_State *L) {
-    // Get argument count
+EseRay *ray = (EseRay *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_ray_lua_get, "Ray");
+
+    // After normalization, ray:intersects_rect(rect) has 1 argument (rect).
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
+    if (n_args != 1) {
         return luaL_error(L, "ray:intersects_rect(rect) takes 1 argument");
     }
 
-    EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in intersects_rect method");
-    }
-
-    EseRect *rect = ese_rect_lua_get(L, 2);
+    EseRect *rect = ese_rect_lua_get(L, 1);
     if (!rect) {
         return luaL_error(L, "ray:intersects_rect(rect) takes a Rect");
     }
@@ -370,22 +368,20 @@ static int _ese_ray_lua_intersects_rect(lua_State *L) {
  * coordinates)
  */
 static int _ese_ray_lua_get_point_at_distance(lua_State *L) {
-    // Get argument count
+EseRay *ray = (EseRay *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_ray_lua_get, "Ray");
+
+    // After normalization, ray:get_point_at_distance(distance) has 1 argument.
     int n_args = lua_gettop(L);
-    if (n_args != 2) {
+    if (n_args != 1) {
         return luaL_error(L, "ray:get_point_at_distance(distance) takes 1 argument");
     }
 
-    EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in get_point_at_distance method");
-    }
-
-    if (lua_type(L, 2) != LUA_TNUMBER) {
+    if (lua_type(L, 1) != LUA_TNUMBER) {
         return luaL_error(L, "ray:get_point_at_distance(distance) takes a number");
     }
 
-    float distance = (float)lua_tonumber(L, 2);
+    float distance = (float)lua_tonumber(L, 1);
     float x, y;
     ese_ray_get_point_at_distance(ray, distance, &x, &y);
 
@@ -404,9 +400,13 @@ static int _ese_ray_lua_get_point_at_distance(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_ray_lua_normalize(lua_State *L) {
-    EseRay *ray = (EseRay *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!ray) {
-        return luaL_error(L, "Invalid EseRay object in normalize method");
+EseRay *ray = (EseRay *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_ray_lua_get, "Ray");
+
+    // After normalization, ray:normalize() takes 0 arguments.
+    int n_args = lua_gettop(L);
+    if (n_args != 0) {
+        return luaL_error(L, "ray:normalize() takes 0 arguments");
     }
 
     ese_ray_normalize(ray);

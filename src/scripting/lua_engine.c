@@ -1198,8 +1198,11 @@ bool lua_engine_new_object_meta(EseLuaEngine *engine, const char *name, lua_CFun
     return true;
 }
 
-bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count, const char *keys[],
-                           lua_CFunction functions[]) {
+bool lua_engine_new_object(EseLuaEngine *engine,
+                           const char *name,
+                           int count,
+                           const char *keys[],
+                           EseLuaClassFn functions[]) {
     log_assert("LUA_ENGINE", engine, "lua_engine_new_object called with NULL engine");
     log_assert("LUA_ENGINE", engine->runtime, "lua_engine_new_object called with NULL runtime");
     log_assert("LUA_ENGINE", name, "lua_engine_new_object called with NULL name");
@@ -1223,7 +1226,13 @@ bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count, co
             log_assert("LUA_ENGINE", functions[i],
                        "lua_engine_new_object called with NULL function at index %d", i);
 
-            lua_pushcfunction(engine->runtime, functions[i]);
+            // Upvalue 1: the raw EseLuaClassFn (as lightuserdata)
+            lua_pushlightuserdata(engine->runtime, (void *)functions[i]);
+            // Upvalue 2: type name string (e.g., "Point")
+            lua_pushstring(engine->runtime, name);
+            // Create closure: trampoline + 2 upvalues
+            lua_pushcclosure(engine->runtime, _lua_engine_class_method_trampoline, 2);
+
             lua_setfield(engine->runtime, -2, keys[i]);
         }
 
@@ -1234,4 +1243,32 @@ bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count, co
     }
 
     return true;
+}
+
+void *lua_engine_instance_method_normalize(lua_State      *L,
+                                           EseLuaGetSelfFn get_self,
+                                           const char     *type_name) {
+    void *self = NULL;
+
+    // 1) Try colon syntax: obj:method(...)
+    if (get_self && lua_gettop(L) >= 1) {
+        self = get_self(L, 1);
+        if (self) {
+            // Remove implicit self so logical args now start at index 1.
+            lua_remove(L, 1);
+        }
+    }
+
+    // 2) Fallback: bound self from upvalue[1] for dot syntax / method values
+    if (!self) {
+        self = lua_touserdata(L, lua_upvalueindex(1));
+    }
+
+    if (!self) {
+        luaL_error(L, "Invalid %s object", type_name ? type_name : "instance");
+        return NULL; // not reached, satisfies compilers
+    }
+
+    // Stack is now normalized; caller will perform the actual work.
+    return self;
 }

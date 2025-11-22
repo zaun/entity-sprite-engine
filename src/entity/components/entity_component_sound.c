@@ -159,13 +159,10 @@ void _entity_component_sound_destroy(EseEntityComponentSound *component) {
  * or from an upvalue bound by the __index metamethod.
  */
 static int _entity_component_sound_play(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        // Fallback: attempt to read bound component from upvalue (for comp.play()).
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
@@ -186,12 +183,10 @@ static int _entity_component_sound_play(lua_State *L) {
  * @brief Lua method: comp:pause(self)
  */
 static int _entity_component_sound_pause(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
@@ -212,12 +207,10 @@ static int _entity_component_sound_pause(lua_State *L) {
  * @brief Lua method: comp:stop(self)
  */
 static int _entity_component_sound_stop(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
@@ -239,12 +232,10 @@ static int _entity_component_sound_stop(lua_State *L) {
  * @brief Lua method: comp:seek(self, frame)
  */
 static int _entity_component_sound_seek(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     EseMutex *mtx = (g_sound_system_data ? g_sound_system_data->mutex : NULL);
@@ -275,12 +266,10 @@ static int _entity_component_sound_seek(lua_State *L) {
  * Returns the current playback position in seconds as a number.
  */
 static int _entity_component_sound_current_time(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     lua_Number seconds = 0.0;
@@ -302,12 +291,10 @@ static int _entity_component_sound_current_time(lua_State *L) {
  * Returns the total length of the assigned sound in seconds as a number.
  */
 static int _entity_component_sound_total_time(lua_State *L) {
-    EseEntityComponentSound *component = _entity_component_sound_get(L, 1);
+    EseEntityComponentSound *component = (EseEntityComponentSound *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)_entity_component_sound_get, "EntityComponentSound");
     if (!component) {
-        component = _entity_component_sound_get(L, lua_upvalueindex(1));
-        if (!component) {
-            return 0;
-        }
+        return 0;
     }
 
     lua_Number seconds = 0.0;

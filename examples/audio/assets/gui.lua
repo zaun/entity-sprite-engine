@@ -7,6 +7,9 @@ function ENTITY:play_laserRetro1(sounds)
 end
 
 function ENTITY:entity_update(delta_time)
+    local v1 = Vector.new(10, 10)
+    local v2 = Vector:new(10, 10)
+
     GUI.start(9, 0, 0, Display.viewport.width, 56)
         GUI.open_flex(
             GUI.STYLE.DIRECTION.ROW, GUI.STYLE.JUSTIFY.START, GUI.STYLE.ALIGN.START,

@@ -292,9 +292,15 @@ static int _ese_poly_line_lua_tostring(lua_State *L) {
  * @brief Lua instance method for converting EsePolyLine to JSON string
  */
 static int _ese_poly_line_lua_to_json(lua_State *L) {
-    EsePolyLine *poly_line = ese_poly_line_lua_get(L, 1);
+EsePolyLine *poly_line = (EsePolyLine *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_poly_line_lua_get, "PolyLine");
     if (!poly_line) {
         return luaL_error(L, "PolyLine:toJSON() called on invalid polyline");
+    }
+
+    // After normalization, PolyLine:toJSON() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "PolyLine:toJSON() takes 0 arguments");
     }
 
     cJSON *json = ese_poly_line_serialize(poly_line);

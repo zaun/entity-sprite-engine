@@ -188,10 +188,12 @@ static int _ese_http_request_lua_tostring(lua_State *L) {
  * @return Number of values pushed (0 on success, 1 on error)
  */
 static int _ese_http_request_lua_start(lua_State *L) {
-    EseHttpRequest *request = (EseHttpRequest *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!request) {
-        log_debug("HTTP", "Lua start() called on invalid HTTP request");
-        lua_pushstring(L, "Invalid HTTP request");
+EseHttpRequest *request = (EseHttpRequest *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_http_request_lua_get, "HTTP request");
+
+    // After normalization, req:start() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        lua_pushstring(L, "HTTP.start() takes no arguments");
         return 1;
     }
 
@@ -214,12 +216,10 @@ static int _ese_http_request_lua_start(lua_State *L) {
  * @return Number of values pushed (0 on success, 1 on error)
  */
 static int _ese_http_request_lua_set_timeout(lua_State *L) {
-    EseHttpRequest *request = (EseHttpRequest *)lua_touserdata(L, lua_upvalueindex(1));
-    if (!request) {
-        lua_pushstring(L, "Invalid HTTP request");
-        return 1;
-    }
+EseHttpRequest *request = (EseHttpRequest *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_http_request_lua_get, "HTTP request");
 
+    // After normalization, req:set_timeout(ms) has 1 numeric argument.
     if (!lua_isnumber(L, 1)) {
         lua_pushstring(L, "Timeout must be a number");
         return 1;

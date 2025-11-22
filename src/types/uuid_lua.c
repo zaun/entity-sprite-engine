@@ -218,10 +218,14 @@ static int _ese_uuid_lua_new(lua_State *L) {
  * @return Number of values pushed onto the stack (always 0)
  */
 static int _ese_uuid_lua_reset_method(lua_State *L) {
-    // Get the EseUUID from the closure's upvalue
-    EseUUID *uuid = (EseUUID *)lua_touserdata(L, lua_upvalueindex(1));
+EseUUID *uuid = (EseUUID *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_uuid_lua_get, "UUID");
     if (!uuid) {
         return luaL_error(L, "Invalid EseUUID object in reset method");
+    }
+
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "UUID:reset() takes 0 arguments");
     }
 
     ese_uuid_generate_new(uuid);

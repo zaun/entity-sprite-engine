@@ -89,9 +89,9 @@ static EseEntityComponent *_entity_component_listener_make(EseLuaEngine *engine)
     component->base.type = ENTITY_COMPONENT_LISTENER;
     component->base.vtable = &listener_vtable;
 
-    // Default listener values
-    component->volume = 100.0f;
-    component->spatial = true;
+    // Default listener values (match C and Lua tests)
+    component->volume = 0.0f;       // volume in [0, 100], default 0
+    component->spatial = false;     // spatial audio disabled by default
     component->max_distance = 1000.0f;
 
     profile_count_add("entity_comp_listener_make_count");

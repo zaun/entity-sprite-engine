@@ -35,8 +35,7 @@ bool _entity_component_collider_collides_component(EseEntityComponentCollider *c
  * @param idx Stack index of the rects proxy table
  * @return Pointer to the collider component, or NULL if extraction fails
  */
-static EseEntityComponentCollider *_entity_component_collider_rects_get_component(lua_State *L,
-                                                                                  int idx) {
+static void *_entity_component_collider_rects_get_component(lua_State *L, int idx) {
     // Check if it's userdata
     if (!lua_isuserdata(L, idx)) {
         return NULL;
@@ -372,28 +371,22 @@ EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx
  * @brief Add the passed component to the entity.
  */
 static int _entity_component_collider_rects_add(lua_State *L) {
-    // Get the collider component from the upvalue
+    // Normalize self (rects proxy) and arguments
     EseEntityComponentCollider *collider =
-        (EseEntityComponentCollider *)lua_touserdata(L, lua_upvalueindex(1));
-
-    if (!collider) {
-        return luaL_error(L, "Invalid collider component in upvalue.");
-    }
+        (EseEntityComponentCollider *)lua_engine_instance_method_normalize(
+            L, _entity_component_collider_rects_get_component, "ColliderRectsProxy");
 
     int n_args = lua_gettop(L);
     EseRect *rect = NULL;
-    if (n_args == 2) {
-        // Called as: c.rects:add(rect) -> [self, rect]
-        rect = ese_rect_lua_get(L, 2);
-    } else if (n_args == 1) {
-        // Called as: c.rects.add(rect) -> [rect]
+    if (n_args == 1) {
+        // After normalization, logical args start at 1
         rect = ese_rect_lua_get(L, 1);
     } else {
         return luaL_argerror(L, 1, "Expected a Rect argument.");
     }
 
     if (rect == NULL) {
-        return luaL_argerror(L, (n_args == 2 ? 2 : 1), "Expected a Rect argument.");
+        return luaL_argerror(L, 1, "Expected a Rect argument.");
     }
 
     // Add the rect to the collider

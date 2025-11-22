@@ -14,6 +14,10 @@ typedef struct EseLuaValue EseLuaValue;
 typedef struct lua_State lua_State;
 typedef struct EseLuaEngineInternal EseLuaEngineInternal;
 
+typedef void *(*EseLuaGetSelfFn)(lua_State *L, int idx);
+typedef int (*EseLuaInstanceFn)(lua_State *L, void *self);
+typedef int (*EseLuaClassFn)(lua_State *L);
+
 /**
  * @brief Main interface for the Lua scripting engine.
  *
@@ -279,11 +283,53 @@ bool lua_engine_new_object_meta(EseLuaEngine *engine, const char *name, lua_CFun
  * @param name Name of the global table to create.
  * @param count Number of key-function pairs to add.
  * @param keys Array of string keys for the functions.
- * @param functions Array of lua_CFunction pointers corresponding to the keys.
+ * @param functions Array of EseLuaClassFn pointers corresponding to the keys.
  *
  * @return true if the table was created or already existed, false on error.
  */
-bool lua_engine_new_object(EseLuaEngine *engine, const char *name, int count, const char *keys[],
-                           lua_CFunction functions[]);
+bool lua_engine_new_object(EseLuaEngine *engine,
+                           const char *name,
+                           int count,
+                           const char *keys[],
+                           EseLuaClassFn functions[]);
+
+/**
+ * @brief Normalizes instance method calls to support both colon and dot syntax.
+ *
+ * @details This helper is intended for C-exposed instance methods implemented as
+ *          Lua C closures that capture a C "self" pointer in an upvalue. It
+ *          supports both:
+ *
+ *            - obj:method(a, b)    -- colon syntax
+ *            - obj.method(a, b)    -- dot syntax (with obj captured in upvalue[1])
+ *
+ *          Behavior:
+ *          - If @p get_self is non-NULL and successfully recognizes a valid
+ *            instance at stack index 1 (colon form), the helper:
+ *              1. Extracts the C instance via get_self(L, 1).
+ *              2. Removes the first stack element with lua_remove(L, 1), so
+ *                 logical arguments now start at index 1.
+ *          - If no valid instance is found at index 1, it falls back to reading
+ *            the instance pointer from upvalue index 1
+ *            (lua_upvalueindex(1)), as set when the closure was created for
+ *            dot syntax.
+ *
+ *          On success, the function returns the resolved C instance pointer and
+ *          leaves the Lua stack normalized so that all logical arguments (if
+ *          any) are at indices [1..lua_gettop(L)].
+ *
+ * @param L         Lua state.
+ * @param get_self  Function used to validate/extract the C instance from
+ *                  stack index 1 for colon syntax; may be NULL to skip the
+ *                  stack-based check.
+ * @param type_name Optional type name used in error messages when no valid
+ *                  instance can be resolved; if NULL, a generic name is used.
+ *
+ * @return The resolved C instance pointer on success. This function raises a
+ *         Lua error (and does not return) if no valid instance is found.
+ */
+void *lua_engine_instance_method_normalize(lua_State      *L,
+                                           EseLuaGetSelfFn get_self,
+                                           const char     *type_name);
 
 #endif // ESE_LUA_ENGINE_H

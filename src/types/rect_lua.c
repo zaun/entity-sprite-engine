@@ -357,15 +357,13 @@ static int _ese_rect_lua_zero(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - the area value)
  */
 static int _ese_rect_lua_area(lua_State *L) {
-    // Get argument count
-    int argc = lua_gettop(L);
-    if (argc != 1) {
-        return luaL_error(L, "rect:area() takes 0 argument");
-    }
+EseRect *rect = (EseRect *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_rect_lua_get, "Rect");
 
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in area method");
+    // After normalization, rect:area() takes 0 arguments.
+    int argc = lua_gettop(L);
+    if (argc != 0) {
+        return luaL_error(L, "rect:area() takes 0 argument");
     }
 
     lua_pushnumber(L, ese_rect_area(rect));
@@ -382,31 +380,29 @@ static int _ese_rect_lua_area(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_rect_lua_contains_point(lua_State *L) {
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in contains_point method");
-    }
+EseRect *rect = (EseRect *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_rect_lua_get, "Rect");
 
     float x, y;
 
     int n_args = lua_gettop(L);
-    if (n_args == 3) {
-        if (lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
-            return luaL_error(L, "rect:contains_point(number, number) "
-                                 "arguments must be numbers");
+    if (n_args == 2) {
+        if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
+            return luaL_error(L, "rect:contains_point(number, number) arguments must be numbers");
         }
-        x = (float)lua_tonumber(L, 2);
-        y = (float)lua_tonumber(L, 3);
-    } else if (n_args == 2) {
-        EsePoint *point = ese_point_lua_get(L, 2);
+        x = (float)lua_tonumber(L, 1);
+        y = (float)lua_tonumber(L, 2);
+    } else if (n_args == 1) {
+        EsePoint *point = ese_point_lua_get(L, 1);
         if (!point) {
             return luaL_error(L, "rect:contains_point(point) requires a point");
         }
         x = ese_point_get_x(point);
         y = ese_point_get_y(point);
     } else {
-        return luaL_error(L, "nrect:contains_point(point) takes 1 "
-                             "argument\nrect:contains_point(number, number) takes 2 arguments");
+        return luaL_error(L,
+                          "rect:contains_point(point) takes 1 argument\nrect:contains_point(number, "
+                          "number) takes 2 arguments");
     }
 
     lua_pushboolean(L, ese_rect_contains_point(rect, x, y));
@@ -423,18 +419,16 @@ static int _ese_rect_lua_contains_point(lua_State *L) {
  * @return Number of values pushed onto the stack (always 1 - boolean result)
  */
 static int _ese_rect_lua_intersects(lua_State *L) {
-    // Get argument count
+EseRect *rect = (EseRect *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_rect_lua_get, "Rect");
+
+    // After normalization, Rect:intersects(rect) takes 1 argument.
     int argc = lua_gettop(L);
-    if (argc != 2) {
+    if (argc != 1) {
         return luaL_error(L, "Rect.intersects(rect) takes 1 arguments");
     }
 
-    EseRect *rect = ese_rect_lua_get(L, 1);
-    if (!rect) {
-        return luaL_error(L, "Invalid EseRect object in intersects method");
-    }
-
-    EseRect *other = ese_rect_lua_get(L, 2);
+    EseRect *other = ese_rect_lua_get(L, 1);
     if (!other) {
         return luaL_error(L, "rect:intersects(rect) requires another EseRect object");
     }
@@ -516,10 +510,17 @@ static int _ese_rect_lua_from_json(lua_State *L) {
 static int _ese_rect_lua_to_json(lua_State *L) {
     profile_start(PROFILE_LUA_RECT_TO_JSON);
 
-    EseRect *rect = ese_rect_lua_get(L, 1);
+EseRect *rect = (EseRect *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)ese_rect_lua_get, "Rect");
     if (!rect) {
         profile_cancel(PROFILE_LUA_RECT_TO_JSON);
         return luaL_error(L, "Rect:toJSON() called on invalid rect");
+    }
+
+    // After normalization, rect:toJSON() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        profile_cancel(PROFILE_LUA_RECT_TO_JSON);
+        return luaL_error(L, "Rect:toJSON() takes 0 arguments");
     }
 
     // Serialize rect to JSON
