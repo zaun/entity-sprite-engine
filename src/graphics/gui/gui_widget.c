@@ -3,6 +3,7 @@
 #include "graphics/gui/gui_widget_flex.h"
 #include "graphics/gui/gui_widget_image.h"
 #include "graphics/gui/gui_widget_stack.h"
+#include "graphics/gui/gui_widget_label.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include <stdbool.h>
@@ -18,6 +19,7 @@ void _ese_widget_register(EseLuaEngine *engine) {
     _ese_widget_init(engine, ese_widget_stack_get_vtable());
     _ese_widget_init(engine, ese_widget_button_get_vtable());
     _ese_widget_init(engine, ese_widget_image_get_vtable());
+    _ese_widget_init(engine, ese_widget_label_get_vtable());
 }
 
 void _ese_widget_init(EseLuaEngine *engine, GuiWidgetVTable *type) {
