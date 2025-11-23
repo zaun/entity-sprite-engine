@@ -1,3 +1,108 @@
+# REVIEW BY auto ON 2025-11-21
+
+## 1. High-Level Project Review
+
+### 1.1 Architecture and Engine Core
+- The overall ECS and systems architecture remains strong and well-factored: entities and components under `src/entity`, systems under `src/entity/systems`, and orchestration in `src/core/engine.c` and `core/system_manager`.
+- `engine_private.h` now centralizes the internal `EseEngine` layout and private helpers, which improves encapsulation and makes the core engine easier to reason about.
+- The frame loop in `engine_update` is clearer and more cohesive than before: input/display sync, phased system execution, spatial indexing, collision resolution, GUI/console drawing, render-list population, and job-queue polling are each profiled and separated into logical blocks.
+- The collision pipeline (spatial index + `CollisionResolver`) is documented more thoroughly, with clear commentary in `collision_resolver.c` describing state tracking and performance characteristics.
+
+### 1.2 Memory Management and Low-Level Infrastructure
+- The memory manager remains a standout: tagged allocations, per-thread statistics, leak tracking, and detailed reporting are all present and documented in the file header.
+- Allocation now goes through a portability wrapper (`ese_aligned_alloc` / `ese_aligned_free`) instead of calling `aligned_alloc` directly, which improves portability across C11/posix/Windows environments.
+- The use of named memory tags (e.g., `MMTAG_ENGINE`, `MMTAG_LUA`, `MMTAG_ARRAY`) is consistent, making it easier to reason about where memory is coming from.
+
+### 1.3 Collision and Systems Behavior
+- `engine_update` no longer has the previously noted no-op "clear collision state" loop; collision responsibilities are now cleanly handled by `spatial_index` + `collision_resolver` + entity callbacks.
+- `collision_resolver_solve` is clearly documented as owning the returned `EseArray *hits`, and the resolver manages its internal arrays and maps across frames. This resolves the former ambiguity about ownership and potential leaks.
+- The console toggle now simply flips `engine->draw_console` instead of early-returning out of `engine_update`, which removes the risk of accidentally skipping a frame's logic when toggling the console.
+
+### 1.4 Build, Docs, and Tests (Current Snapshot)
+- The top-level CMake configuration still provides a clear platform-selection story (MAC vs LINUX), fetches SPIR-V/glslang/mbedtls dependencies, and wires examples/tests as subdirectories.
+- Linux builds are now focused on OpenGL/GLFW/GLEW; the previous incorrect `find_library(OPENAL_LIB REQUIRED)` usage has been removed from the main CMake file, eliminating that specific configuration error.
+- The main user-facing README has moved under `docs/README.md` and gives a good marketing-level overview (features, ECS explanation, basic build commands, starter Lua examples).
+- The test suite remains substantial, but the `tests/README.md` still only documents point/rect tests and refers to legacy utilities, so the written overview underrepresents the actual coverage.
+
+## 2. Noted Errors, Mistakes, and Inconsistencies
+
+### 2.1 Documentation and README Drift
+1. **Doc paths and file names in `docs/README.md`**
+   - The README lists docs such as `global.md`, `entity.md`, `entitycomponent.md`, `display.md`, `gui.md`, etc. directly under `docs/`.
+   - In reality, these live under `docs/types/` (e.g. `docs/types/entity.md`, `docs/types/map.md`, etc.), and some names differ (e.g., there is no `docs/global.md` in the tree).
+   - Impact: users following the README will not find the referenced files as written; the doc index is misleading.
+
+2. **Repository name vs. directory name**
+   - Clone instructions still use `entity-sprite-engine` as the directory name, while the project is commonly referred to as "ESE" and may live in a shorter directory locally.
+   - Impact: mostly cosmetic, but mildly confusing given the otherwise polished docs.
+
+### 2.2 Tests Documentation vs. Reality
+1. **`tests/README.md` still describes an older test setup**
+   - It focuses solely on `EsePoint` and `EseRect` and references a `test_utils.h` utility header that no longer exists in the repository.
+   - The actual tests use `testing.h` and cover significantly more modules (engine, ECS, Lua, memory manager, job queue, maps, etc.).
+   - Impact: new contributors reading this README will get the wrong mental model of how tests are structured and where helpers live.
+
+### 2.3 CMake and Build System
+1. **`SANITIZE` configuration is still effectively a no-op**
+   - The top-level `CMakeLists.txt` contains a conditional block that checks `SANITIZE` and prints a status message, but there is still no `option(SANITIZE ...)` declaration or any addition of `-fsanitize=...` flags.
+   - Impact: users may reasonably expect `-DSANITIZE=ON` to enable ASan/UBSan, but it currently does nothing beyond a log message.
+
+2. **Legacy glob patterns**
+   - `ENGINE_CORE_SOURCES` still globs `src/systems/*.c` and `src/systems/**/*.c`, but systems live under `src/entity/systems/` in the current layout.
+   - Impact: currently harmless (no such directory), but it is confusing and can mislead future maintainers about historical or planned layouts.
+
+### 2.4 Minor Code Quality Issues
+1. **Spelling and comment nits in core files**
+   - `engine.c` still has minor typos in comments (e.g., "vertext", "remvoe from the entites list"), and `engine_private.h` includes some slightly confusing parameter documentation in the render helpers.
+   - Impact: cosmetic only, but these stand out in otherwise well-written commentary.
+
+2. **Docs underrepresenting new internals**
+   - Internal design docs are good, but there is still limited cross-linking from key headers (e.g. `engine.h`, `system_manager.h`, `memory_manager.h`) back to the deeper design docs and overviews.
+   - Impact: readers jumping in through headers may not immediately discover the richer design documents.
+
+## 3. Suggestions and Comments
+
+### 3.1 Documentation and Onboarding
+1. **Fix doc paths and names in `docs/README.md`**
+   - Update the documentation list to point to `docs/types/*.md` with correct names, or add a short "Types" subsection that explicitly mentions that API docs live under `docs/types/`.
+   - Ensure that every file mentioned in the README actually exists and matches the case and path in the repository.
+
+2. **Clarify repository naming**
+   - Either keep using `entity-sprite-engine` everywhere for consistency, or note in the README that "ESE" is the short name and that the GitHub repo uses the longer form.
+
+3. **Expand and modernize `tests/README.md`**
+   - Replace references to `test_utils.h` with `testing.h` (or whatever the canonical helper is today).
+   - Add a brief overview of all `test_*.c` files and what they cover, along with the standard `ctest` commands already used elsewhere in the project.
+   - This makes it easier for contributors to discover and mirror existing test patterns.
+
+### 3.2 Build System Improvements
+1. **Implement a real `SANITIZE` option**
+   - Add `option(SANITIZE "Enable AddressSanitizer/UBSan" OFF)`.
+   - When `SANITIZE` is `ON`, append appropriate compile and link flags for Clang/GCC (e.g., `-fsanitize=address,undefined -fno-omit-frame-pointer`) to both the engine library and the test targets.
+   - Document example usage in the README or a small `docs/building.md`.
+
+2. **Prune or clarify legacy globs**
+   - Remove `src/systems/*.c` globs or comment them as reserved for future use to avoid confusion.
+
+### 3.3 Code Quality and Developer Experience
+1. **Quick polish pass on core comments**
+   - Do a focused sweep on `engine.c`, `engine_private.h`, `memory_manager.c`, and `system_manager.c` to fix spelling and parameter-comment drift.
+   - This is low-effort but improves perceived quality and makes these files more pleasant to maintain.
+
+2. **Add header-level links to design docs**
+   - In key headers (`engine.h`, `system_manager.h`, `memory_manager.h`, `lua_engine.h`), add a short note like "See docs/Systems Architecture Overview.md" or "See docs/Memory Allocation.md".
+   - This gives newcomers a fast path from declarations to deeper explanations.
+
+## 4. Summary
+
+- The project continues to present as a well-architected 2D engine with a strong ECS design, serious attention to memory management, and a clear systems-based frame loop.
+- Several previously noted concerns have been addressed: collision handling is cleaner and properly documented, the memory manager now uses a portable alignment wrapper, and the main CMake file no longer contains the broken OpenAL discovery snippet.
+- The main remaining issues are "fit and finish" items: documentation drift (README and tests docs), an unimplemented `SANITIZE` switch, legacy glob patterns, and a handful of comment typos.
+- Addressing these will primarily improve contributor experience and reduce confusion for new users and tools, rather than requiring structural code changes.
+
+---
+---
+
 # REVIEW BY auto ON 2025-11-17
 
 ## 1. High-Level Project Review

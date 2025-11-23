@@ -86,6 +86,10 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
     float listener_max_distance = 0.0f;
     bool listener_spatial = false;
 
+    // New listener distance attenuation controls.
+    float listener_attenuation = 1.0f; // [0,1], 1 = full attenuation, 0 = none
+    float listener_rolloff = 1.0f;     // exponent shaping curve
+
     if (data->listeners && data->listener_count > 0) {
         for (size_t li = 0; li < data->listener_count; li++) {
             EseEntityComponentListener *lc = data->listeners[li];
@@ -113,6 +117,22 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
             listener_max_distance = lc->max_distance;
             if (listener_max_distance < 0.0f) {
                 listener_max_distance = 0.0f;
+            }
+
+            // Cache listener attenuation/rolloff with sane clamps so the
+            // callback uses only validated values.
+            listener_attenuation = lc->attenuation;
+            if (listener_attenuation < 0.0f) {
+                listener_attenuation = 0.0f;
+            } else if (listener_attenuation > 1.0f) {
+                listener_attenuation = 1.0f;
+            }
+
+            listener_rolloff = lc->rolloff;
+            if (listener_rolloff < 0.1f) {
+                listener_rolloff = 0.1f;
+            } else if (listener_rolloff > 8.0f) {
+                listener_rolloff = 8.0f;
             }
 
             listener_pos = ent->position;
@@ -191,11 +211,33 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
             if (distance >= listener_max_distance) {
                 base_gain = 0.0f;
             } else {
-                float att = 1.0f - (distance / listener_max_distance);
-                if (att < 0.0f) {
-                    att = 0.0f;
+                // Normalized distance [0, 1) within the audible radius.
+                float norm = distance / listener_max_distance;
+                if (norm < 0.0f) {
+                    norm = 0.0f;
+                } else if (norm > 1.0f) {
+                    norm = 1.0f;
                 }
-                base_gain *= att;
+
+                // Base distance falloff curve using the listener's rolloff
+                // exponent. rolloff == 1 -> linear, >1 -> faster drop, <1 -> slower.
+                float full_att = powf(1.0f - norm, listener_rolloff);
+                if (full_att < 0.0f) {
+                    full_att = 0.0f;
+                } else if (full_att > 1.0f) {
+                    full_att = 1.0f;
+                }
+
+                // Blend between no attenuation (1.0) and the full curve based
+                // on the listener's attenuation factor.
+                float distance_gain = (1.0f - listener_attenuation) + listener_attenuation * full_att;
+                if (distance_gain < 0.0f) {
+                    distance_gain = 0.0f;
+                } else if (distance_gain > 1.0f) {
+                    distance_gain = 1.0f;
+                }
+
+                base_gain *= distance_gain;
 
                 // Left/right pan from relative x offset.
                 float pan = 0.0f;

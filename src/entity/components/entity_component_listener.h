@@ -16,8 +16,8 @@ typedef struct EseLuaEngine EseLuaEngine;
  *
  * @details This component is used by the sound system to determine how
  *          sounds should be heard from a given entity's perspective.
- *          It stores volume, and maximum distance
- *          for audible sounds.
+ *          It stores volume, spatialization flags, distance attenuation,
+ *          rolloff factor, and maximum distance for audible sounds.
  */
 typedef struct EseEntityComponentListener {
     EseEntityComponent base; /** Base component structure */
@@ -25,6 +25,22 @@ typedef struct EseEntityComponentListener {
     float volume;       /** Listener volume in range [0, 100] */
     bool spatial;       /** Whether listener uses spatialized audio */
     float max_distance; /** Maximum audible distance for spatial sounds */
+
+    /**
+     * Listener distance attenuation strength in range [0, 1].
+     *  - 0   : no distance-based attenuation (only panning applies).
+     *  - 1   : full attenuation according to the rolloff curve.
+     *  - 0-1 : blend between no attenuation and full attenuation.
+     */
+    float attenuation;
+
+    /**
+     * Rolloff factor that shapes the distance attenuation curve.
+     *  - 1.0 produces a linear falloff.
+     *  - >1.0 makes volume drop off more quickly with distance.
+     *  - <1.0 (but >0) makes the drop-off more gradual.
+     */
+    float rolloff;
 } EseEntityComponentListener;
 
 EseEntityComponent *_entity_component_listener_copy(const EseEntityComponentListener *src);

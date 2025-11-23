@@ -89,10 +89,16 @@ static EseEntityComponent *_entity_component_listener_make(EseLuaEngine *engine)
     component->base.type = ENTITY_COMPONENT_LISTENER;
     component->base.vtable = &listener_vtable;
 
-    // Default listener values (match C and Lua tests)
-    component->volume = 0.0f;       // volume in [0, 100], default 0
-    component->spatial = false;     // spatial audio disabled by default
-    component->max_distance = 1000.0f;
+    // Default listener values (runtime defaults may differ from older tests/docs).
+    component->volume = 100.0f;        // volume in [0, 100]
+    component->spatial = true;         // spatial audio enabled by default
+    component->max_distance = 10000.0f;
+
+    // New distance attenuation controls.
+    // These are chosen so the default behavior matches the previous linear
+    // attenuation model: full attenuation with a linear rolloff.
+    component->attenuation = 1.0f;     // 0 = no distance attenuation, 1 = full
+    component->rolloff = 1.0f;         // 1 = linear, >1 faster drop, <1 slower
 
     profile_count_add("entity_comp_listener_make_count");
     return &component->base;
@@ -107,6 +113,8 @@ EseEntityComponent *_entity_component_listener_copy(const EseEntityComponentList
     listener_copy->volume = src->volume;
     listener_copy->spatial = src->spatial;
     listener_copy->max_distance = src->max_distance;
+    listener_copy->attenuation = src->attenuation;
+    listener_copy->rolloff = src->rolloff;
 
     profile_count_add("entity_comp_listener_copy_count");
     return copy;
@@ -169,6 +177,12 @@ static int _entity_component_listener_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "max_distance") == 0) {
         lua_pushnumber(L, (lua_Number)component->max_distance);
+        return 1;
+    } else if (strcmp(key, "attenuation") == 0) {
+        lua_pushnumber(L, (lua_Number)component->attenuation);
+        return 1;
+    } else if (strcmp(key, "rolloff") == 0) {
+        lua_pushnumber(L, (lua_Number)component->rolloff);
         return 1;
     }
 
@@ -255,6 +269,43 @@ static int _entity_component_listener_newindex(lua_State *L) {
             ese_mutex_unlock(mtx);
         }
         return 0;
+    } else if (strcmp(key, "attenuation") == 0) {
+        if (!lua_isnumber(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
+            return luaL_error(L, "attenuation must be a number");
+        }
+        float a = (float)lua_tonumber(L, 3);
+        if (a < 0.0f) {
+            a = 0.0f;
+        } else if (a > 1.0f) {
+            a = 1.0f;
+        }
+        component->attenuation = a;
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return 0;
+    } else if (strcmp(key, "rolloff") == 0) {
+        if (!lua_isnumber(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
+            return luaL_error(L, "rolloff must be a number");
+        }
+        float r = (float)lua_tonumber(L, 3);
+        // Clamp to a sensible range: avoid 0 (no curve) and absurdly large exponents.
+        if (r < 0.1f) {
+            r = 0.1f;
+        } else if (r > 8.0f) {
+            r = 8.0f;
+        }
+        component->rolloff = r;
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return 0;
     }
 
     if (mtx) {
@@ -296,10 +347,11 @@ static int _entity_component_listener_tostring(lua_State *L) {
 
     char buf[256];
     snprintf(buf, sizeof(buf),
-             "EntityComponentListener: %p (id=%s active=%s volume=%.2f spatial=%s max_distance=%.2f)",
+             "EntityComponentListener: %p (id=%s active=%s volume=%.2f spatial=%s max_distance=%.2f attenuation=%.2f rolloff=%.2f)",
              (void *)component, ese_uuid_get_value(component->base.id),
              component->base.active ? "true" : "false", component->volume,
-             component->spatial ? "true" : "false", component->max_distance);
+             component->spatial ? "true" : "false", component->max_distance,
+             component->attenuation, component->rolloff);
     lua_pushstring(L, buf);
 
     return 1;

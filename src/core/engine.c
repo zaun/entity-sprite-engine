@@ -361,16 +361,11 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
 
     // Run ECS Systems in phases
+    
+    // Parallel systems before Lua
     profile_start(PROFILE_ENG_UPDATE_SECTION);
-    engine_run_phase(engine, SYS_PHASE_EARLY, delta_time,
-                     true); // Parallel systems before Lua
+    engine_run_phase(engine, SYS_PHASE_EARLY, delta_time, true);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_early");
-
-    // Process any early-phase async jobs (e.g., map_system bounds) before
-    // entity updates and collision detection.
-    if (engine->job_queue) {
-        ese_job_queue_process(engine->job_queue);
-    }
 
     // Run LUA phase systems (single-threaded for Lua scripts)
     profile_start(PROFILE_ENG_UPDATE_SECTION);
@@ -471,13 +466,6 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     }
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_renderer");
 
-    // Process completed async job callbacks on the main thread
-    profile_start(PROFILE_ENG_UPDATE_SECTION);
-    if (engine->job_queue) {
-        ese_job_queue_process(engine->job_queue);
-    }
-    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_job_queue_poll");
-
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     lua_gc(engine->lua_engine->runtime, LUA_GCCOLLECT, 0);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_lua_gc");
@@ -486,6 +474,13 @@ void engine_update(EseEngine *engine, float delta_time, const EseInputState *sta
     profile_start(PROFILE_ENG_UPDATE_SECTION);
     engine_run_phase(engine, SYS_PHASE_CLEANUP, delta_time, false);
     profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_systems_cleanup");
+
+    // Process completed async job callbacks on the main thread
+    profile_start(PROFILE_ENG_UPDATE_SECTION);
+    if (engine->job_queue) {
+        ese_job_queue_process(engine->job_queue);
+    }
+    profile_stop(PROFILE_ENG_UPDATE_SECTION, "eng_update_job_queue_poll");
 
     // Delete entities
     profile_start(PROFILE_ENG_UPDATE_SECTION);
