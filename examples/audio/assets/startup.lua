@@ -1,6 +1,12 @@
 function STARTUP:startup()
+    -- Load resources
     if asset_load_script("gui.lua") == false then
         print("Failed to load gui.lua")
+        return
+    end
+
+    if asset_load_script("player.lua") == false then
+        print("Failed to load player.lua")
         return
     end
 
@@ -19,12 +25,23 @@ function STARTUP:startup()
         return
     end
 
+    if asset_load_sound("scifi", "laser2", "laserRetro_002.ogg") == false then
+        print("Failed to load laserRetro_002.ogg")
+        return
+    end
+
+    if asset_load_sound("scifi", "laser3", "laserRetro_003.ogg") == false then
+        print("Failed to load laserRetro_003.ogg")
+        return
+    end
+
     -- Center the camera on the viewport so our shapes are in the middle of the screen
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
 
     -- Create a green circle at the center of the screen
     local player_entity = Entity.new()
+    player_entity.components.add(EntityComponentLua.new("player.lua"))
     player_entity.draw_order = 3
     local center_shape = EntityComponentShape.new()
     center_shape:set_path('M 10 0 A 10 10 0 0 1 -10 0 A 10 10 0 0 1 10 0 Z', {
@@ -35,7 +52,6 @@ function STARTUP:startup()
     player_entity.components.add(center_shape)
     player_entity.position.x = Display.viewport.width / 2
     player_entity.position.y = Display.viewport.height / 2
-    player_entity.add_tag("player")
 
     -- Create a blue circle that orbits around the green center circle.
     -- The audio listener component is attached to this entity.
@@ -69,14 +85,8 @@ function STARTUP:startup()
     listener_entity.components.add(EntityComponentLua.new("listener.lua"))
     listener_entity.add_tag("listener")
 
-    player_entity.data.soundA = EntityComponentSound.new("scifi:laser0")
-    player_entity.components.add(player_entity.data.soundA)
-    player_entity.data.soundB = EntityComponentSound.new("scifi:laser1")
-    player_entity.components.add(player_entity.data.soundB)
-    player_entity.add_tag("sounds")
-
     local gui = Entity.new()
     gui.components.add(EntityComponentLua.new("gui.lua"))
-    gui.data.sounds = player_entity
+    gui.data.sounds = player_entity.data
     gui.data.listener = listener_entity.data.listener
 end

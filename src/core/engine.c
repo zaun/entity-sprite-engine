@@ -314,8 +314,16 @@ void engine_set_renderer(EseEngine *engine, EseRenderer *renderer) {
     engine->asset_manager = asset_manager_create(engine->renderer);
 
     // Add fonts
-    asset_manager_create_font_atlas(engine->asset_manager, "console_font_10x20", console_font_10x20,
+    asset_manager_create_font_atlas(engine->asset_manager,
+                                    "console_font_10x20",
+                                    console_font_10x20,
                                     256, 10, 20);
+    asset_manager_create_font_atlas(engine->asset_manager,
+                                    "console_font_8x8_basic",
+                                    console_font_8x8_basic,
+                                    128,  // total_chars: U+0000–U+007F
+                                    8,    // char_width
+                                    8);   // char_height
 }
 
 void engine_update(EseEngine *engine, float delta_time, const EseInputState *state) {

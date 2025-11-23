@@ -1,9 +1,5 @@
-function ENTITY:play_laserRetro0(sounds)
-    sounds.data.soundA.play()
-end
-
-function ENTITY:play_laserRetro1(sounds)
-    sounds.data.soundB.play()
+function ENTITY:play(name)
+    Entity.publish("PLAY_SOUND", name)
 end
 
 function ENTITY:update_attenuation(listener)
@@ -20,19 +16,20 @@ function ENTITY:entity_update(delta_time)
 
     GUI.start(9, 0, 0, Display.viewport.width, 56)
         GUI.open_flex(
-            GUI.STYLE.DIRECTION.ROW, GUI.STYLE.JUSTIFY.START, GUI.STYLE.ALIGN.START,
+            GUI.STYLE.DIRECTION.ROW, GUI.STYLE.JUSTIFY.CENTER, GUI.STYLE.ALIGN.START,
             GUI.STYLE.AUTO_SIZE, GUI.STYLE.AUTO_SIZE
         )
-            GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
-                GUI.push_button("Laser Retro 0", ENTITY.play_laserRetro0, self.data.sounds)
+            GUI.open_stack(150, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Laser 0", ENTITY.play, "laser0")
             GUI.close_stack()
-            GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
-                GUI.push_button("Laser Retro 1", ENTITY.play_laserRetro1, self.data.sounds)
+            GUI.open_stack(150, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Laser 1", ENTITY.play, "laser1")
             GUI.close_stack()
-            GUI.open_stack(200, GUI.STYLE.AUTO_SIZE)
-                GUI.push_label("Pos: " .. self.data.sounds.data.soundA.current_frame, 
-                GUI.STYLE.JUSTIFY.CENTER,
-                GUI.STYLE.ALIGN.CENTER)
+            GUI.open_stack(150, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Laser 2", ENTITY.play, "laser2")
+            GUI.close_stack()
+            GUI.open_stack(150, GUI.STYLE.AUTO_SIZE)
+                GUI.push_button("Laser 3", ENTITY.play, "laser3")
             GUI.close_stack()
         GUI.close_flex()
     GUI.finish()

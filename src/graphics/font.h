@@ -11,12 +11,12 @@ typedef struct EseRenderer EseRenderer;
 /**
  * @file font.h
  *
- * @brief External declaration for the 10x20 console font bitmap data and font
- * rendering functions.
+ * @brief External declaration for fonts and rendering functions.
  */
 
-// External declaration for the 10x20 console font
+// External declaration for fonts
 extern unsigned char console_font_10x20[];
+extern unsigned char console_font_8x8_basic[];
 
 // Forward declaration for texture callback (matches EntityDrawTextureCallback)
 typedef void (*FontDrawTextureCallback)(float screen_x, float screen_y, float screen_w,

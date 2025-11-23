@@ -32,13 +32,13 @@ static void _entity_pubsub_callback(const char *name, const EseLuaValue *data,
 
 EsePubSub *ese_pubsub_create(void) {
     EsePubSub *pub_sub = memory_manager.malloc(sizeof(EsePubSub), MMTAG_PUB_SUB);
-    log_assert("pub_sub", pub_sub != NULL, "Failed to allocate pub_sub");
+    log_assert("PUB_SUB", pub_sub != NULL, "Failed to allocate pub_sub");
 
     pub_sub->topics = hashmap_create(_ese_subscription_free);
-    log_assert("pub_sub", pub_sub->topics != NULL, "Failed to create topics hashmap");
+    log_assert("PUB_SUB", pub_sub->topics != NULL, "Failed to create topics hashmap");
 
     pub_sub->mutex = ese_mutex_create();
-    log_assert("pub_sub", pub_sub->mutex != NULL, "Failed to create pubsub mutex");
+    log_assert("PUB_SUB", pub_sub->mutex != NULL, "Failed to create pubsub mutex");
 
     return pub_sub;
 }
@@ -56,9 +56,9 @@ void ese_pubsub_destroy(EsePubSub *pub_sub) {
 }
 
 void ese_pubsub_pub(EsePubSub *pub_sub, const char *name, const EseLuaValue *data) {
-    log_assert("pub_sub", pub_sub != NULL, "pub_sub cannot be NULL");
-    log_assert("pub_sub", name != NULL, "topic name cannot be NULL");
-    log_assert("pub_sub", data != NULL, "data cannot be NULL");
+    log_assert("PUB_SUB", pub_sub != NULL, "pub_sub cannot be NULL");
+    log_assert("PUB_SUB", name != NULL, "topic name cannot be NULL");
+    log_assert("PUB_SUB", data != NULL, "data cannot be NULL");
 
     ese_mutex_lock(pub_sub->mutex);
     EseArray *subscriptions = hashmap_get(pub_sub->topics, name);
@@ -119,7 +119,7 @@ static EseArray *_ese_get_or_create_topic_subscriptions(EsePubSub *pub_sub, cons
 
     if (subscriptions == NULL) {
         subscriptions = array_create(4, NULL);
-        log_assert("pub_sub", subscriptions != NULL, "Failed to create subscriptions array");
+        log_assert("PUB_SUB", subscriptions != NULL, "Failed to create subscriptions array");
         // hashmap_set copies the key internally, no need to strdup here
         hashmap_set(pub_sub->topics, name, subscriptions);
     }
@@ -130,15 +130,15 @@ static EseArray *_ese_get_or_create_topic_subscriptions(EsePubSub *pub_sub, cons
 
 void ese_pubsub_sub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
                     const char *function_name) {
-    log_assert("pub_sub", pub_sub != NULL, "pub_sub cannot be NULL");
-    log_assert("pub_sub", name != NULL, "topic name cannot be NULL");
-    log_assert("pub_sub", entity != NULL, "entity cannot be NULL");
-    log_assert("pub_sub", function_name != NULL, "function_name cannot be NULL");
+    log_assert("PUB_SUB", pub_sub != NULL, "pub_sub cannot be NULL");
+    log_assert("PUB_SUB", name != NULL, "topic name cannot be NULL");
+    log_assert("PUB_SUB", entity != NULL, "entity cannot be NULL");
+    log_assert("PUB_SUB", function_name != NULL, "function_name cannot be NULL");
 
     EseArray *subscriptions = _ese_get_or_create_topic_subscriptions(pub_sub, name);
 
     EseSubscription *subscription = memory_manager.malloc(sizeof(EseSubscription), MMTAG_PUB_SUB);
-    log_assert("pub_sub", subscription != NULL, "Failed to allocate subscription");
+    log_assert("PUB_SUB", subscription != NULL, "Failed to allocate subscription");
 
     subscription->entity = entity;
     subscription->function_name = memory_manager.strdup(function_name, MMTAG_PUB_SUB);
@@ -150,10 +150,10 @@ void ese_pubsub_sub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
 
 void ese_pubsub_unsub(EsePubSub *pub_sub, const char *name, EseEntity *entity,
                       const char *function_name) {
-    log_assert("pub_sub", pub_sub != NULL, "pub_sub cannot be NULL");
-    log_assert("pub_sub", name != NULL, "topic name cannot be NULL");
-    log_assert("pub_sub", entity != NULL, "entity cannot be NULL");
-    log_assert("pub_sub", function_name != NULL, "function_name cannot be NULL");
+    log_assert("PUB_SUB", pub_sub != NULL, "pub_sub cannot be NULL");
+    log_assert("PUB_SUB", name != NULL, "topic name cannot be NULL");
+    log_assert("PUB_SUB", entity != NULL, "entity cannot be NULL");
+    log_assert("PUB_SUB", function_name != NULL, "function_name cannot be NULL");
 
     ese_mutex_lock(pub_sub->mutex);
     EseArray *subscriptions = hashmap_get(pub_sub->topics, name);

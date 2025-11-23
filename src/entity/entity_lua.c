@@ -1114,6 +1114,7 @@ static int _entity_lua_subscribe(lua_State *L) {
     sub->topic_name = memory_manager.strdup(event_name, MMTAG_ENTITY);
     sub->function_name = memory_manager.strdup(function_name, MMTAG_ENTITY);
     array_push(entity->subscriptions, sub);
+    log_verbose("ENTITY", "Added subscription %s.", event_name);
 
     lua_pushboolean(L, true);
     return 1;

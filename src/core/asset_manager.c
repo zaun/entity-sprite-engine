@@ -12,11 +12,9 @@
 #include "vendor/json/cJSON.h"
 #include "audio/pcm.h"
 #include "vendor/miniaud/miniaudio.h"
+#include "vendor/stb/stb_image.h"
 #include <string.h>
 #include <unistd.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb/stb_image.h"
 
 #define DEFAULT_GROUP "default"
 
@@ -986,6 +984,10 @@ bool asset_manager_create_font_atlas(EseAssetManager *manager, const char *name,
     // Use the passed parameters for character dimensions
     int chars_per_row = 16; // 16 characters per row in the font bitmap
 
+    // Each glyph row is packed as a bitfield: 8 pixels per byte.
+    // Compute how many bytes are used per row for this font.
+    int bytes_per_row = (char_width + 7) / 8;
+
     // Calculate the total dimensions needed for the atlas
     int atlas_width = chars_per_row * char_width;
     int atlas_height = (total_chars / chars_per_row) * char_height;
@@ -1006,22 +1008,24 @@ bool asset_manager_create_font_atlas(EseAssetManager *manager, const char *name,
             int atlas_x = char_x * char_width;
             int atlas_y = char_y * char_height;
 
-            // Get character data from font bitmap
+            // Get character data from font bitmap. Glyphs are laid out
+            // sequentially in memory: total_chars * char_height rows, with
+            // bytes_per_row bytes per row.
             const unsigned char *char_data =
-                font_data + (char_index * char_height * 2); // 2 bytes per row
+                font_data + (char_index * char_height * bytes_per_row);
 
             // Convert each pixel of the character
             for (int y = 0; y < char_height; y++) {
+                const unsigned char *row_data = char_data + (y * bytes_per_row);
                 for (int x = 0; x < char_width; x++) {
                     int atlas_pixel_x = atlas_x + x;
                     int atlas_pixel_y = atlas_y + y;
                     int atlas_pixel_index = (atlas_pixel_y * atlas_width + atlas_pixel_x) * 4;
 
-                    // Get bit from font data (10 bits per row, stored in 2
-                    // bytes)
+                    // Get bit from font data (packed 8 pixels per byte)
                     int byte_index = x / 8;
                     int bit_index = 7 - (x % 8); // MSB first
-                    unsigned char byte = char_data[y * 2 + byte_index];
+                    unsigned char byte = row_data[byte_index];
                     bool pixel_on = (byte & (1 << bit_index)) != 0;
 
                     // Set RGBA values (white text on transparent background)
