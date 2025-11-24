@@ -342,7 +342,7 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
         sound->current_frame = frame_pos;
     }
 
-    // Mix all active & playing music components (non-spatial) into the output buffer.
+    // Mix all active & playing music components into the output buffer.
     if (data->music && data->music_count > 0) {
         for (size_t i = 0; i < data->music_count; i++) {
             EseEntityComponentMusic *music = data->music[i];
@@ -360,7 +360,7 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
                 continue;
             }
 
-            // Ensure current_track is in range.
+            // Clamp current_track to a valid range.
             if (music->current_track >= music->track_count) {
                 music->current_track = 0;
                 music->current_frame = 0;
@@ -368,7 +368,7 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
                 music->frame_count = 0;
             }
 
-            // Lazily resolve PCM for the current track.
+            // Lazily resolve PCM for the current track using engine_get_music.
             if (!music->current_pcm) {
                 const char *track_name = music->tracks[music->current_track];
                 if (!track_name) {
@@ -403,10 +403,103 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
 
             uint32_t frame_pos = music->current_frame;
 
-            // Music is affected by listener master volume but not spatialization.
-            float gain = 1.0f;
+            // Compute per-music gain and optional stereo panning based on
+            // listener/music positions and spatial flags.
+            float base_gain_m = 1.0f;
+            float left_gain_m = 1.0f;
+            float right_gain_m = 1.0f;
+            bool apply_spatial_pan_m = false;
+
+            EsePoint *music_pos = music_entity->position;
+
+            // Apply listener master volume if we have a listener.
             if (listener) {
-                gain = listener_volume;
+                base_gain_m = listener_volume;
+            }
+
+            // Spatialization only when:
+            //  - the music is marked spatial,
+            //  - we have an active listener that wants spatial audio,
+            //  - both entities have positions and max_distance > 0.
+            if (music->spatial && listener && listener_spatial && music_pos && listener_pos &&
+                listener_max_distance > 0.0f) {
+                float sx = ese_point_get_x(music_pos);
+                float sy = ese_point_get_y(music_pos);
+
+                float dx = sx - listener_x;
+                float dy = sy - listener_y;
+                float distance = sqrtf(dx * dx + dy * dy);
+
+                if (distance >= listener_max_distance) {
+                    base_gain_m = 0.0f;
+                } else {
+                    // Normalized distance [0, 1) within the audible radius.
+                    float norm = distance / listener_max_distance;
+                    if (norm < 0.0f) {
+                        norm = 0.0f;
+                    } else if (norm > 1.0f) {
+                        norm = 1.0f;
+                    }
+
+                    // Base distance falloff curve using the listener's rolloff
+                    // exponent. rolloff == 1 -> linear, >1 -> faster drop, <1 -> slower.
+                    float full_att = powf(1.0f - norm, listener_rolloff);
+                    if (full_att < 0.0f) {
+                        full_att = 0.0f;
+                    } else if (full_att > 1.0f) {
+                        full_att = 1.0f;
+                    }
+
+                    // Blend between no attenuation (1.0) and the full curve based
+                    // on the listener's attenuation factor.
+                    float distance_gain =
+                        (1.0f - listener_attenuation) + listener_attenuation * full_att;
+                    if (distance_gain < 0.0f) {
+                        distance_gain = 0.0f;
+                    } else if (distance_gain > 1.0f) {
+                        distance_gain = 1.0f;
+                    }
+
+                    base_gain_m *= distance_gain;
+
+                    // Left/right pan from relative x offset, same as SFX.
+                    float pan = 0.0f;
+                    float pan_ref = listener_max_distance * 0.25f; // quarter of radius
+                    if (pan_ref < 1.0f) {
+                        pan_ref = 1.0f;
+                    }
+                    // Negate dx so that when the listener moves to the right of
+                    // the music entity, the perceived audio moves toward the
+                    // right ear, matching typical stereo expectations.
+                    pan = -dx / pan_ref;
+                    if (pan < -1.0f) {
+                        pan = -1.0f;
+                    } else if (pan > 1.0f) {
+                        pan = 1.0f;
+                    }
+
+                    if (channels >= 2) {
+                        float l = 1.0f;
+                        float r = 1.0f;
+                        if (pan >= 0.0f) {
+                            // Music is to the right: reduce left channel.
+                            l = 1.0f - pan;
+                            r = 1.0f;
+                        } else {
+                            // Music is to the left: reduce right channel.
+                            l = 1.0f;
+                            r = 1.0f + pan; // pan is negative
+                        }
+                        left_gain_m = base_gain_m * l;
+                        right_gain_m = base_gain_m * r;
+                        apply_spatial_pan_m = true;
+                    }
+                }
+            }
+
+            if (!apply_spatial_pan_m) {
+                left_gain_m = base_gain_m;
+                right_gain_m = base_gain_m;
             }
 
             for (ma_uint32 f = 0; f < total_frames; f++) {
@@ -493,7 +586,20 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
                         sample = pcm_samples[frame_pos * pcm_channels + src_ch];
                     }
 
-                    out_samples[f * channels + ch] += sample * gain;
+                    float gain_m = base_gain_m;
+                    if (channels >= 2) {
+                        if (apply_spatial_pan_m) {
+                            if (ch == 0) {
+                                gain_m = left_gain_m;
+                            } else if (ch == 1) {
+                                gain_m = right_gain_m;
+                            }
+                        } else {
+                            gain_m = base_gain_m;
+                        }
+                    }
+
+                    out_samples[f * channels + ch] += sample * gain_m;
                 }
 
                 frame_pos++;

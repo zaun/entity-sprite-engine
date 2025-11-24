@@ -36,6 +36,8 @@ typedef struct EseEntityComponentMusic {
     bool playing;             /** True if the playlist is currently playing */
     bool repeat;              /** Repeat the playlist when it reaches the end */
 
+    bool spatial;             /** Whether this music should be spatialized (default: true) */
+
     /**
      * Duration of crossfade between tracks, in seconds.
      *

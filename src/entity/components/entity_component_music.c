@@ -121,6 +121,7 @@ static EseEntityComponent *_entity_component_music_make(EseLuaEngine *engine) {
 
     component->playing = false;
     component->repeat = false;
+    component->spatial = true;
     component->xfade_time = 0.0f;
 
     profile_count_add("entity_comp_music_make_count");
@@ -153,6 +154,7 @@ EseEntityComponent *_entity_component_music_copy(const EseEntityComponentMusic *
     copy->current_frame = src->current_frame;
     copy->playing = src->playing;
     copy->repeat = src->repeat;
+    copy->spatial = src->spatial;
     copy->xfade_time = src->xfade_time;
 
     profile_count_add("entity_comp_music_copy_count");
@@ -396,6 +398,9 @@ static int _entity_component_music_index(lua_State *L) {
     } else if (strcmp(key, "repeat") == 0) {
         lua_pushboolean(L, component->repeat);
         return 1;
+    } else if (strcmp(key, "is_spatial") == 0) {
+        lua_pushboolean(L, component->spatial);
+        return 1;
     } else if (strcmp(key, "xfade_time") == 0) {
         lua_pushnumber(L, (lua_Number)component->xfade_time);
         return 1;
@@ -507,6 +512,18 @@ static int _entity_component_music_newindex(lua_State *L) {
             return luaL_error(L, "repeat must be a boolean");
         }
         component->repeat = lua_toboolean(L, 3);
+        if (mtx) {
+            ese_mutex_unlock(mtx);
+        }
+        return 0;
+    } else if (strcmp(key, "is_spatial") == 0) {
+        if (!lua_isboolean(L, 3)) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
+            return luaL_error(L, "is_spatial must be a boolean");
+        }
+        component->spatial = lua_toboolean(L, 3);
         if (mtx) {
             ese_mutex_unlock(mtx);
         }

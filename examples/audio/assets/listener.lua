@@ -11,6 +11,8 @@ function ENTITY:entity_init()
     -- Visual circle radius is ~10 units (see startup.lua shape path)
     self.data.drag_radius = 10
 
+    self.data.orbit_radius = 200
+
     -- init
     ENTITY:set_mode()
 
@@ -99,7 +101,6 @@ function ENTITY:set_mode()
     if self.data.mode == 0 then
         self.data.mode = 0
         self.data.angle = 0
-        self.data.orbit_radius = 100
         self.data.orbit_speed = math.pi * 0.5
     elseif self.data.mode == 1 then
         -- Reset drag state when entering drag mode
