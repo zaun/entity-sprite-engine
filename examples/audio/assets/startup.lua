@@ -35,6 +35,31 @@ function STARTUP:startup()
         return
     end
 
+    if asset_load_music("music", "track0", "music1.mp3") == false then
+        print("Failed to load music1.mp3")
+        return
+    end
+
+    if asset_load_music("music", "track1", "music2.mp3") == false then
+        print("Failed to load music2.mp3")
+        return
+    end
+
+    if asset_load_music("music", "track2", "music3.mp3") == false then
+        print("Failed to load music3.mp3")
+        return
+    end
+
+    if asset_load_music("music", "track3", "music4.mp3") == false then
+        print("Failed to load music4.mp3")
+        return
+    end
+
+    if asset_load_music("music", "track5", "music5.mp3") == false then
+        print("Failed to load music5.mp3")
+        return
+    end
+
     -- Center the camera on the viewport so our shapes are in the middle of the screen
     Camera.position.x = Display.viewport.width / 2
     Camera.position.y = Display.viewport.height / 2
@@ -59,7 +84,7 @@ function STARTUP:startup()
     listener_entity.draw_order = 3
 
     local orbit_shape = EntityComponentShape.new()
-    orbit_shape:set_path('M 10 0 A 10 10 0 0 1 -10 0 A 10 10 0 0 1 10 0 Z', {
+    orbit_shape:set_path('M 10 0 A 10 10 0 0 1 -10 0 A 10 10 0 0 1 10 0 Z M 0 -10 L 0 -20', {
         stroke_width = 1.5,
         stroke_color = Color.new(0.0, 0.5, 1.0, 1.0),
         fill_color = Color.new(0.0, 0.5, 1.0, 0.7),
@@ -68,12 +93,13 @@ function STARTUP:startup()
 
     listener_entity.data.listener = EntityComponentListener.new()
     listener_entity.components.add(listener_entity.data.listener)
+
+    -- Configure listener audio defaults for the demo: enable spatial audio,
+    -- full volume, and a relatively small max_distance so panning is obvious
+    -- as the listener orbits around the player.
     listener_entity.data.listener.spatial = true
     listener_entity.data.listener.volume = 100
-    listener_entity.data.listener.max_distance = 1000
-    -- Use default attenuation/rolloff here; they can be tweaked from Lua as:
-    -- listener_entity.data.listener.attenuation = 1.0
-    -- listener_entity.data.listener.rolloff = 1.0
+    listener_entity.data.listener.max_distance = 250
 
     listener_entity.data.orbit_center = player_entity
     listener_entity.data.orbit_radius = 100
@@ -88,5 +114,5 @@ function STARTUP:startup()
     local gui = Entity.new()
     gui.components.add(EntityComponentLua.new("gui.lua"))
     gui.data.sounds = player_entity.data
-    gui.data.listener = listener_entity.data.listener
+    gui.data.listener = listener_entity
 end

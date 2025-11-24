@@ -582,6 +582,15 @@ EsePcm *engine_get_sound(EseEngine *engine, const char *sound_id) {
     return asset_manager_get_sound(engine->asset_manager, sound_id);
 }
 
+EsePcm *engine_get_music(EseEngine *engine, const char *music_id) {
+    log_assert("ENGINE", engine, "engine_get_music called with NULL engine");
+    log_assert("ENGINE", music_id, "engine_get_music called with NULL music_id");
+    if (!engine->asset_manager) {
+        return NULL;
+    }
+    return asset_manager_get_music(engine->asset_manager, music_id);
+}
+
 // Tag system functions
 
 /**

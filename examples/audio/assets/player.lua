@@ -12,15 +12,31 @@ function ENTITY:entity_init()
     self.data.laser3 = EntityComponentSound.new("scifi:laser3")
     self.components.add(self.data.laser3)
 
+    self.data.music = EntityComponentMusic.new()
+    self.data.music.music:add("music:track0")
+    self.data.music.music:add("music:track1")
+    self.data.music.music:add("music:track2")
+    self.data.music.music:add("music:track3")
+    self.data.music.music:add("music:track4")
+    self.components.add(self.data.music)
+    local n = #self.data.music.music
+    print("Music has " .. n .. " ttracks")
+
     -- subscribe
     self:subscribe("PLAY_SOUND", "play")
-end
-
-function ENTITY:entity_update(delta_time)
-
+    self:subscribe("PLAY_MUSIC", "play")
+    self:subscribe("PAUSE_MUSIC", "play")
 end
 
 function ENTITY:play(event, name)
-    print("Play sound " .. name)
-    self.data[name].play();
+    if event == "PLAY_SOUND" then
+        print("Play sound " .. name)
+        self.data[name].play();
+    elseif event == "PLAY_MUSIC" then
+        print("Play music")
+        self.data.music.play()
+    elseif event == "PAUSE_MUSIC" then
+        print("Pause music")
+        self.data.music.stop()
+    end
 end

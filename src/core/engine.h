@@ -173,6 +173,18 @@ EseSprite *engine_get_sprite(EseEngine *engine, const char *sprite_id);
 EsePcm *engine_get_sound(EseEngine *engine, const char *sound_id);
 
 /**
+ * @brief Retrieves a music track from the engine's asset manager.
+ *
+ * @details This function looks up a decoded PCM music asset by its ID in the
+ * engine's asset manager and returns a pointer to it if found.
+ *
+ * @param engine A pointer to the EseEngine instance.
+ * @param music_id The ID of the music track to retrieve.
+ * @return Pointer to the EsePcm if found, NULL otherwise.
+ */
+EsePcm *engine_get_music(EseEngine *engine, const char *music_id);
+
+/**
  * @brief Finds all entities with a specific tag.
  *
  * @param engine Pointer to the EseEngine

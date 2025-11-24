@@ -14,6 +14,7 @@
 
 #include "entity/components/entity_component_sound.h"
 #include "entity/components/entity_component_listener.h"
+#include "entity/components/entity_component_music.h"
 #include "utility/thread.h"
 #include "vendor/miniaud/miniaudio.h"
 
@@ -45,6 +46,10 @@ typedef struct {
     EseEntityComponentSound **sounds;       /** Array of sound component pointers */
     size_t sound_count;                     /** Current number of tracked sounds */
     size_t sound_capacity;                  /** Allocated capacity of the sounds array */
+
+    EseEntityComponentMusic **music;        /** Array of music component pointers */
+    size_t music_count;                     /** Current number of tracked music components */
+    size_t music_capacity;                  /** Allocated capacity of the music array */
 
     EseEntityComponentListener **listeners; /** Array of listener component pointers */
     size_t listener_count;                  /** Current number of tracked listeners */

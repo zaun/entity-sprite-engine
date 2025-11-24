@@ -240,10 +240,22 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
                 base_gain *= distance_gain;
 
                 // Left/right pan from relative x offset.
+                //
+                // Previously we normalized by max_distance directly, which made
+                // panning very subtle when the listener's audible radius was
+                // large (e.g., max_distance = 1000 and the sound only 100
+                // units away). Instead, use a fraction of max_distance as the
+                // reference for panning so sounds near the listener produce a
+                // strong stereo effect while still clamping to [-1, 1].
                 float pan = 0.0f;
-                if (listener_max_distance > 0.0f) {
-                    pan = dx / listener_max_distance;
+                float pan_ref = listener_max_distance * 0.25f; // quarter of radius
+                if (pan_ref < 1.0f) {
+                    pan_ref = 1.0f;
                 }
+                // Negate dx so that when the listener moves to the right of
+                // the sound, the perceived audio moves toward the right ear,
+                // matching typical stereo expectations.
+                pan = -dx / pan_ref;
                 if (pan < -1.0f) {
                     pan = -1.0f;
                 } else if (pan > 1.0f) {
@@ -330,6 +342,167 @@ static void sound_sys_data_callback(ma_device *device, void *output, const void 
         sound->current_frame = frame_pos;
     }
 
+    // Mix all active & playing music components (non-spatial) into the output buffer.
+    if (data->music && data->music_count > 0) {
+        for (size_t i = 0; i < data->music_count; i++) {
+            EseEntityComponentMusic *music = data->music[i];
+            if (!music) {
+                continue;
+            }
+
+            // Only mix active, playing music components with a non-empty playlist.
+            if (!music->base.active || !music->playing || music->track_count == 0) {
+                continue;
+            }
+
+            EseEntity *music_entity = music->base.entity;
+            if (!music_entity || !music_entity->active || music_entity->destroyed) {
+                continue;
+            }
+
+            // Ensure current_track is in range.
+            if (music->current_track >= music->track_count) {
+                music->current_track = 0;
+                music->current_frame = 0;
+                music->current_pcm = NULL;
+                music->frame_count = 0;
+            }
+
+            // Lazily resolve PCM for the current track.
+            if (!music->current_pcm) {
+                const char *track_name = music->tracks[music->current_track];
+                if (!track_name) {
+                    continue;
+                }
+
+                EsePcm *pcm = engine_get_music(eng, track_name);
+                if (!pcm) {
+                    continue;
+                }
+
+                music->current_pcm = pcm;
+                uint32_t frames = pcm_get_frame_count(pcm);
+                music->frame_count = frames;
+                if (music->current_frame > frames) {
+                    music->current_frame = frames;
+                }
+            }
+
+            EsePcm *pcm = music->current_pcm;
+            if (!pcm) {
+                continue;
+            }
+
+            const float *pcm_samples = pcm_get_samples(pcm);
+            uint32_t pcm_frames = pcm_get_frame_count(pcm);
+            uint32_t pcm_channels = pcm_get_channels(pcm);
+
+            if (!pcm_samples || pcm_frames == 0 || pcm_channels == 0) {
+                continue;
+            }
+
+            uint32_t frame_pos = music->current_frame;
+
+            // Music is affected by listener master volume but not spatialization.
+            float gain = 1.0f;
+            if (listener) {
+                gain = listener_volume;
+            }
+
+            for (ma_uint32 f = 0; f < total_frames; f++) {
+                if (!music->playing) {
+                    break;
+                }
+
+                if (frame_pos >= pcm_frames) {
+                    // Move to the next track in the playlist or stop.
+                    if (music->track_count == 0) {
+                        music->playing = false;
+                        frame_pos = 0;
+                        break;
+                    }
+
+                    uint32_t next_index = music->current_track + 1;
+                    bool has_next = false;
+                    if (next_index < music->track_count) {
+                        has_next = true;
+                    } else if (music->repeat && music->track_count > 0) {
+                        next_index = 0;
+                        has_next = true;
+                    }
+
+                    if (!has_next) {
+                        music->playing = false;
+                        frame_pos = 0;
+                        music->current_pcm = NULL;
+                        music->frame_count = 0;
+                        break;
+                    }
+
+                    music->current_track = next_index;
+                    music->current_frame = 0;
+                    music->current_pcm = NULL;
+                    music->frame_count = 0;
+
+                    const char *track_name = music->tracks[music->current_track];
+                    if (!track_name) {
+                        music->playing = false;
+                        frame_pos = 0;
+                        break;
+                    }
+
+                    EsePcm *next_pcm = engine_get_music(eng, track_name);
+                    if (!next_pcm) {
+                        music->playing = false;
+                        frame_pos = 0;
+                        break;
+                    }
+
+                    music->current_pcm = next_pcm;
+                    pcm = next_pcm;
+                    pcm_samples = pcm_get_samples(pcm);
+                    pcm_frames = pcm_get_frame_count(pcm);
+                    pcm_channels = pcm_get_channels(pcm);
+
+                    if (!pcm_samples || pcm_frames == 0 || pcm_channels == 0) {
+                        music->playing = false;
+                        frame_pos = 0;
+                        music->current_pcm = NULL;
+                        music->frame_count = 0;
+                        break;
+                    }
+
+                    music->frame_count = pcm_frames;
+                    frame_pos = music->current_frame;
+                }
+
+                if (!music->playing) {
+                    break;
+                }
+
+                // Mix this frame for each output channel.
+                for (ma_uint32 ch = 0; ch < channels; ch++) {
+                    float sample = 0.0f;
+
+                    if (pcm_channels == 1) {
+                        // Mono source: duplicate into all output channels.
+                        sample = pcm_samples[frame_pos];
+                    } else {
+                        // Use the matching channel if available, otherwise clamp to the last.
+                        uint32_t src_ch = (ch < pcm_channels) ? ch : (pcm_channels - 1);
+                        sample = pcm_samples[frame_pos * pcm_channels + src_ch];
+                    }
+
+                    out_samples[f * channels + ch] += sample * gain;
+                }
+
+                frame_pos++;
+            }
+
+            music->current_frame = frame_pos;
+        }
+    }
+
     // Simple hard clipping to keep samples in [-1, 1] after mixing.
     for (ma_uint32 i = 0; i < total_samples; i++) {
         if (out_samples[i] > 1.0f) {
@@ -352,7 +525,8 @@ static bool sound_sys_accepts(EseSystemManager *self, const EseEntityComponent *
     if (!comp) {
         return false;
     }
-    return comp->type == ENTITY_COMPONENT_SOUND || comp->type == ENTITY_COMPONENT_LISTENER;
+    return comp->type == ENTITY_COMPONENT_SOUND || comp->type == ENTITY_COMPONENT_MUSIC ||
+           comp->type == ENTITY_COMPONENT_LISTENER;
 }
 
 /**
@@ -372,13 +546,30 @@ static void sound_sys_on_add(EseSystemManager *self, EseEngine *eng, EseEntityCo
 
     if (comp->type == ENTITY_COMPONENT_SOUND) {
         if (g_sound_system_data->sound_count == g_sound_system_data->sound_capacity) {
-            g_sound_system_data->sound_capacity = g_sound_system_data->sound_capacity ? g_sound_system_data->sound_capacity * 2 : 64;
+            g_sound_system_data->sound_capacity = g_sound_system_data->sound_capacity
+                                                      ? g_sound_system_data->sound_capacity * 2
+                                                      : 64;
             g_sound_system_data->sounds = memory_manager.realloc(
-                g_sound_system_data->sounds, sizeof(EseEntityComponentSound *) * g_sound_system_data->sound_capacity,
+                g_sound_system_data->sounds,
+                sizeof(EseEntityComponentSound *) * g_sound_system_data->sound_capacity,
                 MMTAG_S_SPRITE); // reuse sprite system tag for now
         }
 
-        g_sound_system_data->sounds[g_sound_system_data->sound_count++] = (EseEntityComponentSound *)comp->data;
+        g_sound_system_data->sounds[g_sound_system_data->sound_count++] =
+            (EseEntityComponentSound *)comp->data;
+    } else if (comp->type == ENTITY_COMPONENT_MUSIC) {
+        if (g_sound_system_data->music_count == g_sound_system_data->music_capacity) {
+            g_sound_system_data->music_capacity = g_sound_system_data->music_capacity
+                                                      ? g_sound_system_data->music_capacity * 2
+                                                      : 8;
+            g_sound_system_data->music = memory_manager.realloc(
+                g_sound_system_data->music,
+                sizeof(EseEntityComponentMusic *) * g_sound_system_data->music_capacity,
+                MMTAG_S_SPRITE); // reuse sprite system tag for now
+        }
+
+        g_sound_system_data->music[g_sound_system_data->music_count++] =
+            (EseEntityComponentMusic *)comp->data;
     } else if (comp->type == ENTITY_COMPONENT_LISTENER) {
         if (g_sound_system_data->listener_count == g_sound_system_data->listener_capacity) {
             g_sound_system_data->listener_capacity = g_sound_system_data->listener_capacity ? g_sound_system_data->listener_capacity * 2 : 4;
@@ -422,7 +613,28 @@ static void sound_sys_on_remove(EseSystemManager *self, EseEngine *eng, EseEntit
 
         for (size_t i = 0; i < g_sound_system_data->sound_count; i++) {
             if (g_sound_system_data->sounds[i] == sc) {
-                g_sound_system_data->sounds[i] = g_sound_system_data->sounds[--g_sound_system_data->sound_count];
+                g_sound_system_data->sounds[i] =
+                    g_sound_system_data->sounds[--g_sound_system_data->sound_count];
+                if (mtx) {
+                    ese_mutex_unlock(mtx);
+                }
+                return;
+            }
+        }
+    } else if (comp->type == ENTITY_COMPONENT_MUSIC) {
+        if (g_sound_system_data->music_count == 0) {
+            if (mtx) {
+                ese_mutex_unlock(mtx);
+            }
+            return;
+        }
+
+        EseEntityComponentMusic *mc = (EseEntityComponentMusic *)comp->data;
+
+        for (size_t i = 0; i < g_sound_system_data->music_count; i++) {
+            if (g_sound_system_data->music[i] == mc) {
+                g_sound_system_data->music[i] =
+                    g_sound_system_data->music[--g_sound_system_data->music_count];
                 if (mtx) {
                     ese_mutex_unlock(mtx);
                 }
@@ -631,6 +843,9 @@ static void sound_sys_shutdown(EseSystemManager *self, EseEngine *eng) {
 
     if (d->sounds) {
         memory_manager.free(d->sounds);
+    }
+    if (d->music) {
+        memory_manager.free(d->music);
     }
     if (d->listeners) {
         memory_manager.free(d->listeners);
