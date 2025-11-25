@@ -1,13 +1,14 @@
 #include "testing.h"
 #include <string.h>
-#include "utility/log.h"
-#include "core/memory_manager.h"
-#include "entity/components/entity_component_listener.h"
+#include "entity/bindings/listener.h"
+#include "entity/components/listener.h"
 #include "entity/components/entity_component.h"
 #include "entity/entity.h"
 #include "core/engine.h"
 #include "core/engine_private.h"
+#include "core/memory_manager.h"
 #include "scripting/lua_engine.h"
+#include "utility/log.h"
 
 // Test data
 static EseLuaEngine *test_engine = NULL;
@@ -69,7 +70,7 @@ void test_entity_component_listener_create_basic(void) {
 
 void test_entity_component_listener_lua_init(void) {
     lua_State *L = test_engine->runtime;
-    _entity_component_listener_init(test_engine);
+    entity_component_listener_init(test_engine);
 
     const char *test_code =
         "return type(EntityComponentListener) == 'table' and type(EntityComponentListener.new) == 'function'";
@@ -80,7 +81,7 @@ void test_entity_component_listener_lua_init(void) {
 
 void test_entity_component_listener_lua_new_defaults(void) {
     lua_State *L = test_engine->runtime;
-    _entity_component_listener_init(test_engine);
+    entity_component_listener_init(test_engine);
 
     const char *test_code =
         "local c = EntityComponentListener.new()\n"
@@ -92,7 +93,7 @@ void test_entity_component_listener_lua_new_defaults(void) {
 
 void test_entity_component_listener_lua_setters(void) {
     lua_State *L = test_engine->runtime;
-    _entity_component_listener_init(test_engine);
+    entity_component_listener_init(test_engine);
 
     const char *test_code =
         "local c = EntityComponentListener.new()\n"
@@ -108,7 +109,7 @@ void test_entity_component_listener_lua_setters(void) {
 
 void test_entity_component_listener_lua_volume_clamp(void) {
     lua_State *L = test_engine->runtime;
-    _entity_component_listener_init(test_engine);
+    entity_component_listener_init(test_engine);
 
     const char *test_code =
         "local c = EntityComponentListener.new()\n"

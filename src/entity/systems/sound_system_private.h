@@ -13,7 +13,7 @@
 #define ESE_SOUND_SYSTEM_PRIVATE_H
 
 #include "entity/components/entity_component_sound.h"
-#include "entity/components/entity_component_listener.h"
+#include "entity/components/listener.h"
 #include "entity/components/entity_component_music.h"
 #include "utility/thread.h"
 #include "vendor/miniaud/miniaudio.h"

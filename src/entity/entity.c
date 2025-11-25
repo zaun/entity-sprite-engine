@@ -10,6 +10,7 @@
 #include "entity/entity_lua.h"
 #include "entity/entity_private.h"
 #include "scripting/lua_engine.h"
+#include "vendor/json/cJSON.h"
 #include "scripting/lua_value.h"
 #include "types/collision_hit.h"
 #include "types/types.h"
@@ -609,4 +610,203 @@ void entity_set_persistent(EseEntity *entity, bool persistent) {
 bool entity_get_persistent(EseEntity *entity) {
     log_assert("ENTITY", entity, "entity_get_persistent called with NULL entity");
     return entity->persistent;
+}
+
+cJSON *entity_serialize(EseEntity *entity) {
+    log_assert("ENTITY", entity, "entity_serialize called with NULL entity");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY", "entity_serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    // Core identity/meta
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY")) {
+        log_error("ENTITY", "entity_serialize: failed to add type");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "id", ese_uuid_get_value(entity->id))) {
+        log_error("ENTITY", "entity_serialize: failed to add id");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Core flags
+    if (!cJSON_AddBoolToObject(json, "active", entity->active)) {
+        log_error("ENTITY", "entity_serialize: failed to add active");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddBoolToObject(json, "visible", entity->visible)) {
+        log_error("ENTITY", "entity_serialize: failed to add visible");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddBoolToObject(json, "persistent", entity->persistent)) {
+        log_error("ENTITY", "entity_serialize: failed to add persistent");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Public draw_order value (same units as Lua property)
+    uint64_t public_z = (entity->draw_order >> DRAW_ORDER_SHIFT);
+    if (!cJSON_AddNumberToObject(json, "draw_order", (double)public_z)) {
+        log_error("ENTITY", "entity_serialize: failed to add draw_order");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Position
+    cJSON *pos_json = ese_point_serialize(entity->position);
+    if (!pos_json) {
+        log_error("ENTITY", "entity_serialize: failed to serialize position");
+        cJSON_Delete(json);
+        return NULL;
+    }
+    cJSON_AddItemToObject(json, "position", pos_json);
+
+    // Tags
+    cJSON *tags_arr = cJSON_CreateArray();
+    if (!tags_arr) {
+        log_error("ENTITY", "entity_serialize: failed to create tags array");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < entity->tag_count; i++) {
+        if (!entity->tags[i]) {
+            continue;
+        }
+        cJSON *tag_item = cJSON_CreateString(entity->tags[i]);
+        if (!tag_item) {
+            log_error("ENTITY", "entity_serialize: failed to create tag item");
+            cJSON_Delete(tags_arr);
+            cJSON_Delete(json);
+            return NULL;
+        }
+        cJSON_AddItemToArray(tags_arr, tag_item);
+    }
+    cJSON_AddItemToObject(json, "tags", tags_arr);
+
+    // Components
+    cJSON *components_arr = cJSON_CreateArray();
+    if (!components_arr) {
+        log_error("ENTITY", "entity_serialize: failed to create components array");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < entity->component_count; i++) {
+        EseEntityComponent *comp = entity->components[i];
+        if (!comp) {
+            continue;
+        }
+
+        cJSON *comp_json = entity_component_serialize(comp);
+        if (!comp_json) {
+            // Component does not support JSON yet; skip but continue
+            log_debug("ENTITY", "entity_serialize: skipping component type %d with no JSON",
+                      (int)comp->type);
+            continue;
+        }
+        cJSON_AddItemToArray(components_arr, comp_json);
+    }
+
+    cJSON_AddItemToObject(json, "components", components_arr);
+
+    return json;
+}
+
+EseEntity *entity_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("ENTITY", engine, "entity_deserialize called with NULL engine");
+    log_assert("ENTITY", data, "entity_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY", "entity_deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) || strcmp(type_item->valuestring, "ENTITY") != 0) {
+        log_error("ENTITY", "entity_deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    EseEntity *entity = entity_create(engine);
+    if (!entity) {
+        log_error("ENTITY", "entity_deserialize: failed to create entity");
+        return NULL;
+    }
+
+    // Core flags (optional, fall back to defaults if absent)
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    if (cJSON_IsBool(active_item)) {
+        entity->active = cJSON_IsTrue(active_item);
+    }
+
+    const cJSON *visible_item = cJSON_GetObjectItemCaseSensitive(data, "visible");
+    if (cJSON_IsBool(visible_item)) {
+        entity->visible = cJSON_IsTrue(visible_item);
+    }
+
+    const cJSON *persistent_item = cJSON_GetObjectItemCaseSensitive(data, "persistent");
+    if (cJSON_IsBool(persistent_item)) {
+        entity->persistent = cJSON_IsTrue(persistent_item);
+    }
+
+    const cJSON *draw_item = cJSON_GetObjectItemCaseSensitive(data, "draw_order");
+    if (cJSON_IsNumber(draw_item) && draw_item->valuedouble >= 0.0) {
+        uint64_t public_z = (uint64_t)draw_item->valuedouble;
+        if (public_z > DRAW_ORDER_MAX_USERZ) {
+            public_z = DRAW_ORDER_MAX_USERZ;
+        }
+        entity->draw_order = (public_z << DRAW_ORDER_SHIFT);
+    }
+
+    // Position (optional)
+    const cJSON *pos_item = cJSON_GetObjectItemCaseSensitive(data, "position");
+    if (cJSON_IsObject(pos_item)) {
+        EsePoint *tmp = ese_point_deserialize(engine, pos_item);
+        if (tmp) {
+            entity_set_position(entity, ese_point_get_x(tmp), ese_point_get_y(tmp));
+            ese_point_destroy(tmp);
+        }
+    }
+
+    // Tags (optional)
+    const cJSON *tags_item = cJSON_GetObjectItemCaseSensitive(data, "tags");
+    if (cJSON_IsArray(tags_item)) {
+        cJSON *tag_json = NULL;
+        cJSON_ArrayForEach(tag_json, tags_item) {
+            if (cJSON_IsString(tag_json) && tag_json->valuestring) {
+                entity_add_tag(entity, tag_json->valuestring);
+            }
+        }
+    }
+
+    // Components (optional)
+    const cJSON *components_item = cJSON_GetObjectItemCaseSensitive(data, "components");
+    if (cJSON_IsArray(components_item)) {
+        cJSON *comp_json = NULL;
+        cJSON_ArrayForEach(comp_json, components_item) {
+            if (!cJSON_IsObject(comp_json)) {
+                continue;
+            }
+
+            EseEntityComponent *comp = entity_component_deserialize(engine, comp_json);
+            if (!comp) {
+                log_error("ENTITY", "entity_deserialize: failed to deserialize component");
+                continue;
+            }
+
+            entity_component_add(entity, comp);
+        }
+    }
+
+    return entity;
 }

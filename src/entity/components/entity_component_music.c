@@ -91,13 +91,18 @@ static void _music_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_music_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_music_serialize((EseEntityComponentMusic *)component->data);
+}
+
 // Static vtable instance for music components
 static const ComponentVTable music_vtable = {.copy = _music_vtable_copy,
                                              .destroy = _music_vtable_destroy,
                                              .run_function = _music_vtable_run_function,
                                              .collides = _music_vtable_collides_component,
                                              .ref = _music_vtable_ref,
-                                             .unref = _music_vtable_unref};
+                                             .unref = _music_vtable_unref,
+                                             .serialize = _music_vtable_serialize};
 
 static EseEntityComponent *_entity_component_music_make(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_music_make called with NULL engine");

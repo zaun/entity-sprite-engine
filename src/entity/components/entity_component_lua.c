@@ -52,13 +52,18 @@ static void _lua_vtable_unref(EseEntityComponent *component) {
     entity_component_lua_unref((EseEntityComponentLua *)component->data);
 }
 
+static cJSON *_lua_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_lua_serialize((EseEntityComponentLua *)component->data);
+}
+
 // Static vtable instance for lua components
 static const ComponentVTable lua_vtable = {.copy = _lua_vtable_copy,
                                            .destroy = _lua_vtable_destroy,
                                            .run_function = _lua_vtable_run_function,
                                            .collides = _lua_vtable_collides_component,
                                            .ref = _lua_vtable_ref,
-                                           .unref = _lua_vtable_unref};
+                                           .unref = _lua_vtable_unref,
+                                            .serialize = _lua_vtable_serialize};
 
 static void _entity_component_lua_register(EseEntityComponentLua *component, bool is_lua_owned) {
     log_assert("ENTITY_COMP", component,

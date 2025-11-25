@@ -1,6 +1,7 @@
 #include "entity/components/entity_component.h"
 #include "core/memory_manager.h"
 #include "entity/bindings/collider.h"
+#include "entity/bindings/listener.h"
 #include "entity/components/collider.h"
 #include "entity/components/entity_component_lua.h"
 #include "entity/components/entity_component_map.h"
@@ -9,12 +10,13 @@
 #include "entity/components/entity_component_sprite.h"
 #include "entity/components/entity_component_text.h"
 #include "entity/components/entity_component_sound.h"
-#include "entity/components/entity_component_listener.h"
+#include "entity/components/listener.h"
 #include "entity/components/entity_component_music.h"
 #include "entity/entity_private.h"
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 #include "vendor/lua/src/lauxlib.h"
 #include <stdbool.h>
 #include <string.h>
@@ -29,7 +31,7 @@ void entity_component_lua_init(EseLuaEngine *engine) {
     _entity_component_sprite_init(engine);
     _entity_component_text_init(engine);
     _entity_component_sound_init(engine);
-    _entity_component_listener_init(engine);
+    entity_component_listener_init(engine);
     _entity_component_music_init(engine);
 
     profile_stop(PROFILE_ENTITY_COMPONENT_UPDATE, "entity_component_lua_init");
@@ -159,6 +161,68 @@ void *entity_component_get_data(EseEntityComponent *component) {
     log_assert("ENTITY_COMP", component, "entity_component_get_type called with NULL component");
 
     return component->data;
+}
+
+cJSON *entity_component_serialize(EseEntityComponent *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_serialize called with NULL component");
+
+    if(component->vtable->serialize) {
+        return component->vtable->serialize(component);
+    }
+    return NULL;
+}
+
+EseEntityComponent *entity_component_deserialize(EseLuaEngine *engine, const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "entity_component_deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item)) {
+        log_error("ENTITY_COMP", "entity_component_deserialize: missing or invalid type field");
+        return NULL;
+    }
+
+    const char *type_str = type_item->valuestring;
+
+    if (strcmp(type_str, "ENTITY_COMPONENT_COLLIDER") == 0) {
+        return entity_component_collider_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_LUA") == 0) {
+        return entity_component_lua_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_MAP") == 0) {
+        return entity_component_map_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_SHAPE") == 0) {
+        return entity_component_shape_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_SPRITE") == 0) {
+        return entity_component_sprite_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_TEXT") == 0) {
+        return entity_component_text_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_SOUND") == 0) {
+        return entity_component_sound_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_MUSIC") == 0) {
+        return entity_component_music_deserialize(engine, data);
+    }
+    if (strcmp(type_str, "ENTITY_COMPONENT_LISTENER") == 0) {
+        return entity_component_listener_deserialize(engine, data);
+    }
+
+    log_error("ENTITY_COMP",
+              "entity_component_deserialize: unknown component type string '%s'", type_str);
+    return NULL;
 }
 
 EseEntityComponent *entity_component_get(lua_State *L) {

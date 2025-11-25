@@ -3,6 +3,7 @@
 
 #include "entity/entity.h"
 #include "utility/array.h"
+#include "vendor/json/cJSON.h"
 #include <stdbool.h>
 
 // Forward declarations
@@ -37,6 +38,7 @@ typedef struct ComponentVTable {
     void (*collides)(EseEntityComponent *a, EseEntityComponent *b, EseArray *out_hits);
     void (*ref)(EseEntityComponent *component);
     void (*unref)(EseEntityComponent *component);
+    cJSON *(*serialize)(EseEntityComponent *component);
 } ComponentVTable;
 
 /**

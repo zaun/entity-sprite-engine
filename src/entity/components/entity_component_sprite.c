@@ -68,13 +68,18 @@ static void _sprite_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_sprite_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_sprite_serialize((EseEntityComponentSprite *)component->data);
+}
+
 // Static vtable instance for sprite components
 static const ComponentVTable sprite_vtable = {.copy = _sprite_vtable_copy,
                                               .destroy = _sprite_vtable_destroy,
                                               .run_function = _sprite_vtable_run_function,
                                               .collides = _sprite_vtable_collides_component,
                                               .ref = _sprite_vtable_ref,
-                                              .unref = _sprite_vtable_unref};
+                                              .unref = _sprite_vtable_unref,
+                                              .serialize = _sprite_vtable_serialize};
 
 // (legacy table-proxy registration removed; using userdata + ref counting)
 

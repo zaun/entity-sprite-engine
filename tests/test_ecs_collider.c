@@ -145,7 +145,7 @@ void test_entity_component_collider_ref_null_collider(void) {
     TEST_ASSERT_DEATH((entity_component_collider_ref(NULL)), "entity_component_collider_ref called with NULL component");
 }
 
-void test_entity_component_collider_copy(void) {
+void testentity_component_collider_copy(void) {
     EseEntityComponent *component = entity_component_collider_create(test_engine);
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     
@@ -167,7 +167,7 @@ void test_entity_component_collider_copy(void) {
     entity_component_collider_set_draw_debug(collider, true);
     
     // Copy the component
-    EseEntityComponent *copy = _entity_component_collider_copy(collider);
+    EseEntityComponent *copy = entity_component_collider_copy(collider);
     EseEntityComponentCollider *copy_collider = (EseEntityComponentCollider *)copy->data;
     
     // Test basic properties
@@ -200,11 +200,11 @@ void test_entity_component_collider_copy(void) {
     entity_component_destroy(copy);
 }
 
-void test_entity_component_collider_copy_null_src(void) {
-    TEST_ASSERT_DEATH((_entity_component_collider_copy(NULL)), "_entity_component_collider_copy called with NULL src");
+void testentity_component_collider_copy_null_src(void) {
+    TEST_ASSERT_DEATH((entity_component_collider_copy(NULL)), "entity_component_collider_copy called with NULL src");
 }
 
-void test_entity_component_collider_destroy(void) {
+void testentity_component_collider_destroy(void) {
     EseEntityComponent *component = entity_component_collider_create(test_engine);
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)component->data;
     
@@ -215,11 +215,11 @@ void test_entity_component_collider_destroy(void) {
     entity_component_collider_rects_add(collider, rect2);
     
     // Destroy should not crash
-    _entity_component_collider_destroy(collider);
+    entity_component_collider_destroy(collider);
 }
 
-void test_entity_component_collider_destroy_null_collider(void) {
-    TEST_ASSERT_DEATH((_entity_component_collider_destroy(NULL)), "_entity_component_collider_destroy called with NULL src");
+void testentity_component_collider_destroy_null_collider(void) {
+    TEST_ASSERT_DEATH((entity_component_collider_destroy(NULL)), "entity_component_collider_destroy called with NULL src");
 }
 
 void test_entity_component_collider_update_bounds(void) {
@@ -573,10 +573,10 @@ int main(void) {
     RUN_TEST(test_entity_component_collider_rects_add_null_params);
     RUN_TEST(test_entity_component_collider_ref_unref);
     RUN_TEST(test_entity_component_collider_ref_null_collider);
-    RUN_TEST(test_entity_component_collider_copy);
-    RUN_TEST(test_entity_component_collider_copy_null_src);
-    RUN_TEST(test_entity_component_collider_destroy);
-    RUN_TEST(test_entity_component_collider_destroy_null_collider);
+    RUN_TEST(testentity_component_collider_copy);
+    RUN_TEST(testentity_component_collider_copy_null_src);
+    RUN_TEST(testentity_component_collider_destroy);
+    RUN_TEST(testentity_component_collider_destroy_null_collider);
     RUN_TEST(test_entity_component_collider_update_bounds);
     RUN_TEST(test_entity_component_collider_update_bounds_no_entity);
     RUN_TEST(test_entity_component_collider_update_bounds_no_rects);

@@ -22,6 +22,7 @@ function ENTITY:entity_init()
     print(self.data.music:toJSON())
     local n = #self.data.music.music
     print("Music has " .. n .. " ttracks")
+    print(self:toJSON())
 
     -- subscribe
     self:subscribe("PLAY_SOUND", "play")

@@ -3,6 +3,7 @@
 
 #include "entity/entity_lua.h"
 #include "scripting/lua_engine_private.h"
+#include "vendor/json/cJSON.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -253,5 +254,30 @@ void entity_set_persistent(EseEntity *entity, bool persistent);
 bool entity_get_persistent(EseEntity *entity);
 
 bool entity_test_collision(EseEntity *a, EseEntity *b, EseArray *out_hits);
+
+/**
+ * @brief Serialize an entity (core fields, tags, components) to a JSON object.
+ *
+ * @param entity Pointer to the EseEntity to serialize.
+ *
+ * @return Newly allocated cJSON object on success, or NULL on failure. Caller
+ *         must free with cJSON_Delete().
+ */
+cJSON *entity_serialize(EseEntity *entity);
+
+/**
+ * @brief Deserialize an entity from a JSON object previously produced by
+ *        entity_serialize().
+ *
+ * The returned entity is created with entity_create() and is not automatically
+ * added to the engine. Callers that want the entity to participate in the
+ * simulation should call engine_add_entity() afterward.
+ *
+ * @param engine Lua engine used for creating the entity and its components.
+ * @param data   JSON object produced by entity_serialize().
+ *
+ * @return Newly created EseEntity on success, or NULL on failure.
+ */
+EseEntity *entity_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 #endif // ESE_ENTITY_H

@@ -70,13 +70,18 @@ static void _text_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_text_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_text_serialize((EseEntityComponentText *)component->data);
+}
+
 // Static vtable instance for text components
 static const ComponentVTable text_vtable = {.copy = _text_vtable_copy,
                                             .destroy = _text_vtable_destroy,
                                             .run_function = _text_vtable_run_function,
                                             .collides = _text_vtable_collides_component,
                                             .ref = _text_vtable_ref,
-                                            .unref = _text_vtable_unref};
+                                            .unref = _text_vtable_unref,
+                                            .serialize = _text_vtable_serialize};
 
 // Font constants (matching console font)
 #define FONT_CHAR_WIDTH 10

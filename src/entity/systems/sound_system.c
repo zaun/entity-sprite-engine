@@ -15,7 +15,7 @@
 #include "core/system_manager_private.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/components/entity_component_sound.h"
-#include "entity/components/entity_component_listener.h"
+#include "entity/components/listener.h"
 #include "entity/systems/sound_system.h"
 #include "entity/systems/sound_system_lua.h"
 #include "entity/systems/sound_system_private.h"

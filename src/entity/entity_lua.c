@@ -12,6 +12,7 @@
 #include "types/types.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 #include "vendor/lua/src/lauxlib.h"
 #include "vendor/lua/src/lua.h"
 #include "vendor/lua/src/lualib.h"
@@ -23,6 +24,8 @@ static int _entity_lua_unsubscribe(lua_State *L);
 static int _entity_lua_publish(lua_State *L);
 static void _entity_remove_subscription(EseEntity *entity, const char *topic_name,
                                         const char *function_name);
+static int _entity_lua_from_json(lua_State *L);
+static int _entity_lua_to_json(lua_State *L);
 
 /**
  * @brief Increment ref-count and ensure a Lua userdata exists/registered for
@@ -891,6 +894,10 @@ static int _entity_lua_index(lua_State *L) {
         lua_pushlightuserdata(L, entity);
         lua_pushcclosure(L, _entity_lua_unsubscribe, 1);
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushlightuserdata(L, entity);
+        lua_pushcclosure(L, _entity_lua_to_json, 1);
+        return 1;
     }
 
     return 0;
@@ -1208,6 +1215,77 @@ static void _entity_remove_subscription(EseEntity *entity, const char *topic_nam
     }
 }
 
+static int _entity_lua_from_json(lua_State *L) {
+    // Entity.fromJSON(json_string)
+    int argc = lua_gettop(L);
+    if (argc != 1) {
+        return luaL_error(L, "Entity.fromJSON(string) takes 1 argument");
+    }
+    if (!lua_isstring(L, 1)) {
+        return luaL_error(L, "Entity.fromJSON(string) argument must be a string");
+    }
+
+    const char *json_str = lua_tostring(L, 1);
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        log_error("ENTITY", "Entity.fromJSON: failed to parse JSON string");
+        return luaL_error(L, "Entity.fromJSON: invalid JSON string");
+    }
+
+    EseLuaEngine *lua_engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!lua_engine) {
+        cJSON_Delete(json);
+        return luaL_error(L, "Entity.fromJSON: no engine available");
+    }
+
+    EseEntity *entity = entity_deserialize(lua_engine, json);
+    cJSON_Delete(json);
+
+    if (!entity) {
+        return luaL_error(L, "Entity.fromJSON: failed to deserialize entity");
+    }
+
+    EseEngine *engine = (EseEngine *)lua_engine_get_registry_key(L, ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "Entity.fromJSON: engine not found");
+    }
+
+    // Register with engine and Lua (Lua-owned)
+    engine_add_entity(engine, entity);
+    entity_lua_push(entity);
+
+    return 1;
+}
+
+static int _entity_lua_to_json(lua_State *L) {
+    EseEntity *entity = (EseEntity *)lua_engine_instance_method_normalize(
+        L, (EseLuaGetSelfFn)entity_lua_get, "Entity");
+    if (!entity) {
+        return luaL_error(L, "Entity:toJSON() called on invalid entity");
+    }
+
+    // After normalization, entity:toJSON() takes 0 arguments.
+    if (lua_gettop(L) != 0) {
+        return luaL_error(L, "Entity:toJSON() takes 0 arguments");
+    }
+
+    cJSON *json = entity_serialize(entity);
+    if (!json) {
+        return luaL_error(L, "Entity:toJSON() failed to serialize entity");
+    }
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    printf("%s\n\n", json_str);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "Entity:toJSON() failed to convert to string");
+    }
+
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
 void entity_lua_init(EseLuaEngine *engine) {
     // Create EntityProxyMeta metatable
     lua_engine_new_object_meta(engine, "EntityProxyMeta", _entity_lua_index, _entity_lua_newindex,
@@ -1218,12 +1296,14 @@ void entity_lua_init(EseLuaEngine *engine) {
                                NULL, NULL);
 
     // Create global Entity table with functions
-    const char *keys[] = {"new",        "find_by_tag", "find_first_by_tag",
-                          "find_by_id", "count",       "publish"};
+    const char *keys[] = {"new",        "find_by_tag",       "find_first_by_tag",
+                          "find_by_id", "count",             "publish",
+                          "fromJSON"};
     lua_CFunction functions[] = {
         _entity_lua_new,        _entity_lua_find_by_tag, _entity_lua_find_first_by_tag,
-        _entity_lua_find_by_id, _entity_lua_get_count,   _entity_lua_publish};
-    lua_engine_new_object(engine, "Entity", 6, keys, functions);
+        _entity_lua_find_by_id, _entity_lua_get_count,   _entity_lua_publish,
+        _entity_lua_from_json};
+    lua_engine_new_object(engine, "Entity", 7, keys, functions);
 }
 
 bool _entity_lua_to_data(EseEntity *entity, EseLuaValue *value) {

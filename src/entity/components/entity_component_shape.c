@@ -281,13 +281,18 @@ static void _shape_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_shape_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_shape_serialize((EseEntityComponentShape *)component->data);
+}
+
 // Static vtable instance for shape components
 static const ComponentVTable shape_vtable = {.copy = _shape_vtable_copy,
                                              .destroy = _shape_vtable_destroy,
                                              .run_function = _shape_vtable_run_function,
                                              .collides = _shape_vtable_collides_component,
                                              .ref = _shape_vtable_ref,
-                                             .unref = _shape_vtable_unref};
+                                             .unref = _shape_vtable_unref,
+                                             .serialize = _shape_vtable_serialize};
 
 // Helper function to convert degrees to radians
 static float _degrees_to_radians(float degrees) { return degrees * M_PI / 180.0f; }
@@ -394,7 +399,40 @@ cJSON *entity_component_shape_serialize(const EseEntityComponentShape *component
         return NULL;
     }
 
-    // NOTE: polylines are not currently serialized; this can be extended later.
+    // Serialize polylines as an array of PolyLine JSON objects
+    if (component->polylines_count > 0) {
+        cJSON *polylines_array = cJSON_CreateArray();
+        if (!polylines_array) {
+            log_error("ENTITY_COMP", "Shape serialize: failed to create polylines array");
+            cJSON_Delete(json);
+            return NULL;
+        }
+
+        for (size_t i = 0; i < component->polylines_count; ++i) {
+            EsePolyLine *pl = component->polylines[i];
+            if (!pl) {
+                continue;
+            }
+
+            cJSON *pl_json = ese_poly_line_serialize(pl);
+            if (!pl_json || !cJSON_AddItemToArray(polylines_array, pl_json)) {
+                log_error("ENTITY_COMP", "Shape serialize: failed to serialize polyline");
+                if (pl_json) {
+                    cJSON_Delete(pl_json);
+                }
+                cJSON_Delete(polylines_array);
+                cJSON_Delete(json);
+                return NULL;
+            }
+        }
+
+        if (!cJSON_AddItemToObject(json, "polylines", polylines_array)) {
+            log_error("ENTITY_COMP", "Shape serialize: failed to add polylines array");
+            cJSON_Delete(polylines_array);
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
 
     return json;
 }
@@ -420,6 +458,7 @@ EseEntityComponent *entity_component_shape_deserialize(EseLuaEngine *engine,
 
     const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
     const cJSON *rot_item = cJSON_GetObjectItemCaseSensitive(data, "rotation");
+    const cJSON *polylines_item = cJSON_GetObjectItemCaseSensitive(data, "polylines");
 
     EseEntityComponent *base = entity_component_shape_create(engine);
     if (!base) {
@@ -433,6 +472,49 @@ EseEntityComponent *entity_component_shape_deserialize(EseLuaEngine *engine,
     }
     if (cJSON_IsNumber(rot_item)) {
         shape->rotation = (float)rot_item->valuedouble;
+    }
+
+    // Deserialize polylines if present
+    if (polylines_item) {
+        if (!cJSON_IsArray(polylines_item)) {
+            log_error("ENTITY_COMP", "Shape deserialize: 'polylines' is not an array");
+            base->vtable->destroy(base);
+            return NULL;
+        }
+
+        size_t count = cJSON_GetArraySize((cJSON *)polylines_item);
+        for (size_t i = 0; i < count; ++i) {
+            const cJSON *pl_item = cJSON_GetArrayItem((cJSON *)polylines_item, (int)i);
+            if (!pl_item || !cJSON_IsObject(pl_item)) {
+                log_error("ENTITY_COMP", "Shape deserialize: invalid polyline entry");
+                base->vtable->destroy(base);
+                return NULL;
+            }
+
+            EsePolyLine *pl = ese_poly_line_deserialize(engine, pl_item);
+            if (!pl) {
+                log_error("ENTITY_COMP", "Shape deserialize: failed to deserialize polyline");
+                base->vtable->destroy(base);
+                return NULL;
+            }
+
+            if (shape->polylines_count == shape->polylines_capacity) {
+                size_t new_capacity = shape->polylines_capacity * 2;
+                EsePolyLine **new_arr = memory_manager.realloc(
+                    shape->polylines, sizeof(EsePolyLine *) * new_capacity, MMTAG_ENTITY);
+                if (!new_arr) {
+                    log_error("ENTITY_COMP", "Shape deserialize: failed to grow polylines array");
+                    ese_poly_line_destroy(pl);
+                    base->vtable->destroy(base);
+                    return NULL;
+                }
+                shape->polylines = new_arr;
+                shape->polylines_capacity = new_capacity;
+            }
+
+            ese_poly_line_ref(pl);
+            shape->polylines[shape->polylines_count++] = pl;
+        }
     }
 
     return base;

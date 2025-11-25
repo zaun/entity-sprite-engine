@@ -3,7 +3,6 @@
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 #include "vendor/json/cJSON.h"
-#include "vendor/lua/src/lua.h"
 #include <stdbool.h>
 
 #define ENTITY_COMPONENT_LISTENER_PROXY_META "EntityComponentListenerProxyMeta"
@@ -52,10 +51,20 @@ cJSON *entity_component_listener_serialize(const EseEntityComponentListener *com
 EseEntityComponent *entity_component_listener_deserialize(EseLuaEngine *engine,
                                                           const cJSON *data);
 
-EseEntityComponentListener *_entity_component_listener_get(lua_State *L, int idx);
+/**
+ * @brief Allocate and initialize a listener component without registering it with Lua.
+ *
+ * @param engine Lua engine used for allocations and UUID generation.
+ * @return Pointer to the base component, or NULL on allocation failure.
+ */
+EseEntityComponent *entity_component_listener_make(EseLuaEngine *engine);
 
-void _entity_component_listener_init(EseLuaEngine *engine);
-
+/**
+ * @brief Create a listener component and register it with Lua.
+ *
+ * @param engine Lua engine used for allocations and UUID generation.
+ * @return Pointer to the base component, or NULL on allocation failure.
+ */
 EseEntityComponent *entity_component_listener_create(EseLuaEngine *engine);
 
 #endif // ESE_ENTITY_COMPONENT_LISTENER_H

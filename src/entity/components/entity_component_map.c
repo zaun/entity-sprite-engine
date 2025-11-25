@@ -85,13 +85,18 @@ static void _map_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_map_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_map_serialize((EseEntityComponentMap *)component->data);
+}
+
 // Static vtable instance for map components
 static const ComponentVTable map_vtable = {.copy = _map_vtable_copy,
                                            .destroy = _map_vtable_destroy,
                                            .run_function = _map_vtable_run_function,
                                            .collides = _map_vtable_collides_component,
                                            .ref = _map_vtable_ref,
-                                           .unref = _map_vtable_unref};
+                                           .unref = _map_vtable_unref,
+                                           .serialize = _map_vtable_serialize};
 
 // callback
 

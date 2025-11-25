@@ -72,13 +72,18 @@ static void _sound_vtable_unref(EseEntityComponent *component) {
     }
 }
 
+static cJSON *_sound_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_sound_serialize((EseEntityComponentSound *)component->data);
+}
+
 // Static vtable instance for sound components
 static const ComponentVTable sound_vtable = {.copy = _sound_vtable_copy,
                                              .destroy = _sound_vtable_destroy,
                                              .run_function = _sound_vtable_run_function,
                                              .collides = _sound_vtable_collides_component,
                                              .ref = _sound_vtable_ref,
-                                             .unref = _sound_vtable_unref};
+                                             .unref = _sound_vtable_unref,
+                                             .serialize = _sound_vtable_serialize};
 
 static EseEntityComponent *_entity_component_sound_make(EseLuaEngine *engine, const char *sound_name) {
     log_assert("ENTITY_COMP", engine, "_entity_component_sound_make called with NULL engine");

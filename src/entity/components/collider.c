@@ -24,11 +24,11 @@ bool _entity_component_collider_collides_component(EseEntityComponentCollider *c
 
 // VTable wrapper functions
 static EseEntityComponent *_collider_vtable_copy(EseEntityComponent *component) {
-    return _entity_component_collider_copy((EseEntityComponentCollider *)component->data);
+    return entity_component_collider_copy((EseEntityComponentCollider *)component->data);
 }
 
 static void _collider_vtable_destroy(EseEntityComponent *component) {
-    _entity_component_collider_destroy((EseEntityComponentCollider *)component->data);
+    entity_component_collider_destroy((EseEntityComponentCollider *)component->data);
 }
 
 static bool _collider_vtable_run_function(EseEntityComponent *component, EseEntity *entity,
@@ -51,13 +51,18 @@ static void _collider_vtable_unref(EseEntityComponent *component) {
     entity_component_collider_unref((EseEntityComponentCollider *)component->data);
 }
 
+static cJSON *_collider_vtable_serialize(EseEntityComponent *component) {
+    return entity_component_collider_serialize((EseEntityComponentCollider *)component->data);
+}
+
 // Static vtable instance for collider components
 static const ComponentVTable collider_vtable = {.copy = _collider_vtable_copy,
                                                 .destroy = _collider_vtable_destroy,
                                                 .run_function = _collider_vtable_run_function,
                                                 .collides = _collider_vtable_collides_component,
                                                 .ref = _collider_vtable_ref,
-                                                .unref = _collider_vtable_unref};
+                                                .unref = _collider_vtable_unref,
+                                                .serialize = _collider_vtable_serialize};
 
 bool _entity_component_collider_collides_component(EseEntityComponentCollider *colliderA,
                                                    EseEntityComponentCollider *colliderB,
@@ -129,6 +134,112 @@ bool _entity_component_collider_collides_component(EseEntityComponentCollider *c
     return false;
 }
 
+EseEntityComponent *entity_component_collider_make(EseLuaEngine *engine) {
+    EseEntityComponentCollider *component =
+        memory_manager.malloc(sizeof(EseEntityComponentCollider), MMTAG_ENTITY);
+    component->base.data = component;
+    component->base.active = true;
+    component->base.id = ese_uuid_create(engine);
+    component->base.lua = engine;
+    component->base.lua_ref = LUA_NOREF;
+    component->base.lua_ref_count = 0;
+    component->base.type = ENTITY_COMPONENT_COLLIDER;
+    component->base.vtable = &collider_vtable;
+
+    component->offset = ese_point_create(engine);
+    ese_point_ref(component->offset);
+    component->rects =
+        memory_manager.malloc(sizeof(EseRect *) * COLLIDER_RECT_CAPACITY, MMTAG_ENTITY);
+    component->rects_capacity = COLLIDER_RECT_CAPACITY;
+    component->rects_count = 0;
+    component->draw_debug = false;
+    component->map_interaction = false;
+
+    return &component->base;
+}
+
+EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine) {
+    log_assert("ENTITY_COMP", engine, "entity_component_collider_create called with NULL engine");
+
+    EseEntityComponent *component = entity_component_collider_make(engine);
+
+    // Register with Lua using ref system
+    entity_component_collider_ref((EseEntityComponentCollider *)component->data);
+
+    profile_count_add("entity_comp_collider_create_count");
+    return component;
+}
+
+EseEntityComponent *entity_component_collider_copy(const EseEntityComponentCollider *src) {
+    log_assert("ENTITY_COMP", src, "entity_component_collider_copy called with NULL src");
+
+    EseEntityComponentCollider *copy =
+        memory_manager.malloc(sizeof(EseEntityComponentCollider), MMTAG_ENTITY);
+    copy->base.data = copy;
+    copy->base.active = true;
+    copy->base.id = ese_uuid_create(src->base.lua);
+    copy->base.lua = src->base.lua;
+    copy->base.lua_ref = LUA_NOREF;
+    copy->base.lua_ref_count = 0;
+    copy->base.type = ENTITY_COMPONENT_COLLIDER;
+    copy->base.vtable = &collider_vtable;
+
+    copy->offset = ese_point_copy(src->offset);
+    ese_point_ref(copy->offset);
+
+    // Copy rects
+    copy->rects = memory_manager.malloc(sizeof(EseRect *) * src->rects_capacity, MMTAG_ENTITY);
+    copy->rects_capacity = src->rects_capacity;
+    copy->rects_count = src->rects_count;
+    copy->draw_debug = src->draw_debug;
+    copy->map_interaction = src->map_interaction;
+
+    for (size_t i = 0; i < copy->rects_count; ++i) {
+        EseRect *src_comp = src->rects[i];
+        EseRect *dst_comp = ese_rect_copy(src_comp);
+        copy->rects[i] = dst_comp;
+    }
+
+    return &copy->base;
+}
+
+static void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
+    for (size_t i = 0; i < component->rects_count; ++i) {
+        // Remove watcher before destroying rect
+        ese_rect_remove_watcher(component->rects[i], entity_component_collider_rect_changed,
+                                component);
+        ese_rect_unref(component->rects[i]);
+        ese_rect_destroy(component->rects[i]);
+    }
+    memory_manager.free(component->rects);
+
+    ese_point_unref(component->offset);
+    ese_point_destroy(component->offset);
+
+    ese_uuid_destroy(component->base.id);
+    memory_manager.free(component);
+    profile_count_add("entity_comp_collider_destroy_count");
+}
+
+void entity_component_collider_destroy(EseEntityComponentCollider *component) {
+    log_assert("ENTITY_COMP", component, "entity_component_collider_destroy called with NULL src");
+
+    // Respect Lua registry ref-count; only free when no refs remain
+    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
+        component->base.lua_ref_count--;
+        if (component->base.lua_ref_count == 0) {
+            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
+            component->base.lua_ref = LUA_NOREF;
+            _entity_component_collider_cleanup(component);
+        } else {
+            // We dont "own" the collider so dont free it
+            return;
+        }
+    } else if (component->base.lua_ref == LUA_NOREF) {
+        _entity_component_collider_cleanup(component);
+    }
+}
+
 void entity_component_collider_ref(EseEntityComponentCollider *component) {
     log_assert("ENTITY_COMP", component,
                "entity_component_collider_ref called with NULL component");
@@ -169,100 +280,6 @@ void entity_component_collider_unref(EseEntityComponentCollider *component) {
     }
 
     profile_count_add("entity_comp_collider_unref_count");
-}
-
-EseEntityComponent *entity_component_collider_make(EseLuaEngine *engine) {
-    EseEntityComponentCollider *component =
-        memory_manager.malloc(sizeof(EseEntityComponentCollider), MMTAG_ENTITY);
-    component->base.data = component;
-    component->base.active = true;
-    component->base.id = ese_uuid_create(engine);
-    component->base.lua = engine;
-    component->base.lua_ref = LUA_NOREF;
-    component->base.lua_ref_count = 0;
-    component->base.type = ENTITY_COMPONENT_COLLIDER;
-    component->base.vtable = &collider_vtable;
-
-    component->offset = ese_point_create(engine);
-    ese_point_ref(component->offset);
-    component->rects =
-        memory_manager.malloc(sizeof(EseRect *) * COLLIDER_RECT_CAPACITY, MMTAG_ENTITY);
-    component->rects_capacity = COLLIDER_RECT_CAPACITY;
-    component->rects_count = 0;
-    component->draw_debug = false;
-    component->map_interaction = false;
-
-    return &component->base;
-}
-
-EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentCollider *src) {
-    log_assert("ENTITY_COMP", src, "_entity_component_collider_copy called with NULL src");
-
-    EseEntityComponentCollider *copy =
-        memory_manager.malloc(sizeof(EseEntityComponentCollider), MMTAG_ENTITY);
-    copy->base.data = copy;
-    copy->base.active = true;
-    copy->base.id = ese_uuid_create(src->base.lua);
-    copy->base.lua = src->base.lua;
-    copy->base.lua_ref = LUA_NOREF;
-    copy->base.lua_ref_count = 0;
-    copy->base.type = ENTITY_COMPONENT_COLLIDER;
-    copy->base.vtable = &collider_vtable;
-
-    copy->offset = ese_point_copy(src->offset);
-    ese_point_ref(copy->offset);
-
-    // Copy rects
-    copy->rects = memory_manager.malloc(sizeof(EseRect *) * src->rects_capacity, MMTAG_ENTITY);
-    copy->rects_capacity = src->rects_capacity;
-    copy->rects_count = src->rects_count;
-    copy->draw_debug = src->draw_debug;
-    copy->map_interaction = src->map_interaction;
-
-    for (size_t i = 0; i < copy->rects_count; ++i) {
-        EseRect *src_comp = src->rects[i];
-        EseRect *dst_comp = ese_rect_copy(src_comp);
-        copy->rects[i] = dst_comp;
-    }
-
-    return &copy->base;
-}
-
-void _entity_component_collider_cleanup(EseEntityComponentCollider *component) {
-    for (size_t i = 0; i < component->rects_count; ++i) {
-        // Remove watcher before destroying rect
-        ese_rect_remove_watcher(component->rects[i], entity_component_collider_rect_changed,
-                                component);
-        ese_rect_unref(component->rects[i]);
-        ese_rect_destroy(component->rects[i]);
-    }
-    memory_manager.free(component->rects);
-
-    ese_point_unref(component->offset);
-    ese_point_destroy(component->offset);
-
-    ese_uuid_destroy(component->base.id);
-    memory_manager.free(component);
-    profile_count_add("entity_comp_collider_destroy_count");
-}
-
-void _entity_component_collider_destroy(EseEntityComponentCollider *component) {
-    log_assert("ENTITY_COMP", component, "_entity_component_collider_destroy called with NULL src");
-
-    // Respect Lua registry ref-count; only free when no refs remain
-    if (component->base.lua_ref != LUA_NOREF && component->base.lua_ref_count > 0) {
-        component->base.lua_ref_count--;
-        if (component->base.lua_ref_count == 0) {
-            luaL_unref(component->base.lua->runtime, LUA_REGISTRYINDEX, component->base.lua_ref);
-            component->base.lua_ref = LUA_NOREF;
-            _entity_component_collider_cleanup(component);
-        } else {
-            // We dont "own" the collider so dont free it
-            return;
-        }
-    } else if (component->base.lua_ref == LUA_NOREF) {
-        _entity_component_collider_cleanup(component);
-    }
 }
 
 cJSON *entity_component_collider_serialize(const EseEntityComponentCollider *component) {
@@ -355,25 +372,6 @@ EseEntityComponent *entity_component_collider_deserialize(EseLuaEngine *engine,
     return base;
 }
 
-EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine) {
-    log_assert("ENTITY_COMP", engine, "entity_component_collider_create called with NULL engine");
-
-    EseEntityComponent *component = entity_component_collider_make(engine);
-
-    // Register with Lua using ref system
-    entity_component_collider_ref((EseEntityComponentCollider *)component->data);
-
-    profile_count_add("entity_comp_collider_create_count");
-    return component;
-}
-
-void entity_component_collider_rect_changed(EseRect *rect, void *userdata) {
-    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)userdata;
-    if (collider) {
-        entity_component_collider_update_bounds(collider);
-    }
-}
-
 void entity_component_collider_rects_add(EseEntityComponentCollider *collider, EseRect *rect) {
     log_assert("ENTITY", collider, "entity_component_collider_rects_add called with NULL collider");
     log_assert("ENTITY", rect, "entity_component_collider_rects_add called with NULL rect");
@@ -395,6 +393,13 @@ void entity_component_collider_rects_add(EseEntityComponentCollider *collider, E
 
     // Update entity's collision bounds after adding rect
     entity_component_collider_update_bounds(collider);
+}
+
+void entity_component_collider_rect_changed(EseRect *rect, void *userdata) {
+    EseEntityComponentCollider *collider = (EseEntityComponentCollider *)userdata;
+    if (collider) {
+        entity_component_collider_update_bounds(collider);
+    }
 }
 
 void entity_component_collider_update_bounds(EseEntityComponentCollider *collider) {

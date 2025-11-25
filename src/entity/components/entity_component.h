@@ -3,6 +3,7 @@
 
 #include "entity/entity.h" // EntityDrawTextureCallback, EntityDrawRectCallback
 #include "utility/array.h"
+#include "vendor/json/cJSON.h"
 
 // Forward declarations
 typedef struct EseEntity EseEntity;
@@ -30,9 +31,30 @@ void entity_component_destroy(EseEntityComponent *component);
 void entity_component_push(EseEntityComponent *component);
 
 void entity_component_detect_collision_with_component(EseEntityComponent *a, EseEntityComponent *b,
-                                                      EseArray *out_hits);
+                                                     EseArray *out_hits);
 
 bool entity_component_detect_collision_rect(EseEntityComponent *a, EseRect *rect);
+
+/**
+ * @brief Serialize a component to a JSON object using its concrete type.
+ *
+ * @param component Pointer to the component to serialize.
+ *
+ * @return Newly allocated cJSON object on success, or NULL on failure.
+ */
+cJSON *entity_component_serialize(EseEntityComponent *component);
+
+/**
+ * @brief Deserialize a component from a JSON object, dispatching to the
+ *        appropriate concrete component deserializer based on the "type" field.
+ *
+ * @param engine Pointer to the Lua engine used for component creation.
+ * @param data   JSON object previously produced by entity_component_serialize
+ *               or a concrete component serializer.
+ *
+ * @return Newly created EseEntityComponent on success, or NULL on failure.
+ */
+EseEntityComponent *entity_component_deserialize(EseLuaEngine *engine, const cJSON *data);
 
 /**
  * @brief Runs a function on a component using component-specific logic.

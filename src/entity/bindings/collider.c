@@ -36,20 +36,153 @@
  * @return Pointer to the collider component, or NULL if extraction fails.
  */
 static void *_entity_component_collider_rects_get_component(lua_State *L, int idx);
+
+/**
+ * @brief Retrieve an `EseEntityComponentCollider` from a Lua userdata.
+ *
+ * @param L   Lua state pointer.
+ * @param idx Stack index where the collider userdata is expected.
+ * @return Pointer to the collider component, or NULL if extraction fails.
+ */
 static EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx);
 
+/**
+ * @brief Lua constructor for `EntityComponentCollider`.
+ *
+ * @details Implements `EntityComponentCollider.new([Rect])` and returns a new
+ * collider component proxy.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values (1 on success).
+ */
 static int _entity_component_collider_new(lua_State *L);
+
+/**
+ * @brief Lua `__index` metamethod for the collider rects proxy.
+ *
+ * @details Supports numeric access to individual rects as well as methods such
+ * as `count`, `add`, `remove`, `insert`, `pop`, and `shift`.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
+static int _entity_component_collider_rects_index(lua_State *L);
+
+/**
+ * @brief Lua method to add a rect to the collider's rect list.
+ *
+ * @details Expects a single `Rect` argument and appends it to the collider's
+ * internal rect array.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_rects_add(lua_State *L);
+
+/**
+ * @brief Lua method to remove a rect from the collider's rect list.
+ *
+ * @details Expects a `Rect` argument; returns `true` if the rect was removed,
+ * `false` otherwise.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_rects_remove(lua_State *L);
+
+/**
+ * @brief Lua method to insert a rect into the collider's rect list.
+ *
+ * @details Expects a `Rect` and an index; shifts existing entries and inserts
+ * the rect at the given position.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_rects_insert(lua_State *L);
+
+/**
+ * @brief Lua method to remove and return the last rect from the collider's
+ * rect list.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_rects_pop(lua_State *L);
+
+/**
+ * @brief Lua method to remove and return the first rect from the collider's
+ * rect list.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_rects_shift(lua_State *L);
+
+/**
+ * @brief Lua `__index` metamethod for `EntityComponentCollider` proxies.
+ *
+ * @details Provides access to properties such as `active`, `id`, `draw_debug`,
+ * `map_interaction`, `offset`, `rects`, and the `toJSON` method.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_index(lua_State *L);
+
+/**
+ * @brief Lua `__newindex` metamethod for `EntityComponentCollider` proxies.
+ *
+ * @details Handles writes to mutable properties like `active`, `offset`,
+ * `draw_debug`, and `map_interaction`.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_newindex(lua_State *L);
-static int _entity_component_collider_rects_rects_index(lua_State *L);
+
+/**
+ * @brief Lua `__gc` metamethod for `EntityComponentCollider` proxies.
+ *
+ * @details Destroys the underlying collider component when it is owned solely
+ * by Lua (no engine Lua ref).
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_gc(lua_State *L);
+
+/**
+ * @brief Lua `__tostring` metamethod for `EntityComponentCollider` proxies.
+ *
+ * @details Returns a human-readable description of the collider, including its
+ * pointer, id, active flag, and debug draw status.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_tostring(lua_State *L);
+
+/**
+ * @brief Lua instance method implementation for `EntityComponentCollider:toJSON()`.
+ *
+ * @details Serializes the collider component to a JSON string using
+ * `entity_component_collider_serialize`.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_tojson_lua(lua_State *L);
+
+/**
+ * @brief Lua class method implementation for `EntityComponentCollider.fromJSON()`.
+ *
+ * @details Parses a JSON string, deserializes it into a collider component via
+ * `entity_component_collider_deserialize`, and returns a new Lua proxy.
+ *
+ * @param L Lua state pointer.
+ * @return Number of Lua return values.
+ */
 static int _entity_component_collider_fromjson_lua(lua_State *L);
 
 // ========================================
@@ -106,6 +239,54 @@ static int _entity_component_collider_new(lua_State *L) {
     }
 
     return 1;
+}
+
+static int _entity_component_collider_rects_index(lua_State *L) {
+    EseEntityComponentCollider *component = _entity_component_collider_rects_get_component(L, 1);
+    if (!component) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (lua_isnumber(L, 2)) {
+        int index = (int)lua_tointeger(L, 2) - 1;
+        if (index >= 0 && index < (int)component->rects_count) {
+            EseRect *rect = component->rects[index];
+            ese_rect_lua_push(rect);
+            return 1;
+        }
+
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char *key = lua_tostring(L, 2);
+    if (!key) {
+        return 0;
+    }
+
+    if (strcmp(key, "count") == 0) {
+        lua_pushinteger(L, component->rects_count);
+        return 1;
+    } else if (strcmp(key, "add") == 0) {
+        lua_pushlightuserdata(L, component);
+        lua_pushcclosure(L, _entity_component_collider_rects_add, 1);
+        return 1;
+    } else if (strcmp(key, "remove") == 0) {
+        lua_pushcfunction(L, _entity_component_collider_rects_remove);
+        return 1;
+    } else if (strcmp(key, "insert") == 0) {
+        lua_pushcfunction(L, _entity_component_collider_rects_insert);
+        return 1;
+    } else if (strcmp(key, "pop") == 0) {
+        lua_pushcfunction(L, _entity_component_collider_rects_pop);
+        return 1;
+    } else if (strcmp(key, "shift") == 0) {
+        lua_pushcfunction(L, _entity_component_collider_rects_shift);
+        return 1;
+    }
+
+    return 0;
 }
 
 static int _entity_component_collider_rects_add(lua_State *L) {
@@ -361,54 +542,6 @@ static int _entity_component_collider_newindex(lua_State *L) {
     return luaL_error(L, "unknown or unassignable property '%s'", key);
 }
 
-static int _entity_component_collider_rects_rects_index(lua_State *L) {
-    EseEntityComponentCollider *component = _entity_component_collider_rects_get_component(L, 1);
-    if (!component) {
-        lua_pushnil(L);
-        return 1;
-    }
-
-    if (lua_isnumber(L, 2)) {
-        int index = (int)lua_tointeger(L, 2) - 1;
-        if (index >= 0 && index < (int)component->rects_count) {
-            EseRect *rect = component->rects[index];
-            ese_rect_lua_push(rect);
-            return 1;
-        }
-
-        lua_pushnil(L);
-        return 1;
-    }
-
-    const char *key = lua_tostring(L, 2);
-    if (!key) {
-        return 0;
-    }
-
-    if (strcmp(key, "count") == 0) {
-        lua_pushinteger(L, component->rects_count);
-        return 1;
-    } else if (strcmp(key, "add") == 0) {
-        lua_pushlightuserdata(L, component);
-        lua_pushcclosure(L, _entity_component_collider_rects_add, 1);
-        return 1;
-    } else if (strcmp(key, "remove") == 0) {
-        lua_pushcfunction(L, _entity_component_collider_rects_remove);
-        return 1;
-    } else if (strcmp(key, "insert") == 0) {
-        lua_pushcfunction(L, _entity_component_collider_rects_insert);
-        return 1;
-    } else if (strcmp(key, "pop") == 0) {
-        lua_pushcfunction(L, _entity_component_collider_rects_pop);
-        return 1;
-    } else if (strcmp(key, "shift") == 0) {
-        lua_pushcfunction(L, _entity_component_collider_rects_shift);
-        return 1;
-    }
-
-    return 0;
-}
-
 static int _entity_component_collider_gc(lua_State *L) {
     EseEntityComponentCollider **ud =
         (EseEntityComponentCollider **)luaL_testudata(L, 1, ENTITY_COMPONENT_COLLIDER_PROXY_META);
@@ -419,7 +552,7 @@ static int _entity_component_collider_gc(lua_State *L) {
     EseEntityComponentCollider *component = *ud;
     if (component) {
         if (component->base.lua_ref == LUA_NOREF) {
-            _entity_component_collider_destroy(component);
+            entity_component_collider_destroy(component);
         }
     }
 
@@ -527,7 +660,7 @@ void entity_component_collider_init(EseLuaEngine *engine) {
     lua_engine_new_object(engine, "EntityComponentCollider", 2, keys, functions);
 
     lua_engine_new_object_meta(engine, COLLIDER_RECTS_PROXY_META,
-                               _entity_component_collider_rects_rects_index, NULL, NULL, NULL);
+                               _entity_component_collider_rects_index, NULL, NULL, NULL);
 
     profile_count_add("entity_comp_collider_init_count");
 }
