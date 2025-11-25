@@ -2,6 +2,7 @@
 #include "core/asset_manager.h"
 #include "core/engine.h"
 #include "core/memory_manager.h"
+#include "vendor/json/cJSON.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_lua.h"
 #include "entity/components/entity_component_private.h"
@@ -225,6 +226,10 @@ int _entity_component_shape_polylines_index(lua_State *L) {
 
     return 0;
 }
+// Forward declarations for Lua JSON helpers
+static int _entity_component_shape_tojson_lua(lua_State *L);
+static int _entity_component_shape_fromjson_lua(lua_State *L);
+
 // VTable wrapper functions
 static EseEntityComponent *_shape_vtable_copy(EseEntityComponent *component) {
     return _entity_component_shape_copy((EseEntityComponentShape *)component->data);
@@ -369,6 +374,68 @@ void _entity_component_ese_shape_cleanup(EseEntityComponentShape *component) {
     ese_uuid_destroy(component->base.id);
     memory_manager.free(component);
     profile_count_add("entity_comp_shape_destroy_count");
+}
+
+cJSON *entity_component_shape_serialize(const EseEntityComponentShape *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_shape_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Shape serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_SHAPE") ||
+        !cJSON_AddBoolToObject(json, "active", component->base.active) ||
+        !cJSON_AddNumberToObject(json, "rotation", (double)component->rotation)) {
+        log_error("ENTITY_COMP", "Shape serialize: failed to add fields");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // NOTE: polylines are not currently serialized; this can be extended later.
+
+    return json;
+}
+
+EseEntityComponent *entity_component_shape_deserialize(EseLuaEngine *engine,
+                                                       const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_shape_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_shape_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Shape deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) ||
+        strcmp(type_item->valuestring, "ENTITY_COMPONENT_SHAPE") != 0) {
+        log_error("ENTITY_COMP", "Shape deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    const cJSON *rot_item = cJSON_GetObjectItemCaseSensitive(data, "rotation");
+
+    EseEntityComponent *base = entity_component_shape_create(engine);
+    if (!base) {
+        log_error("ENTITY_COMP", "Shape deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentShape *shape = (EseEntityComponentShape *)base->data;
+    if (cJSON_IsBool(active_item)) {
+        shape->base.active = cJSON_IsTrue(active_item);
+    }
+    if (cJSON_IsNumber(rot_item)) {
+        shape->rotation = (float)rot_item->valuedouble;
+    }
+
+    return base;
 }
 
 void _entity_component_shape_destroy(EseEntityComponentShape *component) {
@@ -656,6 +723,9 @@ static int _entity_component_shape_index(lua_State *L) {
     } else if (strcmp(key, "rotation") == 0) {
         lua_pushnumber(L, component->rotation);
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_shape_tojson_lua);
+        return 1;
     } else if (strcmp(key, "polylines") == 0) {
         // Create polylines proxy userdata
         EseEntityComponentShape **ud =
@@ -778,9 +848,9 @@ void _entity_component_shape_init(EseLuaEngine *engine) {
                                _entity_component_shape_gc, _entity_component_shape_tostring);
 
     // Create global EntityComponentShape table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_entity_component_shape_new};
-    lua_engine_new_object(engine, "EntityComponentShape", 1, keys, functions);
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_entity_component_shape_new, _entity_component_shape_fromjson_lua};
+    lua_engine_new_object(engine, "EntityComponentShape", 2, keys, functions);
 
     // Create ShapePolylinesProxyMeta metatable
     extern int _entity_component_shape_polylines_index(lua_State * L);
@@ -797,4 +867,55 @@ EseEntityComponent *entity_component_shape_create(EseLuaEngine *engine) {
     component->vtable->ref(component);
 
     return component;
+}
+
+static int _entity_component_shape_tojson_lua(lua_State *L) {
+    EseEntityComponentShape *self = _entity_component_shape_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentShape:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentShape:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_shape_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentShape:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentShape:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+static int _entity_component_shape_fromjson_lua(lua_State *L) {
+    const char *json_str = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "EntityComponentShape.fromJSON() could not get engine");
+    }
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        return luaL_error(L, "EntityComponentShape.fromJSON() failed to parse JSON");
+    }
+
+    EseEntityComponent *base = entity_component_shape_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!base) {
+        return luaL_error(L, "EntityComponentShape.fromJSON() failed to deserialize");
+    }
+
+    EseEntityComponentShape *comp = (EseEntityComponentShape *)base->data;
+
+    EseEntityComponentShape **ud =
+        (EseEntityComponentShape **)lua_newuserdata(L, sizeof(EseEntityComponentShape *));
+    *ud = comp;
+    luaL_getmetatable(L, ENTITY_COMPONENT_SHAPE_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }

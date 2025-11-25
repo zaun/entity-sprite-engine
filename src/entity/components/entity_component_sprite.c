@@ -11,7 +11,11 @@
 #include "scripting/lua_engine.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 #include <string.h>
+
+// Forward declarations for JSON helpers
+static int _entity_component_sprite_tojson_lua(lua_State *L);
 
 // VTable wrapper functions
 static EseEntityComponent *_sprite_vtable_copy(EseEntityComponent *component) {
@@ -134,6 +138,100 @@ void _entity_component_sprite_destroy(EseEntityComponentSprite *component) {
     }
 }
 
+cJSON *entity_component_sprite_serialize(const EseEntityComponentSprite *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_sprite_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Sprite serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_SPRITE")) {
+        log_error("ENTITY_COMP", "Sprite serialize: failed to add type");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddBoolToObject(json, "active", component->base.active)) {
+        log_error("ENTITY_COMP", "Sprite serialize: failed to add active");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (component->sprite_name) {
+        if (!cJSON_AddStringToObject(json, "sprite", component->sprite_name)) {
+            log_error("ENTITY_COMP", "Sprite serialize: failed to add sprite");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    } else {
+        if (!cJSON_AddNullToObject(json, "sprite")) {
+            log_error("ENTITY_COMP", "Sprite serialize: failed to add sprite null");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    if (!cJSON_AddNumberToObject(json, "current_frame", (double)component->current_frame)) {
+        log_error("ENTITY_COMP", "Sprite serialize: failed to add current_frame");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_sprite_deserialize(EseLuaEngine *engine,
+                                                        const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_sprite_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_sprite_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Sprite deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) || strcmp(type_item->valuestring, "ENTITY_COMPONENT_SPRITE") != 0) {
+        log_error("ENTITY_COMP", "Sprite deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    if (!cJSON_IsBool(active_item)) {
+        log_error("ENTITY_COMP", "Sprite deserialize: missing active field");
+        return NULL;
+    }
+
+    const cJSON *sprite_item = cJSON_GetObjectItemCaseSensitive(data, "sprite");
+    const char *sprite_name = NULL;
+    if (cJSON_IsString(sprite_item)) {
+        sprite_name = sprite_item->valuestring;
+    }
+
+    const cJSON *frame_item = cJSON_GetObjectItemCaseSensitive(data, "current_frame");
+    size_t current_frame = 0;
+    if (cJSON_IsNumber(frame_item) && frame_item->valuedouble >= 0.0) {
+        current_frame = (size_t)frame_item->valuedouble;
+    }
+
+    EseEntityComponent *base = entity_component_sprite_create(engine, sprite_name);
+    if (!base) {
+        log_error("ENTITY_COMP", "Sprite deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentSprite *sprite = (EseEntityComponentSprite *)base->data;
+    sprite->base.active = cJSON_IsTrue(active_item);
+    sprite->current_frame = current_frame;
+
+    return base;
+}
+
 /**
  * @brief Lua function to create a new EseEntityComponentSprite object.
  *
@@ -220,6 +318,9 @@ static int _entity_component_sprite_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "sprite") == 0) {
         lua_pushstring(L, component->sprite_name);
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_sprite_tojson_lua);
         return 1;
     }
 
@@ -345,4 +446,26 @@ EseEntityComponent *entity_component_sprite_create(EseLuaEngine *engine, const c
     component->vtable->ref(component);
 
     return component;
+}
+
+static int _entity_component_sprite_tojson_lua(lua_State *L) {
+    EseEntityComponentSprite *self = _entity_component_sprite_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentSprite:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentSprite:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_sprite_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentSprite:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentSprite:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
 }

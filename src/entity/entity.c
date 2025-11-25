@@ -5,7 +5,7 @@
 #include "core/memory_manager.h"
 #include "core/pubsub.h"
 #include "core/system_manager.h"
-#include "entity/components/entity_component_collider.h"
+#include "entity/components/collider.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity_lua.h"
 #include "entity/entity_private.h"

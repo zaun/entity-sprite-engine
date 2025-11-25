@@ -11,7 +11,7 @@ In Lua, cameras are represented as **proxy tables** that behave like regular Lua
 They behave like objects with properties accessible via dot notation.
 
 **Important Notes:**
-- **Position is a Point object reference** - you cannot assign a new Point, but you can modify the existing one
+- **Position is a `Point` object** - you can either modify the existing point in-place or assign another `Point` (its `x`/`y` are copied, the reference is not replaced)
 - **Rotation is in radians** (0 to 2π, where π/2 = 90°, π = 180°, 3π/2 = 270°)
 - **Scale affects zoom** (1.0 = normal, >1.0 = zoom in, <1.0 = zoom out)
 - **No global constructor** - cameras are created by the engine and accessed via `engine:get_camera()`
@@ -50,7 +50,7 @@ Each `Camera` object has the following properties:
 - `scale` → camera zoom factor (read/write)  
 
 **Notes:**
-- **Position** is a reference to a `Point` object - you cannot assign a new Point, but you can modify the existing one's x and y values
+- **Position** is a reference to a `Point` object - you can modify the existing point, or assign another `Point` value whose coordinates will be copied into the camera's internal point
 - **Rotation** is in radians (0 = right, π/2 = down, π = left, 3π/2 = up)
 - **Scale** affects zoom level (1.0 = normal size, 2.0 = 2x zoom in, 0.5 = 2x zoom out)
 - All properties are validated for type safety (rotation and scale must be numbers)
@@ -74,17 +74,18 @@ cam.scale = 0.5                    -- 2x zoom out
 cam.scale = 1.0                    -- normal zoom
 ```
 
-⚠️ **Important:** You cannot directly assign a new `position` object. Instead, modify the existing `Point`:
+⚠️ **Important:** Assigning `cam.position = some_point` **copies** the coordinates from `some_point` into the camera's existing internal point; it does **not** make the two share the same `Point` object.
 
 ```lua
--- ❌ Invalid - will cause Lua error
-cam.position = Point.new(50, 50)
+-- ✅ Valid - coordinates are copied into the existing camera point
+local p = Point.new(50, 50)
+cam.position = p          -- cam.position.x == 50, cam.position.y == 50
 
--- ✅ Correct - modify existing Point's values
+-- ✅ Also valid - modify existing Point's values in-place
 cam.position.x = 50
 cam.position.y = 50
 
--- ✅ Also correct - copy values from another Point
+-- ✅ Copy from another Point explicitly
 local new_pos = Point.new(100, 200)
 cam.position.x = new_pos.x
 cam.position.y = new_pos.y

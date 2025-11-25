@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_TEXT_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include "vendor/lua/src/lua.h"
 #include <string.h>
 
@@ -50,6 +51,10 @@ typedef struct EseEntityComponentText {
 EseEntityComponent *_entity_component_text_copy(const EseEntityComponentText *src);
 
 void _entity_component_text_destroy(EseEntityComponentText *component);
+
+cJSON *entity_component_text_serialize(const EseEntityComponentText *component);
+EseEntityComponent *entity_component_text_deserialize(EseLuaEngine *engine,
+                                                      const cJSON *data);
 
 EseEntityComponentText *_entity_component_text_get(lua_State *L, int idx);
 

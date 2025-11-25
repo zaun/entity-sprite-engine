@@ -74,6 +74,26 @@ print(circle.end_angle)     --> 6.283... (2π)
 
 ---
 
+### `Arc.fromJSON(json_string)`
+Creates a new `Arc` from a JSON string previously produced by `arc:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `arc:toJSON()`  
+
+**Returns:** `Arc` object
+
+**Notes:**
+- Validates that the JSON represents an `Arc`; invalid JSON raises a Lua error
+- Uses the engine's allocator and JSON parser internally
+
+**Example:**
+```lua
+local json = some_arc:toJSON()
+local copy = Arc.fromJSON(json)
+```
+
+---
+
 ## Arc Object Properties
 
 Each `Arc` object has the following **read/write** properties:
@@ -132,7 +152,7 @@ print(a:contains_point(0, -5))          --> false (bottom, outside angle range)
 ---
 
 ### `arc:get_length()`
-Calculates and returns the arc length using the formula: `radius × (end_angle - start_angle)`.
+Calculates and returns the arc length using the formula: `radius × Δangle`, where `Δangle` is the normalized difference between `end_angle` and `start_angle`.
 
 **Returns:** arc length (number)
 
@@ -181,11 +201,11 @@ Checks if the arc intersects with a rectangle.
 **Arguments:**
 - `rect` → a `Rect` object  
 
-**Returns:** `true` if arc intersects with the rectangle, `false` otherwise
+**Returns:** `true` if the arc intersects the rectangle, `false` otherwise
 
 **Notes:**
-- Checks intersection between the arc curve and the rectangle edges
-- Takes into account the rectangle's rotation if applicable
+- Tests intersection between the arc curve and the rectangle bounds
+- Uses the current rectangle geometry (including any rotation configured on the `Rect`)
 
 **Example:**
 ```lua
@@ -198,6 +218,24 @@ end
 
 local r2 = Rect.new(20, 20, 5, 5)           -- Square far away
 print("Intersects far square:", a:intersects_rect(r2))  --> false
+```
+
+---
+
+### `arc:toJSON()`
+Serializes the arc into a compact JSON string.  
+
+**Returns:** JSON string that can be passed to `Arc.fromJSON()`
+
+**Notes:**
+- Encodes center, radius, and angular range
+- Raises a Lua error if serialization fails
+
+**Example:**
+```lua
+local arc = Arc.new(0, 0, 5, 0, math.pi)
+local json = arc:toJSON()
+local copy = Arc.fromJSON(json)
 ```
 
 ---

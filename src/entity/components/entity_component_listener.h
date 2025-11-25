@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_LISTENER_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include "vendor/lua/src/lua.h"
 #include <stdbool.h>
 
@@ -46,6 +47,10 @@ typedef struct EseEntityComponentListener {
 EseEntityComponent *_entity_component_listener_copy(const EseEntityComponentListener *src);
 
 void _entity_component_listener_destroy(EseEntityComponentListener *component);
+
+cJSON *entity_component_listener_serialize(const EseEntityComponentListener *component);
+EseEntityComponent *entity_component_listener_deserialize(EseLuaEngine *engine,
+                                                          const cJSON *data);
 
 EseEntityComponentListener *_entity_component_listener_get(lua_State *L, int idx);
 

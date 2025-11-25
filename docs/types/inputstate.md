@@ -35,8 +35,8 @@ if InputState.keys_pressed[InputState.KEY.ENTER] then
     print("Enter was just pressed")
 end
 
--- Check if a mouse button is down
-if InputState.mouse_buttons[InputState.KEY.MOUSE_LEFT] then
+-- Check if a mouse button is down (0 = left, 1 = right, 2 = middle)
+if InputState.mouse_down[0] then
     print("Left mouse button is down")
 end
 ```
@@ -136,7 +136,7 @@ InputState.keys_down[InputState.KEY.A] = true
 InputState.keys_pressed[InputState.KEY.SPACE] = true
 -- Error: "Input tables are read-only"
 
-InputState.mouse_buttons[0] = true
+InputState.mouse_down[0] = true
 -- Error: "Input tables are read-only"
 ```
 

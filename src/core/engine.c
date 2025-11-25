@@ -32,6 +32,7 @@
 #include "types/http.h"
 #include "types/input_state.h"
 #include "types/input_state_private.h"
+#include "types/scene.h"
 #include "types/types.h"
 #include "utility/array.h"
 #include "utility/double_linked_list.h"
@@ -108,6 +109,7 @@ EseEngine *engine_create(const char *startup_script) {
     ese_uuid_lua_init(engine->lua_engine);
     ese_gui_style_lua_init(engine->lua_engine);
     ese_http_request_lua_init(engine->lua_engine);
+    ese_scene_lua_init(engine->lua_engine);
 
     // Add functions
     lua_engine_add_function(engine->lua_engine, "print", _lua_print);

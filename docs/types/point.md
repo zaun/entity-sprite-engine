@@ -46,7 +46,7 @@ Creates a new point with the given coordinates.
 **Returns:** `Point` object
 
 **Notes:**
-- Both arguments are **required** (unlike some other types)
+- Both arguments are **required**
 - Coordinates can be any numeric value (including negative, fractional, etc.)
 - The point is created with Lua ownership (will be garbage collected)
 
@@ -82,6 +82,43 @@ print(origin.x, origin.y)  --> 0, 0
 local p = Point.zero()
 p.x = 100
 p.y = 200
+```
+
+---
+
+### `Point.distance(p1, p2)`
+Computes the Euclidean distance between two `Point` instances.  
+
+**Arguments:**
+- `p1` → first `Point`  
+- `p2` → second `Point`  
+
+**Returns:** distance between `p1` and `p2` (number)
+
+**Example:**
+```lua
+local a = Point.new(0, 0)
+local b = Point.new(3, 4)
+print(Point.distance(a, b))  --> 5
+```
+
+---
+
+### `Point.fromJSON(json_string)`
+Creates a `Point` from a JSON string previously produced by `point:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `point:toJSON()`  
+
+**Returns:** `Point` object
+
+**Notes:**
+- Validates that the JSON represents a point; invalid JSON raises a Lua error
+
+**Example:**
+```lua
+local json = some_point:toJSON()
+local copy = Point.fromJSON(json)
 ```
 
 ---
@@ -122,17 +159,33 @@ print("Trig values:", p.x, p.y)  --> ~0.707, ~0.707
 
 ---
 
+## Point Object Methods
+
+### `point:toJSON()`
+Serializes the point into a compact JSON string.  
+
+**Returns:** JSON string that can be passed to `Point.fromJSON()`
+
+**Example:**
+```lua
+local p = Point.new(10, 20)
+local json = p:toJSON()
+local copy = Point.fromJSON(json)
+```
+
+---
+
 ## Metamethods
 
 ### `tostring(point)`
 Returns a string representation of the point with its coordinates.
 
-**Format:** `"Point: 0x... (x=..., y=...)"`
+**Format:** `"(x=..., y=...)"`
 
 **Example:**
 ```lua
 local p = Point.new(10, 20)
-print(p)  --> Point: 0x... (x=10.00, y=20.00)
+print(p)  --> (x=10.000, y=20.000)
 ```
 
 ---

@@ -227,7 +227,7 @@
 #include "collision_resolver.h"
 #include "core/memory_manager.h"
 #include "entity/components/entity_component.h"
-#include "entity/components/entity_component_collider.h"
+#include "entity/components/collider.h"
 #include "entity/components/entity_component_map.h"
 #include "entity/entity.h"
 #include "entity/entity_private.h"

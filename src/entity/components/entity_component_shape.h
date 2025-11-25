@@ -3,6 +3,7 @@
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
 #include "types/poly_line.h"                            // EsePolyLine
+#include "vendor/json/cJSON.h"
 #include <string.h>
 
 #define ENTITY_COMPONENT_SHAPE_PROXY_META "EntityComponentShapeProxyMeta"
@@ -20,6 +21,7 @@ typedef struct EseLuaEngine EseLuaEngine;
  */
 typedef struct EseEntityComponentShape {
     EseEntityComponent base;   /** Base component structure */
+
     EsePolyLine **polylines;   /** Array of polylines for the shape */
     size_t polylines_count;    /** Number of polylines */
     size_t polylines_capacity; /** Allocated capacity for polylines array */
@@ -30,6 +32,9 @@ EseEntityComponent *_entity_component_shape_copy(const EseEntityComponentShape *
 
 void _entity_component_shape_destroy(EseEntityComponentShape *component);
 
+cJSON *entity_component_shape_serialize(const EseEntityComponentShape *component);
+EseEntityComponent *entity_component_shape_deserialize(EseLuaEngine *engine,
+                                                       const cJSON *data);
 EseEntityComponentShape *_entity_component_shape_get(lua_State *L, int idx);
 
 void _entity_component_shape_init(EseLuaEngine *engine);

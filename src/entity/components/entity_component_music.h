@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_MUSIC_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include "vendor/lua/src/lua.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -52,6 +53,10 @@ typedef struct EseEntityComponentMusic {
 EseEntityComponent *_entity_component_music_copy(const EseEntityComponentMusic *src);
 
 void _entity_component_music_destroy(EseEntityComponentMusic *component);
+
+cJSON *entity_component_music_serialize(const EseEntityComponentMusic *component);
+EseEntityComponent *entity_component_music_deserialize(EseLuaEngine *engine,
+                                                       const cJSON *data);
 
 EseEntityComponentMusic *_entity_component_music_get(lua_State *L, int idx);
 

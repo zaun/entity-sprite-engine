@@ -52,6 +52,7 @@ This pattern is a good model for a new `Scene` type: C-owned data, Lua proxies, 
 1. **Scene data model**
     * Represent a **description** of a set of entities and their components, not just a live view.
     * The description should be usable to create *new* entities with equivalent state (position, tags, components, and component configuration) when `Scene:run()` is called.
+    * Entity UUIDs/IDs are **not** serialized or reused; each `scene:run()` call creates brand-new entities with new IDs, and scripts should use tags to find entities rather than relying on stable IDs.
 2. **Instance method: run**
     * `scene:run()` should:
         * Iterate all described entities in the scene.
@@ -90,7 +91,7 @@ This pattern is a good model for a new `Scene` type: C-owned data, Lua proxies, 
 ### 1.2 Internal structure
 Inside `scene.c`, define something along these lines (conceptually):
 * `EseScene` owns:
-    * `EseLuaEngine *lua;` – to access the Lua runtime when instantiating entities.
+    * `EseLuaEngine *lua;` – pointer to the single engine's Lua instance; scenes are always used with this engine and are only created/run from the main thread via Lua bindings.
     * `EseArray *entities;` – dynamic array of `EseSceneEntityDesc*`.
 * `EseSceneEntityDesc` represents one entity blueprint:
     * Core fields copied from an entity:
@@ -100,15 +101,16 @@ Inside `scene.c`, define something along these lines (conceptually):
         * `uint64_t draw_order;`
         * `float x, y;` – position at time of snapshot.
         * A list of tags: `char **tags; size_t tag_count;`.
-    * A *blueprint* for components and entity data as a single `EseLuaValue *spec;` representing a Lua table:
-        * The `spec` table can model:
-        * Top-level numeric/boolean/string fields for public entity attributes (if needed).
-        * A `components` array field where each entry is a Lua table describing one component (type name + config fields).
-        * A `data` table mirroring the entity’s `data` environment, if you want to persist custom script data.
-    * We use `EseLuaValue` as the main carrier for hierarchical data since it already has conversion helpers in `entity_lua.c` (`_lua_value_to_stack`, `lua_value_from_stack`).
+    * Component blueprints captured in a C-driven, JSON-based format:
+        * `EseArray *components;` – dynamic array of `EseSceneComponentBlueprint*`.
+* `EseSceneComponentBlueprint` conceptually contains:
+    * `EntityComponentType type;` – which component this blueprint is for.
+    * `cJSON *json;` – configuration produced by that component's existing `*_serialize` / `*_to_json` function, representing its **current state** at snapshot time.
+    * Optional extra metadata if a component needs it (e.g., versioning tags) – the exact shape can evolve with components.
 Rationale:
-* Rather than defining an entirely new per-component C serialization scheme, we leverage `EseLuaValue` as a structured, engine-agnostic representation of entity/component configuration.
-* Components already expose config to Lua; by serializing from Lua we can capture their configuration as Lua tables and then reconstruct components later by feeding those tables back into existing component constructors.
+* Scenes are pure blueprints of the "current state" when `Scene.create` is called; they are not live views of entities.
+* By delegating serialization to each component's existing C-level to/from JSON functions, scene creation and re-instantiation stay C-driven and do not depend on Lua to define the configuration schema.
+* Because IDs are not serialized, running a scene always produces a fresh set of entities; cross-entity references should use tags or other higher-level mechanisms rather than UUIDs.
 ### 1.3 Scene lifecycle API
 In `scene.h`:
 * Creation and destruction:
@@ -137,21 +139,20 @@ Implement `ese_scene_create_from_engine(engine, include_persistent)` roughly as:
         * Copy simple fields (`active`, `visible`, `persistent`, `draw_order`).
         * Copy `x`, `y` from `entity->position` via `ese_point_get_x/y`.
         * Deep-copy tags: allocate `char*` per tag and copy the strings.
-    * Construct a `EseLuaValue *spec` describing the entity for reconstruction.
-### 2.2 Capturing entity configuration into EseLuaValue
-We will add helper functions to `entity_lua.c` and/or a new helper module to convert a live entity into a reusable `EseLuaValue` blueprint:
-* New internal API (not Lua-visible):
-    * `EseLuaValue *entity_serialize_blueprint(EseEntity *entity);`
+    * Capture component blueprints as described below.
+`ese_scene_create_from_engine` is only called from Lua bindings on the main thread; there is a single `EseEngine`/`EseLuaEngine` per application, and scenes are not intended to be used across multiple engines.
+### 2.2 Capturing entity configuration via component JSON
+Instead of going through Lua tables, scene blueprints use each component's existing JSON serialization:
+* Introduce an internal helper (not Lua-visible):
+    * `EseSceneEntityDesc *scene_build_entity_desc(EseEntity *entity);`
         * Implementation outline:
-        1. Create a root table `EseLuaValue`.
-        2. Optionally record simple scalar properties (e.g. persistent, draw_order) if we want to rebuild them from Lua; these may also be reconstructed in C directly, so this can be minimal at first.
-        3. For components:
-        * Create a `components` array field.
-        * Iterate `entity->components[i]`.
-        * For each component, push its Lua proxy (`lua_rawgeti(L, LUA_REGISTRYINDEX, comp->lua_ref)`) and build a table representation via `lua_value_from_stack`. That gives a table snapshot of the component’s user-visible fields.
-        4. Optionally snapshot the entity `data` table by retrieving the userdata’s environment (`getfenv`) and converting it to an `EseLuaValue` table.
-* The returned `EseLuaValue *` is owned by the scene; `EseSceneEntityDesc` holds and later destroys it.
-This approach keeps the component-specific knowledge mostly on the Lua side; each component’s Lua metatable controls its visible configuration, and the blueprint is just a Lua-side representation of those values.
+        1. Allocate and populate the core fields and tags as above.
+        2. For each `EseEntityComponent *comp` in `entity->components`:
+            * Call that component's existing C-level `*_serialize` / `*_to_json` function to obtain a `cJSON*` representing its current configuration.
+            * Allocate an `EseSceneComponentBlueprint`, store `comp->type` and the `cJSON*` into it, and append it to `desc->components`.
+        3. If we later introduce entity-level JSON (for the `data` environment or other script state), we can store that alongside the component blueprints using the same pattern.
+* `EseScene` owns all `EseSceneEntityDesc` instances and their `EseSceneComponentBlueprint` arrays, including the `cJSON*` nodes. `ese_scene_destroy` is responsible for freeing them.
+This keeps the blueprint format purely C-driven and reuses the existing per-component JSON schema, while still capturing the full "current" configuration of each component at the moment `Scene.create` is called.
 ## 3. Instantiating a Scene (scene:run)
 ### 3.1 High-level flow
 `ese_scene_run(EseScene *scene, EseEngine *engine)` should:
@@ -167,31 +168,31 @@ This approach keeps the component-specific knowledge mostly on the Lua side; eac
         * Re-add tags via `entity_add_tag`.
     * Run a helper that applies the `spec` blueprint to attach components and `data`.
     * Register the entity with the engine via `engine_add_entity(engine, entity);`.
-### 3.2 Applying the blueprint via Lua
-Add a new helper that mirrors `entity_serialize_blueprint` in reverse:
-* `bool entity_apply_blueprint(EseEntity *entity, const EseLuaValue *spec);`
-    * Implementation outline:
-        1. Push `spec` onto the Lua stack using the existing `_lua_value_to_stack` logic from `entity_lua.c`.
-        2. From that table, reconstruct components by invoking component constructors or using `Entity` + component APIs you already expose in Lua. Two reasonable strategies:
-        * **Lua-driven reconstruction**: call into a Lua helper function (e.g. `Entity._from_blueprint(table)`) that knows how to create and configure an entity matching the blueprint. The C function would just call this helper per entity.
-        * **C-driven reconstruction via LuaValue**: Use C code to:
-        * Iterate `spec->components` array and for each:
-        * Push the component description table to the stack.
-        * Call an appropriate component factory function (e.g. `SpriteComponent.new(config)`), then attach it to the entity using the existing `components` API.
-    * For a first iteration, the **Lua-driven reconstruction** is simpler: `scene_run` can call a single Lua helper that takes the blueprint table and returns a fully created Lua entity; we then get the backing `EseEntity*` pointer and ensure it’s added to the engine.
+### 3.2 Applying the blueprint in C using component JSON
+Reconstruction is fully C-driven and uses each component's `*_deserialize` / `*_from_json` implementation:
+* Add an internal helper:
+    * `bool entity_apply_blueprint(EseEntity *entity, const EseSceneEntityDesc *desc);`
+        * Implementation outline:
+        1. For each `EseSceneComponentBlueprint *bp` in `desc->components`:
+            * Dispatch on `bp->type` and call the corresponding component's C-level JSON deserializer to construct a new `EseEntityComponent*` from `bp->json`.
+            * Attach the component to the entity via the normal `entity_component_add` path so that systems see the new component.
+        2. If entity-level JSON is added later, apply it here as well.
+        3. Return `true` on success; on failure, log an error and either partially construct the entity or destroy it, depending on what is most appropriate for the engine.
+Scenes themselves never call into Lua to rebuild entities; Lua is used only to *request* `Scene.create()` and `scene:run()`, with all work performed in C.
 ### 3.3 Ensuring systems are notified
 * Because we will use normal entity/component APIs, systems will be notified automatically:
-    * Creating components should go through the usual code paths (via Lua’s `components:add` or a C shim that calls `entity_component_add`).
-    * That leads to `engine_notify_comp_add` being invoked via `entity_component_add`.
+    * Creating components goes through `entity_component_add`.
+    * That leads to `engine_notify_comp_add` being invoked and all relevant systems updating their internal collections.
+* Multiple calls to `ese_scene_run` / `scene:run()` are allowed and will create additional entities each time; scenes do not track or replace previously instantiated entities.
 ## 4. Lua API surface for Scene
 ### 4.1 Lua metatable and global table
 * Add `scene_lua_init(EseLuaEngine *engine)` in `types/scene_lua.c`.
 * This will:
     * Create a `SceneProxyMeta` metatable for Scene userdata:
-        * `__index` should dispatch instance methods: `run`, maybe `entity_count` later.
+        * `__index` should dispatch instance methods: `run`, `entity_count`.
     * Create a global `Scene` table with class methods:
         * `Scene.create([include_persistent])`
-        * `Scene.clear([include_persistent])`
+        * `Scene.clear()`
         * `Scene.reset()`
 * Register `Scene` in `engine_create` after other types:
     * Call `ese_scene_lua_init(engine->lua_engine);` similarly to `ese_point_lua_init`, `ese_rect_lua_init`, etc.
@@ -202,11 +203,11 @@ Add a new helper that mirrors `entity_serialize_blueprint` in reverse:
     * Get `EseEngine *engine` from the registry.
     * Call `EseScene *scene = ese_scene_create_from_engine(engine, include_persistent);`
     * Wrap `scene` in a Lua userdata with metatable `SceneProxyMeta` and return it.
-#### `Scene.clear([include_persistent])`
+#### `Scene.clear()`
 * C function `_lua_scene_class_clear(lua_State *L)`:
-    * Optional boolean argument: `include_persistent` (default false) to preserve current `scene_clear` semantics but allow `Scene.clear(true)`.
+    * No arguments; always preserves the existing `scene_clear` semantics of clearing only non-persistent entities.
     * Get engine from registry.
-    * Call `engine_clear_entities(engine, include_persistent);`
+    * Call `engine_clear_entities(engine, false);`
     * Return `true`.
 #### `Scene.reset()`
 * C function `_lua_scene_class_reset(lua_State *L)`:
@@ -214,12 +215,16 @@ Add a new helper that mirrors `entity_serialize_blueprint` in reverse:
     * Get engine from registry.
     * Call `engine_clear_entities(engine, true);`.
     * Return `true`.
-### 4.3 Instance method: `scene:run()`
+### 4.3 Instance methods: `scene:run()` and `scene:entity_count()`
 * C binding `_lua_scene_run(lua_State *L)` in `scene_lua.c`:
     * Ensure `self` is a `Scene` userdata and fetch `EseScene *scene`.
     * Get engine from registry.
     * Call `ese_scene_run(scene, engine);`
     * Return nothing (or a boolean success).
+* C binding `_lua_scene_entity_count(lua_State *L)` in `scene_lua.c`:
+    * Ensure `self` is a `Scene` userdata and fetch `EseScene *scene`.
+    * Call `ese_scene_entity_count(scene)` and push the resulting count as an integer.
+    * Return 1 result.
 ## 5. Moving scene_clear / scene_reset into Scene
 ### 5.1 Engine changes
 * In `engine_create` (`core/engine.c`), **stop registering** the global functions:

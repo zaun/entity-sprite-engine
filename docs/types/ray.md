@@ -39,30 +39,35 @@ print("Normalized direction:", r.dx, r.dy)  --> 0, 1
 
 ## Global `Ray` Table
 
-### `Ray.new([x, y, dx, dy])`
+### `Ray.new(x, y, dx, dy)` / `Ray.new(origin_point, direction_vector)`
 Creates a new ray.  
 
+**Forms:**
+- `Ray.new(x, y, dx, dy)` → constructs from numeric origin and direction components  
+- `Ray.new(origin_point, direction_vector)` → constructs from a `Point` origin and `Vector` direction  
+
 **Arguments:**
-- **With no arguments:** creates a ray at `(0,0)` pointing right `(1,0)` (positive X direction)
-- **With 4 arguments:** creates a ray with the specified parameters:
-  - `x` → origin x-coordinate (number)  
-  - `y` → origin y-coordinate (number)  
-  - `dx` → direction x-component (number)  
-  - `dy` → direction y-component (number)  
+- `x` → origin x-coordinate (number)  
+- `y` → origin y-coordinate (number)  
+- `dx` → direction x-component (number)  
+- `dy` → direction y-component (number)  
 
 **Returns:** `Ray` object
 
 **Notes:**
-- Both arguments are **required** when creating a non-default ray
+- Exactly **4 numeric** arguments or **(Point, Vector)** are required
 - Direction components can be any numeric value (including negative, fractional, etc.)
 - The ray is created with Lua ownership (will be garbage collected)
 
 **Example:**
 ```lua
-local r1 = Ray.new()                    -- Default: origin (0,0), direction (1,0)
+local r1 = Ray.new(0, 0, 1, 0)          -- Origin (0,0), direction (1,0)
 local r2 = Ray.new(0, 0, 1, 1)          -- Diagonal ray from origin
-local r3 = Ray.new(10, 20, 0, -1)       -- Vertical ray pointing down
-local r4 = Ray.new(-5, 5, -1, 0)        -- Horizontal ray pointing left
+local r3 = Ray.new(10, 20, 0, -1)       -- Vertical ray
+
+local origin = Point.new(5, 5)
+local dir = Vector.new(0, 1)
+local r4 = Ray.new(origin, dir)         -- From Point + Vector
 ```
 
 ---
@@ -73,7 +78,7 @@ Creates a default ray at `(0,0)` pointing right `(1,0)` (positive X direction).
 **Returns:** `Ray` object
 
 **Notes:**
-- This is equivalent to `Ray.new()` with no arguments
+- This is equivalent to `Ray.new(0, 0, 1, 0)`
 - Useful for initializing rays that will be set later
 - The ray is created with Lua ownership
 
@@ -229,6 +234,39 @@ print("Magnitude:", magnitude)  --> 1.0
 local r2 = Ray.new(0, 0, 1, 0)
 r2:normalize()
 print("Unit vector unchanged:", r2.dx, r2.dy)  --> 1, 0
+```
+
+---
+
+### `Ray.fromJSON(json_string)`
+Creates a `Ray` from a JSON string previously produced by `ray:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `ray:toJSON()`  
+
+**Returns:** `Ray` object
+
+**Notes:**
+- Validates that the JSON represents a ray; invalid JSON raises a Lua error
+
+**Example:**
+```lua
+local json = some_ray:toJSON()
+local copy = Ray.fromJSON(json)
+```
+
+---
+
+### `ray:toJSON()`
+Serializes the ray into a compact JSON string including origin and direction.  
+
+**Returns:** JSON string that can be passed to `Ray.fromJSON()`
+
+**Example:**
+```lua
+local r = Ray.new(0, 0, 1, 0)
+local json = r:toJSON()
+local copy = Ray.fromJSON(json)
 ```
 
 ---

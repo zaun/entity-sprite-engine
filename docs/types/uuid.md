@@ -71,6 +71,25 @@ print("UUIDs are different:", id.value ~= id2.value)  --> true
 
 ---
 
+### `UUID.fromJSON(json_string)`
+Creates a `UUID` object from a JSON string previously produced by `uuid:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `uuid:toJSON()`  
+
+**Returns:** `UUID` object
+
+**Notes:**
+- Validates that the JSON represents a UUID; invalid JSON raises a Lua error
+
+**Example:**
+```lua
+local json = some_uuid:toJSON()
+local copy = UUID.fromJSON(json)
+```
+
+---
+
 ## UUID Object Properties
 
 Each `UUID` object has the following **read-only** properties:
@@ -136,6 +155,21 @@ print("Value changed:", id.value ~= "550e8400-e29b-41d4-a716-446655440000")  -->
 
 ---
 
+### `uuid:toJSON()`
+Serializes the UUID into a compact JSON string.  
+
+**Returns:** JSON string that can be passed to `UUID.fromJSON()`
+
+**Example:**
+```lua
+local id = UUID.new()
+local json = id:toJSON()
+local copy = UUID.fromJSON(json)
+print(id.value, copy.value)
+```
+
+---
+
 ## Restrictions
 
 - **UUIDs are completely immutable** from Lua - no properties can be modified:
@@ -159,7 +193,7 @@ id.custom_property = "value"
 
 ## UUID Object Methods
 
-**Note:** The UUID API currently only provides the `reset()` method beyond property access.
+**Note:** The UUID API currently provides the `reset()` mutator and a `toJSON()` serializer in addition to read-only property access.
 
 ---
 

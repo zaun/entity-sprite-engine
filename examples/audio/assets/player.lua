@@ -19,6 +19,7 @@ function ENTITY:entity_init()
     self.data.music.music:add("music:track3")
     self.data.music.music:add("music:track4")
     self.components.add(self.data.music)
+    print(self.data.music:toJSON())
     local n = #self.data.music.music
     print("Music has " .. n .. " ttracks")
 

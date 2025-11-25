@@ -1,7 +1,8 @@
 #include "testing.h"
 #include "utility/log.h"
 #include "core/memory_manager.h"
-#include "entity/components/entity_component_collider.h"
+#include "entity/bindings/collider.h"
+#include "entity/components/collider.h"
 #include "entity/components/entity_component.h"
 #include "entity/entity_private.h"
 #include "types/rect.h"
@@ -327,7 +328,7 @@ void test_entity_component_collider_lua_init(void) {
     lua_State *L = test_engine->runtime;
     
     // Initialize collider component
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test that the global table exists and has expected functions
     const char *test_code = "return type(EntityComponentCollider) == 'table' and type(EntityComponentCollider.new) == 'function'";
@@ -337,80 +338,58 @@ void test_entity_component_collider_lua_init(void) {
 }
 
 void test_entity_component_collider_lua_init_null_engine(void) {
-    TEST_ASSERT_DEATH((_entity_component_collider_init(NULL)), "_entity_component_collider_init called with NULL engine");
+    TEST_ASSERT_DEATH((entity_component_collider_init(NULL)), "entity_component_collider_init called with NULL engine");
 }
 
 void test_entity_component_collider_lua_new(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test new() with no arguments
-    const char *test_code = "return EntityComponentCollider.new()";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Collider creation should execute without error");
+    const char *test_code =
+        "local c = EntityComponentCollider.new()\n"
+        "return c ~= nil and type(c) == 'userdata'";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code),
+                                  "Collider creation should execute without error");
     
-    TEST_ASSERT_TRUE(lua_isuserdata(L, -1));
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, -1);
-    TEST_ASSERT_NOT_NULL(collider);
-    TEST_ASSERT_EQUAL(0, collider->rects_count);
-    TEST_ASSERT_FALSE(collider->draw_debug);
-    
+    TEST_ASSERT_TRUE(lua_toboolean(L, -1));
     lua_pop(L, 1);
 }
 
 void test_entity_component_collider_lua_new_with_rect(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Create collider with rect using Lua script
-    const char *test_code = 
+    const char *test_code =
         "local rect = Rect.new(10, 20, 30, 40)\n"
-        "return EntityComponentCollider.new(rect)";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Collider creation with rect should execute without error");
+        "local c = EntityComponentCollider.new(rect)\n"
+        "return c ~= nil and type(c) == 'userdata' and c.rects.count == 1";
+    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code),
+                                  "Collider creation with rect should execute without error");
     
-    TEST_ASSERT_TRUE(lua_isuserdata(L, -1));
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, -1);
-    TEST_ASSERT_NOT_NULL(collider);
-    TEST_ASSERT_EQUAL(1, collider->rects_count);
-    
+    TEST_ASSERT_TRUE(lua_toboolean(L, -1));
     lua_pop(L, 1);
 }
 
 void test_entity_component_collider_lua_new_invalid_args(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test with invalid argument count - should fail
     const char *test_code = "return EntityComponentCollider.new(1, 2, 3)";
     TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Collider creation with invalid args should fail");
 }
 
-void test_entity_component_collider_lua_get(void) {
-    lua_State *L = test_engine->runtime;
-    
-    _entity_component_collider_init(test_engine);
-    
-    // Test with valid userdata
-    const char *test_code = "return EntityComponentCollider.new()";
-    TEST_ASSERT_EQUAL_INT_MESSAGE(LUA_OK, luaL_dostring(L, test_code), "Collider creation should execute without error");
-    
-    EseEntityComponentCollider *collider = _entity_component_collider_get(L, -1);
-    TEST_ASSERT_NOT_NULL(collider);
-    
-    lua_pop(L, 1);
-}
-
-void test_entity_component_collider_lua_get_null_lua_state(void) {
-    TEST_ASSERT_DEATH((_entity_component_collider_get(NULL, 1)), "_entity_component_collider_get called with NULL Lua state");
-}
 
 void test_entity_component_collider_lua_properties(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test properties using Lua script
     const char *test_code = 
@@ -424,7 +403,7 @@ void test_entity_component_collider_lua_properties(void) {
 void test_entity_component_collider_lua_property_setters(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test property setters using Lua script
     const char *test_code = 
@@ -440,7 +419,7 @@ void test_entity_component_collider_lua_property_setters(void) {
 void test_entity_component_collider_lua_rects_operations(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test rects operations using Lua script
     const char *test_code = 
@@ -454,7 +433,7 @@ void test_entity_component_collider_lua_rects_operations(void) {
 void test_entity_component_collider_lua_rects_add(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Test rects add using Lua script
@@ -471,7 +450,7 @@ void test_entity_component_collider_lua_rects_add(void) {
 void test_entity_component_collider_lua_rects_remove(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Test rects remove using Lua script
@@ -489,7 +468,7 @@ void test_entity_component_collider_lua_rects_remove(void) {
 void test_entity_component_collider_lua_rects_insert(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Test rects insert using Lua script
@@ -506,7 +485,7 @@ void test_entity_component_collider_lua_rects_insert(void) {
 void test_entity_component_collider_lua_rects_pop(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Test rects pop using Lua script
@@ -524,7 +503,7 @@ void test_entity_component_collider_lua_rects_pop(void) {
 void test_entity_component_collider_lua_rects_shift(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     ese_rect_lua_init(test_engine);
     
     // Test rects shift using Lua script
@@ -542,7 +521,7 @@ void test_entity_component_collider_lua_rects_shift(void) {
 void test_entity_component_collider_lua_tostring(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Test tostring using Lua script
     const char *test_code = 
@@ -557,7 +536,7 @@ void test_entity_component_collider_lua_tostring(void) {
 void test_entity_component_collider_lua_gc(void) {
     lua_State *L = test_engine->runtime;
     
-    _entity_component_collider_init(test_engine);
+    entity_component_collider_init(test_engine);
     
     // Create collider directly in C to test reference counting
     EseEntityComponentCollider *collider = (EseEntityComponentCollider *)entity_component_collider_create(test_engine);
@@ -613,8 +592,6 @@ int main(void) {
     RUN_TEST(test_entity_component_collider_lua_new);
     RUN_TEST(test_entity_component_collider_lua_new_with_rect);
     RUN_TEST(test_entity_component_collider_lua_new_invalid_args);
-    RUN_TEST(test_entity_component_collider_lua_get);
-    RUN_TEST(test_entity_component_collider_lua_get_null_lua_state);
     RUN_TEST(test_entity_component_collider_lua_properties);
     RUN_TEST(test_entity_component_collider_lua_property_setters);
     RUN_TEST(test_entity_component_collider_lua_rects_operations);

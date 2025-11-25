@@ -1,5 +1,6 @@
 #include "entity/components/entity_component_sound.h"
 #include "core/memory_manager.h"
+#include "vendor/json/cJSON.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
@@ -10,6 +11,10 @@
 #include "utility/profile.h"
 #include "audio/pcm.h"
 #include <string.h>
+
+// Forward declarations for Lua JSON helpers
+static int _entity_component_sound_tojson_lua(lua_State *L);
+static int _entity_component_sound_fromjson_lua(lua_State *L);
 
 // VTable wrapper functions
 static EseEntityComponent *_sound_vtable_copy(EseEntityComponent *component) {
@@ -149,6 +154,93 @@ void _entity_component_sound_destroy(EseEntityComponentSound *component) {
     } else if (component->base.lua_ref == LUA_NOREF) {
         _entity_component_sound_cleanup(component);
     }
+}
+
+cJSON *entity_component_sound_serialize(const EseEntityComponentSound *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_sound_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Sound serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_SOUND") ||
+        !cJSON_AddBoolToObject(json, "active", component->base.active)) {
+        log_error("ENTITY_COMP", "Sound serialize: failed to add base fields");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (component->sound_name) {
+        if (!cJSON_AddStringToObject(json, "sound", component->sound_name)) {
+            log_error("ENTITY_COMP", "Sound serialize: failed to add sound");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    } else {
+        if (!cJSON_AddNullToObject(json, "sound")) {
+            log_error("ENTITY_COMP", "Sound serialize: failed to add sound null");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    if (!cJSON_AddBoolToObject(json, "is_repeat", component->repeat) ||
+        !cJSON_AddBoolToObject(json, "is_spatial", component->spatial)) {
+        log_error("ENTITY_COMP", "Sound serialize: failed to add flags");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_sound_deserialize(EseLuaEngine *engine,
+                                                       const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_sound_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_sound_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Sound deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) ||
+        strcmp(type_item->valuestring, "ENTITY_COMPONENT_SOUND") != 0) {
+        log_error("ENTITY_COMP", "Sound deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    const cJSON *sound_item = cJSON_GetObjectItemCaseSensitive(data, "sound");
+    const cJSON *repeat_item = cJSON_GetObjectItemCaseSensitive(data, "is_repeat");
+    const cJSON *spatial_item = cJSON_GetObjectItemCaseSensitive(data, "is_spatial");
+
+    const char *sound_name = cJSON_IsString(sound_item) ? sound_item->valuestring : NULL;
+
+    EseEntityComponent *base = entity_component_sound_create(engine, sound_name);
+    if (!base) {
+        log_error("ENTITY_COMP", "Sound deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentSound *comp = (EseEntityComponentSound *)base->data;
+    if (cJSON_IsBool(active_item)) {
+        comp->base.active = cJSON_IsTrue(active_item);
+    }
+    if (cJSON_IsBool(repeat_item)) {
+        comp->repeat = cJSON_IsTrue(repeat_item);
+    }
+    if (cJSON_IsBool(spatial_item)) {
+        comp->spatial = cJSON_IsTrue(spatial_item);
+    }
+
+    return base;
 }
 
 /**
@@ -384,6 +476,9 @@ static int _entity_component_sound_index(lua_State *L) {
     } else if (strcmp(key, "is_spatial") == 0) {
         lua_pushboolean(L, component->spatial);
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_sound_tojson_lua);
+        return 1;
     } else if (strcmp(key, "play") == 0) {
         // Bind this component as an upvalue so both comp:play() and comp.play() work.
         lua_pushlightuserdata(L, component);
@@ -616,14 +711,14 @@ void _entity_component_sound_init(EseLuaEngine *engine) {
     log_assert("ENTITY_COMP", engine, "_entity_component_sound_init called with NULL engine");
 
     // Create metatable
-    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_SOUND_PROXY_META,
-                               _entity_component_sound_index, _entity_component_sound_newindex,
-                               _entity_component_sound_gc, _entity_component_sound_tostring);
+    lua_engine_new_object_meta(engine, ENTITY_COMPONENT_SOUND_PROXY_META, _entity_component_sound_index,
+                               _entity_component_sound_newindex, _entity_component_sound_gc,
+                               _entity_component_sound_tostring);
 
     // Create global EntityComponentSound table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_entity_component_sound_new};
-    lua_engine_new_object(engine, "EntityComponentSound", 1, keys, functions);
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_entity_component_sound_new, _entity_component_sound_fromjson_lua};
+    lua_engine_new_object(engine, "EntityComponentSound", 2, keys, functions);
 
     profile_count_add("entity_comp_sound_init_count");
 }
@@ -634,8 +729,60 @@ EseEntityComponent *entity_component_sound_create(EseLuaEngine *engine, const ch
     EseEntityComponent *component = _entity_component_sound_make(engine, sound_name);
 
     // Register with Lua using ref system
-    component->vtable->ref(component);
+    _sound_vtable_ref(component);
 
     profile_count_add("entity_comp_sound_create_count");
     return component;
+}
+
+static int _entity_component_sound_tojson_lua(lua_State *L) {
+    EseEntityComponentSound *self = _entity_component_sound_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentSound:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentSound:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_sound_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentSound:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentSound:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+static int _entity_component_sound_fromjson_lua(lua_State *L) {
+    const char *json_str = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "EntityComponentSound.fromJSON() could not get engine");
+    }
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        return luaL_error(L, "EntityComponentSound.fromJSON() failed to parse JSON");
+    }
+
+    EseEntityComponent *base = entity_component_sound_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!base) {
+        return luaL_error(L, "EntityComponentSound.fromJSON() failed to deserialize");
+    }
+
+    EseEntityComponentSound *comp = (EseEntityComponentSound *)base->data;
+
+    // Create userdata proxy and attach metatable
+    EseEntityComponentSound **ud =
+        (EseEntityComponentSound **)lua_newuserdata(L, sizeof(EseEntityComponentSound *));
+    *ud = comp;
+    luaL_getmetatable(L, ENTITY_COMPONENT_SOUND_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }

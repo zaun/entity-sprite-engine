@@ -20,7 +20,7 @@
 #include "../src/entity/entity_private.h"
 #include "../src/entity/components/entity_component.h"
 #include "../src/entity/components/entity_component_lua.h"
-#include "../src/entity/components/entity_component_collider.h"
+#include "../src/entity/components/collider.h"
 #include "../src/scripting/lua_engine.h"
 #include "../src/scripting/lua_value.h"
 #include "../src/core/memory_manager.h"

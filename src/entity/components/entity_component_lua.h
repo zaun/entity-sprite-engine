@@ -2,6 +2,7 @@
 #define ENTITY_COMPONENT_LUA_PRIVATE_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include <string.h>
 
 #define ENTITY_COMPONENT_LUA_PROXY_META "EntityComponentLuaProxyMeta"
@@ -38,6 +39,10 @@ typedef struct EseEntityComponentLua {
 EseEntityComponent *_entity_component_lua_copy(const EseEntityComponentLua *src);
 
 void _entity_component_lua_destroy(EseEntityComponentLua *component);
+
+cJSON *entity_component_lua_serialize(const EseEntityComponentLua *component);
+EseEntityComponent *entity_component_lua_deserialize(EseLuaEngine *engine,
+                                                     const cJSON *data);
 
 void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity,
                                   double delta_time);

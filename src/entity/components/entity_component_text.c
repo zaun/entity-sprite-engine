@@ -13,7 +13,11 @@
 #include "types/point.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 #include <string.h>
+
+// Forward declarations
+static int _entity_component_text_tojson_lua(lua_State *L);
 
 // VTable wrapper functions
 static EseEntityComponent *_text_vtable_copy(EseEntityComponent *component) {
@@ -151,6 +155,122 @@ void _entity_component_text_destroy(EseEntityComponentText *component) {
     }
 }
 
+cJSON *entity_component_text_serialize(const EseEntityComponentText *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_text_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Text serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_TEXT")) {
+        log_error("ENTITY_COMP", "Text serialize: failed to add type");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddBoolToObject(json, "active", component->base.active)) {
+        log_error("ENTITY_COMP", "Text serialize: failed to add active");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "text", component->text ? component->text : "")) {
+        log_error("ENTITY_COMP", "Text serialize: failed to add text");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddNumberToObject(json, "justify", (double)component->justify) ||
+        !cJSON_AddNumberToObject(json, "align", (double)component->align)) {
+        log_error("ENTITY_COMP", "Text serialize: failed to add justify/align");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    cJSON *offset = cJSON_CreateObject();
+    if (!offset) {
+        log_error("ENTITY_COMP", "Text serialize: failed to create offset object");
+        cJSON_Delete(json);
+        return NULL;
+    }
+    if (!cJSON_AddNumberToObject(offset, "x", (double)ese_point_get_x(component->offset)) ||
+        !cJSON_AddNumberToObject(offset, "y", (double)ese_point_get_y(component->offset)) ||
+        !cJSON_AddItemToObject(json, "offset", offset)) {
+        log_error("ENTITY_COMP", "Text serialize: failed to add offset");
+        cJSON_Delete(offset);
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_text_deserialize(EseLuaEngine *engine,
+                                                      const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_text_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data, "entity_component_text_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Text deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) || strcmp(type_item->valuestring, "ENTITY_COMPONENT_TEXT") != 0) {
+        log_error("ENTITY_COMP", "Text deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    if (!cJSON_IsBool(active_item)) {
+        log_error("ENTITY_COMP", "Text deserialize: missing active field");
+        return NULL;
+    }
+
+    const cJSON *text_item = cJSON_GetObjectItemCaseSensitive(data, "text");
+    const char *text_str = cJSON_IsString(text_item) ? text_item->valuestring : "";
+
+    const cJSON *justify_item = cJSON_GetObjectItemCaseSensitive(data, "justify");
+    const cJSON *align_item = cJSON_GetObjectItemCaseSensitive(data, "align");
+
+    const cJSON *offset_item = cJSON_GetObjectItemCaseSensitive(data, "offset");
+    const cJSON *off_x = offset_item ? cJSON_GetObjectItemCaseSensitive(offset_item, "x") : NULL;
+    const cJSON *off_y = offset_item ? cJSON_GetObjectItemCaseSensitive(offset_item, "y") : NULL;
+
+    EseEntityComponent *base = entity_component_text_create(engine, text_str);
+    if (!base) {
+        log_error("ENTITY_COMP", "Text deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentText *comp = (EseEntityComponentText *)base->data;
+    comp->base.active = cJSON_IsTrue(active_item);
+
+    if (cJSON_IsNumber(justify_item)) {
+        int j = (int)justify_item->valuedouble;
+        if (j >= TEXT_JUSTIFY_LEFT && j <= TEXT_JUSTIFY_RIGHT) {
+            comp->justify = (EseTextJustify)j;
+        }
+    }
+    if (cJSON_IsNumber(align_item)) {
+        int a = (int)align_item->valuedouble;
+        if (a >= TEXT_ALIGN_TOP && a <= TEXT_ALIGN_BOTTOM) {
+            comp->align = (EseTextAlign)a;
+        }
+    }
+
+    if (off_x && cJSON_IsNumber(off_x) && off_y && cJSON_IsNumber(off_y)) {
+        ese_point_set_x(comp->offset, (float)off_x->valuedouble);
+        ese_point_set_y(comp->offset, (float)off_y->valuedouble);
+    }
+
+    return base;
+}
+
 static int _entity_component_text_index(lua_State *L) {
     EseEntityComponentText *component = _entity_component_text_get(L, 1);
     const char *key = lua_tostring(L, 2);
@@ -182,6 +302,9 @@ static int _entity_component_text_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "offset") == 0) {
         ese_point_lua_push(component->offset);
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_text_tojson_lua);
         return 1;
     }
 
@@ -383,4 +506,26 @@ EseEntityComponent *entity_component_text_create(EseLuaEngine *engine, const cha
     component->vtable->ref(component);
 
     return component;
+}
+
+static int _entity_component_text_tojson_lua(lua_State *L) {
+    EseEntityComponentText *self = _entity_component_text_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentText:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentText:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_text_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentText:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentText:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
 }

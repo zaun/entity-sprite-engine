@@ -1,5 +1,6 @@
 #include "entity/components/entity_component_listener.h"
 #include "core/memory_manager.h"
+#include "vendor/json/cJSON.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
@@ -9,6 +10,10 @@
 #include "utility/log.h"
 #include "utility/profile.h"
 #include <string.h>
+
+// Forward declarations for Lua JSON helpers
+static int _entity_component_listener_tojson_lua(lua_State *L);
+static int _entity_component_listener_fromjson_lua(lua_State *L);
 
 // VTable wrapper functions
 static EseEntityComponent *_listener_vtable_copy(EseEntityComponent *component) {
@@ -146,6 +151,86 @@ void _entity_component_listener_destroy(EseEntityComponentListener *component) {
     }
 }
 
+cJSON *entity_component_listener_serialize(const EseEntityComponentListener *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_listener_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Listener serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_LISTENER") ||
+        !cJSON_AddBoolToObject(json, "active", component->base.active) ||
+        !cJSON_AddNumberToObject(json, "volume", (double)component->volume) ||
+        !cJSON_AddBoolToObject(json, "spatial", component->spatial) ||
+        !cJSON_AddNumberToObject(json, "max_distance", (double)component->max_distance) ||
+        !cJSON_AddNumberToObject(json, "attenuation", (double)component->attenuation) ||
+        !cJSON_AddNumberToObject(json, "rolloff", (double)component->rolloff)) {
+        log_error("ENTITY_COMP", "Listener serialize: failed to add fields");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_listener_deserialize(EseLuaEngine *engine,
+                                                          const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_listener_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_listener_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Listener deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) ||
+        strcmp(type_item->valuestring, "ENTITY_COMPONENT_LISTENER") != 0) {
+        log_error("ENTITY_COMP", "Listener deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    const cJSON *vol_item = cJSON_GetObjectItemCaseSensitive(data, "volume");
+    const cJSON *spatial_item = cJSON_GetObjectItemCaseSensitive(data, "spatial");
+    const cJSON *max_item = cJSON_GetObjectItemCaseSensitive(data, "max_distance");
+    const cJSON *att_item = cJSON_GetObjectItemCaseSensitive(data, "attenuation");
+    const cJSON *roll_item = cJSON_GetObjectItemCaseSensitive(data, "rolloff");
+
+    EseEntityComponent *base = entity_component_listener_create(engine);
+    if (!base) {
+        log_error("ENTITY_COMP", "Listener deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentListener *comp = (EseEntityComponentListener *)base->data;
+    if (cJSON_IsBool(active_item)) {
+        comp->base.active = cJSON_IsTrue(active_item);
+    }
+    if (cJSON_IsNumber(vol_item)) {
+        comp->volume = (float)vol_item->valuedouble;
+    }
+    if (cJSON_IsBool(spatial_item)) {
+        comp->spatial = cJSON_IsTrue(spatial_item);
+    }
+    if (cJSON_IsNumber(max_item)) {
+        comp->max_distance = (float)max_item->valuedouble;
+    }
+    if (cJSON_IsNumber(att_item)) {
+        comp->attenuation = (float)att_item->valuedouble;
+    }
+    if (cJSON_IsNumber(roll_item)) {
+        comp->rolloff = (float)roll_item->valuedouble;
+    }
+
+    return base;
+}
+
 /**
  * @brief Lua __index metamethod for EseEntityComponentListener objects (getter).
  */
@@ -183,6 +268,9 @@ static int _entity_component_listener_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "rolloff") == 0) {
         lua_pushnumber(L, (lua_Number)component->rolloff);
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_listener_tojson_lua);
         return 1;
     }
 
@@ -410,9 +498,9 @@ void _entity_component_listener_init(EseLuaEngine *engine) {
                                _entity_component_listener_gc, _entity_component_listener_tostring);
 
     // Create global EntityComponentListener table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_entity_component_listener_new};
-    lua_engine_new_object(engine, "EntityComponentListener", 1, keys, functions);
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_entity_component_listener_new, _entity_component_listener_fromjson_lua};
+    lua_engine_new_object(engine, "EntityComponentListener", 2, keys, functions);
 
     profile_count_add("entity_comp_listener_init_count");
 }
@@ -428,4 +516,56 @@ EseEntityComponent *entity_component_listener_create(EseLuaEngine *engine) {
 
     profile_count_add("entity_comp_listener_create_count");
     return component;
+}
+
+static int _entity_component_listener_tojson_lua(lua_State *L) {
+    EseEntityComponentListener *self = _entity_component_listener_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentListener:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentListener:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_listener_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentListener:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentListener:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+static int _entity_component_listener_fromjson_lua(lua_State *L) {
+    const char *json_str = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "EntityComponentListener.fromJSON() could not get engine");
+    }
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        return luaL_error(L, "EntityComponentListener.fromJSON() failed to parse JSON");
+    }
+
+    EseEntityComponent *base = entity_component_listener_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!base) {
+        return luaL_error(L, "EntityComponentListener.fromJSON() failed to deserialize");
+    }
+
+    EseEntityComponentListener *comp = (EseEntityComponentListener *)base->data;
+
+    // Create userdata proxy and attach metatable
+    EseEntityComponentListener **ud =
+        (EseEntityComponentListener **)lua_newuserdata(L, sizeof(EseEntityComponentListener *));
+    *ud = comp;
+    luaL_getmetatable(L, ENTITY_COMPONENT_LISTENER_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }

@@ -3,7 +3,7 @@
 #include "core/collision_resolver.h"
 #include "core/engine_private.h"
 #include "core/memory_manager.h"
-#include "entity/components/entity_component_collider.h"
+#include "entity/components/collider.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity_private.h"
 #include "graphics/sprite.h"
@@ -12,6 +12,7 @@
 #include "utility/array.h"
 #include "utility/log.h"
 #include "utility/profile.h"
+#include "vendor/json/cJSON.h"
 #include <math.h>
 #include <string.h>
 
@@ -29,6 +30,7 @@ void _entity_component_map_cache_functions(EseEntityComponentMap *component);
 void _entity_component_map_clear_cache(EseEntityComponentMap *component);
 static void _entity_component_map_changed(EseMap *map, void *userdata);
 static int _entity_component_map_show_layer_index(lua_State *L);
+static int _entity_component_map_tojson_lua(lua_State *L);
 static int _entity_component_map_show_layer_newindex(lua_State *L);
 static int _entity_component_map_show_layer_len(lua_State *L);
 static int _entity_component_map_show_all_layers(lua_State *L);
@@ -234,6 +236,191 @@ void _entity_component_map_destroy(EseEntityComponentMap *component) {
     }
 }
 
+cJSON *entity_component_map_serialize(const EseEntityComponentMap *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_map_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Map serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_MAP")) {
+        log_error("ENTITY_COMP", "Map serialize: failed to add type");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddBoolToObject(json, "active", component->base.active)) {
+        log_error("ENTITY_COMP", "Map serialize: failed to add active");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (component->script) {
+        if (!cJSON_AddStringToObject(json, "script", component->script)) {
+            log_error("ENTITY_COMP", "Map serialize: failed to add script");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    } else {
+        if (!cJSON_AddNullToObject(json, "script")) {
+            log_error("ENTITY_COMP", "Map serialize: failed to add script null");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    if (!cJSON_AddNumberToObject(json, "size", (double)component->size)) {
+        log_error("ENTITY_COMP", "Map serialize: failed to add size");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (!cJSON_AddNumberToObject(json, "seed", (double)component->seed)) {
+        log_error("ENTITY_COMP", "Map serialize: failed to add seed");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Serialize position as embedded object { x, y }
+    cJSON *pos = cJSON_CreateObject();
+    if (!pos) {
+        log_error("ENTITY_COMP", "Map serialize: failed to create position object");
+        cJSON_Delete(json);
+        return NULL;
+    }
+    if (!cJSON_AddNumberToObject(pos, "x", (double)ese_point_get_x(component->position)) ||
+        !cJSON_AddNumberToObject(pos, "y", (double)ese_point_get_y(component->position)) ||
+        !cJSON_AddItemToObject(json, "position", pos)) {
+        log_error("ENTITY_COMP", "Map serialize: failed to add position");
+        cJSON_Delete(pos);
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    // Serialize show_layer as an array of booleans
+    cJSON *layers = cJSON_CreateArray();
+    if (!layers) {
+        log_error("ENTITY_COMP", "Map serialize: failed to create layers array");
+        cJSON_Delete(json);
+        return NULL;
+    }
+    for (size_t i = 0; i < component->show_layer_count; i++) {
+        cJSON *val = cJSON_CreateBool(component->show_layer ? component->show_layer[i] : true);
+        if (!val || !cJSON_AddItemToArray(layers, val)) {
+            log_error("ENTITY_COMP", "Map serialize: failed to add layer value");
+            cJSON_Delete(layers);
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+    if (!cJSON_AddItemToObject(json, "show_layer", layers)) {
+        log_error("ENTITY_COMP", "Map serialize: failed to attach layers array");
+        cJSON_Delete(layers);
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_map_deserialize(EseLuaEngine *engine,
+                                                     const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_map_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data, "entity_component_map_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Map deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) || strcmp(type_item->valuestring, "ENTITY_COMPONENT_MAP") != 0) {
+        log_error("ENTITY_COMP", "Map deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    if (!cJSON_IsBool(active_item)) {
+        log_error("ENTITY_COMP", "Map deserialize: missing active field");
+        return NULL;
+    }
+
+    const cJSON *script_item = cJSON_GetObjectItemCaseSensitive(data, "script");
+    const char *script_name = NULL;
+    if (cJSON_IsString(script_item)) {
+        script_name = script_item->valuestring;
+    }
+
+    const cJSON *size_item = cJSON_GetObjectItemCaseSensitive(data, "size");
+    if (!cJSON_IsNumber(size_item)) {
+        log_error("ENTITY_COMP", "Map deserialize: missing size");
+        return NULL;
+    }
+
+    const cJSON *seed_item = cJSON_GetObjectItemCaseSensitive(data, "seed");
+    if (!cJSON_IsNumber(seed_item)) {
+        log_error("ENTITY_COMP", "Map deserialize: missing seed");
+        return NULL;
+    }
+
+    const cJSON *pos_item = cJSON_GetObjectItemCaseSensitive(data, "position");
+    const cJSON *pos_x = pos_item ? cJSON_GetObjectItemCaseSensitive(pos_item, "x") : NULL;
+    const cJSON *pos_y = pos_item ? cJSON_GetObjectItemCaseSensitive(pos_item, "y") : NULL;
+
+    const cJSON *layers_item = cJSON_GetObjectItemCaseSensitive(data, "show_layer");
+
+    EseEntityComponent *base = entity_component_map_create(engine);
+    if (!base) {
+        log_error("ENTITY_COMP", "Map deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentMap *map = (EseEntityComponentMap *)base->data;
+    map->base.active = cJSON_IsTrue(active_item);
+
+    // script
+    if (map->script) {
+        memory_manager.free(map->script);
+        map->script = NULL;
+    }
+    if (script_name) {
+        map->script = memory_manager.strdup(script_name, MMTAG_COMP_MAP);
+    }
+
+    map->size = (int)size_item->valuedouble;
+    map->seed = (uint32_t)seed_item->valuedouble;
+
+    if (pos_x && cJSON_IsNumber(pos_x) && pos_y && cJSON_IsNumber(pos_y)) {
+        ese_point_set_x(map->position, (float)pos_x->valuedouble);
+        ese_point_set_y(map->position, (float)pos_y->valuedouble);
+    }
+
+    // show_layer
+    if (layers_item && cJSON_IsArray(layers_item)) {
+        size_t count = (size_t)cJSON_GetArraySize(layers_item);
+        if (map->show_layer) {
+            memory_manager.free(map->show_layer);
+            map->show_layer = NULL;
+            map->show_layer_count = 0;
+        }
+        if (count > 0) {
+            map->show_layer =
+                memory_manager.malloc(sizeof(bool) * count, MMTAG_COMP_MAP);
+            map->show_layer_count = count;
+            for (size_t i = 0; i < count; i++) {
+                const cJSON *item = cJSON_GetArrayItem(layers_item, (int)i);
+                map->show_layer[i] = cJSON_IsBool(item) ? cJSON_IsTrue(item) : true;
+            }
+        }
+    }
+
+    return base;
+}
+
 void _entity_component_map_cache_functions(EseEntityComponentMap *component) {
     log_assert("ENTITY_COMP", component,
                "_entity_component_map_cache_functions called with NULL component");
@@ -427,6 +614,9 @@ static int _entity_component_map_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "script") == 0) {
         lua_pushstring(L, component->script ? component->script : "");
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_map_tojson_lua);
         return 1;
     } else if (strcmp(key, "show_layer") == 0) {
         // Create a proxy table for component->show_layer
@@ -838,6 +1028,28 @@ EseEntityComponent *entity_component_map_create(EseLuaEngine *engine) {
     component->vtable->ref(component);
 
     return component;
+}
+
+static int _entity_component_map_tojson_lua(lua_State *L) {
+    EseEntityComponentMap *self = _entity_component_map_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentMap:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentMap:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_map_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentMap:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentMap:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
 }
 
 static void _entity_component_map_changed(EseMap *map, void *userdata) {

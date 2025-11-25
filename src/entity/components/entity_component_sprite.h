@@ -4,6 +4,7 @@
 #define ESE_ENTITY_COMPONENT_SPRITE_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include <string.h>
 
 #define ENTITY_COMPONENT_SPRITE_PROXY_META "EntityComponentSpriteProxyMeta"
@@ -32,6 +33,10 @@ typedef struct EseEntityComponentSprite {
 EseEntityComponent *_entity_component_sprite_copy(const EseEntityComponentSprite *src);
 
 void _entity_component_sprite_destroy(EseEntityComponentSprite *component);
+
+cJSON *entity_component_sprite_serialize(const EseEntityComponentSprite *component);
+EseEntityComponent *entity_component_sprite_deserialize(EseLuaEngine *engine,
+                                                        const cJSON *data);
 
 EseEntityComponentSprite *_entity_component_sprite_get(lua_State *L, int idx);
 

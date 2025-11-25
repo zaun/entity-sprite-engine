@@ -15,8 +15,9 @@ They behave like objects with properties and methods accessible via dot notation
 - **Automatic engine registration** - new entities are automatically added to the engine's entity list
 - **Component management** - the `components` property provides a proxy table with array-like access and methods
 - **Custom data storage** - the `data` property is a Lua table for storing arbitrary script data
-- **Position is a Point object** - you cannot assign a new Point, but you can modify the existing one's x and y values
+- **Position is a Point object** - you can modify the existing point in-place or assign another `Point` (its `x`/`y` are copied, the reference is not replaced)
 - **Tag system** - entities support a flexible tagging system for categorization and searching
+- **Event bus integration** - helper methods for pub/sub style messaging via `publish`, `subscribe`, and `unsubscribe`
 
 ```lua
 -- Create a new entity
@@ -106,6 +107,24 @@ print("Found", #enemies, "enemies")
 local heroes = Entity.find_by_tag("hero")  -- Will find entities tagged with "HERO"
 ```
 
+### `Entity.find_first_by_tag(tag)`
+Finds the **first** entity that has the specified tag.
+
+**Arguments:**
+- `tag` → string (tag to search for)
+
+**Returns:** a single `Entity` if found, or `nil` if no entity has that tag.
+
+**Example:**
+```lua
+local player = Entity.find_first_by_tag("player")
+if player then
+    print("First player entity:", player.id)
+end
+```
+
+---
+
 ### `Entity.find_by_id(uuid_string)`
 Finds a specific entity by its UUID string.
 
@@ -139,6 +158,35 @@ local enemy_id = "550e8400-e29b-41d4-a716-446655440000"
 local enemy = Entity.find_by_id(enemy_id)
 ```
 
+### `Entity.count()`
+Returns the number of live entities currently registered with the engine.
+
+**Returns:** integer count of entities.
+
+**Example:**
+```lua
+print("Entity count:", Entity.count())
+```
+
+---
+
+### `Entity.publish(event_name, data)`
+Publishes a message to all entities subscribed to the given event name.
+
+**Arguments:**
+- `event_name` → string, event/topic name
+- `data` → any Lua value (table, number, string, etc.)
+
+**Returns:** `true` on success.
+
+**Notes:**
+- Payload is internally converted to an `EseLuaValue` and delivered to subscribers.
+
+**Example:**
+```lua
+Entity.publish("level_loaded", { name = "intro", time = os.time() })
+```
+
 ---
 
 ## Entity Object Properties
@@ -147,8 +195,12 @@ Each `Entity` object has the following properties:
 
 - `id` → unique UUID string (read-only)  
 - `active` → boolean (read/write, controls whether entity is processed)  
+- `visible` → boolean (read/write, controls whether entity is considered for rendering)  
+- `persistent` → boolean (read/write, controls whether entity survives scene clears)  
 - `draw_order` → integer (read/write, controls rendering order - higher values render later)  
-- `position` → a `Point` object (read-only reference, but its fields are mutable)  
+- `position` → a `Point` object (read-only reference; assigning another `Point` copies its coordinates)  
+- `bounds` → `Rect` or `nil` (read-only, local collision bounds when a collider is present)  
+- `world_bounds` → `Rect` or `nil` (read-only, world-space collision bounds)  
 - `components` → a **components proxy table** (read-only reference)  
 - `data` → a Lua table for storing arbitrary script data (read/write)  
 - `tags` → a Lua table containing all entity tags (read-only)
@@ -156,8 +208,10 @@ Each `Entity` object has the following properties:
 **Notes:**
 - **ID is immutable** - cannot be changed once assigned
 - **Active state** - inactive entities are not processed by the engine
+- **Visible state** - `visible=false` prevents the entity from being drawn while still allowing logic
+- **Persistent state** - persistent entities can be preserved across scene clears
 - **Draw order** - controls rendering order (0 = background, higher = foreground)
-- **Position reference** - you cannot assign a new Point, but you can modify the existing one's x and y values
+- **Position reference** - you can modify the existing `Point` or assign another `Point` value whose coordinates will be copied into the entity's internal point
 - **Components proxy** - provides array-like access and management methods
 - **Data table** - persistent Lua table for storing custom properties and state
 - **Tags table** - read-only table showing all current tags (1-based indexed)
@@ -354,51 +408,6 @@ end
 -- Dispatch custom function with multiple arguments
 e:dispatch("on_damage", 25, "fire", true)  -- damage amount, damage type, critical hit
 ```
-
----
-
-## Tag System Details
-
-### Tag Normalization
-All tags are automatically normalized when added, removed, or checked:
-
-- **Capitalization** - all lowercase letters are converted to uppercase
-- **Length limit** - tags are truncated to 16 characters maximum
-- **Consistent storage** - normalized tags are stored in the entity
-
-**Examples:**
-```lua
-local e = Entity.new()
-
--- These all become the same tag: "PLAYER"
-e:add_tag("player")
-e:add_tag("Player")
-e:add_tag("PLAYER")
-
--- Long tags are truncated
-e:add_tag("very long tag that exceeds sixteen characters")  -- Becomes "VERY LONG TAG TH"
-
-print("Normalized tags:")
-for i, tag in ipairs(e.tags) do
-    print("  " .. i .. ": " .. tag)
-end
-```
-
-### Tag Storage
-Tags are stored efficiently in the entity:
-
-- **Dynamic allocation** - tag arrays grow as needed
-- **Memory efficient** - each tag uses exactly the space needed (up to 16 chars)
-- **Fast access** - O(1) access to individual tags
-- **Proper cleanup** - tags are automatically cleaned up when entities are destroyed
-
-### Tag Limits
-The tagging system has reasonable limits:
-
-- **Per tag** - maximum 16 characters per tag
-- **Per entity** - maximum 32 tags per entity
-- **Total entities** - no limit on total number of tagged entities
-
 ---
 
 ## Components Proxy
@@ -489,7 +498,7 @@ This allows Lua scripts to define per-entity behavior without needing to be manu
 
 ```lua
 -- Called once when the entity is created
-function entity_init()
+function ENTITY:entity_init()
     print("Entity initialized with ID:", self.id)
     self.data.health = 100
     self.data.max_health = 100
@@ -502,7 +511,7 @@ function entity_init()
 end
 
 -- Called every frame
-function entity_update(dt)
+function ENTITY:entity_update(dt)
     -- Move entity to the right at speed units per second
     self.position.x = self.position.x + self.data.speed * dt
     
@@ -540,7 +549,7 @@ The following functions are dispatched to Lua components if defined:
 ### Example
 
 ```lua
-function entity_collision_enter(other)
+function ENTITY:entity_collision_enter(other)
     print("Collided with entity:", other.id)
     print("Other entity position:", other.position.x, other.position.y)
     
@@ -558,7 +567,7 @@ function entity_collision_enter(other)
     end
 end
 
-function entity_collision_stay(other)
+function ENTITY:entity_collision_stay(other)
     -- Called every frame while colliding
     if other:has_tag("damage_zone") then
         -- Continuous damage
@@ -566,10 +575,42 @@ function entity_collision_stay(other)
     end
 end
 
-function entity_collision_exit(other)
+function ENTITY:entity_collision_exit(other)
     print("Stopped colliding with:", other.id)
 end
 ```
+
+---
+
+## Pub/Sub: Entity Events
+
+Entities can participate in a simple pub/sub event bus built on the engine's pub/sub system.
+
+### `entity:subscribe(event_name, function_name)`
+Subscribes an entity to an event so that a given Lua function on that entity will be invoked when the event is published.
+
+**Arguments:**
+- `event_name` → string topic name
+- `function_name` → string name of a method on the entity (for example, `"on_level_loaded"`)
+
+**Returns:** `true` on success.
+
+```lua
+player:subscribe("level_loaded", "on_level_loaded")
+
+function ENTITY:entity_on_level_loaded(data)
+    print("Level loaded:", data.name)
+end
+```
+
+### `entity:unsubscribe(event_name, function_name)`
+Unsubscribes a previously registered handler.
+
+**Arguments:**
+- `event_name` → string topic name
+- `function_name` → string method name used when subscribing
+
+**Returns:** `true` on success.
 
 ---
 
@@ -583,14 +624,18 @@ e.id = "new-uuid"
 -- Error: "Entity id is a read-only property"
 ```
 
-- **Position cannot be reassigned** - you cannot assign a new Point object:
+- **Position type-checked** - assigning `position` must use a `Point` object:
 
 ```lua
 -- ❌ Invalid - will cause Lua error
-e.position = Point.new(100, 200)
--- Error: "Entity position must be a Point object"
+e.position = { x = 100, y = 200 }
+-- Error: "Entity position must be a EsePoint object"
 
--- ✅ Correct - modify existing Point's values
+-- ✅ Correct - assign another Point (coordinates are copied)
+local p = Point.new(100, 200)
+e.position = p
+
+-- ✅ Also correct - modify existing Point's values
 e.position.x = 100
 e.position.y = 200
 ```

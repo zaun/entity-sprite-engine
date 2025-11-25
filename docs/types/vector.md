@@ -38,25 +38,23 @@ print("Normalized:", v.x, v.y)     --> ~0.447, ~0.894
 
 ## Global `Vector` Table
 
-### `Vector.new([x, y])`
+### `Vector.new(x, y)`
 Creates a new vector.  
 
 **Arguments:**
-- **With no arguments:** creates a vector `(0,0)` (zero vector)
-- **With 2 arguments:** creates a vector with the specified components:
-  - `x` → x-component (number)  
-  - `y` → y-component (number)  
+- `x` → x-component (number)  
+- `y` → y-component (number)  
 
 **Returns:** `Vector` object
 
 **Notes:**
-- Both arguments are **required** when creating a non-zero vector
+- Both arguments are **required**
 - Components can be any numeric value (including negative, fractional, etc.)
 - The vector is created with Lua ownership (will be garbage collected)
 
 **Example:**
 ```lua
-local v1 = Vector.new()           -- Zero vector (0,0)
+local v1 = Vector.new(0, 0)       -- Explicit zero vector
 local v2 = Vector.new(5, 7)       -- Vector (5,7)
 local v3 = Vector.new(-3.5, 2.1)  -- Vector with negative/fractional components
 ```
@@ -82,6 +80,25 @@ print(zero.x, zero.y)  --> 0, 0
 local v = Vector.zero()
 v.x = 10
 v.y = 20
+```
+
+---
+
+### `Vector.fromJSON(json_string)`
+Creates a `Vector` from a JSON string previously produced by `vector:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `vector:toJSON()`  
+
+**Returns:** `Vector` object
+
+**Notes:**
+- Validates that the JSON represents a vector; invalid JSON raises a Lua error
+
+**Example:**
+```lua
+local json = some_vector:toJSON()
+local copy = Vector.fromJSON(json)
 ```
 
 ---
@@ -207,6 +224,22 @@ print(unit.x, unit.y)  --> 1, 0
 
 ---
 
+## Vector Object Methods
+
+### `vector:toJSON()`
+Serializes the vector into a compact JSON string.  
+
+**Returns:** JSON string that can be passed to `Vector.fromJSON()`
+
+**Example:**
+```lua
+local v = Vector.new(10, 20)
+local json = v:toJSON()
+local copy = Vector.fromJSON(json)
+```
+
+---
+
 ## Metamethods
 
 ### `tostring(vector)`
@@ -217,7 +250,7 @@ Returns a string representation of the vector with its components.
 **Example:**
 ```lua
 local v = Vector.new(10, 20)
-print(v)  --> Vector: 0x... (x=10.00, y=20.00)
+print(v)
 ```
 
 ---

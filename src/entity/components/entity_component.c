@@ -1,6 +1,7 @@
 #include "entity/components/entity_component.h"
 #include "core/memory_manager.h"
-#include "entity/components/entity_component_collider.h"
+#include "entity/bindings/collider.h"
+#include "entity/components/collider.h"
 #include "entity/components/entity_component_lua.h"
 #include "entity/components/entity_component_map.h"
 #include "entity/components/entity_component_private.h"
@@ -21,7 +22,7 @@
 void entity_component_lua_init(EseLuaEngine *engine) {
     profile_start(PROFILE_ENTITY_COMPONENT_UPDATE);
 
-    _entity_component_collider_init(engine);
+    entity_component_collider_init(engine);
     _entity_component_lua_init(engine);
     _entity_component_map_init(engine);
     _entity_component_shape_init(engine);

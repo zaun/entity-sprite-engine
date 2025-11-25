@@ -1,5 +1,6 @@
 #include "entity/components/entity_component_music.h"
 #include "core/memory_manager.h"
+#include "vendor/json/cJSON.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
@@ -16,6 +17,8 @@ static int _entity_component_music_index(lua_State *L);
 static int _entity_component_music_newindex(lua_State *L);
 static int _entity_component_music_gc(lua_State *L);
 static int _entity_component_music_tostring(lua_State *L);
+static int _entity_component_music_tojson_lua(lua_State *L);
+static int _entity_component_music_fromjson_lua(lua_State *L);
 
 static int _entity_component_music_play(lua_State *L);
 static int _entity_component_music_pause(lua_State *L);
@@ -193,6 +196,129 @@ void _entity_component_music_destroy(EseEntityComponentMusic *component) {
     } else if (component->base.lua_ref == LUA_NOREF) {
         _entity_component_music_cleanup(component);
     }
+}
+
+cJSON *entity_component_music_serialize(const EseEntityComponentMusic *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_music_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Music serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_MUSIC") ||
+        !cJSON_AddBoolToObject(json, "active", component->base.active) ||
+        !cJSON_AddBoolToObject(json, "repeat", component->repeat) ||
+        !cJSON_AddBoolToObject(json, "is_spatial", component->spatial) ||
+        !cJSON_AddNumberToObject(json, "xfade_time", (double)component->xfade_time)) {
+        log_error("ENTITY_COMP", "Music serialize: failed to add base fields");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    cJSON *tracks = cJSON_CreateArray();
+    if (!tracks) {
+        log_error("ENTITY_COMP", "Music serialize: failed to create tracks array");
+        cJSON_Delete(json);
+        return NULL;
+    }
+    for (size_t i = 0; i < component->track_count; i++) {
+        const char *name = component->tracks && component->tracks[i] ? component->tracks[i] : NULL;
+        cJSON *item = name ? cJSON_CreateString(name) : cJSON_CreateNull();
+        if (!item || !cJSON_AddItemToArray(tracks, item)) {
+            log_error("ENTITY_COMP", "Music serialize: failed to add track");
+            cJSON_Delete(tracks);
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+    if (!cJSON_AddItemToObject(json, "tracks", tracks)) {
+        log_error("ENTITY_COMP", "Music serialize: failed to attach tracks");
+        cJSON_Delete(tracks);
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_music_deserialize(EseLuaEngine *engine,
+                                                       const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_music_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_music_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Music deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) ||
+        strcmp(type_item->valuestring, "ENTITY_COMPONENT_MUSIC") != 0) {
+        log_error("ENTITY_COMP", "Music deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    const cJSON *repeat_item = cJSON_GetObjectItemCaseSensitive(data, "repeat");
+    const cJSON *spatial_item = cJSON_GetObjectItemCaseSensitive(data, "is_spatial");
+    const cJSON *xfade_item = cJSON_GetObjectItemCaseSensitive(data, "xfade_time");
+    const cJSON *tracks_item = cJSON_GetObjectItemCaseSensitive(data, "tracks");
+
+    EseEntityComponent *base = entity_component_music_create(engine);
+    if (!base) {
+        log_error("ENTITY_COMP", "Music deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentMusic *comp = (EseEntityComponentMusic *)base->data;
+    if (cJSON_IsBool(active_item)) {
+        comp->base.active = cJSON_IsTrue(active_item);
+    }
+    if (cJSON_IsBool(repeat_item)) {
+        comp->repeat = cJSON_IsTrue(repeat_item);
+    }
+    if (cJSON_IsBool(spatial_item)) {
+        comp->spatial = cJSON_IsTrue(spatial_item);
+    }
+    if (cJSON_IsNumber(xfade_item)) {
+        comp->xfade_time = (float)xfade_item->valuedouble;
+    }
+
+    // Replace tracks
+    if (tracks_item && cJSON_IsArray(tracks_item)) {
+        if (comp->tracks) {
+            for (size_t i = 0; i < comp->track_count; i++) {
+                if (comp->tracks[i]) {
+                    memory_manager.free(comp->tracks[i]);
+                }
+            }
+            memory_manager.free(comp->tracks);
+            comp->tracks = NULL;
+            comp->track_count = 0;
+            comp->track_capacity = 0;
+        }
+        int count = cJSON_GetArraySize(tracks_item);
+        if (count > 0) {
+            comp->tracks = memory_manager.malloc(sizeof(char *) * (size_t)count, MMTAG_ENTITY);
+            comp->track_capacity = (size_t)count;
+            comp->track_count = (size_t)count;
+            for (int i = 0; i < count; i++) {
+                const cJSON *item = cJSON_GetArrayItem(tracks_item, i);
+                if (cJSON_IsString(item)) {
+                    comp->tracks[i] = memory_manager.strdup(item->valuestring, MMTAG_ENTITY);
+                } else {
+                    comp->tracks[i] = NULL;
+                }
+            }
+        }
+    }
+
+    return base;
 }
 
 // ------------------------
@@ -403,6 +529,9 @@ static int _entity_component_music_index(lua_State *L) {
         return 1;
     } else if (strcmp(key, "xfade_time") == 0) {
         lua_pushnumber(L, (lua_Number)component->xfade_time);
+        return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_music_tojson_lua);
         return 1;
     } else if (strcmp(key, "music") == 0) {
         // Playlist proxy: return a plain Lua table so that #comp.music works
@@ -825,16 +954,15 @@ void _entity_component_music_init(EseLuaEngine *engine) {
                                _entity_component_music_gc, _entity_component_music_tostring);
 
     // Create global EntityComponentMusic table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_entity_component_music_new};
-    lua_engine_new_object(engine, "EntityComponentMusic", 1, keys, functions);
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_entity_component_music_new, _entity_component_music_fromjson_lua};
+    lua_engine_new_object(engine, "EntityComponentMusic", 2, keys, functions);
 
     profile_count_add("entity_comp_music_init_count");
 }
 
 EseEntityComponent *entity_component_music_create(EseLuaEngine *engine) {
-    log_assert("ENTITY_COMP", engine,
-               "entity_component_music_create called with NULL engine");
+    log_assert("ENTITY_COMP", engine, "entity_component_music_create called with NULL engine");
 
     EseEntityComponent *component = _entity_component_music_make(engine);
 
@@ -843,4 +971,56 @@ EseEntityComponent *entity_component_music_create(EseLuaEngine *engine) {
 
     profile_count_add("entity_comp_music_create_count");
     return component;
+}
+
+static int _entity_component_music_tojson_lua(lua_State *L) {
+    EseEntityComponentMusic *self = _entity_component_music_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentMusic:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentMusic:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_music_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentMusic:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentMusic:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+static int _entity_component_music_fromjson_lua(lua_State *L) {
+    const char *json_str = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "EntityComponentMusic.fromJSON() could not get engine");
+    }
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        return luaL_error(L, "EntityComponentMusic.fromJSON() failed to parse JSON");
+    }
+
+    EseEntityComponent *base = entity_component_music_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!base) {
+        return luaL_error(L, "EntityComponentMusic.fromJSON() failed to deserialize");
+    }
+
+    EseEntityComponentMusic *comp = (EseEntityComponentMusic *)base->data;
+
+    // Create userdata proxy and attach metatable
+    EseEntityComponentMusic **ud =
+        (EseEntityComponentMusic **)lua_newuserdata(L, sizeof(EseEntityComponentMusic *));
+    *ud = comp;
+    luaL_getmetatable(L, ENTITY_COMPONENT_MUSIC_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }

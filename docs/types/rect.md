@@ -36,22 +36,24 @@ r.rotation = 45  -- Rotate 45 degrees around center
 
 ## Global `Rect` Table
 
-### `Rect.new([x, y, width, height])`
-Creates a new rectangle.  
+### `Rect.new(x, y, width, height)`
+Creates a new rectangle with the given position and size.  
 
 **Arguments:**
-- **With no arguments:** creates a rectangle at `(0,0)` with size `(0,0)` and no rotation
-- **With 4 arguments:** creates a rectangle with the specified parameters:
-  - `x` → x-coordinate of top-left corner (number)  
-  - `y` → y-coordinate of top-left corner (number)  
-  - `width` → rectangle width (number)  
-  - `height` → rectangle height (number)  
+- `x` → x-coordinate of top-left corner (number)  
+- `y` → y-coordinate of top-left corner (number)  
+- `width` → rectangle width (number)  
+- `height` → rectangle height (number)  
 
 **Returns:** `Rect` object
 
+**Notes:**
+- All four arguments are **required**
+- For a zero-size rect at the origin, prefer `Rect.zero()`
+
 **Example:**
 ```lua
-local r1 = Rect.new()                    -- Default: zero-size rect at origin
+local r1 = Rect.new(0, 0, 0, 0)          -- Explicit zero-size rect at origin
 local r2 = Rect.new(10, 20, 100, 50)     -- 100×50 rect at (10,20)
 local r3 = Rect.new(-5, -10, 25, 30)     -- Rect with negative coordinates
 ```
@@ -60,7 +62,7 @@ local r3 = Rect.new(-5, -10, 25, 30)     -- Rect with negative coordinates
 
 ### `Rect.zero()`
 Creates a rectangle at `(0,0)` with size `(0,0)` and no rotation.  
-This is equivalent to `Rect.new()` with no arguments.
+This is equivalent to `Rect.new(0, 0, 0, 0)`.
 
 **Returns:** `Rect` object
 
@@ -70,6 +72,25 @@ local empty = Rect.zero()
 print(empty.x, empty.y)           --> 0, 0
 print(empty.width, empty.height)  --> 0, 0
 print(empty.rotation)             --> 0
+```
+
+---
+
+### `Rect.fromJSON(json_string)`
+Creates a `Rect` from a JSON string previously produced by `rect:toJSON()`.  
+
+**Arguments:**
+- `json_string` → string returned from `rect:toJSON()`  
+
+**Returns:** `Rect` object
+
+**Notes:**
+- Validates that the JSON represents a rectangle; invalid JSON raises a Lua error
+
+**Example:**
+```lua
+local json = some_rect:toJSON()
+local copy = Rect.fromJSON(json)
 ```
 
 ---
@@ -111,15 +132,23 @@ print("New area:", r:area())  --> 15000
 
 ## Rect Object Methods
 
-### `rect:contains_point(x, y)`
+### `rect:contains_point(x, y)` / `rect:contains_point(point)`
 Checks if a point lies inside the rectangle.  
-- `x, y` → point coordinates  
+
+**Arguments (two forms):**
+- `rect:contains_point(x, y)` → `x` and `y` are numeric coordinates  
+- `rect:contains_point(point)` → `point` is a `Point` object  
 
 **Returns:** `true` if point is inside, `false` otherwise.  
 
 ```lua
 if r:contains_point(15, 25) then
     print("Point is inside rectangle")
+end
+
+local p = Point.new(15, 25)
+if r:contains_point(p) then
+    print("Point object is inside rectangle")
 end
 ```
 
@@ -150,12 +179,26 @@ print("Area:", r:area())
 
 ---
 
+### `rect:toJSON()`
+Serializes the rectangle into a compact JSON string including position, size, and rotation.  
+
+**Returns:** JSON string that can be passed to `Rect.fromJSON()`
+
+**Example:**
+```lua
+local r = Rect.new(10, 20, 100, 50)
+local json = r:toJSON()
+local copy = Rect.fromJSON(json)
+```
+
+---
+
 ## Metamethods
 
 - `tostring(rect)` → returns a string representation:  
-  `"Rect: (x=..., y=..., w=..., h=..., rot=...deg)"`  
+  `"(x=..., y=..., w=..., h=..., rot=...deg)"`  
   
-
+---
 ---
 
 ## Example Usage

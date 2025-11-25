@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_MAP_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -47,6 +48,10 @@ typedef struct EseEntityComponentMap {
 EseEntityComponent *_entity_component_map_copy(const EseEntityComponentMap *src);
 
 void _entity_component_map_destroy(EseEntityComponentMap *component);
+
+cJSON *entity_component_map_serialize(const EseEntityComponentMap *component);
+EseEntityComponent *entity_component_map_deserialize(EseLuaEngine *engine,
+                                                     const cJSON *data);
 
 void _entity_component_map_update(EseEntityComponentMap *component, EseEntity *entity,
                                   float delta_time);

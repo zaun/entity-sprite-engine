@@ -2,6 +2,7 @@
 #define ESE_ENTITY_COMPONENT_COLLIDER_H
 
 #include "entity/components/entity_component_private.h" // EseEntityComponent
+#include "vendor/json/cJSON.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -37,13 +38,14 @@ EseEntityComponent *_entity_component_collider_copy(const EseEntityComponentColl
 
 void _entity_component_collider_destroy(EseEntityComponentCollider *component);
 
-EseEntityComponentCollider *_entity_component_collider_get(lua_State *L, int idx);
+cJSON *entity_component_collider_serialize(const EseEntityComponentCollider *component);
 
-void _entity_component_collider_init(EseLuaEngine *engine);
+EseEntityComponent *entity_component_collider_deserialize(EseLuaEngine *engine,
+                                                          const cJSON *data);
 
-void _entity_component_collider_draw(EseEntityComponentCollider *collider, float screen_x,
-                                     float screen_y, EntityDrawRectCallback rectCallback,
-                                     void *callback_user_data);
+EseEntityComponent *entity_component_collider_make(EseLuaEngine *engine);
+
+void entity_component_collider_rect_changed(EseRect *rect, void *userdata);
 
 EseEntityComponent *entity_component_collider_create(EseLuaEngine *engine);
 

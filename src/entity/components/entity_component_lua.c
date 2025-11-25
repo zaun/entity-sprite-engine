@@ -1,5 +1,6 @@
 #include "entity/components/entity_component_lua.h"
 #include "core/memory_manager.h"
+#include "vendor/json/cJSON.h"
 #include "entity/components/entity_component.h"
 #include "entity/components/entity_component_private.h"
 #include "entity/entity.h"
@@ -16,6 +17,10 @@ static const char *STANDARD_FUNCTIONS[] = {"entity_init", "entity_update", "enti
                                            "entity_collision_stay", "entity_collision_exit"};
 static const size_t STANDARD_FUNCTIONS_COUNT =
     sizeof(STANDARD_FUNCTIONS) / sizeof(STANDARD_FUNCTIONS[0]);
+
+// Forward declarations for Lua JSON helpers
+static int _entity_component_lua_tojson_lua(lua_State *L);
+static int _entity_component_lua_fromjson_lua(lua_State *L);
 
 // VTable wrapper functions
 static EseEntityComponent *_lua_vtable_copy(EseEntityComponent *component) {
@@ -181,6 +186,77 @@ void _entity_component_lua_destroy(EseEntityComponentLua *component) {
     } else if (component->base.lua_ref == LUA_NOREF) {
         _entity_component_lua_cleanup(component);
     }
+}
+
+cJSON *entity_component_lua_serialize(const EseEntityComponentLua *component) {
+    log_assert("ENTITY_COMP", component,
+               "entity_component_lua_serialize called with NULL component");
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        log_error("ENTITY_COMP", "Lua component serialize: failed to create JSON object");
+        return NULL;
+    }
+
+    if (!cJSON_AddStringToObject(json, "type", "ENTITY_COMPONENT_LUA") ||
+        !cJSON_AddBoolToObject(json, "active", component->base.active)) {
+        log_error("ENTITY_COMP", "Lua component serialize: failed to add base fields");
+        cJSON_Delete(json);
+        return NULL;
+    }
+
+    if (component->script) {
+        if (!cJSON_AddStringToObject(json, "script", component->script)) {
+            log_error("ENTITY_COMP", "Lua component serialize: failed to add script");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    } else {
+        if (!cJSON_AddNullToObject(json, "script")) {
+            log_error("ENTITY_COMP", "Lua component serialize: failed to add script null");
+            cJSON_Delete(json);
+            return NULL;
+        }
+    }
+
+    return json;
+}
+
+EseEntityComponent *entity_component_lua_deserialize(EseLuaEngine *engine,
+                                                     const cJSON *data) {
+    log_assert("ENTITY_COMP", engine,
+               "entity_component_lua_deserialize called with NULL engine");
+    log_assert("ENTITY_COMP", data,
+               "entity_component_lua_deserialize called with NULL data");
+
+    if (!cJSON_IsObject(data)) {
+        log_error("ENTITY_COMP", "Lua component deserialize: data is not an object");
+        return NULL;
+    }
+
+    const cJSON *type_item = cJSON_GetObjectItemCaseSensitive(data, "type");
+    if (!cJSON_IsString(type_item) ||
+        strcmp(type_item->valuestring, "ENTITY_COMPONENT_LUA") != 0) {
+        log_error("ENTITY_COMP", "Lua component deserialize: invalid or missing type");
+        return NULL;
+    }
+
+    const cJSON *active_item = cJSON_GetObjectItemCaseSensitive(data, "active");
+    const cJSON *script_item = cJSON_GetObjectItemCaseSensitive(data, "script");
+    const char *script_name = cJSON_IsString(script_item) ? script_item->valuestring : NULL;
+
+    EseEntityComponent *base = entity_component_lua_create(engine, script_name);
+    if (!base) {
+        log_error("ENTITY_COMP", "Lua component deserialize: failed to create component");
+        return NULL;
+    }
+
+    EseEntityComponentLua *comp = (EseEntityComponentLua *)base->data;
+    if (cJSON_IsBool(active_item)) {
+        comp->base.active = cJSON_IsTrue(active_item);
+    }
+
+    return base;
 }
 
 void _entity_component_lua_update(EseEntityComponentLua *component, EseEntity *entity,
@@ -540,6 +616,9 @@ static int _entity_component_lua_index(lua_State *L) {
     } else if (strcmp(key, "script") == 0) {
         lua_pushstring(L, component->script ? component->script : "");
         return 1;
+    } else if (strcmp(key, "toJSON") == 0) {
+        lua_pushcfunction(L, _entity_component_lua_tojson_lua);
+        return 1;
     }
 
     return 0;
@@ -662,9 +741,9 @@ void _entity_component_lua_init(EseLuaEngine *engine) {
                                _entity_component_lua_tostring);
 
     // Create global EntityComponentLua table with functions
-    const char *keys[] = {"new"};
-    lua_CFunction functions[] = {_entity_component_lua_new};
-    lua_engine_new_object(engine, "EntityComponentLua", 1, keys, functions);
+    const char *keys[] = {"new", "fromJSON"};
+    lua_CFunction functions[] = {_entity_component_lua_new, _entity_component_lua_fromjson_lua};
+    lua_engine_new_object(engine, "EntityComponentLua", 2, keys, functions);
 
     profile_count_add("entity_comp_lua_init_count");
 }
@@ -679,4 +758,56 @@ EseEntityComponent *entity_component_lua_create(EseLuaEngine *engine, const char
 
     profile_count_add("entity_comp_lua_create_count");
     return component;
+}
+
+static int _entity_component_lua_tojson_lua(lua_State *L) {
+    EseEntityComponentLua *self = _entity_component_lua_get(L, 1);
+    if (!self) {
+        return luaL_error(L, "EntityComponentLua:toJSON() called on invalid component");
+    }
+    if (lua_gettop(L) != 1) {
+        return luaL_error(L, "EntityComponentLua:toJSON() takes 0 arguments");
+    }
+    cJSON *json = entity_component_lua_serialize(self);
+    if (!json) {
+        return luaL_error(L, "EntityComponentLua:toJSON() failed to serialize");
+    }
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) {
+        return luaL_error(L, "EntityComponentLua:toJSON() failed to stringify");
+    }
+    lua_pushstring(L, json_str);
+    free(json_str);
+    return 1;
+}
+
+static int _entity_component_lua_fromjson_lua(lua_State *L) {
+    const char *json_str = luaL_checkstring(L, 1);
+    EseLuaEngine *engine = (EseLuaEngine *)lua_engine_get_registry_key(L, LUA_ENGINE_KEY);
+    if (!engine) {
+        return luaL_error(L, "EntityComponentLua.fromJSON() could not get engine");
+    }
+
+    cJSON *json = cJSON_Parse(json_str);
+    if (!json) {
+        return luaL_error(L, "EntityComponentLua.fromJSON() failed to parse JSON");
+    }
+
+    EseEntityComponent *base = entity_component_lua_deserialize(engine, json);
+    cJSON_Delete(json);
+    if (!base) {
+        return luaL_error(L, "EntityComponentLua.fromJSON() failed to deserialize");
+    }
+
+    EseEntityComponentLua *comp = (EseEntityComponentLua *)base->data;
+
+    // Create userdata proxy and attach metatable
+    EseEntityComponentLua **ud =
+        (EseEntityComponentLua **)lua_newuserdata(L, sizeof(EseEntityComponentLua *));
+    *ud = comp;
+    luaL_getmetatable(L, ENTITY_COMPONENT_LUA_PROXY_META);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }
